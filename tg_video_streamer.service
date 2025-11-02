@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram 24/7 Video Streamer (PyTgCalls)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/tg_video_streamer
+EnvironmentFile=/opt/tg_video_streamer/.env
+ExecStart=/opt/tg_video_streamer/venv/bin/python /opt/tg_video_streamer/main.py
+Restart=always
+RestartSec=5
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
