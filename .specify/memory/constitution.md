@@ -1,50 +1,127 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+```markdown
+# Telegram Streaming App Constitution
+
+**Version**: 1.0.0 | **Ratified**: 2025-11-08 | **Last Amended**: 2025-11-08
+
+---
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Production-First
+All code must be suitable for production deployment. Security hardening, error handling, and observability are **non-negotiable**, not optional. Features without production-ready status must be marked as EXPERIMENTAL and cannot be deployed to live hosts.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+**MUST**:
+- All service-critical code has explicit error handling
+- All secrets (.env, SESSION_STRING, API credentials) are protected (chmod 600, unprivileged ownership)
+- All deployments use systemd units with hardening options (ProtectSystem, NoNewPrivileges, PrivateTmp)
+- No hardcoded credentials or API keys
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Explicit Contracts
+All APIs, CLI tools, systemd services, and inter-component communication must have well-defined contracts: exit codes, error messages, input/output formats, timeouts, and retry logic.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+**MUST**:
+- Every CLI command documents success (exit 0) and failure (exit != 0) codes
+- Every error logs the cause + actionable recommendation for operators
+- Every timeout documented (e.g., CI restart waits max 60s)
+- Every async operation defines success/failure criteria and max retries
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Test-Driven for Critical Paths
+Core functionality (session recovery, systemd restart, deployment) must be validated by automated tests **before** claiming implementation complete.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+**MUST**:
+- Session recovery (SessionExpired handling) has acceptance test
+- systemd restart logic validated with smoke test
+- Prometheus metrics exposed and scrapeable
+- CI restart step tested with dry-run or staging environment
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Security-First
+Least privilege, data protection, and secure defaults are mandatory.
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+**MUST**:
+- .env permissions always 600 (owner read/write only)
+- .env owner is unprivileged user (tgstream)
+- systemd runs app under unprivileged user
+- Session strings never logged in plaintext; masked as `***` or truncated
+- Deploy script enforces permissions on every release
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Clear Error Handling & Observability
+No silent failures. All errors must be logged with sufficient context for operators to diagnose.
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+**MUST**:
+- Every error logged to stderr or syslog with timestamp, level (ERROR/WARN/INFO), and component
+- SessionExpired errors suggest recovery path (run auto_session_runner.py --write-env)
+- Prometheus metrics export operational health (streams_played_total, last_error_timestamp)
+- systemd RestartSec logged; manual restarts auditable
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+---
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+## Non-Functional Requirements
+
+### Performance
+- Session authentication must complete within 10s or fail gracefully
+- Prometheus scrape must respond within 5s
+- yt-dlp updates must not block main service (async/background)
+
+### Availability
+- systemd Restart=always ensures auto-recovery after crashes
+- Session regeneration possible without manual code changes (--write-env flag)
+- Degraded mode allows operator awareness without service crash
+
+### Scalability
+- Per-release layout allows multiple versions deployed simultaneously
+- Prometheus metrics designed to not grow unbounded (counters, not lists)
+- yt-dlp updates via timer, not cron polling
+
+---
+
+## Security Requirements
+
+### Secrets Management
+- API_ID, API_HASH, SESSION_STRING stored in .env (not in code/git)
+- .env never committed to repository; .gitignore enforced
+- .env permissions enforced by deploy script (600, tgstream:tgstream)
+
+### Service Isolation
+- systemd unit runs as tgstream (unprivileged user)
+- ProtectSystem=full, NoNewPrivileges=yes, PrivateTmp=true mandatory
+- No root execution for main streaming service
+
+### Update Safety
+- yt-dlp updates happen via systemd-timer, not ad-hoc
+- Update failures logged but do not crash main service
+- Rollback path documented (pin yt-dlp version in requirements.txt if needed)
+
+---
+
+## Development Workflow
+
+### Implementation Phase
+1. **Spec Clarity**: All ambiguities (timeouts, error codes, edge cases) resolved before coding
+2. **Test First**: Test written and reviewed before implementation code
+3. **Code Review**: All changes reviewed against constitution principles
+4. **Production Validation**: Tested on staging environment before live deploy
+
+### Quality Gates
+- Constitution violations → PR blocked
+- Missing error handling → PR blocked
+- Hardcoded secrets → PR blocked
+- Missing tests for critical paths → PR blocked
+
+### Governance
+**Constitution supersedes all other practices.** If a convention or guideline conflicts with a MUST principle, the constitution wins.
+
+**Amendments**: Changes to constitution require:
+1. Explicit documentation of why current principle is insufficient
+2. Proposed new principle or modification
+3. Impact analysis (what breaks? what needs migration?)
+4. Approval before implementation begins
+
+---
+
+## Reference
+
+**Rules Synced From**: constitution.md (source of truth)  
+**Last Validated**: 2025-11-08  
+**Applicable To**: 002-prod-broadcast-improvements feature + all future features unless explicitly overridden
+
+```

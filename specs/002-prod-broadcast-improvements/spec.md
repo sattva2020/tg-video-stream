@@ -21,6 +21,18 @@
 1. **Given** устаревшая SESSION_STRING, **When** приложение стартует, **Then** в лог записывается заметное сообщение об истёкшей сессии и exit code = 1 (или инициируется процесс регенерации если включён режим автоперегенерации).
 2. **Given** режим автоперегенерации включён, **When** SessionExpired перехвачен, **Then** приложение запускает безопасный helper (локально) или предлагает инструкцию для оператора — и логирует шаги.
 
+**Auto-regeneration Mode Details**: Режим автоперегенерации активируется через флаг `--write-env` в `test/auto_session_runner.py`. **Поток выполнения**:
+1. Оператор обнаруживает `SessionExpired` в логах
+2. Запускает: `python test/auto_session_runner.py --write-env`
+3. Helper запрашивает телефон и код подтверждения (интерактивный ввод)
+4. Генерирует новую SESSION_STRING
+5. Обновляет локальный `.env` файл безопасно (atomic write с backup)
+6. Логирует результат (masked SESSION_STRING, например `SESSION_STRING=***...abcd`)
+7. Exit code: 0 (успех) или 1 (ошибка)
+8. После успешного обновления оператор вручную перезапускает сервис: `systemctl restart tg_video_streamer` или запускает deploy CI
+
+**Конкурентный доступ**: Deploy и auto_session_runner.py не должны запускаться одновременно (риск коррупции .env). CI должна документировать эту зависимость.
+
 ---
 
 ### User Story 2 - Контроль цикла и автоперезапуск systemd (Priority: P1)
@@ -110,23 +122,26 @@
 
 ### Edge Cases
 
-- Ошибки сети во время автоматического обновления `yt-dlp` (логирование и повторная попытка).  
-- Некорректный формат `FFMPEG_ARGS` (валидировать и откатывать к безопасному профилю).  
-- Отказ Prometheus-порта (занят) — fallback: логирование метрик в файл.
+- Ошибки сети во время автоматического обновления `yt-dlp` (логирование и повторная попытка на следующем расписании, не в текущем цикле).  
+- Некорректный формат `FFMPEG_ARGS` (валидировать и откатывать к безопасному профилю; логировать WARNING).  
+- Prometheus-порт занят (логировать ERROR и fallback: попытка следующего свободного портаили file-based metrics; сервис продолжает работу без Prometheus).
+- Session expires mid-stream (Telegram отключает токен во время трансляции): логировать ERROR, pause stream, attempt regen, switch to degraded mode if regen fails.
+- Конкурентный доступ к .env (deploy пишет, app читает): используется atomic write (temp → mv) в auto_session_runner.py; deploy script также использует atomic write.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: Приложение MUST перехватывать `pyrogram.errors.SessionExpired` и логировать понятное сообщение с рекомендацией действий.
-- **FR-002**: При настроенном режиме автоперегенерации приложение MAY инициировать безопасный поток генерации новой сессии (interactive fallback) и логировать результат; при неуспехе — завершаться с кодом != 0.
+- **FR-002**: При настроенном режиме автоперегенерации приложение MUST инициировать безопасный поток генерации новой сессии через `test/auto_session_runner.py --write-env`; при успехе обновить `.env` и exit(0), при ошибке логировать и exit(1).
 - **FR-003**: systemd unit MUST содержать `Restart=always`, `RestartSec=10`, `StartLimitInterval=0` (или эквивалент) для автоматического восстановления.
-- **FR-004**: Система MUST иметь расписание (systemd-timer или cron) для еженедельного обновления `yt-dlp` и логировать результаты в `/var/log/yt-dlp-update.log`.
-- **FR-005**: Приложение MUST поддерживать `FFMPEG_ARGS` из `.env` и корректно передавать их ffmpeg-процессу.
+- **FR-004**: Система MUST иметь расписание (systemd-timer) для еженедельного обновления `yt-dlp` (по умолчанию Sunday 02:00 UTC) и логировать результаты в `/var/log/yt-dlp-update.log`.
+- **FR-005**: Приложение MUST поддерживать `FFMPEG_ARGS` из `.env` (space-separated, double-quote escaping; fallback if invalid) и корректно передавать их ffmpeg-процессу.
 - **FR-006**: Deploy pipeline MUST устанавливать права `.env` как `600` и владельца — `tgstream` (или указанного непривилегированного пользователя).
 - **FR-007**: systemd unit MUST include sandboxing options: `ProtectSystem=full`, `NoNewPrivileges=yes`, `PrivateTmp=true`.
-- **FR-008**: Приложение MUST expose Prometheus metrics on configurable порт (по умолчанию 9090), включая минимум счётчик `streams_played_total`.
-- **FR-009**: CI pipeline MUST include a step to restart the systemd unit on the remote host after deploy and validate Active state.
+- **FR-008**: Приложение MUST expose Prometheus metrics on configurable порт (по умолчанию 9090) type=Counter, включая минимум счётчик `streams_played_total` (инкрементируется на 1 для каждого трека); если порт занят, логировать ERROR и attempt использовать следующий свободный, или fallback на file-based metrics с логированием WARNING.
+- **FR-009**: CI pipeline MUST include a step to restart the systemd unit on the remote host after deploy with 60s timeout; validate Active state; if restart fails → CI job fails with non-zero exit code.
+- **FR-010** *(NEW)*: MUST вывести приложение в degraded mode если SESSION_STRING невалиден или аутентификация не удалась. Degraded mode поведение: нет попыток streaming, логировать WARN "Degraded mode; SESSION_STRING invalid; run: python test/auto_session_runner.py --write-env", периодические попытки переаутентификации каждые 60s с логированием результата.
 
 ## Key Entities
 
