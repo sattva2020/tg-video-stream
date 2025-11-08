@@ -73,11 +73,13 @@ if not (API_ID and API_HASH and CHAT_ID):
     )
     RUN_APP = False
 elif not SESSION_STRING:
-    # SESSION_STRING is missing — will attempt interactive auth at startup
+    # SESSION_STRING is missing — log info and proceed with degraded mode
+    # User can add SESSION_STRING later and restart
     logging.getLogger("tg_video_streamer").info(
-        "SESSION_STRING not provided in .env — will attempt interactive authentication on first connect"
+        "SESSION_STRING not provided in .env — running in degraded mode. "
+        "To activate: set SESSION_STRING in .env and restart the service"
     )
-    INTERACTIVE_AUTH = True
+    RUN_APP = False
 
 app = Client(
     name="tg_streamer",
