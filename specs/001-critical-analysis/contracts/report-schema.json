@@ -1,0 +1,367 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://telegram-video-streamer/schemas/analysis-report.json",
+  "title": "Analysis Report Schema",
+  "description": "JSON Schema for critical analysis report structure validation",
+  "type": "object",
+  "required": ["report_id", "report_type", "generated_at", "codebase_snapshot", "summary", "metadata"],
+  "properties": {
+    "report_id": {
+      "type": "string",
+      "description": "Unique report identifier",
+      "pattern": "^(architecture|code_quality|security|performance)-\\d{4}-\\d{2}-\\d{2}$",
+      "examples": ["security-2025-11-02", "architecture-2025-11-02"]
+    },
+    "report_type": {
+      "type": "string",
+      "enum": ["architecture", "code_quality", "security", "performance"],
+      "description": "Type of analysis report"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when report was generated"
+    },
+    "codebase_snapshot": {
+      "type": "object",
+      "required": ["git_commit", "branch", "total_files", "total_loc"],
+      "properties": {
+        "git_commit": {
+          "type": "string",
+          "description": "Git commit SHA (short form)",
+          "pattern": "^[0-9a-f]{7,40}$"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Git branch name"
+        },
+        "total_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of files analyzed"
+        },
+        "total_loc": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total lines of code analyzed"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_findings", "by_severity"],
+      "properties": {
+        "total_findings": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Total number of findings in this report"
+        },
+        "by_severity": {
+          "type": "object",
+          "required": ["critical", "high", "medium", "low"],
+          "properties": {
+            "critical": {"type": "integer", "minimum": 0},
+            "high": {"type": "integer", "minimum": 0},
+            "medium": {"type": "integer", "minimum": 0},
+            "low": {"type": "integer", "minimum": 0}
+          }
+        },
+        "constitution_compliance": {
+          "type": "string",
+          "pattern": "^\\d+%$",
+          "description": "Percentage compliance with constitution principles"
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/finding"},
+      "description": "Array of findings discovered in this analysis"
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/recommendation"},
+      "description": "Array of recommendations for addressing findings"
+    },
+    "compliance_items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/compliance_item"},
+      "description": "Constitution principle validation results"
+    },
+    "risk_assessments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/risk_assessment"},
+      "description": "Security and operational risk evaluations"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["tools", "runtime_seconds"],
+      "properties": {
+        "tools": {
+          "type": "object",
+          "description": "Analysis tools and their versions",
+          "additionalProperties": {"type": "string"}
+        },
+        "runtime_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Analysis execution time in seconds"
+        },
+        "config": {
+          "type": "object",
+          "description": "Configuration used for analysis",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["id", "category", "severity", "title", "description", "impact", "detected_by", "detected_at"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]{3,4}-\\d{3}$",
+          "description": "Unique finding identifier",
+          "examples": ["SEC-001", "ARCH-042"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["architecture", "code_quality", "security", "performance", "operational", "documentation"]
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Short descriptive title"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed explanation of the finding"
+        },
+        "impact": {
+          "type": "string",
+          "description": "Why this matters"
+        },
+        "location": {"$ref": "#/$defs/location"},
+        "evidence": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Supporting evidence (code snippets, metrics)"
+        },
+        "constitution_violation": {"$ref": "#/$defs/constitution_violation"},
+        "detected_by": {
+          "type": "string",
+          "description": "Tool or method that detected this finding"
+        },
+        "detected_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "required": ["id", "finding_id", "priority", "title", "rationale", "remediation_steps", "estimated_effort", "expected_benefits"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REC-\\d{3}$",
+          "examples": ["REC-001"]
+        },
+        "finding_id": {
+          "type": "string",
+          "pattern": "^[A-Z]{3,4}-\\d{3}$",
+          "description": "References related finding"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["P0", "P1", "P2", "P3"],
+          "description": "P0=critical, P1=high, P2=medium, P3=low"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Actionable title in imperative mood"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this should be implemented"
+        },
+        "remediation_steps": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "Ordered steps to implement the fix"
+        },
+        "estimated_effort": {"$ref": "#/$defs/effort_estimate"},
+        "expected_benefits": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1,
+          "description": "What improvements this delivers"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/alternative"}
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "Links to documentation or examples"
+        }
+      }
+    },
+    "compliance_item": {
+      "type": "object",
+      "required": ["principle", "is_non_negotiable", "status", "evidence", "validation_method"],
+      "properties": {
+        "principle": {
+          "type": "string",
+          "description": "Constitution principle name"
+        },
+        "is_non_negotiable": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["compliant", "partial", "violation"]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "findings": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "validation_method": {
+          "type": "string",
+          "description": "How compliance was checked"
+        }
+      }
+    },
+    "risk_assessment": {
+      "type": "object",
+      "required": ["id", "title", "category", "likelihood", "impact", "risk_score", "description", "recommended_controls"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^RISK-\\d{3}$"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short risk description"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["security", "operational", "compliance"]
+        },
+        "likelihood": {
+          "type": "string",
+          "enum": ["high", "medium", "low"]
+        },
+        "impact": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "risk_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Calculated: (likelihood/3) * impact_value"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed risk scenario"
+        },
+        "current_mitigations": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recommended_controls": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "findings": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "location": {
+      "type": "object",
+      "required": ["file"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Relative path from repo root"
+        },
+        "line": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        },
+        "function": {
+          "type": ["string", "null"]
+        },
+        "column": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+    "constitution_violation": {
+      "type": "object",
+      "required": ["principle", "is_non_negotiable", "rationale"],
+      "properties": {
+        "principle": {"type": "string"},
+        "is_non_negotiable": {"type": "boolean"},
+        "rationale": {"type": "string"}
+      }
+    },
+    "effort_estimate": {
+      "type": "object",
+      "required": ["duration", "unit", "complexity"],
+      "properties": {
+        "duration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit": {
+          "type": "string",
+          "enum": ["minutes", "hours", "days"]
+        },
+        "complexity": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        }
+      }
+    },
+    "alternative": {
+      "type": "object",
+      "required": ["approach", "pros", "cons"],
+      "properties": {
+        "approach": {"type": "string"},
+        "pros": {"type": "string"},
+        "cons": {"type": "string"}
+      }
+    }
+  }
+}
