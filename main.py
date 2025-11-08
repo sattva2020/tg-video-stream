@@ -69,13 +69,13 @@ RUN_APP = True
 INTERACTIVE_AUTH = False
 if not (API_ID and API_HASH and CHAT_ID):
     logging.getLogger("tg_video_streamer").warning(
-        "Missing API credentials (API_ID, API_HASH, or CHAT_ID) in .env — running in degraded mode"
+        "Missing critical API credentials (API_ID, API_HASH, or CHAT_ID) in .env — running in degraded mode"
     )
     RUN_APP = False
 elif not SESSION_STRING:
     # SESSION_STRING is missing — will attempt interactive auth at startup
     logging.getLogger("tg_video_streamer").info(
-        "SESSION_STRING not provided in .env — will attempt interactive authentication"
+        "SESSION_STRING not provided in .env — will attempt interactive authentication on first connect"
     )
     INTERACTIVE_AUTH = True
 
@@ -85,8 +85,13 @@ app = Client(
     api_hash=API_HASH,
     session_string=SESSION_STRING if SESSION_STRING else None,
     in_memory=True,
-    workdir="./tdlib",
-    phone_number="" if INTERACTIVE_AUTH else None
+    workdir="./tdlib"
+) if SESSION_STRING else Client(
+    name="tg_streamer",
+    api_id=API_ID,
+    api_hash=API_HASH,
+    in_memory=True,
+    workdir="./tdlib"
 )
 
 pytg = None
@@ -171,12 +176,6 @@ async def main():
     # Try to start the Client and detect invalid/expired sessions early.
     try:
         async with app:
-            # Handle interactive auth if SESSION_STRING was missing
-            if INTERACTIVE_AUTH and not app.is_authorized:
-                log.info("Starting interactive authentication...")
-                await app.start()
-                log.info("Successfully authenticated. SESSION_STRING is now cached in memory.")
-            
             if pytg:
                 await pytg.start()
 
