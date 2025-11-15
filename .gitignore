@@ -1,0 +1,166 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+htmlcov/
+.pytest_cache/
+
+# Virtualenv
+venv/
+ENV/
+.venv/
+
+# Environments
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Editor/IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+*.swp
+*.tmp
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Analysis reports (generated output)
+specs/001-critical-analysis/reports/*.md
+specs/*/reports/*.md
+
+# Logs
+*.log
+*.log.*
+
+# OS files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+
+# Session files (Telegram)
+*.session
+*.session-journal
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Caches
+*.cache
+
+# Node.js / Frontend (React + TypeScript + Vite)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Allow committing frontend's package-lock (we prefer a lockfile for reproducible frontend builds)
+!frontend/package-lock.json
+
+# Vite build output
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Docker (when needed)
+.dockerignore
+*.dockerfile
+
+# Supabase
+.supabase/
+
+# Redis dumps
+dump.rdb
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Backend specific
+backend/migrations/versions/*.pyc
+backend/.ruff_cache/
