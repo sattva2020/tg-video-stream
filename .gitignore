@@ -141,6 +141,12 @@ frontend/dist/
 frontend/build/
 frontend/.vite/
 
+# Playwright / Auth storage and temporary frontend artifacts
+# storageState.json and other auth artifacts produced during E2E runs
+frontend/.auth/
+# temporary CSS produced during local Tailwind CLI tests
+frontend/tmp.css
+
 # TypeScript
 *.tsbuildinfo
 
@@ -164,3 +170,13 @@ celerybeat.pid
 # Backend specific
 backend/migrations/versions/*.pyc
 backend/.ruff_cache/
+
+# Project-local internal files (diagnostics, temp, archives)
+.internal/
+# Local session/env directory (do not commit secrets)
+.session-env/
+
+# MCP / test artifacts
+mcp-test/snapshots/
+mcp-test/node_modules/
+mcp-test/*.log
