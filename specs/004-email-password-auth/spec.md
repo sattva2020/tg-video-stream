@@ -56,12 +56,29 @@ As a user who has forgotten my password, I want to request a password reset link
 
 ### Functional Requirements
 
--   **FR-001**: The system MUST provide a user interface for new users to register with an email address and a password.
--   **FR-002**: The system MUST provide a user interface for existing users to log in with their email address and password.
--   **FR-003**: The system MUST validate that the provided email address is in a valid format during registration.
--   **FR-004**: The system MUST enforce a set of password complexity rules (e.g., minimum length, character types).
--   **FR-005**: The system MUST ensure that user passwords are not stored in plaintext and are securely managed.
--   **FR-006**: The system MUST provide a full, self-service password recovery mechanism. This includes a "Forgot Password" feature that sends a secure reset link to the user's registered email address.
++ **FR-001**: The system MUST provide a user interface for new users to register with an email address and a password.
++ **FR-002**: The system MUST provide a user interface for existing users to log in with their email address and password.
++ **FR-003**: The system MUST validate that the provided email address is in a valid format during registration.
++ **FR-004**: The system MUST enforce a set of password complexity rules (e.g., minimum length, character types).
+  + Implementation note: define exact policy in `specs/004-email-password-auth/plan.md` and enforce server-side. Recommended baseline policy:
+    + minimum length: 12 characters
+    + must contain at least: 1 uppercase, 1 lowercase, 1 digit, 1 special character
+    + reject easily-guessed passwords (common/password list), optionally consult Have I Been Pwned API for breached passwords (optional)
++ **FR-005**: The system MUST ensure that user passwords are not stored in plaintext and are securely managed.
++ **FR-006**: The system MUST provide a full, self-service password recovery mechanism. This includes a "Forgot Password" feature that sends a secure reset link to the user's registered email address.
+ 
+## User Story 4 - Account Linking (Priority: P2)
+
+As a user who originally registered via Google OAuth, I want to be able to sign in with Google and optionally link or create an email/password credential, so that I can use either login method securely.
+
+**Why this priority**: Prevent duplicate accounts / confusion when a user later tries to sign up with email matching their Google account.
+
+**Independent Test**: A user who has signed in with Google cannot create a second, separate account by registering with the same email address; instead, the system presents linking options or instructs to sign in with Google.
+
+**Acceptance Scenarios**:
+
+1.  **Given** a user has an existing Google-auth account, **When** they attempt to register with the same email via email/password, **Then** the system displays a message that the email is already used and provides a link to sign in via Google or to link accounts after verifying ownership.
+2.  **Given** a user signed up via Google and has access to the email, **When** they choose to set a password and link accounts, **Then** the system allows them to set a password after verification and save `hashed_password` for future email logins.
 
 ### Key Entities *(include if feature involves data)*
 

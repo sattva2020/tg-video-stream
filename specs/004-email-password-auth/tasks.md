@@ -13,6 +13,9 @@
 - [ ] Создать Alembic migration для добавления поля `hashed_password`
 - [ ] Спланировать поведение для существующих пользователей (backfill / оставить NULL)
 - [ ] Обновить OpenAPI контракт (`specs/004-email-password-auth/contracts/openapi.yml`) — конечные точки auth
+ - [ ] Добавить задачу: обработать коллизии аккаунтов (Google/email с одинаковым email)
+   - [ ] Прописать UX flow (link account, force login-with-google, show message)
+   - [ ] Написать unit/integration тесты для кейсов коллизий
 
 ## Фаза 2 — Бэкенд: сервисы и API
 - [ ] Добавить зависимость в `backend/requirements.txt` (например `passlib[bcrypt]` или `argon2-cffi`) и зафиксировать версии
@@ -28,30 +31,52 @@
   - [ ] GET /api/auth/me
 - [ ] Обновить `backend/src/main.py` для регистрации маршрутов и middlewares (rate limiting)
 
+### Политика безопасности и токены
+
+- [ ] Определить политику сложности пароля (например: min 12 chars; at least one uppercase, one lowercase, one number and one special char)
+- [ ] Реализовать серверную валидацию пароля и тесты
+- [ ] Добавить задачу: email normalization + disposable email blocking
+- [ ] Добавить задачу: JWT token policy (TTL), refresh tokens, revocation & logout flow
+- [ ] Добавить задачу: CSRF / cookie vs localStorage decision + docs
+- [ ] Добавить задачу: rate-limiting для /auth/login и /auth/password-reset/request (with tests)
+ 
+
+ 
 ## Фаза 3 — Тесты (Unit & Integration)
+
 - [ ] Написать unit-тесты для `auth_service` (pytest)
 - [ ] Написать API-интеграционные тесты для эндпоинтов auth (FastAPI TestClient)
 - [ ] Добавить тест для edge-cases: слабые пароли, повторная регистрация, неверный токен сброса
 
+ 
 ## Фаза 4 — Фронтенд
+
 - [ ] Добавить страницы/компоненты: Login, Register, PasswordResetRequest, PasswordResetConfirm
 - [ ] Реализовать клиентские вызовы в `frontend/src/services/auth.ts` (fetch/axios)
 - [ ] Сохранение JWT / storageState (если используется) и редирект после логина
 - [ ] Написать простые E2E тесты (Playwright) для happy-path
 
+ 
 ## Фаза 5 — Развёртывание и безопасность
+
 - [ ] Добавить переменные окружения (JWT_SECRET, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS)
 - [ ] Настроить отправку писем в staging (dev-mode: логирование токенов)
 - [ ] Ручное тестирование и smoke тесты (регистрация, вход, сброс пароля)
 - [ ] Обновить README и docs (quickstart)
 
+ 
 ## Acceptance Criteria
+
 - [ ] Регистрация пользователя через email создает запись с `hashed_password`
 - [ ] Вход с корректными учетными данными возвращает валидный JWT
 - [ ] Флоу сброса пароля выдаёт токен и позволяет сменить пароль
 - [ ] Существующая Google OAuth интеграция не ломается и оба механизма работают параллельно
+- [ ] Коллизии e-mail между Google и email-accounts разрешаются безопасно и предсказуемо
+- [ ] Серверная валидация пароля соответствует документированной политикой
 
+ 
 ## Optional / Stretch
+
 - [ ] Email verification (подтверждение почты при регистрации)
 - [ ] Rate-limiting / блокировка по IP после N неудачных попыток
 - [ ] MFA (TOTP) как следующий шаг
