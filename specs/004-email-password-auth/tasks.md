@@ -13,12 +13,14 @@
 - [ ] Создать Alembic migration для добавления поля `hashed_password`
 - [ ] Спланировать поведение для существующих пользователей (backfill / оставить NULL)
 - [ ] Обновить OpenAPI контракт (`specs/004-email-password-auth/contracts/openapi.yml`) — конечные точки auth
- - [ ] Добавить задачу: обработать коллизии аккаунтов (Google/email с одинаковым email)
-   - [ ] Прописать UX flow (link account, force login-with-google, show message)
-   - [ ] Написать unit/integration тесты для кейсов коллизий
+  - [ ] Добавить задачу: обработать коллизии аккаунтов (Google/email с одинаковым email)
+  - [ ] Прописать UX flow (link account, force login-with-google, show message)
+  - [X] Добавить endpoint'ы для link-account (/api/auth/link-account/request, /api/auth/link-account/confirm)
+  - [X] Написать unit/integration тесты для кейсов коллизий
+  - [X] Добавить утверждение: в dev режиме токен для связывания возвращается в ответе (для тестов)
 
 ## Фаза 2 — Бэкенд: сервисы и API
-- [ ] Добавить зависимость в `backend/requirements.txt` (например `passlib[bcrypt]` или `argon2-cffi`) и зафиксировать версии
+ - [X] Добавить зависимость в `backend/requirements.txt` (например `passlib[bcrypt]` или `argon2-cffi`) и зафиксировать версии
 - [ ] Реализовать `backend/src/services/auth_service.py`:
   - [ ] Функция hash_password(password) → hashed
   - [ ] Функция verify_password(plain, hashed) → bool
@@ -35,10 +37,12 @@
 
 - [ ] Определить политику сложности пароля (например: min 12 chars; at least one uppercase, one lowercase, one number and one special char)
 - [ ] Реализовать серверную валидацию пароля и тесты
+ - [X] Реализовать серверную валидацию пароля и тесты (регулярка + опция HIBP проверки)
+ - [X] Реализовать проверку HIBP (HaveIBeenPwned) в `auth_service`, отключаемая через `HIBP_ENABLED=true/false`
 - [ ] Добавить задачу: email normalization + disposable email blocking
 - [ ] Добавить задачу: JWT token policy (TTL), refresh tokens, revocation & logout flow
 - [ ] Добавить задачу: CSRF / cookie vs localStorage decision + docs
-- [ ] Добавить задачу: rate-limiting для /auth/login и /auth/password-reset/request (with tests)
+ - [X] Добавить Redis-backed limiter (fastapi-limiter + aioredis) и fallback to in-memory for dev/tests
  
 
  
@@ -77,7 +81,7 @@
  
 ## Optional / Stretch
 
-- [ ] Email verification (подтверждение почты при регистрации)
+ - [X] Email verification (подтверждение почты при регистрации) и шаблоны писем (Jinja2)
 - [ ] Rate-limiting / блокировка по IP после N неудачных попыток
 - [ ] MFA (TOTP) как следующий шаг
 

@@ -144,3 +144,119 @@ def test_register_and_login_flow(client):
     # Attempt to register again should fail
     resp3 = client.post("/api/auth/register", json=payload)
     assert resp3.status_code == 409
+
+
+def test_link_account_flow(client):
+    # Setup: create a Google-only user directly in DB
+    db = TestingSessionLocal()
+    g_user = User(google_id="g-123", email="link.user@example.com")
+    db.add(g_user)
+    db.commit()
+    db.refresh(g_user)
+
+    # Ensure SMTP not set
+    import os
+    os.environ.pop("SMTP_HOST", None)
+
+    # Request link token (dev mode should return token)
+    resp = client.post("/api/auth/link-account/request", json={"email": "link.user@example.com"})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "ok"
+    assert "token" in data
+    token = data["token"]
+
+    # Confirm link with a weak password should fail
+    resp2 = client.post("/api/auth/link-account/confirm", json={"token": token, "password": "short"})
+    assert resp2.status_code == 400
+
+    # Confirm with strong password
+    resp3 = client.post("/api/auth/link-account/confirm", json={"token": token, "password": "NewGoodPassword123!"})
+    assert resp3.status_code == 200
+    assert "access_token" in resp3.json()
+
+    # Now login with new password
+    resp4 = client.post("/api/auth/login", json={"email": "link.user@example.com", "password": "NewGoodPassword123!"})
+    assert resp4.status_code == 200
+    assert "access_token" in resp4.json()
+    db.close()
+
+
+def test_password_reset_request_and_confirm(client):
+    # Ensure SMTP is not set so dev-mode returns token
+    import os
+    os.environ.pop("SMTP_HOST", None)
+
+    email = "reset.user@example.com"
+    payload = {"email": email, "password": "GoodPassword123!"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 200
+
+    # Request reset should return token in dev mode
+    resp2 = client.post("/api/auth/password-reset/request", json={"email": email})
+    assert resp2.status_code == 200
+    data = resp2.json()
+    assert data["status"] == "ok"
+    assert "token" in data
+    token = data["token"]
+
+    # Confirm reset with weak password should fail
+    weak_payload = {"token": token, "password": "short"}
+    resp3 = client.post("/api/auth/password-reset/confirm", json=weak_payload)
+    assert resp3.status_code == 400
+
+    # Confirm with good password
+    pw_payload = {"token": token, "password": "NewGoodPassword123!"}
+    resp4 = client.post("/api/auth/password-reset/confirm", json=pw_payload)
+    assert resp4.status_code == 200
+    assert "access_token" in resp4.json()
+
+    # Verify that the new password works for login
+    login_resp = client.post("/api/auth/login", json={"email": email, "password": "NewGoodPassword123!"})
+    assert login_resp.status_code == 200
+    assert "access_token" in login_resp.json()
+
+
+def test_email_verification_flow(client):
+    import os
+    os.environ.pop("SMTP_HOST", None)
+    email = "verify.user@example.com"
+    payload = {"email": email, "password": "GoodPassword123!"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 200
+
+    # Request verification token
+    r = client.post("/api/auth/email-verify/request", json={"email": email})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert "token" in data
+    token = data["token"]
+
+    # Confirm token
+    r2 = client.post("/api/auth/email-verify/confirm", json={"token": token})
+    assert r2.status_code == 200
+
+    # Check DB
+    db = TestingSessionLocal()
+    user = db.query(User).filter(User.email == email).first()
+    assert user.email_verified
+    db.close()
+
+
+def test_login_rate_limit(client):
+    # Create a user
+    payload = {"email": "rl.user@example.com", "password": "GoodPassword123!"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 200
+
+    # Attempt more than RATE_LIMIT_MAX times incorrect password
+    max_attempts = int(os.getenv("RATE_LIMIT_MAX", 5))
+    for i in range(max_attempts):
+        r = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
+        # invalid credentials until limit reached
+        if i < max_attempts - 1:
+            assert r.status_code == 401
+    # Next attempt should be rate limited
+    r2 = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
+    assert r2.status_code == 429

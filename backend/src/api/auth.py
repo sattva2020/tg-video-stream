@@ -8,6 +8,48 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 
 from services.auth_service import auth_service
+from services.auth_service import check_password_policy, is_password_pwned
+from fastapi import Depends
+import time
+
+# Simple in-memory rate limiter per IP for demo / tests
+_rate_limit_storage = {}
+RATE_LIMIT_MAX = int(os.getenv("RATE_LIMIT_MAX", 5))
+RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", 60))  # seconds
+
+
+def _rate_limit_key(ip: str, action: str):
+    return f"{action}:{ip}"
+
+
+def _check_rate_limit(ip: str, action: str) -> bool:
+    key = _rate_limit_key(ip, action)
+    now = time.time()
+    entry = _rate_limit_storage.get(key, [])
+    # filter timestamps within window
+    entry = [t for t in entry if now - t < RATE_LIMIT_WINDOW]
+    if len(entry) >= RATE_LIMIT_MAX:
+        _rate_limit_storage[key] = entry
+        return False
+    entry.append(now)
+    _rate_limit_storage[key] = entry
+    return True
+
+
+def make_rate_limit_dep(action: str, times: int = 5, seconds: int = 60):
+    # Returns a dependency function for rate limiting — uses Redis if available
+    if os.getenv('REDIS_URL'):
+        # fastapi-limiter RateLimiter is callable for Depends
+        from fastapi_limiter.depends import RateLimiter
+        return RateLimiter(times=times, seconds=seconds)
+
+    # Memory fallback
+    async def _mem_limit(request: Request):
+        ip = request.client.host if request.client else 'unknown'
+        if not _check_rate_limit(ip, action):
+            raise HTTPException(status_code=429, detail='Too many attempts, try again later.')
+
+    return _mem_limit
 from database import get_db
 from pydantic import BaseModel, EmailStr
 from models.user import User
@@ -142,7 +184,8 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
     if existing_user:
         # If user exists and has no hashed_password but google_id is set, prompt linking
         if existing_user.google_id and not existing_user.hashed_password:
-            raise HTTPException(status_code=409, detail="Account exists via Google; please sign in with Google or link accounts.")
+            # Indicate client that link action is required
+            raise HTTPException(status_code=409, detail={"message": "Account exists via Google; please link accounts.", "link_required": True})
         raise HTTPException(status_code=409, detail="User with this email already exists")
 
     hashed = auth_service.hash_password(request.password)
@@ -151,11 +194,24 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     token = auth_service.create_jwt_for_user(new_user)
+    # Generate verification token and send email (dev-mode returns token)
+    verify_token = auth_service.generate_email_verification_token(new_user.email)
+    if not os.getenv("SMTP_HOST"):
+        # In dev mode include token in response to make E2E easier
+        return {"access_token": token, "token_type": "bearer", "dev_verification_token": verify_token}
+    else:
+        auth_service.send_email_verification(new_user.email, verify_token)
     return {"access_token": token, "token_type": "bearer"}
 
 
 @router.post("/login")
-def login_user(request: LoginRequest, db: Session = Depends(get_db)):
+def login_user(request: LoginRequest, db: Session = Depends(get_db), fastapi_request: Request | None = None, _rl = Depends(make_rate_limit_dep('login'))):
+    # rate-limit by IP
+    client_host = "unknown"
+    if fastapi_request and fastapi_request.client:
+        client_host = fastapi_request.client.host
+    if not _check_rate_limit(client_host, 'login'):
+        raise HTTPException(status_code=429, detail="Too many attempts, try again later.")
     user = db.query(User).filter(User.email == request.email).first()
     if not user or not user.hashed_password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -165,6 +221,149 @@ def login_user(request: LoginRequest, db: Session = Depends(get_db)):
 
     token = auth_service.create_jwt_for_user(user)
     return {"access_token": token, "token_type": "bearer"}
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/password-reset/request")
+def password_reset_request(data: PasswordResetRequest, db: Session = Depends(get_db), fastapi_request: Request | None = None, _rl = Depends(make_rate_limit_dep('password-reset'))):
+    client_ip = "unknown"
+    if fastapi_request and fastapi_request.client:
+        client_ip = fastapi_request.client.host
+    if not _check_rate_limit(client_ip, 'password-reset'):
+        raise HTTPException(status_code=429, detail="Too many password reset requests, try later.")
+
+    user = db.query(User).filter(User.email == data.email).first()
+    # Always return OK to avoid user enumeration
+    if not user:
+        return {"status": "ok"}
+
+    token = auth_service.generate_password_reset_token(data.email)
+    # DEV-mode: return token in response if SMTP not configured
+    smtp_host = os.getenv("SMTP_HOST")
+    if not smtp_host:
+        return {"status": "ok", "token": token}
+
+    send_result = auth_service.send_password_reset_email(data.email, token)
+    return {"status": "ok"}
+
+
+class LinkAccountRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/link-account/request")
+def link_account_request(body: LinkAccountRequest, db: Session = Depends(get_db)):
+    # Do not leak whether the email exists for security — however this endpoint
+    # is intended to be called by a user who got 409 on register. Still, be cautious.
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user or not user.google_id or user.hashed_password:
+        # Always return ok
+        return {"status": "ok"}
+
+    token = auth_service.generate_link_account_token(body.email)
+
+    # Dev-mode: return the token in response if SMTP not configured
+    smtp_host = os.getenv("SMTP_HOST")
+    if not smtp_host:
+        return {"status": "ok", "token": token}
+
+    auth_service.send_account_link_email(body.email, token)
+    return {"status": "ok"}
+
+
+class LinkAccountConfirm(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/link-account/confirm")
+def link_account_confirm(body: LinkAccountConfirm, db: Session = Depends(get_db)):
+    email = auth_service.verify_link_account_token(body.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Validate password policy
+    if not check_password_policy(body.password):
+        raise HTTPException(status_code=400, detail="Password does not meet complexity requirements")
+
+    if os.getenv("HIBP_ENABLED", "false").lower() == "true" and is_password_pwned(body.password):
+        raise HTTPException(status_code=400, detail="Password is found in data leaks (choose another one)")
+
+    user.hashed_password = auth_service.hash_password(body.password)
+    db.commit()
+    db.refresh(user)
+
+    token = auth_service.create_jwt_for_user(user)
+    return {"access_token": token}
+
+
+class EmailVerifyRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailVerifyConfirm(BaseModel):
+    token: str
+
+
+@router.post("/email-verify/request")
+def email_verify_request(body: EmailVerifyRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    # Avoid leaking info
+    if not user:
+        return {"status": "ok"}
+    token = auth_service.generate_email_verification_token(body.email)
+    smtp_host = os.getenv("SMTP_HOST")
+    if not smtp_host:
+        return {"status": "ok", "token": token}
+    auth_service.send_email_verification(body.email, token)
+    return {"status": "ok"}
+
+
+@router.post("/email-verify/confirm")
+def email_verify_confirm(body: EmailVerifyConfirm, db: Session = Depends(get_db)):
+    email = auth_service.verify_email_verification_token(body.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.email_verified = True
+    db.commit()
+    db.refresh(user)
+    return {"status": "ok"}
+
+
+@router.post("/password-reset/confirm")
+def password_reset_confirm(data: PasswordResetConfirm, db: Session = Depends(get_db)):
+    email = auth_service.verify_password_reset_token(data.token)
+    if not email:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    # Validate password complexity
+    if len(data.password) < 12:
+        raise HTTPException(status_code=400, detail="Password does not meet complexity requirements")
+
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.hashed_password = auth_service.hash_password(data.password)
+    db.commit()
+    db.refresh(user)
+    token = auth_service.create_jwt_for_user(user)
+    return {"access_token": token}
 
 
     

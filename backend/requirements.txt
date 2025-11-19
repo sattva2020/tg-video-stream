@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-jose[cryptography]
+requests-oauthlib
+psycopg2-binary
+SQLAlchemy
+alembic
+pytest
+itsdangerous
+
+passlib[bcrypt]
+fastapi-mail
+fastapi-limiter
+aioredis
+jinja2

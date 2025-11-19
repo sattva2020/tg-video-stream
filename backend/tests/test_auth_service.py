@@ -7,7 +7,7 @@ import os
 import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from services.auth_service import auth_service
+from services.auth_service import auth_service, check_password_policy, is_password_pwned
 from models.user import User
 
 @pytest.fixture
@@ -122,3 +122,24 @@ def test_password_reset_token_roundtrip():
     assert token is not None
     # Immediately verify should succeed
     assert auth_service.verify_password_reset_token(token) == email
+
+
+def test_password_policy_and_hibp(monkeypatch):
+    # Policy: min 12, upper, lower, digit, special
+    assert check_password_policy("GoodPassword123!")
+    assert not check_password_policy("short1!")
+
+    # Mock HIBP: return a response containing the suffix of the sha1
+    import hashlib
+
+    p = "PasswordToCheck123!"
+    sha1 = hashlib.sha1(p.encode('utf-8')).hexdigest().upper()
+    prefix = sha1[:5]
+    suffix = sha1[5:]
+
+    class FakeResponse:
+        status_code = 200
+        text = f"{suffix}:5\n"
+
+    monkeypatch.setattr('services.auth_service.requests.get', lambda url, timeout=5: FakeResponse())
+    assert is_password_pwned(p)
