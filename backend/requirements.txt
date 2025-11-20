@@ -11,5 +11,8 @@ itsdangerous
 passlib[bcrypt]
 fastapi-mail
 fastapi-limiter
-aioredis
+redis>=4.2.0
 jinja2
+
+# Dev tools (not required in production) - used for local dev and CI
+pre-commit

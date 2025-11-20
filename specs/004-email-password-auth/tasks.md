@@ -55,8 +55,8 @@
  
 ## Фаза 4 — Фронтенд
 
-- [ ] Добавить страницы/компоненты: Login, Register, PasswordResetRequest, PasswordResetConfirm
-- [ ] Реализовать клиентские вызовы в `frontend/src/services/auth.ts` (fetch/axios)
+- [X] Добавить страницы/компоненты: Login, Register, PasswordResetRequest, PasswordResetConfirm
+- [X] Реализовать клиентские вызовы в `frontend/src/services/auth.ts` (fetch/axios)
 - [ ] Сохранение JWT / storageState (если используется) и редирект после логина
 - [ ] Написать простые E2E тесты (Playwright) для happy-path
 

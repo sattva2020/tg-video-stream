@@ -1,16 +1,18 @@
 import os
 import logging
-from fastapi import APIRouter, Request, Depends
+import time
+ 
+
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
 from sqlalchemy.orm import Session
-from fastapi import Depends
 
-from services.auth_service import auth_service
-from services.auth_service import check_password_policy, is_password_pwned
-from fastapi import Depends
-import time
+from database import get_db
+from pydantic import BaseModel, EmailStr
+from models.user import User
+from services.auth_service import auth_service, check_password_policy, is_password_pwned
 
 # Simple in-memory rate limiter per IP for demo / tests
 _rate_limit_storage = {}
@@ -50,12 +52,7 @@ def make_rate_limit_dep(action: str, times: int = 5, seconds: int = 60):
             raise HTTPException(status_code=429, detail='Too many attempts, try again later.')
 
     return _mem_limit
-from database import get_db
-from pydantic import BaseModel, EmailStr
-from models.user import User
-from fastapi import HTTPException
-from auth.jwt import create_access_token
-from sqlalchemy.orm import Session
+# other imports moved to top to satisfy linting
 
 
 class RegisterRequest(BaseModel):
@@ -133,7 +130,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     TOKEN_URL = "https://oauth2.googleapis.com/token"
 
     try:
-        token = google.fetch_token(
+        # fetch token but we don't need to keep it here — login flow will use user info
+        google.fetch_token(
             TOKEN_URL,
             client_secret=GOOGLE_CLIENT_SECRET,
             authorization_response=str(request.url)
@@ -205,7 +203,7 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login_user(request: LoginRequest, db: Session = Depends(get_db), fastapi_request: Request | None = None, _rl = Depends(make_rate_limit_dep('login'))):
+def login_user(request: LoginRequest, db: Session = Depends(get_db), fastapi_request: Request = None, _rl = Depends(make_rate_limit_dep('login'))):
     # rate-limit by IP
     client_host = "unknown"
     if fastapi_request and fastapi_request.client:
@@ -233,7 +231,7 @@ class PasswordResetConfirm(BaseModel):
 
 
 @router.post("/password-reset/request")
-def password_reset_request(data: PasswordResetRequest, db: Session = Depends(get_db), fastapi_request: Request | None = None, _rl = Depends(make_rate_limit_dep('password-reset'))):
+def password_reset_request(data: PasswordResetRequest, db: Session = Depends(get_db), fastapi_request: Request = None, _rl = Depends(make_rate_limit_dep('password-reset'))):
     client_ip = "unknown"
     if fastapi_request and fastapi_request.client:
         client_ip = fastapi_request.client.host
@@ -251,7 +249,7 @@ def password_reset_request(data: PasswordResetRequest, db: Session = Depends(get
     if not smtp_host:
         return {"status": "ok", "token": token}
 
-    send_result = auth_service.send_password_reset_email(data.email, token)
+    auth_service.send_password_reset_email(data.email, token)
     return {"status": "ok"}
 
 
