@@ -64,6 +64,43 @@
 
 Это соответствует политике пароля на бэкенде, определённой в `backend/src/services/auth_service.py`.
 
+### Role-Based Access Control (RBAC)
+
+Система поддерживает разделение прав доступа на основе ролей: `user` и `admin`.
+
+#### 1. **Типы пользователей** (`frontend/src/types/user.ts`)
+
+- `UserRole.USER` ('user') — стандартная роль
+- `UserRole.ADMIN` ('admin') — роль с расширенными правами
+
+#### 2. **Контекст аутентификации** (`frontend/src/context/AuthContext.tsx`)
+
+- Декодирует JWT токен для извлечения роли пользователя
+- Предоставляет состояние `user` с полем `role` всему приложению
+- Автоматически обновляет состояние при входе/выходе
+
+#### 3. **Защита маршрутов** (`frontend/src/components/ProtectedRoute.tsx`)
+
+- Поддерживает проп `allowedRoles` (массив разрешенных ролей)
+- Если роль пользователя не в списке разрешенных, происходит редирект на главную страницу
+- Пример использования:
+
+  ```tsx
+  <Route element={<ProtectedRoute allowedRoles={[UserRole.ADMIN]} />}>
+    <Route path="/admin" element={<AdminPage />} />
+  </Route>
+  ```
+
+#### 4. **UI Адаптация**
+
+- Компоненты могут условно рендериться в зависимости от роли:
+
+  ```tsx
+  {user?.role === UserRole.ADMIN && <AdminButton />}
+  ```
+
+- `UserBadge` компонент отображает метку "Admin" для администраторов
+
 ### Использование
 
 1. Запуск dev сервера:
@@ -98,7 +135,13 @@ frontend/src/
 │   └── client.ts        # Axios клиент с перехватчиками
 ├── components/
 │   ├── GoogleLoginButton.tsx
-│   └── LogoutButton.tsx
+│   ├── LogoutButton.tsx
+│   ├── ProtectedRoute.tsx
+│   └── UserBadge.tsx
+├── context/
+│   └── AuthContext.tsx
+├── types/
+│   └── user.ts
 ├── pages/
 │   ├── LoginPage.tsx
 │   ├── RegisterPage.tsx

@@ -3,7 +3,7 @@ import logging
 import time
  
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
 from requests_oauthlib import OAuth2Session
 from dotenv import load_dotenv
@@ -13,6 +13,7 @@ from database import get_db
 from pydantic import BaseModel, EmailStr
 from models.user import User
 from services.auth_service import auth_service, check_password_policy, is_password_pwned
+from tasks.notifications import notify_admins_async
 from fastapi.security import OAuth2PasswordBearer
 from auth import jwt
 import models
@@ -37,6 +38,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user is None:
         raise credentials_exception
     return user
+
+def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return current_user
 
 # Simple in-memory rate limiter per IP for demo / tests
 _rate_limit_storage = {}
@@ -175,7 +184,25 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
 
     # Get or create user and generate JWT
     try:
-        user = auth_service.get_or_create_user(db, user_info=user_info)
+        result = auth_service.get_or_create_user(db, user_info=user_info)
+        # get_or_create_user now returns (user, created)
+        if isinstance(result, tuple):
+            user, created = result
+        else:
+            user, created = result, False
+
+        # If user created just now, mark as pending and do NOT issue JWT yet
+        if created or getattr(user, 'status', 'approved') != 'approved':
+            # Enqueue admin notification for approval (dev-safe fallback exists)
+            try:
+                from tasks.notifications import notify_admins_async
+                notify_admins_async(user.id)
+            except Exception:
+                logger.exception('Failed to notify admins for new OAuth user')
+            # Redirect frontend to login showing pending message
+            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+            return RedirectResponse(url=f"{frontend_url}/login?status=pending")
+
         jwt_token = auth_service.create_jwt_for_user(user)
         logger.info(f"Successfully processed user and generated JWT for user ID: {user.id}")
     except Exception as e:
@@ -211,19 +238,25 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="User with this email already exists")
 
     hashed = auth_service.hash_password(request.password)
-    new_user = User(google_id=None, email=request.email, hashed_password=hashed)
+    # New users are created with status='pending' and must be approved by an admin
+    new_user = User(google_id=None, email=request.email, hashed_password=hashed, status='pending')
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    token = auth_service.create_jwt_for_user(new_user)
+    # Do NOT issue JWT for pending users. Notify admins asynchronously.
+    try:
+        notify_admins_async(new_user.id)
+    except Exception:
+        # Ensure registration does not fail when notification subsystem is not available in dev
+        logger.exception("Failed to enqueue admin notification")
     # Generate verification token and send email (dev-mode returns token)
     verify_token = auth_service.generate_email_verification_token(new_user.email)
     if not os.getenv("SMTP_HOST"):
-        # In dev mode include token in response to make E2E easier
-        return {"access_token": token, "token_type": "bearer", "dev_verification_token": verify_token}
+        # In dev mode return a helpful response for tests (no JWT for pending users)
+        return {"status": "pending", "message": "Account created and awaiting administrator approval", "dev_verification_token": verify_token}
     else:
         auth_service.send_email_verification(new_user.email, verify_token)
-    return {"access_token": token, "token_type": "bearer"}
+    return {"status": "pending", "message": "Account created and awaiting administrator approval"}
 
 
 @router.post("/login")
@@ -265,6 +298,9 @@ async def login_user(fastapi_request: Request, db: Session = Depends(get_db), _r
     user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not user.hashed_password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Block login if the account is not approved
+    if getattr(user, 'status', 'approved') != 'approved':
+        raise HTTPException(status_code=403, detail="Account awaiting approval or rejected by admin")
     if not auth_service.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 

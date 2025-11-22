@@ -1,0 +1,152 @@
+openapi: 3.0.3
+info:
+  title: User Approval — Admin API (spec)
+  version: "1.0.0"
+
+paths:
+  /auth/register:
+    post:
+      summary: Register new user (creates status = pending)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '201':
+          description: Created — user is pending approval
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  email:
+                    type: string
+                  status:
+                    type: string
+                    enum: [pending, approved, rejected]
+                  message:
+                    type: string
+
+  /auth/login:
+    post:
+      summary: Login — blocked if user.status != approved
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: OK — JWT and user info
+        '403':
+          description: Forbidden — user is pending or rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+  /admin/users:
+    get:
+      summary: List users (admin only)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    email:
+                      type: string
+                    status:
+                      type: string
+                      enum: [pending, approved, rejected]
+
+  /admin/users/{user_id}/approve:
+    post:
+      summary: Approve user (admin only)
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [approved]
+
+  /admin/users/{user_id}/reject:
+    post:
+      summary: Reject user (admin only)
+      parameters:
+        - in: path
+          name: user_id
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [rejected]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

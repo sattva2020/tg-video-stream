@@ -104,17 +104,17 @@ def test_google_callback_success(mock_oauth_session, client):
     # 2. Now, hit the callback endpoint with the correct state
     callback_response = client.get(f"/api/auth/google/callback?state={state}&code=fake_code", follow_redirects=False)
 
-    # Assert
+    # Assert — for a newly created OAuth user we expect the app to redirect to login indicating pending
     assert callback_response.status_code == 307
-    # backend redirects to frontend callback URL with token param — accept any URL containing token=
     loc = callback_response.headers.get("location", "")
-    assert "/auth" in loc and "token=" in loc
+    assert "/login" in loc and "status=pending" in loc
 
-    # Verify a user was created in the test DB
+    # Verify a user was created with status == 'pending'
     db = TestingSessionLocal()
     user = db.query(User).filter(User.email == "new.user@example.com").first()
     assert user is not None
     assert user.google_id == "12345"
+    assert getattr(user, 'status', 'approved') == 'pending'
     db.close()
 
 def test_google_callback_state_mismatch(client):
@@ -130,6 +130,33 @@ def test_google_callback_state_mismatch(client):
     # Assert
     assert response.status_code == 307
     assert response.headers["location"] == "/login?error=state_mismatch"
+
+
+def test_google_callback_existing_approved_user_gets_jwt(monkeypatch, client):
+    # Create an approved user with Google ID first
+    db = TestingSessionLocal()
+    u = User(google_id='g-777', email='exists@example.com', status='approved')
+    db.add(u); db.commit(); db.refresh(u)
+    db.close()
+
+    # Make OAuth flow return same user info
+    from unittest.mock import patch
+    with patch('api.auth.OAuth2Session') as mock_oauth_session:
+        mock_instance = mock_oauth_session.return_value
+        mock_instance.fetch_token.return_value = {"access_token": "fake_token"}
+        mock_instance.get.return_value.status_code = 200
+        mock_instance.get.return_value.json.return_value = {"id": "g-777", "email": "exists@example.com", "name": "Existing", "picture": ""}
+
+        login_response = client.get("/api/auth/google", follow_redirects=False)
+        assert login_response.status_code == 307
+
+        state = 'test_state'
+        # Make session state work
+        callback_response = client.get(f"/api/auth/google/callback?state={state}&code=fake_code", follow_redirects=False)
+        # Now the existing approved user should be issued a token and redirected to frontend callback
+        assert callback_response.status_code == 307
+        loc = callback_response.headers.get('location', '')
+        assert '/auth/callback' in loc and 'token=' in loc
 
 def test_logout(client):
     """

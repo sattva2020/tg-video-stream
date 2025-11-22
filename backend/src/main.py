@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 # Import routers (loaded after .env so environment variables are available to modules)
-from api import auth, users, playlist  # noqa: E402
+from api import auth, users, playlist, admin  # noqa: E402
 from database import engine, Base
 
 
@@ -62,6 +62,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
 @app.on_event("startup")

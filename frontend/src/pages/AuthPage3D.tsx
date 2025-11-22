@@ -10,6 +10,7 @@ import GoogleLoginButton from '../components/GoogleLoginButton';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Globe } from 'lucide-react';
 import { z } from 'zod';
+import { useAuth } from '../context/AuthContext';
 
 type AuthMode = 'login' | 'register';
 
@@ -180,13 +181,14 @@ const LoginForm = ({ onSuccess, isLoading, setIsLoading, setErrorMessage, t }: a
     resolver: zodResolver(LoginSchema),
   });
   const [showPassword, setShowPassword] = useState(false);
+  const { login } = useAuth();
 
   const onSubmit = async (data: LoginRequest) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const response = await authApi.login(data);
-      localStorage.setItem('token', response.access_token);
+      await login(response.access_token);
       onSuccess();
     } catch (error: any) {
       if (error.response?.status === 401) {
@@ -260,16 +262,26 @@ const RegisterForm = ({ onSuccess, isLoading, setIsLoading, setErrorMessage, t }
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { login } = useAuth();
 
   const onSubmit = async (data: RegisterFormRequest) => {
     setIsLoading(true);
     setErrorMessage(null);
-    try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...apiData } = data;
-      const response = await authApi.register(apiData);
-      localStorage.setItem('token', response.access_token);
-      onSuccess();
+      try {
+        // Remove confirmPassword before sending to API
+        const { confirmPassword, ...apiData } = data;
+        const response = await authApi.register(apiData);
+        // If backend returns an access_token (dev-mode or special cases) we log in
+        if ((response as any).access_token) {
+          await login((response as any).access_token);
+          onSuccess();
+        } else if ((response as any).status === 'pending') {
+          // User is created but awaiting admin approval — inform user and stop
+          setErrorMessage((response as any).message || t('account_pending'));
+        } else {
+          // Fallback behaviour
+          setErrorMessage(t('registration_failed'));
+        }
     } catch (error: any) {
       if (error.response?.status === 400) {
         setErrorMessage(error.response?.data?.detail || t('email_exists'));

@@ -78,7 +78,7 @@ def send_account_link_email(to: str, token: str):
     return True
 
 class AuthService:
-    def get_or_create_user(self, db: Session, user_info: dict) -> User:
+    def get_or_create_user(self, db: Session, user_info: dict) -> tuple[User, bool]:
         """
         Retrieves a user based on Google ID, or creates a new one if they don't exist.
         Also handles the edge case where the email is already in use.
@@ -103,23 +103,25 @@ class AuthService:
                 detail="An account with this email already exists. Please sign in with your original method.",
             )
 
-        # If user doesn't exist and email is not taken, create a new user
+        # If user doesn't exist and email is not taken, create a new user.
+        # New users created via OAuth should be pending until an admin approves them.
         new_user = User(
             google_id=user_info["id"],
             email=user_info["email"],
             full_name=user_info.get("name"),
             profile_picture_url=user_info.get("picture"),
+            status='pending'
         )
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        return new_user
+        return new_user, True
 
     def create_jwt_for_user(self, user: User) -> str:
         """
         Creates a JWT for a given user object.
         """
-        access_token_data = {"sub": str(user.id)}
+        access_token_data = {"sub": str(user.id), "role": user.role}
         access_token = jwt.create_access_token(data=access_token_data)
         return access_token
 

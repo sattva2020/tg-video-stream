@@ -20,5 +20,6 @@ def read_users_me(current_user: models.user.User = Depends(get_current_user)):
         "email": current_user.email,
         "full_name": current_user.full_name,
         "profile_picture_url": current_user.profile_picture_url,
+        "role": current_user.role,
         "created_at": current_user.created_at,
     }

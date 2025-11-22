@@ -1,5 +1,6 @@
 import { client } from './client';
 import { z } from 'zod';
+import { User } from '../types/user';
 
 // Zod schemas for validation
 export const LoginSchema = z.object({
@@ -53,7 +54,7 @@ export const authApi = {
   },
 
   register: async (data: RegisterRequest) => {
-    const response = await client.post<AuthResponse>('/api/auth/register', data);
+    const response = await client.post('/api/auth/register', data);
     return response.data;
   },
 
@@ -71,8 +72,8 @@ export const authApi = {
     localStorage.removeItem('token');
   },
   
-  getMe: async () => {
-    const response = await client.get('/api/auth/me');
+  getMe: async (): Promise<User> => {
+    const response = await client.get<User>('/api/users/me');
     return response.data;
   }
 };
