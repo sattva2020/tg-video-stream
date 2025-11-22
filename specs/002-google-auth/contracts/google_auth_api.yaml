@@ -1,0 +1,136 @@
+openapi: 3.0.0
+info:
+  title: Google Authentication API
+  version: 1.0.0
+  description: API for user authentication using Google OAuth 2.0.
+
+servers:
+  - url: /api/v1
+    description: Base URL for the API
+
+paths:
+  /auth/google:
+    get:
+      summary: Initiate Google OAuth 2.0 Flow
+      operationId: initiateGoogleAuth
+      tags:
+        - Authentication
+      description: Redirects the user to Google's authentication page to grant access to the application.
+      responses:
+        '302':
+          description: Redirect to Google's OAuth consent screen.
+          headers:
+            Location:
+              description: URL to Google's OAuth consent screen.
+              schema:
+                type: string
+        '500':
+          description: Internal server error.
+
+  /auth/google/callback:
+    get:
+      summary: Handle Google OAuth 2.0 Callback
+      operationId: handleGoogleAuthCallback
+      tags:
+        - Authentication
+      description: Callback endpoint for Google OAuth 2.0. Processes the authorization code, exchanges it for tokens, and logs in/registers the user.
+      parameters:
+        - in: query
+          name: code
+          schema:
+            type: string
+          required: true
+          description: The authorization code received from Google.
+        - in: query
+          name: state
+          schema:
+            type: string
+          required: false
+          description: An opaque value used to maintain state between the request and callback.
+      responses:
+        '200':
+          description: User successfully authenticated. Returns an access token.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: JWT access token for the authenticated user.
+                  token_type:
+                    type: string
+                    description: Type of the token (e.g., "bearer").
+        '400':
+          description: Invalid authorization code or state.
+        '500':
+          description: Internal server error.
+
+  /auth/logout:
+    post:
+      summary: Logout User
+      operationId: logoutUser
+      tags:
+        - Authentication
+      description: Terminates the user's current session.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: User successfully logged out.
+        '401':
+          description: Unauthorized, no active session.
+        '500':
+          description: Internal server error.
+
+  /users/me:
+    get:
+      summary: Get Current User Profile
+      operationId: getCurrentUserProfile
+      tags:
+        - Users
+      description: Retrieves the profile information of the currently authenticated user.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized, no active session.
+        '500':
+          description: Internal server error.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the user.
+        email:
+          type: string
+          format: email
+          description: User's email address.
+        full_name:
+          type: string
+          description: User's full name.
+        profile_picture_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL to the user's profile picture.
+      required:
+        - id
+        - email
+        - full_name

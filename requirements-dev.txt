@@ -1,0 +1,6 @@
+# Development dependencies
+pre-commit
+pytest
+ruff
+black
+isort

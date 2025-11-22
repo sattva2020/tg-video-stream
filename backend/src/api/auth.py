@@ -13,6 +13,30 @@ from database import get_db
 from pydantic import BaseModel, EmailStr
 from models.user import User
 from services.auth_service import auth_service, check_password_policy, is_password_pwned
+from fastapi.security import OAuth2PasswordBearer
+from auth import jwt
+import models
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    payload = jwt.decode_access_token(token)
+    if payload is None:
+        raise credentials_exception
+    
+    user_id: str = payload.get("sub")
+    if user_id is None:
+        raise credentials_exception
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        raise credentials_exception
+    return user
 
 # Simple in-memory rate limiter per IP for demo / tests
 _rate_limit_storage = {}
@@ -75,7 +99,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 
 # This should be the full URL to your backend's callback endpoint
-REDIRECT_URI = "http://localhost:8000/api/auth/google/callback" 
+REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/auth/google/callback") 
 
 # OAuth 2.0 scopes
 SCOPE = [
@@ -159,8 +183,8 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url='/login?error=auth_process_failed')
 
     # Redirect to the frontend callback with the token
-    # Using a URL fragment is common for this pattern
-    frontend_callback_url = f"/auth/google/callback#token={jwt_token}"
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_callback_url = f"{frontend_url}/auth/callback?token={jwt_token}"
     return RedirectResponse(url=frontend_callback_url)
 
 @router.post("/logout")
@@ -203,18 +227,45 @@ def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login_user(request: LoginRequest, db: Session = Depends(get_db), fastapi_request: Request = None, _rl = Depends(make_rate_limit_dep('login'))):
+async def login_user(fastapi_request: Request, db: Session = Depends(get_db), _rl = Depends(make_rate_limit_dep('login'))):
     # rate-limit by IP
     client_host = "unknown"
     if fastapi_request and fastapi_request.client:
         client_host = fastapi_request.client.host
-    if not _check_rate_limit(client_host, 'login'):
-        raise HTTPException(status_code=429, detail="Too many attempts, try again later.")
-    user = db.query(User).filter(User.email == request.email).first()
+    # rate limit is enforced via the dependency _rl (make_rate_limit_dep)
+    # Accept both JSON {email, password} and form-urlencoded OAuth2-style
+    # where clients submit `username`+`password` as form-data. Parse accordingly
+    # to preserve backward compatibility for older clients.
+    content_type = fastapi_request.headers.get('content-type', '')
+    parsed = None
+    try:
+        if 'application/json' in content_type:
+            parsed = await fastapi_request.json()
+        elif 'application/x-www-form-urlencoded' in content_type or 'multipart/form-data' in content_type:
+            form = await fastapi_request.form()
+            # form items behave like a MultiDict; map username->email for legacy clients
+            parsed = { 'email': form.get('username') or form.get('email'), 'password': form.get('password') }
+        else:
+            # try json first, fallback to form
+            try:
+                parsed = await fastapi_request.json()
+            except Exception:
+                form = await fastapi_request.form()
+                parsed = { 'email': form.get('username') or form.get('email'), 'password': form.get('password') }
+    except Exception:
+        raise HTTPException(status_code=422, detail='Invalid request payload')
+
+    # Validate payload shape using Pydantic model
+    try:
+        login_data = LoginRequest.parse_obj(parsed)
+    except Exception:
+        # Let pydantic/fastapi handle shaping errors – return 422
+        raise HTTPException(status_code=422, detail='Invalid login payload')
+
+    user = db.query(User).filter(User.email == login_data.email).first()
     if not user or not user.hashed_password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    if not auth_service.verify_password(request.password, user.hashed_password):
+    if not auth_service.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = auth_service.create_jwt_for_user(user)

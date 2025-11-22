@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from main import app
+import api.auth as api_auth
 from database import Base, get_db
 from models.user import User
 
@@ -44,12 +45,22 @@ def client():
 
 @pytest.fixture(autouse=True)
 def cleanup_data():
-    """Clean up data in tables after each test."""
+    """Clean up data in tables before/after each test."""
+    # Ensure rate limiter storage is clean at test start
+    try:
+        api_auth._rate_limit_storage.clear()
+    except Exception:
+        pass
     yield
     db = TestingSessionLocal()
     db.query(User).delete()
     db.commit()
     db.close()
+    # Reset in-memory rate limit storage between tests to avoid cross-test pollution
+    try:
+        api_auth._rate_limit_storage.clear()
+    except Exception:
+        pass
 
 
 def test_google_login_redirect(client):
@@ -95,7 +106,9 @@ def test_google_callback_success(mock_oauth_session, client):
 
     # Assert
     assert callback_response.status_code == 307
-    assert callback_response.headers["location"].startswith("/auth/google/callback#token=")
+    # backend redirects to frontend callback URL with token param — accept any URL containing token=
+    loc = callback_response.headers.get("location", "")
+    assert "/auth" in loc and "token=" in loc
 
     # Verify a user was created in the test DB
     db = TestingSessionLocal()
@@ -144,6 +157,18 @@ def test_register_and_login_flow(client):
     # Attempt to register again should fail
     resp3 = client.post("/api/auth/register", json=payload)
     assert resp3.status_code == 409
+
+
+def test_login_with_form_urlencoded(client):
+    # Register a new user
+    payload = {"email": "form.user@example.com", "password": "FormPassword123!"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 200
+
+    # Login using form-urlencoded body (username/password) to support legacy clients
+    form_resp = client.post("/api/auth/login", data={"username": payload["email"], "password": payload["password"]})
+    assert form_resp.status_code == 200
+    assert "access_token" in form_resp.json()
 
 
 def test_link_account_flow(client):
@@ -251,6 +276,7 @@ def test_login_rate_limit(client):
     assert resp.status_code == 200
 
     # Attempt more than RATE_LIMIT_MAX times incorrect password
+    # Ensure rate limit storage is empty at start
     max_attempts = int(os.getenv("RATE_LIMIT_MAX", 5))
     for i in range(max_attempts):
         r = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})

@@ -1,0 +1,27 @@
+repos:
+  - repo: local
+    hooks:
+      - id: forbid-env
+        name: Forbid committing .env
+        entry: bash scripts/prevent_commit_env.sh
+        language: script
+        files: '(^|/).env$'
+        stages: [commit]
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        args: ["--line-length=88"]
+        language_version: python3.11
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: ["--profile=black", "--line-length=88"]
+        language_version: python3.11
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.0.261
+    hooks:
+      - id: ruff
+        args: ["--fix", "--line-length=88"]

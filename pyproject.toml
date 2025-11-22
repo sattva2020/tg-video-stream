@@ -1,0 +1,16 @@
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["src", "backend"]
+sections = ["STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.ruff]
+line-length = 88
+exclude = [".venv", "build", "dist", "frontend", "backend/alembic/versions"]
+
+[tool.ruff.lint]
+extend-ignore = ["E203"]
