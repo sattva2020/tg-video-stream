@@ -1,0 +1,115 @@
+openapi: 3.0.1
+info:
+  title: Auth UI Integration
+  version: 0.1.0
+paths:
+  /api/auth/login:
+    post:
+      summary: Password-based login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        '200':
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+        '403':
+          description: Account pending or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '409':
+          description: Conflict (email already registered)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+  /api/auth/register:
+    post:
+      summary: Register new user with password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Registration accepted, status pending
+        '409':
+          description: Conflict (email already registered)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+  /api/users/me:
+    get:
+      summary: Fetch authenticated user profile (used for dashboard greeting + role)
+      responses:
+        '200':
+          description: User object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                    format: email
+                  full_name:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+components:
+  schemas:
+    AuthError:
+      type: object
+      # `code` + `hint` are required. `message` may be returned already localized by the server
+      # when Accept-Language is honored; if the server does not localize responses it MUST return
+      # `message_key` for the frontend client to localize via i18next.
+      required: [code, hint]
+      properties:
+        code:
+          type: string
+          enum: [pending, rejected, conflict, server]
+        message:
+          type: string
+          description: Localized human readable text (optional). If present, server has localized the text.
+        message_key:
+          type: string
+          description: Message key for client-side localization (e.g. "auth.email_registered"); used when server does not localize.
+        hint:
+          type: string
+          description: Action hint for the user (required)
