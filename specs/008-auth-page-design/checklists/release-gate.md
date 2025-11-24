@@ -13,18 +13,18 @@
 - [x] CHK003 FR-008 + контракт auth-ui.yaml + задачи T007/T023a/T026 фиксируют API и pytest.
 - [x] CHK004 Edge cases EC-001..004 расписаны, задачи T017a/T019/T020/T032/T032 покрывают их.
 
-## Requirement Clarity
 
 - [x] CHK005 Spec/plan используют конкретные шрифты/цвета (LandingSans/Serif, ink/parchment) без субъективных оценок.
 - [x] CHK006 SC-005 задаёт <200 мс и сохранение в localStorage, а Tasks T028/T030/T032 описывают методику замера.
 - [x] CHK007 SC-004 и T017/T017a фиксируют ширины 320/280px и отсутствие горизонтального скролла.
-- [x] CHK008 Контракт AuthError определяет required code/message и enum значений + описание hint.
+## Requirement Clarity
+- [x] CHK008 Контракт AuthError определяет обязательные `code` и `hint`, а также допускает либо `message` (локализованный текст), либо `message_key` (ключ локализации) — это согласовано с планом и задачами.
 
 ## Requirement Consistency
 
 - [x] CHK009 Spec FR-006/FR-007 и Tasks Phase 6 теперь согласованы (ThemeToggle только в US4).
 - [x] CHK010 US2/SC-003 + Tasks Phase 4 (T017–T021) и Lighthouse цели в Plan §Technical Context синхронизированы.
-- [x] CHK011 FR-008/US3 описывают code/message/hint ровно так же, как контракт/задачи T023a/T026.
+- [x] CHK011 FR-008/US3 описывают `code`/`hint` и опционально `message` или `message_key`, согласуясь с контрактом/задачами T023a/T026.
 
 ## Acceptance Criteria Quality
 

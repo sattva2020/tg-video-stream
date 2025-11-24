@@ -96,9 +96,9 @@ description: "Детализированный план задач для фич
 
 ### Tests (US3)
 
-- [ ] T022 [P] [US3] Добавить Vitest тесты `frontend/tests/vitest/error-toast.spec.tsx`, проверяющие состояния `conflict`, `pending`, `server`.
-- [ ] T023 [P] [US3] Расширить `frontend/tests/playwright/auth-page.spec.ts`, замокав `/api/auth/register` (409) и `/api/auth/login` (403), чтобы проверять цвета/иконки сообщений.
-- [ ] T023a [US3] Добавить pytest-модуль `backend/tests/test_auth_errors.py`, который вызывает `/api/auth/login|register` и `/api/users/me`, проверяя наличие `code` и `hint` в ответах 403/409 и соответствие enum `AuthError`. Тест должен также проверять, что либо присутствует локализованное `message`, либо `message_key` для клиентской локализации.
+- [x] T022 [P] [US3] Добавить Vitest тесты `frontend/tests/vitest/error-toast.spec.tsx`, проверяющие состояния `conflict`, `pending`, `server`. (реализовано: `frontend/tests/vitest/error-toast.spec.tsx`)
+- [x] T023 [P] [US3] Расширить `frontend/tests/playwright/auth-page.spec.ts`, замокав `/api/auth/register` (409) и `/api/auth/login` (403), чтобы проверять цвета/иконки сообщений. (реализовано: `frontend/tests/playwright/auth-page.spec.ts`)
+- [x] T023a [US3] Добавить pytest-модуль `backend/tests/test_auth_errors.py`, который вызывает `/api/auth/login|register` и `/api/users/me`, проверяя наличие `code` и `hint` в ответах 403/409 и соответствие enum `AuthError`. Тест должен также проверять, что либо присутствует локализованное `message`, либо `message_key` для клиентской локализации. (реализовано)
 
 ### Implementation (US3)
 
