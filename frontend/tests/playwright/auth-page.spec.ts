@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Locator } from '@playwright/test';
 
 test.describe('Auth Page - errors', () => {
   test('register shows localized message when backend returns message_key (409)', async ({ page }) => {
@@ -88,7 +88,7 @@ test.describe('Auth Page - errors', () => {
     expect(banner).toBeTruthy();
   });
 });
-import { test, expect, type Page, type Locator } from '@playwright/test';
+// consolidated imports above
 
 const AUTH_ROUTE = '/auth';
 
