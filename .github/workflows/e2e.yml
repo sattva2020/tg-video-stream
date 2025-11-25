@@ -5,6 +5,8 @@ on:
     branches: [ 001-modern-home-design, main ]
   pull_request:
     branches: [ main ]
+  # allow manual runs to test feature branches or manually re-run the suite
+  workflow_dispatch: {}
 
 jobs:
   test:

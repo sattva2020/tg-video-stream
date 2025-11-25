@@ -5,6 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  # allow manual dispatch for branches (useful when running CI for feature branches)
+  workflow_dispatch: {}
 
 jobs:
   backend-test:
