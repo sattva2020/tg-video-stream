@@ -64,3 +64,14 @@ jobs:
         working-directory: frontend
         run: |
           npx playwright test tests/e2e --project=chromium --workers=1 --reporter=list
+
+      - name: Collect Playwright report
+        run: |
+          mkdir -p .internal/frontend-logs/playwright/${{ github.run_id }}
+          if [ -d frontend/playwright-report ]; then cp -r frontend/playwright-report .internal/frontend-logs/playwright/${{ github.run_id }}; fi
+
+      - name: Upload frontend Playwright artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-playwright-${{ github.run_id }}
+          path: .internal/frontend-logs/playwright/${{ github.run_id }}
