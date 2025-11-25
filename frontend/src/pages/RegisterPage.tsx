@@ -21,7 +21,8 @@ const RegisterPage: React.FC = () => {
   });
 
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
+    const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    window.location.href = `${API_URL}/api/auth/google`;
   };
 
   const onSubmit = async (data: RegisterRequest) => {
@@ -30,11 +31,23 @@ const RegisterPage: React.FC = () => {
     setSuccessMessage(null);
     try {
       const response = await authApi.register(data);
-      localStorage.setItem('token', response.access_token);
-      setSuccessMessage('Registration successful! Redirecting to dashboard...');
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
+      
+      if (response.status === 'pending') {
+        setSuccessMessage('Registration successful! Your account is awaiting administrator approval. You will be notified once approved.');
+        // Do not redirect immediately, let the user read the message
+      } else if (response.access_token) {
+        localStorage.setItem('token', response.access_token);
+        setSuccessMessage('Registration successful! Redirecting to dashboard...');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
+      } else {
+        // Fallback for unexpected response
+        setSuccessMessage('Registration successful! Please log in.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      }
     } catch (error: any) {
       console.error('Registration failed:', error);
       if (error.response?.status === 400) {

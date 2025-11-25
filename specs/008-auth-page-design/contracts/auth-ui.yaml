@@ -96,20 +96,50 @@ components:
   schemas:
     AuthError:
       type: object
-      # `code` + `hint` are required. `message` may be returned already localized by the server
-      # when Accept-Language is honored; if the server does not localize responses it MUST return
-      # `message_key` for the frontend client to localize via i18next.
+      description: >-
+        Structured error returned by auth endpoints for 403/409 responses.
+        `code` and `hint` are required.
+        Exactly one of `message` (server-localized text) or `message_key` (client-resolvable key)
+        MUST be present according to the following rule:
+
+        - If the client sends `Accept-Language` and the server supports/has a translation for
+          that language, server SHOULD return `message` (localized text). It MAY also include
+          `message_key` but `message` is authoritative for display.
+        - If server does not localize for the requested language, it MUST return `message_key`.
+
       required: [code, hint]
       properties:
         code:
           type: string
           enum: [pending, rejected, conflict, server]
-        message:
-          type: string
-          description: Localized human readable text (optional). If present, server has localized the text.
-        message_key:
-          type: string
-          description: Message key for client-side localization (e.g. "auth.email_registered"); used when server does not localize.
         hint:
           type: string
-          description: Action hint for the user (required)
+          description: Action hint for the engineer/tester (short, technical instruction)
+        message:
+          type: string
+          description: >-
+            Localized human readable text (server-provided). Returned when server honored
+            Accept-Language and had a translation for that locale. If present, frontend
+            MUST display this value and SHOULD NOT re-localize it.
+        message_key:
+          type: string
+          description: >-
+            Message key for client-side localization (e.g. "auth.email_registered").
+            Returned when server did not localize the text for the client's language.
+          pattern: '^[a-z0-9_]+(\.[a-z0-9_]+)*$'
+      anyOf:
+        - required: [message]
+        - required: [message_key]
+      examples:
+        conflict_with_key:
+          summary: Returns a message_key when not localized
+          value:
+            code: "conflict"
+            hint: "email already registered"
+            message_key: "auth.email_registered"
+        conflict_with_message:
+          summary: Server returned localized message
+          value:
+            code: "conflict"
+            hint: "email already registered"
+            message: "Этот адрес электронной почты уже зарегистрирован"

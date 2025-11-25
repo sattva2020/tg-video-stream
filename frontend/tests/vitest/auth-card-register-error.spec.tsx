@@ -12,14 +12,19 @@ vi.mock('../../src/lib/api/authClient', () => {
 });
 
 import AuthCard from '../../src/components/auth/AuthCard';
+import { AuthProvider } from '../../src/context/AuthContext';
 
 describe('AuthCard register error handling', () => {
   it('displays server error banner when register fails with auth error', async () => {
-    render(<AuthCard mode="register" onModeChange={() => {}} />);
+    render(
+      <AuthProvider>
+        <AuthCard mode="register" onModeChange={() => {}} />
+      </AuthProvider>
+    );
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'exist@example.com' } });
-    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'ValidPass123!' } });
-    fireEvent.change(screen.getByLabelText(/confirm_password/i), { target: { value: 'ValidPass123!' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'ValidPass123!' } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'ValidPass123!' } });
 
     fireEvent.click(screen.getByTestId('auth-primary-action'));
 

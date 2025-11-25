@@ -19,6 +19,23 @@ def test_register_conflict_returns_structured_error(client, db_session):
     assert ('message' in payload) or ('message_key' in payload)
 
 
+def test_register_conflict_returns_localized_message_when_accept_language_ru(client, db_session):
+    # create existing user
+    from models.user import User
+    from services.auth_service import auth_service
+
+    u = User(email='exist2@example.com', hashed_password=auth_service.hash_password('ValidPass123!'), status='approved')
+    db_session.add(u)
+    db_session.commit()
+
+    resp = client.post('/api/auth/register', json={'email': 'exist2@example.com', 'password': 'ValidPass123!'}, headers={'accept-language': 'ru'})
+    assert resp.status_code == 409
+    payload = resp.json()
+    assert 'code' in payload and payload['code'] == 'conflict'
+    # when Accept-Language: ru server should return localized `message`
+    assert 'message' in payload and isinstance(payload['message'], str)
+
+
 def test_register_google_conflict_returns_link_required(client, db_session):
     from models.user import User
 
@@ -50,3 +67,21 @@ def test_login_pending_returns_structured_403(client, db_session):
     assert payload.get('code') == 'pending'
     assert payload.get('hint') == 'contact_admin'
     assert ('message' in payload) or ('message_key' in payload)
+
+
+def test_login_pending_returns_localized_message_when_accept_language_ru(client, db_session):
+    from models.user import User
+    from services.auth_service import auth_service
+
+    pwd = 'ValidPass123!'
+    u = User(email='pending2@example.com', hashed_password=auth_service.hash_password(pwd), status='pending')
+    db_session.add(u)
+    db_session.commit()
+
+    resp = client.post('/api/auth/login', json={'email': 'pending2@example.com', 'password': pwd}, headers={'accept-language': 'ru'})
+    assert resp.status_code == 403
+    payload = resp.json()
+    assert payload.get('code') == 'pending'
+    assert payload.get('hint') == 'contact_admin'
+    # Expect server to return localized message when Accept-Language requests ru
+    assert 'message' in payload and isinstance(payload['message'], str)

@@ -33,6 +33,33 @@ test.describe('Auth Page - errors', () => {
     expect(banner).toBeTruthy();
   });
 
+  test('register shows server-provided localized message (409)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector('[data-testid="auth-card"]');
+
+    await page.route('**/api/auth/register', route => {
+      route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({ code: 'conflict', message: 'Этот адрес занят (server)', hint: 'email_exists' }),
+      });
+    });
+
+    if (await page.$('input#register-email')) {
+      // already in register mode
+    } else {
+      await page.click('text=Register');
+    }
+
+    await page.fill('input#register-email', 'exist2@example.com');
+    await page.fill('input#register-password', 'ValidPass123!');
+    await page.fill('input#register-confirm-password', 'ValidPass123!');
+    await page.click('[data-testid="auth-primary-action"]');
+
+    const banner = await page.waitForSelector('div[data-testid="auth-card"] >> text=Этот адрес занят (server)');
+    expect(banner).toBeTruthy();
+  });
+
   test('login shows localized message when backend returns pending (403)', async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('[data-testid="auth-card"]');

@@ -11,6 +11,14 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
-    minify: false
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          i18n: ['i18next', 'react-i18next'],
+        },
+      },
+    },
   }
 })

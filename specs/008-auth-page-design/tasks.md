@@ -98,14 +98,18 @@ description: "Детализированный план задач для фич
 
 - [x] T022 [P] [US3] Добавить Vitest тесты `frontend/tests/vitest/error-toast.spec.tsx`, проверяющие состояния `conflict`, `pending`, `server`. (реализовано: `frontend/tests/vitest/error-toast.spec.tsx`)
 - [x] T023 [P] [US3] Расширить `frontend/tests/playwright/auth-page.spec.ts`, замокав `/api/auth/register` (409) и `/api/auth/login` (403), чтобы проверять цвета/иконки сообщений. (реализовано: `frontend/tests/playwright/auth-page.spec.ts`)
-- [x] T023a [US3] Добавить pytest-модуль `backend/tests/test_auth_errors.py`, который вызывает `/api/auth/login|register` и `/api/users/me`, проверяя наличие `code` и `hint` в ответах 403/409 и соответствие enum `AuthError`. Тест должен также проверять, что либо присутствует локализованное `message`, либо `message_key` для клиентской локализации. (реализовано)
+- [x] T023a [US3] Добавить pytest-модуль `backend/tests/test_auth_errors.py`, который вызывает `/api/auth/login|register` и `/api/users/me`, проверяя наличие `code` и `hint` в ответах 403/409 и соответствие enum `AuthError`. Тест должен покрывать следующие сценарии: (a) клиент присылает `Accept-Language: ru` и сервер возвращает `message` (локализованный текст) — assert `message` присутствует; (b) сервер не поддерживает локализацию и возвращает `message_key` — assert `message_key` присутствует; (c) проверить, что поведение соответствует контракту `contracts/auth-ui.yaml` (anyOf: `message` or `message_key`). (реализовано)
 
 ### Implementation (US3)
 
-- [ ] T024 [P] [US3] Создать `frontend/src/components/auth/ErrorToast.tsx` (Hero UI Toast + Magic UI Alert) с поддержкой светлой/тёмной темы.
-- [ ] T025 [US3] Реализовать `frontend/src/services/authService.ts`, который преобразует ответы `authClient` в `AuthFormState.error` (code/message/hint/severity) и подключить к форме.
-- [ ] T026 [US3] Обновить `backend/src/api/auth.py` и контракт `contracts/auth-ui.yaml`: 403/409 ответы ДОЛЖНЫ содержать обязательное поле `code` и `hint`; поле `message` может быть возвращено уже локализованным если сервер поддерживает `Accept-Language`. Если сервер не локализует сообщения, он обязан возвращать `message_key` (например, `auth.email_registered`) — фронтенд использует `message_key` + i18next для отображения локализованного текста. Синхронизировать и покрыть pytest (T023a).
-- [ ] T027 [US3] Дополнить `docs/auth-page-ui.md` разделом «Статусы и ошибки» с примерами сообщений и рекомендациями локализации.
+ - [x] T024 [P] [US3] Создать `frontend/src/components/auth/ErrorToast.tsx` (Hero UI Toast + Magic UI Alert) с поддержкой светлой/тёмной темы. ✅ реализовано
+    - Тесты (обязательно):
+        - Vitest unit: компонент корректно отображает `message` и `message_key` (тесты с заглушкой i18next).
+        - Playwright e2e: сценарий, где stub сервера возвращает `message_key` — UI должен показать перевод (ru).
+ - [x] T025 [US3] Реализовать `frontend/src/services/authService.ts`, который преобразует ответы `authClient` в `AuthFormState.error` (code/message/hint/severity) и подключить к форме. ✅ реализовано
+    - Тесты (обязательно): unit & integration — проверять поведение при `message` (использовать напрямую) и при `message_key` (резолв через i18next stub). Playwright: сценарий, где сервер возвращает `message` — UI показывает этот текст.
+ - [x] T026 [US3] Обновить `backend/src/api/auth.py` и контракт `contracts/auth-ui.yaml` (синхронизовано): 403/409 ответы ДОЛЖНЫ содержать обязательные `code` и `hint`. Поведение локализации: если присутствует `Accept-Language` и сервер может локализовать — вернуть `message` (локализованный текст). Если сервер не локализует или не поддерживает язык — вернуть `message_key`. Pytest (T023a) должен покрыть оба варианта и проверять соответствие контракту (anyOf). Обновить `docs/auth-page-ui.md` примерами ответов. ✅ реализовано
+- [x] T027 [US3] Дополнить `docs/auth-page-ui.md` разделом «Статусы и ошибки» с примерами сообщений и рекомендациями локализации. ✅ реализовано
 
 **Checkpoint**: после T022–T027 ошибки оформлены и соответствуют требованиям FR-001..FR-005 + SC-001..SC-004.
 

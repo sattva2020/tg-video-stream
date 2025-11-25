@@ -32,22 +32,6 @@ export type LanguageOption = {
   isDefault?: boolean;
 };
 
-export type VisualSupportMode = 'webgl' | 'poster' | 'gradient';
-
-export type VisualAsset = {
-  type: VisualSupportMode;
-  source: string;
-  enabled: boolean;
-  intensity?: number;
-  fallbackColor?: string;
-};
-
-export type VisualSupportState = {
-  mode: VisualSupportMode;
-  prefersReducedMotion: boolean;
-  fallbackReason?: 'no-webgl' | 'reduced-motion' | 'timeout';
-};
-
 export type LandingSectionProps = {
   hero: ReactNode;
   nav?: ReactNode;
