@@ -1,5 +1,4 @@
 import i18next from '../i18n';
-import type { AuthClientError } from '../lib/api/authClient';
 
 export interface AuthFormError {
   code: string;

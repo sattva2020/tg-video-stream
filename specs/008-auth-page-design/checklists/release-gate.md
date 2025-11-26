@@ -49,6 +49,22 @@
 ## Non-Functional Requirements
  - [x] CHK022 T003/T034 и плановый гейт III обязывают хранить логи в `.internal/frontend-logs/` (публичные артефакты — `frontend/logs/` только по согласованию).
 
+## Performance / Lighthouse reports (feature 008-auth-page-localization-logs)
+
+- [x] CHK030 Lighthouse / TTI reports добавлены для `008-auth-page-localization-logs` — отчёты сохранены в `.internal/frontend-logs/perf/2025-11-26T13-56-09-047Z` (файлы: `baseline.report.json`, `baseline.report.html`, `error.report.json`, `error.report.html`, `summary.json`, `summary.md`).
+
+	* Run ID: 2025-11-26T13-56-09-047Z
+	* Baseline TTI: 70015.93 ms (baseline.report.json)
+	* Error TTI: 69824.93 ms (error.report.json)
+	* ΔTTI: -190.99 ms
+
+	Примечание: оба значения TTI значительно превышают целевой `TTI ≤ 2000 ms` — это указывает на то, что в локальной dev-сборке (или текущей конфигурации среды) Lighthouse видит долгие загрузки. Следующие варианты действий:
+		- прогнать скрипт в CI (hosted runner) с полным сборкой и headless Chrome (предпочтительно), чтобы получить стабильные данные;
+		- оптимизировать bundle/критические ресурсы страницы auth (lazy load, сокращение трёхмерных сцен) и повторно запустить измерения;
+		- временно поднять порог для baseline при investigation, если тестовая среда неподходит для стабильных LH метрик.
+
+	Следующий шаг: прикрепить результаты в release-gate и указать план оптимизации/снижения TTI в `OUTSTANDING_TASKS_REPORT.md` (см. T4003).
+
 ## Dependencies & Assumptions
 
 - [x] CHK023 План §Technical Context и T001 перечисляют все новые пакеты и их назначение.

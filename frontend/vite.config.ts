@@ -17,6 +17,7 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           i18n: ['i18next', 'react-i18next'],
+          'three-vendor': ['three', '@react-three/fiber', '@react-three/drei']
         },
       },
     },

@@ -1,0 +1,31 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - banner [ref=e5]:
+    - navigation "Навигация лендинга" [ref=e7]:
+      - generic [ref=e8]:
+        - generic [ref=e9]: SATTVA STREAMER
+        - button "Change landing language" [ref=e11] [cursor=pointer]:
+          - generic [ref=e12]: English
+          - generic "Auto" [ref=e13]
+          - img [ref=e14]
+      - link "Enter" [ref=e16] [cursor=pointer]:
+        - /url: /login
+  - main [ref=e17]:
+    - region "Always-on streaming from your curated YouTube playlists" [ref=e19]:
+      - generic [ref=e20]:
+        - paragraph [ref=e21]: Telegram 24/7 Video Streamer
+        - heading "Always-on streaming from your curated YouTube playlists" [level=1] [ref=e22]
+        - paragraph [ref=e23]: Launch immersive broadcasts inside Telegram without baby-sitting OBS or hardware.
+      - list "Key benefits" [ref=e24]:
+        - listitem [ref=e25]:
+          - paragraph [ref=e26]: Instant switching without lag
+          - paragraph [ref=e27]: <100 ms latency
+        - listitem [ref=e28]:
+          - paragraph [ref=e29]: Automated 24/7 uptime
+          - paragraph [ref=e30]: 365 days live
+        - listitem [ref=e31]:
+          - paragraph [ref=e32]: Managed playlist ingestion
+          - paragraph [ref=e33]: 50+ videos rotating
+```

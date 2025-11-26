@@ -169,7 +169,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
           <ErrorToast message={banner.message} data-testid="auth-error-toast" tone="error" />
         ) : banner ? (
           <Chip
-            color={banner.tone === 'success' ? 'success' : 'info'}
+            color={banner.tone === 'success' ? 'success' : 'default'}
             variant="bordered"
             className="justify-start border-0 bg-white/10 px-4 py-3 text-sm font-medium text-white"
             aria-live="polite"

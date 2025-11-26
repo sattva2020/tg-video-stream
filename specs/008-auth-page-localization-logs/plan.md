@@ -1,114 +1,86 @@
-# Implementation Plan: [FEATURE]
+---
+title: "Plan — auth page localization + frontend logs"
+---
 
-**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
-**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+# План реализации: локализация ошибок авторизации + сбор артефактов
 
-**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
+Кратко: план описывает архитектурные решения, фазы разработки, критерии качества и CI-гейт
+для фичи `008-auth-page-localization-logs`.
 
-## Summary
+## Технический контекст
 
-[Extract from feature spec: primary requirement + technical approach from research]
+- Backend: FastAPI — возвращает `AuthError` по контракту (см. spec.md). Контракт оставляет за сервером право
+  вернуть `message` или `message_key`.
+- Frontend: React + TypeScript + i18next для локализации. Клиент разрешает `message` (server-rendered) и `message_key`.
+- Testing: Vitest (unit/smoke), Playwright (e2e); CI GitHub Actions — сохранять Playwright отчёты в `.internal/frontend-logs`.
 
-## Technical Context
+### Минимальные изменения CI / окружения
 
-<!--
-  ACTION REQUIRED: Replace the content in this section with the technical details
-  for the project. The structure here is presented in advisory capacity to guide
-  the iteration process.
--->
+- E2E workflow: гарантировать `workflow_dispatch` для ручного запуска по feature веткам.
+- Node engine в CI должен быть выбран как Node 20 LTS; установка `unixodbc-dev g++ libpq-dev` выполняется **до** `npm ci`, чтобы odbc собирался детерминированно.
+- Playwright: сохранить HTML/trace/screenshots в папке `.internal/frontend-logs/playwright/${{ github.run_id }}` и загрузить как артефакт в течение ≤2 мин после завершения тестов; архивы ≤50 МБ.
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
-**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
-**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
+## Фазы реализации (high-level)
 
-## Constitution Check
+Phase 1: Spec & Plan (done)
+- Обновить spec.md, plan.md, tasks.md — первый checkpoint
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+Phase 2: Foundational (blocking)
+- T0001–T0003: Настройка окружения, lint, formatting, CI-артефактов
+- Обновить .github/workflows/e2e.yml для сохранения отчётов
 
-1. **SSoT подтверждён (Принцип I)** — спецификация на русском с независимыми user stories,
-  измеримыми критериями успеха и ссылками на связанные документы.
-2. **Структура репозитория соблюдена (Принцип II)** — артефакты фичи создаются только в
-  `specs/[###-feature]/`, временные файлы указываются в `.internal/`, тесты планируются в
-  `tests/`.
-3. **Тесты и наблюдаемость спланированы (Принцип III)** — описаны конкретные pytest,
-  Playwright/Vitest, smoke или мониторинговые задачи, которые будут добавлены до кода.
-4. **Документация и локализация покрыты (Принцип IV)** — план фиксирует, какие файлы в `docs/`
-  или `ai-instructions/` обновятся и какие команды `npm run docs:*` будут выполнены.
-5. **Секреты и окружения учтены (Принцип V)** — новые переменные добавляются в `template.env`,
-  процесс генерации `.env` описан, исключена утечка секретов.
+Phase 3: User stories implementation
+- US1 — Localized auth error display (T1001–T1007)
+- US2 — Client-side message_key handling + translation coverage (T2001–T2004)
+- US3 — CI & diagnostics: Vitest smoke + Playwright artifact uploads (T3001–T3004)
 
-## Project Structure
+Phase 4: Polish & Release gate
+- Lighthouse/TTI checks (T4001–T4004), store reports в `.internal/frontend-logs`, update docs/quickstart (T4001–T4003)
 
-### Documentation (this feature)
+## Data model & contracts
 
-```text
-specs/[###-feature]/
-├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
-└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
-```
+- Data-model: User.status / role — план и тесты предполагают наличие семян/фикстур для `pending`, `rejected`, `conflict`.
+- Контракт: `AuthError` — код и hint обязательны; либо message (server-side) либо message_key (client-side i18n).
 
-### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
+## QA / tests / pipelines
 
-```text
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
+- Unit & smoke tests:
+  - Vitest smoke: `frontend/tests/vitest/i18n-keys.spec.ts` — проверка наличия ключей и соответствия UI, время выполнения ≤5 с, логи ≤1 МБ.
+  - Pytest contract tests (backend) — проверки возвращаемых полей AuthError, p95 < 10 с на CI runner.
 
-tests/
-├── contract/
-├── integration/
-└── unit/
+- E2E:
+  - Playwright сценарии регистрации/логина, в которых backend возвращает конфликты (stub/mock responses) и проверяет `message_key` → UI; прогон ≤6 мин.
+  - Сбор отчётов и загрузка в `.internal/frontend-logs/playwright/${{ github.run_id }}` + публикация trace ссылок в summary.
+- Performance:
+  - Lighthouse mobile прогон через `tests/perf/auth-error-tti.mjs` (запускает Playwright setup, затем Lighthouse). Скрипт сравнивает чистый auth экран и forced-error состояние, валидируя `TTI ≤ 2 с` и `ΔTTI ≤ 100 мс`, а результаты (JSON + HTML) архивируются в `.internal/frontend-logs/perf/${{ github.run_id }}` (покрывается задачей T4004).
 
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
+## Rollout and CI gating
 
-frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
+- Главные acceptance-gates:
+  - Vitest smoke green (≤5 с, стабильность 99%)
+  - Backend pytest green (контрактные тесты <10 с)
+  - Playwright e2e green + artefact upload ≤2 мин после завершения
+  - Lighthouse/TTI: TTI на auth странице ≤2 с на профиле 4G/CPU 4×, ΔTTI ≤ 100 мс при показе ошибки; отчёты из `tests/perf/auth-error-tti.mjs` прилагаются к release gate
 
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
+## Risks & mitigation
 
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
-```
+- Risk: CI uses Node 18 by default — many frontend dependencies (vitest, vite, jsdom) require Node >= 20. Mitigation: set node-version: '20' in workflows for frontend jobs.
+- Risk: Native modules during `npm ci` (odbc) cause install failures on hosted runner. Mitigation: add `npm ci --ignore-scripts` for jobs that don't need native modules or remove optional deps from frontend package.json; prefer using lightweight mock libs for tests.
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+## Документация и процессы
 
-## Complexity Tracking
+- Обновить `docs/auth-page-ui.md`, `docs/test-cases.md`, `docs/development/frontend-auth-implementation.md` и новый раздел `docs/development/frontend-l10n.md` — описать схему `AuthError`, артефакты и TTI/Playwright измерения.
+- Перед PR запускать `npm run docs:validate && npm run docs:report`, сохранять логи в `.internal/docs-logs/${timestamp}` и ссылаться на них в release gate.
+- Результаты smoke/e2e тестов прикладывать в `specs/008-auth-page-design/checklists/release-gate.md` (раздел "008-auth-page-localization-logs"), чтобы гейт видел фактические метрики.
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+## Deliverables
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+- `spec.md` (this feature) — ✅
+- `plan.md` (this file) — ✅
+- Tests: `frontend/tests/vitest/i18n-keys.spec.ts` — already present
+- CI: `.github/workflows/e2e.yml` updated to upload Playwright reports — already present
+- Perf tooling: `tests/perf/auth-error-tti.mjs` — добавляется в рамках T4004 для NFR-001
+
+---
+
+Дата: 2025-11-26

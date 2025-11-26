@@ -1,255 +1,67 @@
 ---
-
-description: "Task list template for feature implementation"
+title: "Tasks — auth page localization + frontend logs"
 ---
 
-# Tasks: [FEATURE NAME]
+# Tasks: 008-auth-page-localization-logs
 
-**Input**: Design documents from `/specs/[###-feature-name]/`
-**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+**Источник**: `specs/008-auth-page-localization-logs/spec.md`, `plan.md`.  
+**Трекинг**: Пользовательские истории US1–US3, требования FR-001..FR-005, NFR-001..NFR-003.  
+**Логи**: Все тестовые артефакты Playwright/Vitest складываем в `.internal/frontend-logs/` (директория уже в `.gitignore`). Публичные артефакты (`frontend/logs/`) публикуем только по согласованию.
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+## Формат записей
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+`- [ ] TXXXX (P?, USn) Краткое описание (файл/директория) — ссылка на FR/SC.`
 
-## Format: `[ID] [P?] [Story] Description`
+## Phase 0 — Shared prerequisites (Blocking)
 
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
-- Include exact file paths in descriptions
+- [ ] T0001 (Foundation) Синхронизировать `.github/workflows/ci.yml` (job `frontend-test`) и `.github/workflows/e2e.yml` на Node 20, добавить установку `unixodbc-dev g++ libpq-dev` **до** `npm ci`, гарантировать копирование Playwright отчётов в `.internal/frontend-logs/playwright/${{ github.run_id }}` (FR-003, NFR-002, US3).
+- [ ] T0002 (Foundation) Обновить `docs/test-cases.md` и `docs/development/frontend-auth-implementation.md`, добавив процедуру воспроизведения локализованных ошибок и ссылку на скачивание артефактов из `.internal/frontend-logs` (US1, US3, Принцип IV).
+- [ ] T0003 (P, Foundation) Создать `tests/smoke/frontend/i18n-smoke.sh`, который запускает `npm run test:unit && npx playwright test tests/e2e/auth-errors.spec.ts --workers=1`, выгружает отчёты в `.internal/frontend-logs/smoke/${timestamp}` и документирует запуск в `tests/README.md` (US3, NFR-002).
 
-> ⚖️ Конституция: для каждой пользовательской истории фиксируйте связанные тесты в `tests/`
-> и необходимые обновления документации (`docs/`, `ai-instructions/`). Задачи по работе с
-> окружением обязаны ссылаться на `template.env`, а временные файлы направлять в `.internal/`.
+## Phase 1 — US1 (P1) Локализованное отображение ошибок
 
-## Path Conventions
+**Цель**: Клиент всегда показывает человекочитаемое сообщение при 403/409/500 согласно FR-001..FR-004.
 
-- **Single project**: `src/`, `tests/` at repository root
-- **Web app**: `backend/src/`, `frontend/src/`
-- **Mobile**: `api/src/`, `ios/src/` or `android/src/`
-- Paths shown below assume single project - adjust based on plan.md structure
+### Tests first
 
-<!-- 
-  ============================================================================
-  IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
-  
-  The /speckit.tasks command MUST replace these with actual tasks based on:
-  - User stories from spec.md (with their priorities P1, P2, P3...)
-  - Feature requirements from plan.md
-  - Entities from data-model.md
-  - Endpoints from contracts/
-  
-  Tasks MUST be organized by user story so each story can be:
-  - Implemented independently
-  - Tested independently
-  - Delivered as an MVP increment
-  
-  DO NOT keep these sample tasks in the generated tasks.md file.
-  ============================================================================
--->
+- [ ] T1001 (P, US1) Добавить контрактный pytest `backend/tests/test_auth_error_contract.py`, который проверяет, что объект `AuthError` содержит `code`, `hint` и один из `message/message_key`, плюс fallback `auth.server_error` (FR-001..FR-003, AC-1).
+- [ ] T1002 (P, US1) Расширить `frontend/tests/vitest/i18n-keys.spec.ts`, чтобы ключи подтягивались из `specs/008-auth-page-localization-logs/spec.md` (парсинг Markdown) и сравнивались с i18n ресурсами — исключаем расхождения при добавлении новых переводов (FR-004, AC-2).
 
-## Phase 1: Setup (Shared Infrastructure)
+### Implementation
 
-**Purpose**: Project initialization and basic structure
+- [ ] T1003 (US1) Выделить `AuthErrorPayload` в `backend/src/models/auth_error.py` + использовать его в `backend/src/api/auth.py` для типизации `detail` и централизованного fallback (FR-001..FR-003, EC-1/EC-2).
+- [ ] T1004 (US1) Обновить `backend/src/services/auth_service.py` и `backend/src/api/auth.py`, чтобы ответы `/register` и `/login` всегда возвращали `message_key`, даже когда сервер уже сгенерировал `message`, и логировали несоответствия (NFR-001 observability).
+- [ ] T1005 (P, US1) Создать/обновить `specs/008-auth-page-localization-logs/contracts/auth-error.yaml` с описанием полей, примеров 403/409/500 и ссылкой на pytest (AC-1).
+- [ ] T1006 (US1) Доработать компонент ошибок (`frontend/src/components/auth/AuthErrorNotice.tsx` + `frontend/src/pages/LoginPage.tsx`/`RegisterPage.tsx`), чтобы он принимал `message_key`, использовал `useTranslation()` и отображал подпись `hint` (FR-003, US1 acceptance).
+- [ ] T1007 (US1) Задокументировать новую схему ошибок в `docs/auth-page-ui.md`, добавив таблицу соответствия `code` ↔ `message_key` (US1, Принцип IV).
 
-- [ ] T001 Create project structure per implementation plan
-- [ ] T002 Initialize [language] project with [framework] dependencies
-- [ ] T003 [P] Configure linting and formatting tools
+## Phase 2 — US2 (P1) Клиентская локализация и устойчивость ключей
 
----
+**Цель**: Клиент хранит выбор языка, умеет fallback и синхронизирован с backend ключами (FR-004, FR-005, EC-1).
 
-## Phase 2: Foundational (Blocking Prerequisites)
+- [ ] T2001 (P, US2) В `frontend/src/i18n/index.ts` добавить типобезопасный список поддерживаемых языков, включить сохранение выбора в `localStorage` (опции `i18next-browser-languagedetector`), описать границы в `docs/development/frontend-auth-implementation.md` (FR-004).
+- [ ] T2002 (US2) Расширить `frontend/src/services/authService.ts` и `frontend/src/lib/api/authClient.ts`, чтобы fallback цепочка выглядела `message → resolved message_key → generic auth.server_error`, плюс логирование пропусков в `.internal/frontend-logs/frontend-errors.log` (EC-1, EC-2).
+- [ ] T2003 (US2) Добавить Vitest `frontend/tests/vitest/localization-storage.spec.ts`, который мокает `localStorage` и проверяет, что выбор языка сохраняется и восстанавливается за <5 мс (NFR-001 — TTI рост ≤100 мс).
+- [ ] T2004 (US2) Создать раздел `docs/development/frontend-l10n.md` (или обновить существующий документ), описав процесс добавления новых `message_key` и обязательные команды `npm run test:unit` + `npx playwright test` (Принцип IV).
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+## Phase 3 — US3 (P2) Диагностика и артефакты
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**Цель**: Playwright/Vitest отчёты доступны из CI и локальных smoke для репродьюса (US3, NFR-002, NFR-003, AC-3).
 
-Examples of foundational tasks (adjust based on your project):
+- [ ] T3001 (P, US3) Добавить Playwright сценарий `frontend/tests/e2e/auth-errors.spec.ts` (happy path + 403/409), обновить `playwright.config.ts` с `reporter: [['html', { outputFolder: 'playwright-report' }], ['list']]` и убедиться, что `npx playwright test tests/e2e/auth-errors.spec.ts --workers=1` генерирует трейс (US3).
+- [ ] T3002 (US3) Создать `frontend/scripts/archive-playwright.mjs`, который архивирует `frontend/playwright-report` → `.internal/frontend-logs/playwright/${run_id}/report.zip` и вызывается из npm-скрипта `npm run test:ui:ci` (NFR-002).
+- [ ] T3003 (US3) Обновить `.github/workflows/e2e.yml` шаг `Upload frontend Playwright artifacts`, чтобы дополнительно публиковать ссылку в summary (step `actions/github-script`) и описать процедуру в `docs/bag-reports.md` (US3, NFR-003).
+- [ ] T3004 (US3) Добавить Vitest smoke команду `npm run test:errors` (alias `vitest run tests/vitest/i18n-keys.spec.ts tests/vitest/localization-storage.spec.ts`) и интегрировать её в job `frontend-test` (`ci.yml`) после линта (US2/US3, AC-2).
 
-- [ ] T004 Setup database schema and migrations framework
-- [ ] T005 [P] Implement authentication/authorization framework
-- [ ] T006 [P] Setup API routing and middleware structure
-- [ ] T007 Create base models/entities that all stories depend on
-- [ ] T008 Configure error handling and logging infrastructure
-- [ ] T009 Setup environment configuration management
+## Phase 4 — Polish & Release Gate
 
-**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+- [ ] T4001 [Polish] Обновить `specs/008-auth-page-localization-logs/spec.md` и `plan.md`, синхронизировать метрики (TTI Δ ≤100 мс, Playwright upload SLA <2 мин.) и удалить остатки шаблонов `Feature Specification/Implementation Plan` (Принцип I).
+- [ ] T4002 [Polish] Перенести результаты тестов и проверок в `docs/REPORTS/documentation-report.md` через `npm run docs:validate && npm run docs:report`, приложить ссылки к `specs/008-auth-page-design/checklists/release-gate.md` (Принцип IV).
+- [ ] T4003 [Polish] Актуализировать `OUTSTANDING_TASKS_REPORT.md`, добавив блок "008-auth-page-localization-logs" с открытыми рисками и ожидаемыми сроками (готовность к релизу).
+ - [x] T4004 [Polish, NFR-001] Создать скрипт `tests/perf/auth-error-tti.mjs` + npm-скрипт `npm run perf:auth-errors` — реализован. Скрипт сохраняет отчёты в `.internal/frontend-logs/perf/${run_id}` (см. `2025-11-26T13-56-09-047Z`), генерирует `summary.json` и `summary.md` и публикует метрики (TTI и ΔTTI). (NFR-001).
 
----
+## Phase 4.1 — Remediation & Performance fixes
 
-## Phase 3: User Story 1 - [Title] (Priority: P1) 🎯 MVP
-
-**Goal**: [Brief description of what this story delivers]
-
-**Independent Test**: [How to verify this story works on its own]
-
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
-
-> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
-
-- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
-
-### Implementation for User Story 1
-
-- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
-- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
-- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
-- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T016 [US1] Add validation and error handling
-- [ ] T017 [US1] Add logging for user story 1 operations
-
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
-
----
-
-## Phase 4: User Story 2 - [Title] (Priority: P2)
-
-**Goal**: [Brief description of what this story delivers]
-
-**Independent Test**: [How to verify this story works on its own]
-
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
-
-- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
-
-### Implementation for User Story 2
-
-- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
-- [ ] T021 [US2] Implement [Service] in src/services/[service].py
-- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
-- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
-
-**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
-
----
-
-## Phase 5: User Story 3 - [Title] (Priority: P3)
-
-**Goal**: [Brief description of what this story delivers]
-
-**Independent Test**: [How to verify this story works on its own]
-
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
-
-- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
-
-### Implementation for User Story 3
-
-- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
-- [ ] T027 [US3] Implement [Service] in src/services/[service].py
-- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
-
-**Checkpoint**: All user stories should now be independently functional
-
----
-
-[Add more user story phases as needed, following the same pattern]
-
----
-
-## Phase N: Polish & Cross-Cutting Concerns
-
-**Purpose**: Improvements that affect multiple user stories
-
-- [ ] TXXX [P] Documentation updates in docs/
-- [ ] TXXX Code cleanup and refactoring
-- [ ] TXXX Performance optimization across all stories
-- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
-- [ ] TXXX Security hardening
-- [ ] TXXX Run quickstart.md validation
-
----
-
-## Dependencies & Execution Order
-
-### Phase Dependencies
-
-- **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
-- **User Stories (Phase 3+)**: All depend on Foundational phase completion
-  - User stories can then proceed in parallel (if staffed)
-  - Or sequentially in priority order (P1 → P2 → P3)
-- **Polish (Final Phase)**: Depends on all desired user stories being complete
-
-### User Story Dependencies
-
-- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
-- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently testable
-- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently testable
-
-### Within Each User Story
-
-- Tests (if included) MUST be written and FAIL before implementation
-- Models before services
-- Services before endpoints
-- Core implementation before integration
-- Story complete before moving to next priority
-
-### Parallel Opportunities
-
-- All Setup tasks marked [P] can run in parallel
-- All Foundational tasks marked [P] can run in parallel (within Phase 2)
-- Once Foundational phase completes, all user stories can start in parallel (if team capacity allows)
-- All tests for a user story marked [P] can run in parallel
-- Models within a story marked [P] can run in parallel
-- Different user stories can be worked on in parallel by different team members
-
----
-
-## Parallel Example: User Story 1
-
-```bash
-# Launch all tests for User Story 1 together (if tests requested):
-Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
-Task: "Integration test for [user journey] in tests/integration/test_[name].py"
-
-# Launch all models for User Story 1 together:
-Task: "Create [Entity1] model in src/models/[entity1].py"
-Task: "Create [Entity2] model in src/models/[entity2].py"
-```
-
----
-
-## Implementation Strategy
-
-### MVP First (User Story 1 Only)
-
-1. Complete Phase 1: Setup
-2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
-3. Complete Phase 3: User Story 1
-4. **STOP and VALIDATE**: Test User Story 1 independently
-5. Deploy/demo if ready
-
-### Incremental Delivery
-
-1. Complete Setup + Foundational → Foundation ready
-2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
-3. Add User Story 2 → Test independently → Deploy/Demo
-4. Add User Story 3 → Test independently → Deploy/Demo
-5. Each story adds value without breaking previous stories
-
-### Parallel Team Strategy
-
-With multiple developers:
-
-1. Team completes Setup + Foundational together
-2. Once Foundational is done:
-   - Developer A: User Story 1
-   - Developer B: User Story 2
-   - Developer C: User Story 3
-3. Stories complete and integrate independently
-
----
-
-## Notes
-
-- [P] tasks = different files, no dependencies
-- [Story] label maps task to specific user story for traceability
-- Each user story should be independently completable and testable
-- Verify tests fail before implementing
-- Commit after each task or logical group
-- Stop at any checkpoint to validate story independently
-- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
+- [ ] T5001 (P, US3, NFR-001) Research & profiling — провести профайлинг страницы `auth` (Vite bundle, network waterfall, 3D scenes), собрать список корневых причин высоких TTI, сформировать мердж‑план и список приоритетных изменений. Результат: детализированный отчет в `.internal/frontend-logs/perf/<run_id>/profiling/` + обновление docs. (owner: @frontend)
+- [ ] T5002 (P, US3, NFR-001) Implement optimizations — по результатам T5001: lazy-load heavy assets (3D), code-split auth page, reduce initial bundle, defer third-party scripts, уменьшить LCP/TTI; включить regression tests и пересчитать perf. (owner: @frontend)
+- [ ] T5003 (P, infra) CI perf guard — включить `frontend-perf.yml` в workflows, настроить PR-run для feature веток и жесткое правило (fail PR) при превышении порогов; документировать поведение в `tests/perf/README.md`. (owner: @ci)
