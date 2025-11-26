@@ -1,0 +1,326 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AuthCard visual fidelity > matches snapshot in login mode 1`] = `
+<div
+  class="h-full"
+  data-testid="auth-card"
+>
+  <div
+    class="flex flex-col overflow-hidden box-border outline-solid outline-transparent data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 shadow-none rounded-large transition-transform-background motion-reduce:transition-none relative z-10 h-full w-full bg-transparent p-0 text-white"
+    tabindex="-1"
+  >
+    <div
+      class="z-10 w-full justify-start items-center shrink-0 overflow-inherit color-inherit subpixel-antialiased flex flex-col gap-2 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg"
+    >
+      <p
+        class="text-xs uppercase tracking-[0.45em] text-[#F5E6D3]/60 [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
+      >
+        ZenScene Access
+      </p>
+      <h2
+        class="font-landing-serif text-3xl text-[#F5E6D3] [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
+        data-testid="auth-headline"
+      >
+        SATTVA
+      </h2>
+      <p
+        class="text-sm text-[#F5E6D3]/70"
+      >
+        Enter the stream of consciousness
+      </p>
+    </div>
+    <div
+      class="relative w-full p-3 flex-auto place-content-inherit align-items-inherit h-auto break-words text-left overflow-y-auto subpixel-antialiased flex flex-col gap-6 px-2"
+    >
+      <form
+        class="space-y-4"
+      >
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="login-email"
+          >
+            Email
+          </label>
+          <input
+            autocomplete="email"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="login-email"
+            name="email"
+            placeholder="founder@sattva.studio"
+            type="email"
+          />
+        </div>
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="login-password"
+          >
+            Password
+          </label>
+          <input
+            autocomplete="current-password"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="login-password"
+            name="password"
+            placeholder="••••••••••••"
+            type="password"
+          />
+        </div>
+        <button
+          class="w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30 hover:shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:bg-[#F5E6D3]/20 hover:border-[#F5E6D3]/50 hover:scale-[1.02]"
+          data-testid="auth-primary-action"
+          type="submit"
+        >
+          Enter
+        </button>
+      </form>
+      <div
+        class="flex justify-center"
+      >
+        <button
+          class="relative inline-flex items-center tap-highlight-transparent outline-solid outline-transparent data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 hover:opacity-hover active:opacity-disabled transition-opacity text-sm text-white/80 hover:text-white underline cursor-pointer"
+          data-react-aria-pressable="true"
+          role="link"
+          tabindex="0"
+        >
+          Don't have an account? Sign up
+        </button>
+      </div>
+      <div
+        class="relative"
+      >
+        <div
+          aria-hidden="true"
+          class="absolute inset-0 flex items-center"
+        >
+          <div
+            class="w-full border-t border-white/15"
+          />
+        </div>
+        <div
+          class="relative flex justify-center text-xs uppercase tracking-[0.4em]"
+        >
+          <span
+            class="bg-transparent px-3 text-white/60"
+          >
+            Or continue with
+          </span>
+        </div>
+      </div>
+      <button
+        class="group flex w-full items-center justify-center gap-2 rounded-2xl border border-ink/15 bg-[color:var(--color-panel)] px-4 py-3 text-sm font-semibold text-ink shadow-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ink/30 disabled:cursor-not-allowed disabled:opacity-50 !bg-[#F5E6D3]/10 !text-[#F5E6D3] !border-[#F5E6D3]/30 hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50 border transition-all duration-300"
+        type="button"
+      >
+        <svg
+          class="w-5 h-5 mr-2"
+          viewBox="0 0 48 48"
+        >
+          <path
+            d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039L38.802 9.92C34.553 6.08 29.613 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+            fill="#FFC107"
+          />
+          <path
+            d="M6.306 14.691c-1.645 3.119-2.645 6.632-2.645 10.309C3.661 30.631 5.013 34.41 7.096 37.52l6.98-5.498c-1.03-1.91-1.6-4.08-1.6-6.32s.57-4.41 1.6-6.32l-6.98-5.498z"
+            fill="#FF3D00"
+          />
+          <path
+            d="M24 44c5.166 0 9.86-1.977 13.2-5.25l-6.52-5.02c-2.14 1.45-4.84 2.27-7.68 2.27-4.83 0-8.99-2.6-10.9-6.22l-6.98 5.498C9.005 39.99 15.95 44 24 44z"
+            fill="#4CAF50"
+          />
+          <path
+            d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.16-4.082 5.571l6.52 5.02C41.319 36.133 44 30.608 44 24c0-1.341-.138-2.65-.389-3.917z"
+            fill="#1976D2"
+          />
+        </svg>
+        <span
+          class="tracking-wide"
+        >
+          Or continue with Google
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`AuthCard visual fidelity > matches snapshot in register mode 1`] = `
+<div
+  class="h-full"
+  data-testid="auth-card"
+>
+  <div
+    class="flex flex-col overflow-hidden box-border outline-solid outline-transparent data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 shadow-none rounded-large transition-transform-background motion-reduce:transition-none relative z-10 h-full w-full bg-transparent p-0 text-white"
+    tabindex="-1"
+  >
+    <div
+      class="z-10 w-full justify-start items-center shrink-0 overflow-inherit color-inherit subpixel-antialiased flex flex-col gap-2 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg"
+    >
+      <p
+        class="text-xs uppercase tracking-[0.45em] text-[#F5E6D3]/60 [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
+      >
+        ZenScene Access
+      </p>
+      <h2
+        class="font-landing-serif text-3xl text-[#F5E6D3] [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
+        data-testid="auth-headline"
+      >
+        JOIN US
+      </h2>
+      <p
+        class="text-sm text-[#F5E6D3]/70"
+      >
+        Begin your journey
+      </p>
+    </div>
+    <div
+      class="relative w-full p-3 flex-auto place-content-inherit align-items-inherit h-auto break-words text-left overflow-y-auto subpixel-antialiased flex flex-col gap-6 px-2"
+    >
+      <form
+        class="space-y-4"
+      >
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="register-email"
+          >
+            Email
+          </label>
+          <input
+            autocomplete="email"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="register-email"
+            name="email"
+            placeholder="founder@sattva.studio"
+            type="email"
+          />
+        </div>
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="register-full-name"
+          >
+            Full Name (Optional)
+          </label>
+          <input
+            autocomplete="name"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="register-full-name"
+            name="fullName"
+            placeholder="Aleksandra P."
+            type="text"
+          />
+        </div>
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="register-password"
+          >
+            Password
+          </label>
+          <input
+            autocomplete="new-password"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="register-password"
+            name="password"
+            placeholder="••••••••••••"
+            type="password"
+          />
+          <p
+            class="mt-2 text-xs text-white/60"
+          >
+            Must contain 12+ chars, uppercase, lowercase, number, special char.
+          </p>
+        </div>
+        <div>
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-white/60"
+            for="register-confirm-password"
+          >
+            Confirm Password
+          </label>
+          <input
+            autocomplete="new-password"
+            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            id="register-confirm-password"
+            name="confirmPassword"
+            placeholder="••••••••••••"
+            type="password"
+          />
+        </div>
+        <button
+          class="w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30 hover:shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:bg-[#F5E6D3]/20 hover:border-[#F5E6D3]/50 hover:scale-[1.02]"
+          data-testid="auth-primary-action"
+          type="submit"
+        >
+          Begin Journey
+        </button>
+      </form>
+      <div
+        class="flex justify-center"
+      >
+        <button
+          class="relative inline-flex items-center tap-highlight-transparent outline-solid outline-transparent data-[focus-visible=true]:z-10 data-[focus-visible=true]:outline-2 data-[focus-visible=true]:outline-focus data-[focus-visible=true]:outline-offset-2 hover:opacity-hover active:opacity-disabled transition-opacity text-sm text-white/80 hover:text-white underline cursor-pointer"
+          data-react-aria-pressable="true"
+          role="link"
+          tabindex="0"
+        >
+          Already have an account? Sign in
+        </button>
+      </div>
+      <div
+        class="relative"
+      >
+        <div
+          aria-hidden="true"
+          class="absolute inset-0 flex items-center"
+        >
+          <div
+            class="w-full border-t border-white/15"
+          />
+        </div>
+        <div
+          class="relative flex justify-center text-xs uppercase tracking-[0.4em]"
+        >
+          <span
+            class="bg-transparent px-3 text-white/60"
+          >
+            Or continue with
+          </span>
+        </div>
+      </div>
+      <button
+        class="group flex w-full items-center justify-center gap-2 rounded-2xl border border-ink/15 bg-[color:var(--color-panel)] px-4 py-3 text-sm font-semibold text-ink shadow-lg transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ink/30 disabled:cursor-not-allowed disabled:opacity-50 !bg-[#F5E6D3]/10 !text-[#F5E6D3] !border-[#F5E6D3]/30 hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50 border transition-all duration-300"
+        type="button"
+      >
+        <svg
+          class="w-5 h-5 mr-2"
+          viewBox="0 0 48 48"
+        >
+          <path
+            d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039L38.802 9.92C34.553 6.08 29.613 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
+            fill="#FFC107"
+          />
+          <path
+            d="M6.306 14.691c-1.645 3.119-2.645 6.632-2.645 10.309C3.661 30.631 5.013 34.41 7.096 37.52l6.98-5.498c-1.03-1.91-1.6-4.08-1.6-6.32s.57-4.41 1.6-6.32l-6.98-5.498z"
+            fill="#FF3D00"
+          />
+          <path
+            d="M24 44c5.166 0 9.86-1.977 13.2-5.25l-6.52-5.02c-2.14 1.45-4.84 2.27-7.68 2.27-4.83 0-8.99-2.6-10.9-6.22l-6.98 5.498C9.005 39.99 15.95 44 24 44z"
+            fill="#4CAF50"
+          />
+          <path
+            d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.16-4.082 5.571l6.52 5.02C41.319 36.133 44 30.608 44 24c0-1.341-.138-2.65-.389-3.917z"
+            fill="#1976D2"
+          />
+        </svg>
+        <span
+          class="tracking-wide"
+        >
+          Or continue with Google
+        </span>
+      </button>
+    </div>
+  </div>
+</div>
+`;

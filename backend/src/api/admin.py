@@ -3,6 +3,7 @@ from api.auth import require_admin
 from models.user import User
 from database import get_db
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 router = APIRouter()
 
@@ -17,7 +18,7 @@ def list_users(status: str | None = None, db: Session = Depends(get_db), current
 
 
 @router.post("/users/{user_id}/approve")
-def approve_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return {"status": "error", "message": "User not found"}
@@ -28,7 +29,7 @@ def approve_user(user_id: str, db: Session = Depends(get_db), current_user: User
 
 
 @router.post("/users/{user_id}/reject")
-def reject_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return {"status": "error", "message": "User not found"}

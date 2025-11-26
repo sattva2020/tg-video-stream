@@ -1,6 +1,7 @@
 import os
 import logging
 import time
+import uuid
  
 
 from fastapi import APIRouter, Request, Depends, HTTPException, status
@@ -28,14 +29,24 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     payload = jwt.decode_access_token(token)
     if payload is None:
+        logger.warning("Token decoding failed")
         raise credentials_exception
     
     user_id: str = payload.get("sub")
     if user_id is None:
+        logger.warning("Token payload missing 'sub'")
         raise credentials_exception
     
-    user = db.query(User).filter(User.id == user_id).first()
+    try:
+        # Ensure user_id is a valid UUID object for the query
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        logger.warning(f"Invalid UUID in token: {user_id}")
+        raise credentials_exception
+
+    user = db.query(User).filter(User.id == user_uuid).first()
     if user is None:
+        logger.warning(f"User not found for ID: {user_id}")
         raise credentials_exception
     return user
 
@@ -122,6 +133,45 @@ AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 
 router = APIRouter()
 
+# Basic server-side localization map (fallback). In production this should
+# be replaced with a proper i18n solution or use the frontend localization only.
+MESSAGE_LOCALIZATIONS = {
+    'ru': {
+        'auth.email_registered': 'Пользователь с таким email уже существует',
+        'auth.google_account_exists': 'Аккаунт уже зарегистрирован через Google — свяжите учётные записи.',
+        'auth.account_pending': 'Аккаунт ожидает одобрения администратора',
+        'auth.account_rejected': 'Аккаунт отклонён администрацией',
+    }
+}
+
+
+def _format_auth_error(code: str, hint: str, message: str | None = None, message_key: str | None = None, req: Request | None = None) -> dict:
+    """Return the error payload for auth endpoints.
+
+    If Accept-Language includes 'ru', return localized `message` when possible.
+    Otherwise return `message_key` when available so frontend can localize.
+    """
+    accept = ''
+    if req:
+        accept = req.headers.get('accept-language', '') or ''
+    prefers_ru = 'ru' in accept.lower()
+
+    if prefers_ru:
+        # If server has localization for the key, prefer that
+        if message_key and message_key in MESSAGE_LOCALIZATIONS.get('ru', {}):
+            return {'code': code, 'message': MESSAGE_LOCALIZATIONS['ru'][message_key], 'hint': hint}
+        if message:
+            return {'code': code, 'message': message, 'hint': hint}
+        # Fallback to key
+        if message_key:
+            return {'code': code, 'message': message_key, 'hint': hint}
+    # Default behaviour: prefer message_key so client-localization can handle it
+    if message_key:
+        return {'code': code, 'message_key': message_key, 'hint': hint}
+    if message:
+        return {'code': code, 'message': message, 'hint': hint}
+    return {'code': code, 'hint': hint}
+
 @router.get("/google")
 async def google_login(request: Request):
     """
@@ -150,9 +200,10 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     generates a JWT, and redirects to the frontend.
     """
     # Check for state mismatch to prevent CSRF
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     if 'oauth_state' not in request.session or request.session['oauth_state'] != request.query_params.get('state'):
         logger.warning("OAuth state mismatch (potential CSRF).")
-        return RedirectResponse(url='/login?error=state_mismatch')
+        return RedirectResponse(url=f'{frontend_url}/login?error=state_mismatch')
 
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         logger.error("Google client credentials are not set.")
@@ -161,6 +212,10 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     google = OAuth2Session(GOOGLE_CLIENT_ID, state=request.session.pop('oauth_state', None), redirect_uri=REDIRECT_URI)
     
     TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+    # Allow insecure transport for localhost dev
+    if 'localhost' in REDIRECT_URI or '127.0.0.1' in REDIRECT_URI:
+        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
     try:
         # fetch token but we don't need to keep it here — login flow will use user info
@@ -171,13 +226,13 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         )
         logger.info("Successfully fetched token from Google.")
     except Exception as e:
-        logger.error(f"Error fetching token from Google: {e}")
-        return RedirectResponse(url='/login?error=token_fetch_failed')
+        logger.error(f"Error fetching token from Google: {e}", exc_info=True)
+        return RedirectResponse(url=f'{frontend_url}/login?error=token_fetch_failed')
 
     user_info_response = google.get("https://www.googleapis.com/oauth2/v1/userinfo")
     if user_info_response.status_code != 200:
         logger.error(f"Error fetching user info from Google. Status: {user_info_response.status_code}")
-        return RedirectResponse(url='/login?error=user_info_failed')
+        return RedirectResponse(url=f'{frontend_url}/login?error=user_info_failed')
     
     user_info = user_info_response.json()
     logger.info(f"Successfully fetched user info for email: {user_info.get('email')}")
@@ -200,17 +255,15 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             except Exception:
                 logger.exception('Failed to notify admins for new OAuth user')
             # Redirect frontend to login showing pending message
-            frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
             return RedirectResponse(url=f"{frontend_url}/login?status=pending")
 
         jwt_token = auth_service.create_jwt_for_user(user)
         logger.info(f"Successfully processed user and generated JWT for user ID: {user.id}")
     except Exception as e:
         logger.error(f"Error during user processing for email {user_info.get('email')}: {e}")
-        return RedirectResponse(url='/login?error=auth_process_failed')
+        return RedirectResponse(url=f'{frontend_url}/login?error=auth_process_failed')
 
     # Redirect to the frontend callback with the token
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     frontend_callback_url = f"{frontend_url}/auth/callback?token={jwt_token}"
     return RedirectResponse(url=frontend_callback_url)
 
@@ -227,15 +280,29 @@ async def logout():
 
 
 @router.post("/register")
-def register_user(request: RegisterRequest, db: Session = Depends(get_db)):
+def register_user(request: RegisterRequest, fastapi_request: Request = None, db: Session = Depends(get_db)):
     # prevent registration if Google-only user exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
         # If user exists and has no hashed_password but google_id is set, prompt linking
         if existing_user.google_id and not existing_user.hashed_password:
-            # Indicate client that link action is required
-            raise HTTPException(status_code=409, detail={"message": "Account exists via Google; please link accounts.", "link_required": True})
-        raise HTTPException(status_code=409, detail="User with this email already exists")
+            # Indicate client that link action is required — return structured error
+            detail = _format_auth_error(
+                code='conflict',
+                hint='link_account',
+                message_key='auth.google_account_exists',
+                req=fastapi_request,
+            )
+            # include additional hint for linking flow for tests/clients
+            detail['link_required'] = True
+            raise HTTPException(status_code=409, detail=detail)
+        detail = _format_auth_error(
+            code='conflict',
+            hint='email_exists',
+            message_key='auth.email_registered',
+            req=fastapi_request,
+        )
+        raise HTTPException(status_code=409, detail=detail)
 
     hashed = auth_service.hash_password(request.password)
     # New users are created with status='pending' and must be approved by an admin
@@ -300,7 +367,23 @@ async def login_user(fastapi_request: Request, db: Session = Depends(get_db), _r
         raise HTTPException(status_code=401, detail="Invalid credentials")
     # Block login if the account is not approved
     if getattr(user, 'status', 'approved') != 'approved':
-        raise HTTPException(status_code=403, detail="Account awaiting approval or rejected by admin")
+        status_val = getattr(user, 'status', 'pending')
+        if status_val == 'pending':
+            detail = _format_auth_error(
+                code='pending',
+                hint='contact_admin',
+                message_key='auth.account_pending',
+                req=fastapi_request,
+            )
+        else:
+            # Any other explicit denied status treated as rejected
+            detail = _format_auth_error(
+                code='rejected',
+                hint='contact_admin',
+                message_key='auth.account_rejected',
+                req=fastapi_request,
+            )
+        raise HTTPException(status_code=403, detail=detail)
     if not auth_service.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 

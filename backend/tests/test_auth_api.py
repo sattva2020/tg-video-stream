@@ -1,50 +1,14 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch
-import re
-
 import os
 import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from main import app
 import api.auth as api_auth
-from database import Base, get_db
 from models.user import User
 
-# Use an in-memory SQLite database for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-# Override the dependency
-app.dependency_overrides[get_db] = override_get_db
-
-@pytest.fixture(scope="module")
-def client():
-    """
-    Create a TestClient instance for the tests.
-    """
-    # Create tables before yielding the client
-    Base.metadata.create_all(bind=engine)
-    yield TestClient(app)
-    # Drop tables after all tests in the module are done
-    Base.metadata.drop_all(bind=engine)
-
 @pytest.fixture(autouse=True)
-def cleanup_data():
+def cleanup_data(db_session):
     """Clean up data in tables before/after each test."""
     # Ensure rate limiter storage is clean at test start
     try:
@@ -52,16 +16,19 @@ def cleanup_data():
     except Exception:
         pass
     yield
-    db = TestingSessionLocal()
-    db.query(User).delete()
-    db.commit()
-    db.close()
     # Reset in-memory rate limit storage between tests to avoid cross-test pollution
     try:
         api_auth._rate_limit_storage.clear()
     except Exception:
         pass
 
+
+@pytest.fixture(autouse=True)
+def mock_notifications():
+    """Mock the notification system to prevent DB access during tests."""
+    with patch('api.auth.notify_admins_async') as mock_notify:
+        mock_notify.return_value = True
+        yield mock_notify
 
 def test_google_login_redirect(client):
     """
@@ -72,7 +39,7 @@ def test_google_login_redirect(client):
     assert response.headers["location"].startswith("https://accounts.google.com/o/oauth2/v2/auth")
 
 @patch('api.auth.OAuth2Session')
-def test_google_callback_success(mock_oauth_session, client):
+def test_google_callback_success(mock_oauth_session, client, db_session):
     """
     Test the successful authentication callback flow.
     """
@@ -110,12 +77,10 @@ def test_google_callback_success(mock_oauth_session, client):
     assert "/login" in loc and "status=pending" in loc
 
     # Verify a user was created with status == 'pending'
-    db = TestingSessionLocal()
-    user = db.query(User).filter(User.email == "new.user@example.com").first()
+    user = db_session.query(User).filter(User.email == "new.user@example.com").first()
     assert user is not None
     assert user.google_id == "12345"
     assert getattr(user, 'status', 'approved') == 'pending'
-    db.close()
 
 def test_google_callback_state_mismatch(client):
     """
@@ -129,20 +94,19 @@ def test_google_callback_state_mismatch(client):
 
     # Assert
     assert response.status_code == 307
-    assert response.headers["location"] == "/login?error=state_mismatch"
+    assert response.headers["location"].endswith("/login?error=state_mismatch")
 
 
-def test_google_callback_existing_approved_user_gets_jwt(monkeypatch, client):
+def test_google_callback_existing_approved_user_gets_jwt(monkeypatch, client, db_session):
     # Create an approved user with Google ID first
-    db = TestingSessionLocal()
     u = User(google_id='g-777', email='exists@example.com', status='approved')
-    db.add(u); db.commit(); db.refresh(u)
-    db.close()
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
 
     # Make OAuth flow return same user info
     from unittest.mock import patch
     with patch('api.auth.OAuth2Session') as mock_oauth_session:
         mock_instance = mock_oauth_session.return_value
+        mock_instance.authorization_url.return_value = ("https://accounts.google.com/o/oauth2/v2/auth?state=test_state", "test_state")
         mock_instance.fetch_token.return_value = {"access_token": "fake_token"}
         mock_instance.get.return_value.status_code = 200
         mock_instance.get.return_value.json.return_value = {"id": "g-777", "email": "exists@example.com", "name": "Existing", "picture": ""}
@@ -167,13 +131,20 @@ def test_logout(client):
     assert response.json() == {"message": "Logout successful"}
 
 
-def test_register_and_login_flow(client):
+def test_register_and_login_flow(client, db_session):
     # Register a new user
     payload = {"email": "new.user2@example.com", "password": "GoodPassword123!"}
     resp = client.post("/api/auth/register", json=payload)
     assert resp.status_code == 200
     data = resp.json()
-    assert "access_token" in data
+    # New behavior: status is pending, no access_token
+    assert data["status"] == "pending"
+    assert "access_token" not in data
+
+    # Approve user manually
+    user = db_session.query(User).filter(User.email == payload["email"]).first()
+    user.status = "approved"
+    db_session.commit()
 
     # Login with same credentials
     resp2 = client.post("/api/auth/login", json=payload)
@@ -186,11 +157,16 @@ def test_register_and_login_flow(client):
     assert resp3.status_code == 409
 
 
-def test_login_with_form_urlencoded(client):
+def test_login_with_form_urlencoded(client, db_session):
     # Register a new user
     payload = {"email": "form.user@example.com", "password": "FormPassword123!"}
     resp = client.post("/api/auth/register", json=payload)
     assert resp.status_code == 200
+
+    # Approve user manually
+    user = db_session.query(User).filter(User.email == payload["email"]).first()
+    user.status = "approved"
+    db_session.commit()
 
     # Login using form-urlencoded body (username/password) to support legacy clients
     form_resp = client.post("/api/auth/login", data={"username": payload["email"], "password": payload["password"]})
@@ -198,13 +174,12 @@ def test_login_with_form_urlencoded(client):
     assert "access_token" in form_resp.json()
 
 
-def test_link_account_flow(client):
+def test_link_account_flow(client, db_session):
     # Setup: create a Google-only user directly in DB
-    db = TestingSessionLocal()
-    g_user = User(google_id="g-123", email="link.user@example.com")
-    db.add(g_user)
-    db.commit()
-    db.refresh(g_user)
+    g_user = User(google_id="g-123", email="link.user@example.com", status="approved")
+    db_session.add(g_user)
+    db_session.commit()
+    db_session.refresh(g_user)
 
     # Ensure SMTP not set
     import os
@@ -231,10 +206,9 @@ def test_link_account_flow(client):
     resp4 = client.post("/api/auth/login", json={"email": "link.user@example.com", "password": "NewGoodPassword123!"})
     assert resp4.status_code == 200
     assert "access_token" in resp4.json()
-    db.close()
 
 
-def test_password_reset_request_and_confirm(client):
+def test_password_reset_request_and_confirm(client, db_session):
     # Ensure SMTP is not set so dev-mode returns token
     import os
     os.environ.pop("SMTP_HOST", None)
@@ -243,6 +217,11 @@ def test_password_reset_request_and_confirm(client):
     payload = {"email": email, "password": "GoodPassword123!"}
     resp = client.post("/api/auth/register", json=payload)
     assert resp.status_code == 200
+
+    # Approve user manually
+    user = db_session.query(User).filter(User.email == email).first()
+    user.status = "approved"
+    db_session.commit()
 
     # Request reset should return token in dev mode
     resp2 = client.post("/api/auth/password-reset/request", json={"email": email})
@@ -269,7 +248,37 @@ def test_password_reset_request_and_confirm(client):
     assert "access_token" in login_resp.json()
 
 
-def test_email_verification_flow(client):
+def test_login_rate_limit(client, db_session):
+    # Create a user
+    payload = {"email": "rl.user@example.com", "password": "GoodPassword123!"}
+    resp = client.post("/api/auth/register", json=payload)
+    assert resp.status_code == 200
+
+    # Approve user manually
+    user = db_session.query(User).filter(User.email == payload["email"]).first()
+    user.status = "approved"
+    db_session.commit()
+
+    # Attempt more than RATE_LIMIT_MAX times incorrect password
+    # Ensure rate limit storage is empty at start
+    max_attempts = int(os.getenv("RATE_LIMIT_MAX", 5))
+    for i in range(max_attempts):
+        r = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
+        # invalid credentials until limit reached
+        if i < max_attempts - 1:
+            assert r.status_code == 401
+    # Next attempt should be rate limited
+    r2 = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
+    assert r2.status_code == 429
+
+
+
+
+
+
+
+
+def test_email_verification_flow(client, db_session):
     import os
     os.environ.pop("SMTP_HOST", None)
     email = "verify.user@example.com"
@@ -290,26 +299,7 @@ def test_email_verification_flow(client):
     assert r2.status_code == 200
 
     # Check DB
-    db = TestingSessionLocal()
-    user = db.query(User).filter(User.email == email).first()
+    user = db_session.query(User).filter(User.email == email).first()
     assert user.email_verified
-    db.close()
 
 
-def test_login_rate_limit(client):
-    # Create a user
-    payload = {"email": "rl.user@example.com", "password": "GoodPassword123!"}
-    resp = client.post("/api/auth/register", json=payload)
-    assert resp.status_code == 200
-
-    # Attempt more than RATE_LIMIT_MAX times incorrect password
-    # Ensure rate limit storage is empty at start
-    max_attempts = int(os.getenv("RATE_LIMIT_MAX", 5))
-    for i in range(max_attempts):
-        r = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
-        # invalid credentials until limit reached
-        if i < max_attempts - 1:
-            assert r.status_code == 401
-    # Next attempt should be rate limited
-    r2 = client.post("/api/auth/login", json={"email": payload["email"], "password": "WrongPassword"})
-    assert r2.status_code == 429

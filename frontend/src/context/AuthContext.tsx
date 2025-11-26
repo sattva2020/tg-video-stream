@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import { User, UserRole } from '../types/user';
 import { authApi } from '../api/auth';
@@ -28,7 +28,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  const checkAuth = async () => {
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsAuthenticated(false);
+  }, []);
+
+  const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
@@ -56,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setIsAuthenticated(true);
         } catch (error) {
             console.error("Failed to fetch user", error);
-            logout();
+          logout();
         }
 
       } catch (error) {
@@ -68,21 +74,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(null);
     }
     setIsLoading(false);
-  };
+  }, [logout]);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    void checkAuth();
+  }, [checkAuth]);
 
   const login = async (token: string) => {
     localStorage.setItem('token', token);
     await checkAuth();
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setIsAuthenticated(false);
   };
 
   return (

@@ -8,6 +8,7 @@ export type HeroSectionProps = {
   content: HeroContent;
   locale: LocaleKey;
   onCtaClick?: () => void;
+  hideCta?: boolean;
 };
 
 const BenefitList = ({
@@ -71,7 +72,7 @@ const BenefitList = ({
   );
 };
 
-const HeroSection = ({ content, locale, onCtaClick }: HeroSectionProps) => {
+const HeroSection = ({ content, locale, onCtaClick, hideCta }: HeroSectionProps) => {
   const { t } = useTranslation();
   const headingId = useId();
   const subtitleId = useId();
@@ -98,23 +99,25 @@ const HeroSection = ({ content, locale, onCtaClick }: HeroSectionProps) => {
         <p id={subtitleId} className="text-base leading-relaxed text-white/85 sm:text-lg 3xl:text-xl">
           {t(content.subtitleKey)}
         </p>
-        <div className="flex flex-col gap-3 xs:flex-row xs:items-center">
-          <PrimaryCTA
-            label={t(content.cta.labelKey)}
-            cta={content.cta}
-            onClick={onCtaClick}
-            ariaDescribedBy={ctaDescriptionId}
-            className="shadow-brand-glow/40"
-          />
-          <p
-            id={ctaDescriptionId}
-            className="text-xs text-white/70"
-            aria-live="polite"
-            role="status"
-          >
-            {t('cta_support_copy', 'Single entry point to /login with full WCAG AA compliance.')}
-          </p>
-        </div>
+        {!hideCta ? (
+          <div className="flex flex-col gap-3 xs:flex-row xs:items-center">
+            <PrimaryCTA
+              label={t(content.cta.labelKey)}
+              cta={content.cta}
+              onClick={onCtaClick}
+              ariaDescribedBy={ctaDescriptionId}
+              className="shadow-brand-glow/40"
+            />
+            <p
+              id={ctaDescriptionId}
+              className="text-xs text-white/70"
+              aria-live="polite"
+              role="status"
+            >
+              {t('cta_support_copy', 'Single entry point to /login with full WCAG AA compliance.')}
+            </p>
+          </div>
+        ) : null}
       </div>
       <BenefitList content={content.benefits} locale={locale} listId={benefitListId} />
     </section>

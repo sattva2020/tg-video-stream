@@ -17,13 +17,12 @@ export default {
         'landing-ultra': '108rem',
       },
       colors: {
-        parchment: '#f3e9d2',
-        ink: '#4a3b32',
-        gold: '#c5a059',
-        'brand-sky': '#0ea5e9',
-        'brand-glow': '#38bdf8',
-        'brand-midnight': '#0f172a',
-        'brand-graphite': '#1f2937',
+        parchment: 'var(--color-surface)',
+        'parchment-muted': 'var(--color-surface-muted)',
+        ink: 'var(--color-text)',
+        'ink-muted': 'var(--color-text-muted)',
+        accent: 'var(--color-accent)',
+        night: 'var(--color-night-sky)',
       },
       backgroundImage: {
         'brand-glow': 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 45%, #0f172a 100%)',
@@ -32,9 +31,22 @@ export default {
         'landing-md': '120px',
         'landing-lg': '240px',
       },
+      spacing: {
+        base: 'var(--space-base)',
+      },
+      transitionDuration: {
+        theme: 'var(--transition-theme-duration)',
+      },
+      transitionTimingFunction: {
+        theme: 'var(--transition-theme-easing)',
+      },
       fontFamily: {
         cinzel: ['Cinzel', 'serif'],
         lato: ['Lato', 'sans-serif'],
+        heading: ['var(--font-heading)', 'serif'],
+        body: ['var(--font-body)', 'sans-serif'],
+        'landing-sans': ['var(--landing-font-sans)', 'sans-serif'],
+        'landing-serif': ['var(--landing-font-serif)', 'serif'],
       },
     },
   },
