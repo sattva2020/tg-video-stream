@@ -5,6 +5,7 @@
  * @see https://core.telegram.org/widgets/login
  */
 import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { config } from '../config';
 import { TelegramAuthData } from '../services/telegramAuth';
@@ -52,6 +53,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   className = '',
   disabled = false,
 }) => {
+  const { t } = useTranslation();
   const hiddenContainerRef = useRef<HTMLDivElement>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
   const [isWidgetReady, setIsWidgetReady] = useState(false);
@@ -151,10 +153,10 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
           '!bg-[#F5E6D3]/10 !text-[#F5E6D3] !border !border-[#F5E6D3]/30',
           'hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50',
         )}
-        aria-label="Войти через Telegram"
+        aria-label={t('telegram_login')}
       >
         <TelegramIcon />
-        <span className="tracking-wide">Войти через Telegram</span>
+        <span className="tracking-wide">{t('telegram_login')}</span>
       </button>
     </div>
   );
