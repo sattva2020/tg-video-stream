@@ -85,6 +85,13 @@ paths:
           required: false
           schema:
             $ref: '#/components/schemas/ActivityEventType'
+        - name: search
+          in: query
+          description: Текстовый поиск по содержимому события
+          required: false
+          schema:
+            type: string
+            maxLength: 100
       responses:
         '200':
           description: Успешный ответ со списком событий

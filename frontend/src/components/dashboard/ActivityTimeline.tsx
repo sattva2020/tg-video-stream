@@ -9,8 +9,10 @@ import {
   Square, 
   RefreshCw,
   Music,
+  Trash2,
   AlertTriangle,
   CheckCircle,
+  XCircle,
   Clock,
   LucideIcon
 } from 'lucide-react';
@@ -68,6 +70,26 @@ const eventConfig: Record<string, { icon: LucideIcon; color: string; bgColor: st
     icon: Music,
     color: 'text-violet-500',
     bgColor: 'bg-violet-500/10',
+  },
+  track_removed: {
+    icon: Trash2,
+    color: 'text-gray-500',
+    bgColor: 'bg-gray-500/10',
+  },
+  stream_error: {
+    icon: AlertTriangle,
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-500/10',
+  },
+  system_warning: {
+    icon: AlertTriangle,
+    color: 'text-amber-500',
+    bgColor: 'bg-amber-500/10',
+  },
+  system_error: {
+    icon: XCircle,
+    color: 'text-rose-500',
+    bgColor: 'bg-rose-500/10',
   },
   error: {
     icon: AlertTriangle,

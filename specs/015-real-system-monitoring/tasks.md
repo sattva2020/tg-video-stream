@@ -40,7 +40,7 @@
 - [ ] T007 [P] Создать `MetricsService` с методами сбора psutil + pg_stat в `backend/src/services/metrics_service.py`
 - [ ] T008 [P] Создать `ActivityService` с методами log_event, get_events, cleanup в `backend/src/services/activity_service.py`
 - [ ] T009 Создать API роутер `/api/system` в `backend/src/api/system.py`
-- [ ] T010 Зарегистрировать роутер в `backend/src/api/__init__.py` или `backend/src/main.py`
+- [ ] T010 Зарегистрировать роутер `system.router` в `backend/src/main.py` с prefix `/api/system`
 
 **Checkpoint**: Foundation ready — можно начинать user stories
 
