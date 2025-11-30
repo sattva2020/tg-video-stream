@@ -4,7 +4,7 @@
  * Использует кастомную стилизованную кнопку + скрытый Telegram Widget.
  * @see https://core.telegram.org/widgets/login
  */
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import { config } from '../config';
@@ -56,7 +56,6 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const { t } = useTranslation();
   const hiddenContainerRef = useRef<HTMLDivElement>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
-  const [isWidgetReady, setIsWidgetReady] = useState(false);
 
   // Callback для Telegram Widget
   const handleAuth = useCallback((user: TelegramAuthData) => {
@@ -97,9 +96,6 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       hiddenContainerRef.current.innerHTML = '';
       hiddenContainerRef.current.appendChild(script);
       scriptRef.current = script;
-      
-      // Отмечаем что widget загружен после небольшой задержки
-      setTimeout(() => setIsWidgetReady(true), 500);
     }
 
     // Cleanup
