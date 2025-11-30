@@ -9,6 +9,48 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check for secrets in code
+      run: |
+        # Проверка на случайно закоммиченные секреты
+        if git log --all --full-history -p | grep -E "(API_KEY|SECRET_KEY|PASSWORD|api_key|secret_key|password)\s*=\s*['\"][^'\"]{8,}['\"]" | grep -v "change_this\|example\|placeholder\|your_"; then
+          echo "⚠️ Potential secrets found in git history"
+          exit 1
+        fi
+        echo "✓ No obvious secrets in code"
+    
+    - name: Validate Docker configuration
+      run: |
+        # Проверка на Docker socket mount
+        if grep -q "docker.sock" docker-compose.yml; then
+          echo "❌ Docker socket mount found - security risk!"
+          exit 1
+        fi
+        echo "✓ No Docker socket mount"
+        
+        # Проверка network isolation
+        if grep -q "internal: true" docker-compose.yml; then
+          echo "✓ Network isolation configured"
+        else
+          echo "⚠️ No network isolation found"
+        fi
+    
+    - name: Check for weak password patterns in templates
+      run: |
+        # Убедиться что template не содержит реальных паролей
+        weak_patterns=("admin123" "password123" "123456789" "qwerty")
+        for pattern in "${weak_patterns[@]}"; do
+          if grep -rq "$pattern" .env.template .env.example backend/.env.example 2>/dev/null; then
+            echo "❌ Weak password pattern found: $pattern"
+            exit 1
+          fi
+        done
+        echo "✓ No weak password patterns in templates"
+
   backend-test:
     runs-on: ubuntu-latest
     defaults:
@@ -35,9 +77,18 @@ jobs:
       run: |
         pre-commit run --all-files
         
-    - name: Run tests
+    - name: Run tests with coverage
       run: |
-        pytest
+        pytest --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-coverage
+        path: |
+          backend/htmlcov
+          backend/coverage.xml
 
   frontend-test:
     runs-on: ubuntu-latest
@@ -75,6 +126,16 @@ jobs:
       
     - name: Lint
       run: npm run lint
+      
+    - name: Run unit tests with coverage
+      run: npm run test:coverage
+      
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-coverage
+        path: frontend/coverage
       
     - name: Build
       run: npm run build

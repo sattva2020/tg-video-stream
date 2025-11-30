@@ -62,6 +62,14 @@ if [[ $NON_INTERACTIVE = false ]]; then
         fi
         # replace
         sed -i "s|^$key=.*|$key=$val|" $ENV_FILE
+      elif [[ $key = "SESSION_ENCRYPTION_KEY" ]]; then
+        read -r -p "Введите значение для $key (оставьте пустым для автогенерации): " val
+        if [[ -z "$val" ]]; then
+          val=$(openssl rand -base64 32)
+          echo "Сгенерирован SESSION_ENCRYPTION_KEY"
+        fi
+        # replace
+        sed -i "s|^$key=.*|$key=$val|" $ENV_FILE
       elif [[ $key = "SESSION_STRING" ]]; then
         # skip, usually long and interactive
         echo "Пропускаем: $key — сгенерируйте с помощью generate_session.py и вставьте в .env" >&2
@@ -76,6 +84,21 @@ if [[ $RANDOM_SECRETS = true ]]; then
   jwt=$(openssl rand -base64 32)
   sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$jwt|" $ENV_FILE
   echo "JWT_SECRET сгенерирован"
+
+  # generate secure SESSION_ENCRYPTION_KEY
+  enc_key=$(openssl rand -base64 32)
+  sed -i "s|^SESSION_ENCRYPTION_KEY=.*|SESSION_ENCRYPTION_KEY=$enc_key|" $ENV_FILE
+  echo "SESSION_ENCRYPTION_KEY сгенерирован"
+
+  # generate secure DB_PASSWORD
+  db_pass=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)
+  sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$db_pass|" $ENV_FILE
+  echo "DB_PASSWORD сгенерирован"
+
+  # generate secure GRAFANA_ADMIN_PASSWORD
+  grafana_pass=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 16)
+  sed -i "s|^GRAFANA_ADMIN_PASSWORD=.*|GRAFANA_ADMIN_PASSWORD=$grafana_pass|" $ENV_FILE
+  echo "GRAFANA_ADMIN_PASSWORD сгенерирован"
 fi
 
 echo "Готово: $ENV_FILE создан (права 600)"

@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from services.auth_service import auth_service, check_password_policy, is_password_pwned
-from models.user import User
+from src.models.user import User
 
 @pytest.fixture
 def mock_db_session():

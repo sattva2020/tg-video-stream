@@ -61,39 +61,39 @@
 
 ## ⏳ ЧТО ЕЩЁ НЕ СДЕЛАНО
 
-### Phase 5: Online Audio Sources (Feature 003, не требуется срочно)
+### Phase 5: Online Audio Sources (Feature 003)
 
-**Текущий статус**: Phase 4 (M3U Playlist) = 100%, Phase 5 = 0%
+**Status**: ✅ PARTIALLY COMPLETE
 
 **Что запланировано в Phase 5**:
 
 ```
-[ ] T049: stream_audio_from_url() 
+[x] T049: stream_audio_from_url() 
     - Загрузка аудио с HTTP(S) URL
     - Интеграция с yt-dlp для поддержки YouTube
-    - Status: NOT STARTED
+    - Status: COMPLETE
 
-[ ] T050: detect_audio_format()
+[x] T050: detect_audio_format()
     - Определение формата аудио по MIME-type
     - Fallback к расширению файла
-    - Status: NOT STARTED
+    - Status: COMPLETE
 
 [ ] T051-T052: Audio format conversion
     - MP3 → WAV, FLAC → WAV и т.д.
     - FFmpeg интеграция для транскодирования
-    - Status: NOT STARTED
+    - Status: PENDING
 
-[ ] T053-T055: Online playlist support
+[x] T053-T055: Online playlist support
     - Загрузка m3u с интернета
     - Кеширование плейлистов
     - Периодическое обновление
-    - Status: NOT STARTED (Phase 5b это только для upload)
+    - Status: COMPLETE (Basic support)
 
-[ ] T056-T060: Error handling & retry
+[x] T056-T060: Error handling & retry
     - Retry strategy для недоступных URL
     - Exponential backoff
     - Degraded mode для audio
-    - Status: NOT STARTED
+    - Status: COMPLETE (Basic handling)
 ```
 
 **Ожидаемые сроки**: 2-3 сессии разработки (если начать)
@@ -267,12 +267,21 @@ Mock coverage: 100% (no real network calls)
 
 После прогонов Lighthouse в CI и локально выявлены проблемы с высоким TTI для страницы авторизации (см. `.internal/frontend-logs/perf/*`). Ниже — конкретные remediation задачи и владельцы.
 
-| ID | Задача | Владелец | Оценка |
+| ID | Задача | Владелец | Статус |
 |----|-------|---------|--------|
-| T5001 | Исследование причины высоких TTI: профайлинг bundle (Vite), проверка 3D сцен/ресурсов, network waterfall | frontend-team (@frontend) | 1d |
-| T5002 | Оптимизации: lazy-load 3D, уменьшение initial bundle, defer сторонних скриптов, tree-shaking | frontend-team (@frontend) | 2d |
-| T5003 | Автоматический perf-пайплайн: прогонять `npm run perf:auth-errors` в CI и проверять пороги; добавить регрессионные проверки в PR | infra/ci-team (@ci) | 1d |
-| T5004 | Документировать результаты, добавить примеры нормализации отчётов и checklist для release-gate | tech-writer (@docs) | 0.5d |
+| T5001 | Исследование причины высоких TTI: профайлинг bundle (Vite), проверка 3D сцен/ресурсов, network waterfall | frontend-team (@frontend) | ✅ DONE |
+| T5002 | Оптимизации: lazy-load 3D, уменьшение initial bundle, defer сторонних скриптов, tree-shaking | frontend-team (@frontend) | ✅ DONE |
+| T5003 | Автоматический perf-пайплайн: прогонять `npm run perf:auth-errors` в CI и проверять пороги; добавить регрессионные проверки в PR | infra/ci-team (@ci) | ⏳ PENDING |
+| T5004 | Документировать результаты, добавить примеры нормализации отчётов и checklist для release-gate | tech-writer (@docs) | ✅ DONE |
+
+**Progress Update (24 Nov 2025)**:
+- **T5001**: Analyzed bundle. Found large vendor chunk (Three.js, Framer Motion).
+- **T5002**:
+  - Implemented `manualChunks` in Vite to split vendor bundles.
+  - Optimized Earth textures (4K -> WebP) using `sharp`.
+  - Lazy loaded `ZenScene` component.
+  - Added `rollup-plugin-visualizer` for bundle analysis.
+- **T5004**: Updated `README.md` and created `docs/development/frontend-l10n.md` with optimization details.
 
 Эти задачи следует добавить в `specs/008-auth-page-localization-logs/tasks.md` как follow-up (Phase 4 → polish/bugfixes) и прикрепить к `OUTSTANDING_TASKS_REPORT.md` с ожидаемыми сроками. После выполнения T5001–T5002 повторить perf-прогон и проверить соответствие порогам (T4004).
 
@@ -398,5 +407,27 @@ Mock coverage: 100% (no real network calls)
 - Lighthouse Performance: >90 (Verified)
 - Accessibility: 100 (Verified)
 - SEO: 100 (Verified)
+
+**Next Steps**: Feature complete. Ready for release.
+
+---
+
+## Feature 010: Telegram Auth & Multichannel
+
+**Status**: ✅ COMPLETE
+
+### ✅ Completed
+
+- **Phase 1: Core Backend & Encryption** (T1.1-T1.5)
+- **Phase 2: Streamer Process Management** (T2.1-T2.3)
+- **Phase 3: Frontend Auth Flow & Channel Management** (T3.1-T3.3)
+- **Phase 4: Local File Support & Integration** (T4.1-T4.3)
+
+**Key Features**:
+- Secure Telegram session storage (encrypted).
+- Interactive Telegram login (code, 2FA).
+- Channel management (start/stop/restart).
+- Playlist management (YouTube & Local Files).
+- Systemd integration for streamer processes.
 
 **Next Steps**: Feature complete. Ready for release.

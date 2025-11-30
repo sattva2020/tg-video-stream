@@ -1,0 +1,52 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: Sattva studio
+      - button "en" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e18]: en
+    - generic [active] [ref=e22]:
+      - generic [ref=e23]:
+        - paragraph [ref=e24]: ZenScene Access
+        - heading "JOIN US" [level=2] [ref=e25]
+        - paragraph [ref=e26]: Begin your journey
+      - generic [ref=e27]:
+        - alert [ref=e28]: Что-то пошло не так. Попробуйте ещё раз или обратитесь в поддержку.
+        - generic [ref=e29]:
+          - generic [ref=e30]:
+            - text: Email
+            - textbox "Email" [ref=e31]:
+              - /placeholder: founder@sattva.studio
+              - text: doubleclick-1764446424333@sattva.com
+          - generic [ref=e32]:
+            - text: Full Name (Optional)
+            - textbox "Full Name (Optional)" [ref=e33]:
+              - /placeholder: Aleksandra P.
+          - generic [ref=e34]:
+            - text: Password
+            - generic [ref=e35]:
+              - textbox "Password" [ref=e36]:
+                - /placeholder: ••••••••••••
+                - text: Zxy1234567!A
+              - button "Show password" [ref=e37] [cursor=pointer]:
+                - img [ref=e38]
+            - paragraph [ref=e41]: Must contain 12+ chars, uppercase, lowercase, number, special char.
+          - generic [ref=e42]:
+            - text: Confirm Password
+            - generic [ref=e43]:
+              - textbox "Confirm Password" [ref=e44]:
+                - /placeholder: ••••••••••••
+                - text: Zxy1234567!A
+              - button "Show password" [ref=e45] [cursor=pointer]:
+                - img [ref=e46]
+          - button "Begin Journey" [ref=e49] [cursor=pointer]
+        - link "Already have an account? Sign in" [ref=e51] [cursor=pointer]
+        - generic [ref=e56]: Or continue with
+        - button "Or continue with Google" [ref=e57] [cursor=pointer]:
+          - img [ref=e58]
+          - generic [ref=e63]: Or continue with Google
+  - region "Notifications alt+T"
+```

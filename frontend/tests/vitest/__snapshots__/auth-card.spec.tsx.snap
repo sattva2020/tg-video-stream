@@ -45,6 +45,7 @@ exports[`AuthCard visual fidelity > matches snapshot in login mode 1`] = `
           <input
             autocomplete="email"
             class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            data-testid="email-input"
             id="login-email"
             name="email"
             placeholder="founder@sattva.studio"
@@ -58,18 +59,52 @@ exports[`AuthCard visual fidelity > matches snapshot in login mode 1`] = `
           >
             Password
           </label>
-          <input
-            autocomplete="current-password"
-            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
-            id="login-password"
-            name="password"
-            placeholder="••••••••••••"
-            type="password"
-          />
+          <div
+            class="relative "
+          >
+            <input
+              autocomplete="current-password"
+              class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30 pr-12"
+              data-testid="password-input"
+              id="login-password"
+              name="password"
+              placeholder="••••••••••••"
+              type="password"
+            />
+            <button
+              aria-label="Show password"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-current opacity-50 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-1 rounded "
+              tabindex="-1"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-eye "
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <button
           class="w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30 hover:shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:bg-[#F5E6D3]/20 hover:border-[#F5E6D3]/50 hover:scale-[1.02]"
-          data-testid="auth-primary-action"
+          data-testid="login-button"
           type="submit"
         >
           Enter
@@ -189,6 +224,7 @@ exports[`AuthCard visual fidelity > matches snapshot in register mode 1`] = `
           <input
             autocomplete="email"
             class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
+            data-testid="email-input"
             id="register-email"
             name="email"
             placeholder="founder@sattva.studio"
@@ -218,14 +254,48 @@ exports[`AuthCard visual fidelity > matches snapshot in register mode 1`] = `
           >
             Password
           </label>
-          <input
-            autocomplete="new-password"
-            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
-            id="register-password"
-            name="password"
-            placeholder="••••••••••••"
-            type="password"
-          />
+          <div
+            class="relative "
+          >
+            <input
+              autocomplete="new-password"
+              class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30 pr-12"
+              data-testid="password-input"
+              id="register-password"
+              name="password"
+              placeholder="••••••••••••"
+              type="password"
+            />
+            <button
+              aria-label="Show password"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-current opacity-50 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-1 rounded "
+              tabindex="-1"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-eye "
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                />
+              </svg>
+            </button>
+          </div>
           <p
             class="mt-2 text-xs text-white/60"
           >
@@ -239,18 +309,51 @@ exports[`AuthCard visual fidelity > matches snapshot in register mode 1`] = `
           >
             Confirm Password
           </label>
-          <input
-            autocomplete="new-password"
-            class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30"
-            id="register-confirm-password"
-            name="confirmPassword"
-            placeholder="••••••••••••"
-            type="password"
-          />
+          <div
+            class="relative "
+          >
+            <input
+              autocomplete="new-password"
+              class="w-full rounded-2xl border border-[#F5E6D3]/30 bg-[#F5E6D3]/10 px-5 py-3 text-base text-[#F5E6D3] placeholder:text-[#F5E6D3]/50 shadow-inner transition focus-visible:border-[#F5E6D3] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F5E6D3]/30 pr-12"
+              id="register-confirm-password"
+              name="confirmPassword"
+              placeholder="••••••••••••"
+              type="password"
+            />
+            <button
+              aria-label="Show password"
+              class="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-current opacity-50 hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-1 rounded "
+              tabindex="-1"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-eye "
+                fill="none"
+                height="18"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="18"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <button
           class="w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30 hover:shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:bg-[#F5E6D3]/20 hover:border-[#F5E6D3]/50 hover:scale-[1.02]"
-          data-testid="auth-primary-action"
+          data-testid="register-button"
           type="submit"
         >
           Begin Journey

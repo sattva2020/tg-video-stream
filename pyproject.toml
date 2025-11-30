@@ -14,3 +14,46 @@ exclude = [".venv", "build", "dist", "frontend", "backend/alembic/versions"]
 
 [tool.ruff.lint]
 extend-ignore = ["E203"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error::DeprecationWarning",
+    # Игнорируем DeprecationWarning от внешних библиотек
+    "ignore::DeprecationWarning:pyrogram.*",
+    "ignore:There is no current event loop:DeprecationWarning",
+    "ignore:datetime.datetime.utcnow:DeprecationWarning:jose.*",
+]
+asyncio_mode = "auto"
+testpaths = ["tests", "backend/tests"]
+pythonpath = ["backend/src"]
+addopts = "--cov-config=pyproject.toml"
+
+[tool.coverage.run]
+source = ["backend/src"]
+branch = true
+omit = [
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/alembic/*",
+    "*/tests/*",
+    "*/.venv/*",
+    "*/venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+]
+fail_under = 70
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"

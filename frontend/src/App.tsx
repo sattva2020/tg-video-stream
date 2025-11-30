@@ -7,8 +7,13 @@ import LandingPage from './pages/LandingPage';
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const PlaylistPage = lazy(() => import('./pages/Playlist'));
 const PendingUsers = lazy(() => import('./pages/admin/PendingUsers'));
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const ChannelManager = lazy(() => import('./pages/ChannelManager'));
+const SchedulePage = lazy(() => import('./pages/SchedulePage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
@@ -29,7 +34,12 @@ const App: React.FC = () => {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/pending" element={<PendingUsers />} />
+              <Route path="/channels" element={<ChannelManager />} />
+              <Route path="/playlist" element={<PlaylistPage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
             </Route>
           </Routes>
         </Suspense>

@@ -5,8 +5,9 @@ const webServerCommand = process.env.PLAYWRIGHT_WEB_COMMAND || 'npm run dev';
 
 export default defineConfig({
   // Изолируем e2e от vitest-спеков, чтобы не подмешивались jest-matchers
-  testDir: './tests/playwright',
-  testMatch: /.*\.spec\.ts/,
+  testDir: './tests',
+  testMatch: ['**/e2e/**/*.spec.ts', '**/playwright/**/*.spec.ts'],
+  testIgnore: '**/vitest/**',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

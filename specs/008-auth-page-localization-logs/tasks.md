@@ -30,7 +30,7 @@ title: "Tasks — auth page localization + frontend logs"
 ### Implementation
 
 - [ ] T1003 (US1) Выделить `AuthErrorPayload` в `backend/src/models/auth_error.py` + использовать его в `backend/src/api/auth.py` для типизации `detail` и централизованного fallback (FR-001..FR-003, EC-1/EC-2).
-- [ ] T1004 (US1) Обновить `backend/src/services/auth_service.py` и `backend/src/api/auth.py`, чтобы ответы `/register` и `/login` всегда возвращали `message_key`, даже когда сервер уже сгенерировал `message`, и логировали несоответствия (NFR-001 observability).
+- [ ] T1004 (US1) Non-breaking server-side i18n keys — update `backend/src/services/auth_service.py` and `backend/src/api/auth.py` so that servers emit `message_key` where possible (non-breaking), and add logging/audit for responses that still lack `message_key`. Do not make `message_key` mandatory yet; follow migration plan from spec and ensure contract tests pass. (NFR-001 observability).
 - [ ] T1005 (P, US1) Создать/обновить `specs/008-auth-page-localization-logs/contracts/auth-error.yaml` с описанием полей, примеров 403/409/500 и ссылкой на pytest (AC-1).
 - [ ] T1006 (US1) Доработать компонент ошибок (`frontend/src/components/auth/AuthErrorNotice.tsx` + `frontend/src/pages/LoginPage.tsx`/`RegisterPage.tsx`), чтобы он принимал `message_key`, использовал `useTranslation()` и отображал подпись `hint` (FR-003, US1 acceptance).
 - [ ] T1007 (US1) Задокументировать новую схему ошибок в `docs/auth-page-ui.md`, добавив таблицу соответствия `code` ↔ `message_key` (US1, Принцип IV).
@@ -62,6 +62,18 @@ title: "Tasks — auth page localization + frontend logs"
 
 ## Phase 4.1 — Remediation & Performance fixes
 
-- [ ] T5001 (P, US3, NFR-001) Research & profiling — провести профайлинг страницы `auth` (Vite bundle, network waterfall, 3D scenes), собрать список корневых причин высоких TTI, сформировать мердж‑план и список приоритетных изменений. Результат: детализированный отчет в `.internal/frontend-logs/perf/<run_id>/profiling/` + обновление docs. (owner: @frontend)
-- [ ] T5002 (P, US3, NFR-001) Implement optimizations — по результатам T5001: lazy-load heavy assets (3D), code-split auth page, reduce initial bundle, defer third-party scripts, уменьшить LCP/TTI; включить regression tests и пересчитать perf. (owner: @frontend)
+- [x] T5001 (P, US3, NFR-001) Research & profiling — провести профайлинг страницы `auth` (Vite bundle, network waterfall, 3D scenes), собрать список корневых причин высоких TTI, сформировать мердж‑план и список приоритетных изменений. Результат: детализированный отчет в `.internal/frontend-logs/perf/<run_id>/profiling/` + обновление docs. (owner: @frontend)
+- [x] T5002 (P, US3, NFR-001) Implement optimizations — по результатам T5001: конкретные подзадачи ниже. (owner: @frontend)
+
+	- [x] T5002.1 (P) Bundle analysis & annotated report — run source-map-explorer / vite-bundle-analyzer on production build, save `bundle-report.html` + `bundle-report.json` into `.internal/frontend-logs/perf/<run_id>/profiling/`. Produce an annotated list of top 10 modules by bytes and an initial remediation plan. (deliverable: profiling/ bundle-report)
+
+	- [x] T5002.2 (P) Texture / assets optimization — replace remote large textures used by `ZenScene` with optimized local WebP or AVIF variants (prefer progressive, small fallbacks 256–512px) and add lazy-loading for large textures. Ensure caching headers and size budget < 200KB per texture on mobile. Update tests to assert local assets are used by production build. (deliverable: assets/ + tests)
+
+	- [x] T5002.3 (P) Vendor code-splitting & Vite configuration — confirm `three`, `@react-three/fiber`, `@react-three/drei` are emitted into non-critical vendor chunks, avoid initial preload of 3D chunks. Add CI-time check (script) that verifies code-splitting in the built `dist/` (no `three` in the main-critical bundle). (deliverable: vite.config.ts + ci-check script)
+
+	- [x] T5002.4 (P) Defer Canvas mount & progressive bootstrap — ensure `ZenCanvas` mounts after first paint/user interaction/idle using `requestIdleCallback` or IntersectionObserver, keep `lazy` import guard for `@react-three/fiber`. Add unit/e2e tests verifying auth page first paint is not blocked by 3D mount. (deliverable: component change + tests)
+
+	- [x] T5002.5 (P) Perf regression harness & CI integration — extend `tests/perf/auth-error-tti.mjs` to run against production-built preview (not dev) and add an acceptance run in CI that compares baseline → optimized TTI. Initially keep CI soft-fail (warning); after stability convert to guard (hard-fail) per T5003. (deliverable: perf job + regression test)
+
+	- [x] T5002.6 (P) Documentation + rollout checklist — update `tests/perf/README.md`, `docs/development/frontend-l10n.md`, and `OUTSTANDING_TASKS_REPORT.md` with remediation notes, performance before/after, and merge checklist. (deliverable: docs + release notes)
 - [ ] T5003 (P, infra) CI perf guard — включить `frontend-perf.yml` в workflows, настроить PR-run для feature веток и жесткое правило (fail PR) при превышении порогов; документировать поведение в `tests/perf/README.md`. (owner: @ci)

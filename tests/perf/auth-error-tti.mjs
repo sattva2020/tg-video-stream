@@ -8,8 +8,10 @@ const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 const npxCmd = isWindows ? 'npx.cmd' : 'npx';
 const frontendDir = path.resolve('frontend');
 const managePreview = process.env.SKIP_PREVIEW === '1' ? false : true;
+const skipBuild = process.env.SKIP_BUILD === '1';
 const useDevServer = process.env.USE_DEV_SERVER === '1';
 const runPlaywright = process.env.SKIP_PLAYWRIGHT === '1' ? false : true;
+const runLighthouse = process.env.SKIP_LIGHTHOUSE === '1' ? false : true;
 const previewHost = process.env.AUTH_PREVIEW_HOST || '127.0.0.1';
 const previewPort = Number(process.env.AUTH_PREVIEW_PORT || 4173);
 const maxTtiMs = Number(process.env.MAX_TTI_MS || 2000);
@@ -32,11 +34,14 @@ async function waitForReady(url, timeoutMs = 30000) {
   while (Date.now() - start < timeoutMs) {
     try {
       const response = await fetch(url, { method: 'GET' });
+      console.log(`[waitForReady] ${url} status: ${response.status}`);
       if (response.ok) {
+        const text = await response.text();
+        console.log(`[waitForReady] Content length: ${text.length}`);
         return;
       }
     } catch (error) {
-      // retry
+      console.log(`[waitForReady] Error: ${error.message}`);
     }
     await sleep(1000);
   }
@@ -80,6 +85,8 @@ function runPlaywrightScenario() {
     `--workers=${playwrightWorkers}`,
     '--reporter=line'
   ];
+  // Pass MOCK_API env var to Playwright
+  process.env.MOCK_API = 'true';
   runFrontendCommand(args, 'Playwright сценарий auth-errors');
 }
 
@@ -98,7 +105,7 @@ function runLighthouseCommand(targetUrl, label) {
     `--output-path=${reportBase}`,
     `--max-wait-for-load=${lighthouseTimeoutMs}`,
     '--quiet',
-    '--chrome-flags=--headless=new --no-sandbox --disable-dev-shm-usage'
+    '--chrome-flags=--headless --no-sandbox --disable-dev-shm-usage'
   ];
   const result = spawnSync(npxCmd, args, {
     stdio: 'inherit',
@@ -139,24 +146,30 @@ async function run() {
   await mkdir(logsRoot, { recursive: true });
 
   if (managePreview) {
-    if (!useDevServer) {
+    if (!useDevServer && !skipBuild) {
       runFrontendCommand(['run', 'build'], 'frontend build');
     }
     startPreviewServer();
     await waitForReady(baselineUrl);
   }
 
-  const baselineDescriptor = runLighthouseCommand(baselineUrl, 'baseline');
-  baselineDescriptor.url = baselineUrl;
-  const baselineMetrics = await collectMetrics(baselineDescriptor);
+  let baselineMetrics = { tti: 0 };
+  if (runLighthouse) {
+    const baselineDescriptor = runLighthouseCommand(baselineUrl, 'baseline');
+    baselineDescriptor.url = baselineUrl;
+    baselineMetrics = await collectMetrics(baselineDescriptor);
+  }
 
   if (runPlaywright) {
     runPlaywrightScenario();
   }
 
-  const errorDescriptor = runLighthouseCommand(errorUrl, 'error');
-  errorDescriptor.url = errorUrl;
-  const errorMetrics = await collectMetrics(errorDescriptor);
+  let errorMetrics = { tti: 0 };
+  if (runLighthouse) {
+    const errorDescriptor = runLighthouseCommand(errorUrl, 'error');
+    errorDescriptor.url = errorUrl;
+    errorMetrics = await collectMetrics(errorDescriptor);
+  }
 
   const deltaMs = errorMetrics.tti - baselineMetrics.tti;
   const summary = {
@@ -179,9 +192,13 @@ async function run() {
   };
 
   await writeFile(path.join(logsRoot, 'summary.json'), JSON.stringify(summary, null, 2), 'utf8');
+  
+  const baselineReport = baselineMetrics.htmlPath ? path.relative(process.cwd(), baselineMetrics.htmlPath) : 'N/A';
+  const errorReport = errorMetrics.htmlPath ? path.relative(process.cwd(), errorMetrics.htmlPath) : 'N/A';
+
   await writeFile(
     path.join(logsRoot, 'summary.md'),
-    `# Auth Error TTI Report\n\n- Run ID: ${runId}\n- Baseline TTI: ${baselineMetrics.tti.toFixed(2)} ms\n- Error TTI: ${errorMetrics.tti.toFixed(2)} ms\n- ΔTTI: ${deltaMs.toFixed(2)} ms (limit ${maxDeltaMs} ms)\n- Reports: ${path.relative(process.cwd(), baselineMetrics.htmlPath)}, ${path.relative(process.cwd(), errorMetrics.htmlPath)}\n`,
+    `# Auth Error TTI Report\n\n- Run ID: ${runId}\n- Baseline TTI: ${baselineMetrics.tti.toFixed(2)} ms\n- Error TTI: ${errorMetrics.tti.toFixed(2)} ms\n- ΔTTI: ${deltaMs.toFixed(2)} ms (limit ${maxDeltaMs} ms)\n- Reports: ${baselineReport}, ${errorReport}\n`,
     'utf8'
   );
 

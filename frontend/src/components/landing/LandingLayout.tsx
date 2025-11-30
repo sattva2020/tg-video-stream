@@ -40,7 +40,6 @@ const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background,
           </footer>
         ) : null}
       </div>
-      <div className="pointer-events-none absolute inset-0 bg-brand-glow/30 blur-landing-md sm:blur-landing-lg" aria-hidden />
     </div>
   );
 };

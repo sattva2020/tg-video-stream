@@ -26,7 +26,7 @@ describe('AuthCard register error handling', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'ValidPass123!' } });
     fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'ValidPass123!' } });
 
-    fireEvent.click(screen.getByTestId('auth-primary-action'));
+    fireEvent.click(screen.getByTestId('register-button'));
 
     const banner = await screen.findByText('Пользователь с таким email уже существует');
     expect(banner).toBeInTheDocument();

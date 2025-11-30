@@ -1,14 +1,16 @@
 import os
 import asyncio
 import logging
+import threading
 from typing import List, Union
+import requests
 
 from pyrogram import Client
 from pyrogram.errors import SessionExpired, SessionPasswordNeeded, AuthKeyInvalid, RPCError
 try:
     from pytgcalls import PyTgCalls
     from pytgcalls.exceptions import AlreadyJoinedError
-    from pytgcalls.types import AudioVideoPiped, HighQualityAudio, HighQualityVideo
+    from pytgcalls.types import AudioVideoPiped, AudioPiped, HighQualityAudio, HighQualityVideo
     PYG_AVAILABLE = True
 except Exception as e:
     # pytgcalls / tgcalls not available — run in degraded mode
@@ -28,6 +30,9 @@ except Exception as e:
 
 from dotenv import load_dotenv
 from utils import expand_playlist, build_ffmpeg_av_args, best_stream_url
+import audio_utils
+from metrics import MetricsCollector
+from queue_manager import StreamQueue
 
 # Prometheus imports
 try:
@@ -49,9 +54,38 @@ API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
 SESSION_STRING = os.getenv("SESSION_STRING", "")
 CHAT_ID: Union[int, str] = os.getenv("CHAT_ID", "")
+CHANNEL_ID = os.getenv("CHANNEL_ID", "")
 VIDEO_QUALITY = os.getenv("VIDEO_QUALITY", "720p")
 LOOP = os.getenv("LOOP", "1") == "1"
 PROMETHEUS_PORT = int(os.getenv("PROMETHEUS_PORT", "9090"))
+
+
+def _get_backend_url() -> str:
+    return os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
+
+
+def _report_streamer_status(item_id: Union[str, None], status: str, duration: Union[int, None] = None):
+    if not item_id:
+        return
+    token = os.getenv("STREAMER_STATUS_TOKEN")
+    if not token:
+        log.debug("STREAMER_STATUS_TOKEN missing; skipping status update for %s", item_id)
+        return
+    payload = {"status": status}
+    if duration is not None:
+        payload["duration"] = duration
+    headers = {"X-Streamer-Token": token}
+    try:
+        response = requests.patch(
+            f"{_get_backend_url()}/api/playlist/{item_id}/status",
+            json=payload,
+            headers=headers,
+            timeout=5
+        )
+        if response.status_code != 200:
+            log.warning("Streamer status update failed for %s: %s", item_id, response.text.strip())
+    except requests.RequestException as exc:
+        log.warning("Unable to report status %s for %s: %s", status, item_id, exc)
 
 # Initialize Prometheus metrics if available
 streams_played_total = None
@@ -126,46 +160,103 @@ async def ensure_join(chat: Union[int, str]):
     except Exception as e:
         log.info("join test: %s", e)
 
-async def play_sequence(urls: List[str]):
-    urls = expand_playlist(urls)
+async def play_sequence(items: List[dict]):
     v_args, a_args = build_ffmpeg_av_args(VIDEO_QUALITY)
-    log.info("Expanded playlist: %d items", len(urls))
+    log.info("Playlist contains %d items", len(items))
     if not pytg:
         log.warning("pytgcalls not available — entering degraded idle loop (no streaming)")
-        # Just sleep for a bit to simulate work if we can't stream
         await asyncio.sleep(60)
         return
 
-    for link in urls:
-        try:
-            direct = best_stream_url(link)
-            log.info("▶️ Playing: %s", link)
-            if streams_played_total:
-                streams_played_total.inc()
-            stream = AudioVideoPiped(
-                direct,
-                video_parameters=HighQualityVideo(),
-                audio_parameters=HighQualityAudio(),
-                additional_ffmpeg_parameters=[
-                    "-re",
-                    *v_args,
-                    *a_args
-                ]
-            )
-            await pytg.join_group_call(CHAT_ID, stream)
-            # Ждём ~2 часа для не-live ролика, live может идти бесконечно
-            for _ in range(24):
-                await asyncio.sleep(300)
-                if pytg.get_call(CHAT_ID) is None:
-                    break
-            await pytg.leave_group_call(CHAT_ID)
-        except Exception as e:
-            log.exception("Stream error: %s", e)
+    queue = StreamQueue(max_buffer_size=3)
+    queue.add_items(items)
+    
+    try:
+        while True:
+            # Check if we are done
+            if queue.empty() and queue.queue.empty():
+                break
+
+            # Get next item (waits if queue is empty but buffering is active)
+            # We need a timeout or check if buffering is done and queue is empty
             try:
+                # Wait for next item with a timeout to allow checking for empty state
+                prepared_item = await asyncio.wait_for(queue.get_next(), timeout=5.0)
+            except asyncio.TimeoutError:
+                if not queue.is_running or (not queue.playlist_items and queue.queue.empty()):
+                    break
+                continue
+
+            track_id = prepared_item["track_id"]
+            direct = prepared_item["direct_url"]
+            link = prepared_item["link"]
+            original_item = prepared_item["original_item"]
+            profile = prepared_item["profile"]
+            is_audio = prepared_item["is_audio"]
+
+            try:
+                log.info("▶️ Playing: %s", link)
+                if streams_played_total:
+                    streams_played_total.inc()
+
+                _report_streamer_status(track_id, "playing", duration=original_item.get("duration"))
+
+                if is_audio:
+                    log.info("Detected audio-only source")
+                    
+                    if profile:
+                        log.info("Transcoding required (%s): %s", profile.get('description'), direct)
+                        add_args = ['-re', *profile.get('ffmpeg_args', [])]
+                        try:
+                            stream = AudioPiped(
+                                direct,
+                                audio_parameters=HighQualityAudio(),
+                                additional_ffmpeg_parameters=add_args
+                            )
+                        except Exception as e:
+                            log.exception("Transcoding initialization failed for %s: %s", direct, e)
+                            await asyncio.sleep(1)
+                            continue
+                    else:
+                        log.info("No transcoding profile matched, using direct AudioPiped")
+                        stream = AudioPiped(
+                            direct,
+                            audio_parameters=HighQualityAudio()
+                        )
+                else:
+                    stream = AudioVideoPiped(
+                        direct,
+                        video_parameters=HighQualityVideo(),
+                        audio_parameters=HighQualityAudio(),
+                        additional_ffmpeg_parameters=[
+                            "-re",
+                            *v_args,
+                            *a_args
+                        ]
+                    )
+
+                await pytg.join_group_call(CHAT_ID, stream)
+                
+                # Monitor playback
+                # We check every 5 seconds. Max duration 2 hours (1440 * 5s = 7200s).
+                for _ in range(1440): 
+                    await asyncio.sleep(5)
+                    if pytg.get_call(CHAT_ID) is None:
+                        break
+                
                 await pytg.leave_group_call(CHAT_ID)
-            except Exception:
-                pass
-            await asyncio.sleep(5)
+                _report_streamer_status(track_id, "queued")
+                
+            except Exception as e:
+                log.exception("Stream error while playing %s: %s", link, e)
+                _report_streamer_status(track_id, "error")
+                try:
+                    await pytg.leave_group_call(CHAT_ID)
+                except Exception:
+                    pass
+                await asyncio.sleep(5)
+    finally:
+        await queue.stop()
 
 async def main():
     if not RUN_APP:
@@ -183,18 +274,12 @@ async def main():
             try:
                 me = await app.get_me()
             except (SessionExpired, AuthKeyInvalid) as e:
-                # Session is invalid/expired — log and fall back to degraded mode
+                # Session is invalid/expired — trigger recovery
                 log.exception("Telegram session invalid or expired: %s", e)
-                log.error("Switching to degraded mode. To recover: regenerate SESSION_STRING and restart the service. See test/auto_session_runner.py for helpers.")
-                # Best-effort: stop any partially started pytgcalls
-                try:
-                    if pytg:
-                        await pytg.stop()
-                except Exception:
-                    pass
-                # Enter degraded idle loop
-                while True:
-                    await asyncio.sleep(60)
+                from auto_session_runner import recover
+                recover()
+                # recover() calls execv, so we shouldn't reach here.
+                return
 
             except SessionPasswordNeeded:
                 log.exception("Two-factor auth (password) is required for this account. Cannot continue.")
@@ -206,34 +291,34 @@ async def main():
             await ensure_join(CHAT_ID)
             
             while True:
-                # Fetch playlist from API
-                BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
+                params = {}
+                if CHANNEL_ID:
+                    params['channel_id'] = CHANNEL_ID
                 try:
-                    import requests
-                    resp = requests.get(f"{BACKEND_URL}/api/playlist/")
+                    resp = requests.get(f"{_get_backend_url()}/api/playlist/", params=params)
                     if resp.status_code == 200:
-                        data = resp.json()
-                        urls = [item['url'] for item in data]
-                        log.info("Fetched %d items from API", len(urls))
+                        playlist = resp.json()
+                        log.info("Fetched %d items from API", len(playlist))
                     else:
                         log.error("Failed to fetch playlist from API: %s", resp.status_code)
-                        urls = []
+                        playlist = []
                 except Exception as e:
                     log.error("Error connecting to backend API: %s", e)
-                    # Fallback to local file if API fails
                     if os.path.exists("playlist.txt"):
                         log.info("Falling back to playlist.txt")
                         with open("playlist.txt", "r", encoding="utf-8") as f:
-                            urls = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
+                            playlist = [
+                                {"url": line.strip()} for line in f
+                                if line.strip() and not line.strip().startswith("#")
+                            ]
                     else:
-                        urls = []
+                        playlist = []
 
-                if not urls:
+                if not playlist:
                     log.warning("No URLs found in API or playlist.txt. Waiting...")
                     await asyncio.sleep(60)
                     continue
-                    
-                await play_sequence(urls)
+                await play_sequence(playlist)
                 
                 if not LOOP:
                     break
@@ -250,4 +335,15 @@ async def main():
             await asyncio.sleep(60)
 
 if __name__ == "__main__":
+    # Start metrics collector in a background thread
+    try:
+        REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+        REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+        collector = MetricsCollector(redis_host=REDIS_HOST, redis_port=REDIS_PORT)
+        metrics_thread = threading.Thread(target=collector.run_loop, daemon=True)
+        metrics_thread.start()
+        log.info("Metrics collector started")
+    except Exception as e:
+        log.error(f"Failed to start metrics collector: {e}")
+
     asyncio.run(main())

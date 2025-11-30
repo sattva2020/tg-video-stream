@@ -6,14 +6,27 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/telegram_db
+      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@db:5432/telegram_db
       - REDIS_URL=redis://redis:6379
       # JWT_SECRET and GOOGLE_* variables are loaded from env_file
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./data:/app/data
+    networks:
+      - external
+      - internal
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -25,22 +38,48 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - external
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   db:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=telegram_db
+    command: ["postgres", "-c", "listen_addresses=*"]
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    networks:
+      - internal
+      - streamer
+      - monitoring
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   streamer:
     build: ./streamer
@@ -48,9 +87,109 @@ services:
       - .env
     volumes:
       - ./streamer:/app
+      - ./data:/app/data
     restart: always
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - streamer
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Monitoring stack
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    volumes:
+      - ./config/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/monitoring/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - internal
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.2
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - external
+      - internal
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    volumes:
+      - ./config/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "9093:9093"
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+networks:
+  # Публичная сеть - только для сервисов с внешним доступом (frontend, grafana)
+  external:
+    driver: bridge
+  
+  # Приватная сеть backend - изолирована от внешнего мира
+  # Содержит: backend, db, redis, prometheus, alertmanager
+  internal:
+    driver: bridge
+    internal: true
+  
+  # Сеть для стримера - изолирована, только redis доступ
+  streamer:
+    driver: bridge
+    internal: true
+  
+  # Сеть мониторинга - для связи Prometheus с целями
+  monitoring:
+    driver: bridge
+    internal: true
 
 volumes:
   postgres_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:

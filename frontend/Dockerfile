@@ -1,11 +1,14 @@
 # Build stage
-FROM node:22-alpine as build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
+# Copy package files
 COPY package.json package-lock.json ./
 
-RUN npm install --legacy-peer-deps
+# Install ALL dependencies (including devDependencies for build tools)
+# Use --ignore-scripts to skip native module compilation that we don't need
+RUN npm ci --legacy-peer-deps --ignore-scripts
 
 COPY . .
 

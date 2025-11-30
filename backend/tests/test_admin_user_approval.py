@@ -2,7 +2,7 @@ import pytest
 import os, sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from models.user import User
+from src.models.user import User
 from services.auth_service import auth_service
 
 def create_admin(db, email='admin@example.com', password='AdminPassword123!'):
@@ -28,7 +28,8 @@ def test_list_pending_users_and_approve(client, db_session):
     r = client.get('/api/admin/users?status=pending', headers=headers)
     assert r.status_code == 200
     data = r.json()
-    assert any(item['email'] == 'pending1@example.com' for item in data)
+    items = data.get('items', data) if isinstance(data, dict) else data
+    assert any(item['email'] == 'pending1@example.com' for item in items)
 
     # Approve the pending user
     r2 = client.post(f'/api/admin/users/{u1.id}/approve', headers=headers)

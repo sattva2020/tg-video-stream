@@ -37,7 +37,7 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
         # Worker entrypoint — load the user and perform notifications
         logger.info(f"[worker] send_admin_notification_task called for user {user_id}")
         from database import SessionLocal
-        from models.user import User
+        from src.models.user import User
         db = SessionLocal()
         try:
             user = db.query(User).filter(User.id == user_id).first()
@@ -132,7 +132,7 @@ def send_admin_notification_sync(user_id: str) -> bool:
     Used by tests and dev fallback.
     """
     from database import SessionLocal
-    from models.user import User
+    from src.models.user import User
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()

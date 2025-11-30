@@ -6,7 +6,7 @@ import os
 from fastapi_mail import FastMail, MessageSchema
 from pydantic import BaseModel
 
-from models.user import User
+from src.models.user import User
 from auth import jwt
 
 

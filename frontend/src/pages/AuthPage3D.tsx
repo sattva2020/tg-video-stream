@@ -1,9 +1,10 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AuthCard, { type AuthMode, type AuthBanner } from '../components/auth/AuthCard';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
 import AuthLayout from '../components/auth/AuthLayout';
+import PageLoader from '../components/ui/PageLoader';
 
 // Lazy load the 3D scene to improve TBT/LCP
 const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
@@ -16,6 +17,7 @@ const AuthPage3D: React.FC = () => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const forceStatic = searchParams.get('forceStatic') === '1';
 
@@ -67,36 +69,74 @@ const AuthPage3D: React.FC = () => {
     navigate('/dashboard');
   };
 
-  return (
-    <div
-      data-testid="auth-page"
-      className="relative min-h-screen overflow-hidden bg-[color:var(--color-surface)] text-[color:var(--color-text)] font-landing-sans"
-    >
-      <Suspense fallback={<div className="absolute inset-0 bg-[color:var(--color-surface)]" />}>
-        <AuthZenScene scrollY={scrollY} forceStatic={forceStatic} />
-      </Suspense>
+  const handleLoaderComplete = () => {
+    setIsLoading(false);
+  };
 
-      <AuthLayout
-        hero={
-          <header className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.45em] text-[color:var(--color-text-muted)]">Sattva studio</p>
-              <div className="flex items-center gap-4">
-                <LanguageSwitcher className="text-[#F7E2C6]" />
+  return (
+    <>
+      {/* Лоадер с круговым прогрессом */}
+      {isLoading && (
+        <PageLoader 
+          minDisplayTime={1200} 
+          onComplete={handleLoaderComplete}
+          size="md"
+        />
+      )}
+
+      <div
+        data-testid="auth-page"
+        data-theme="dark"
+        className={`
+          relative min-h-screen overflow-hidden bg-[#0c0a09] text-[#e5d9c7] font-landing-sans
+          transition-opacity duration-500
+          ${isLoading ? 'opacity-0' : 'opacity-100'}
+        `}
+      >
+        {/* Логотип янтры в левом верхнем углу */}
+        <div className="fixed top-4 left-4 z-50">
+          <Link to="/" className="block">
+            <img 
+              src="/assets/yantra-logo.svg" 
+              alt="Sattva Yantra" 
+              className="w-12 h-12 rounded-xl hover:scale-105 transition-transform duration-300"
+            />
+          </Link>
+        </div>
+
+        <Suspense fallback={<div className="absolute inset-0 bg-[#0c0a09]" />}>
+          <AuthZenScene scrollY={scrollY} forceStatic={forceStatic} />
+        </Suspense>
+
+        <AuthLayout
+          hero={
+            <header className="space-y-3">
+              <div className="flex items-center justify-between">
+                {/* Кликабельный логотип - переход на главную */}
+                <Link 
+                  to="/"
+                  className="text-xs uppercase tracking-[0.45em] text-[#e5d9c7]/70 hover:text-[#F7E2C6] transition-colors duration-300 cursor-pointer"
+                  title="Go to Home"
+                >
+                  Sattva studio
+                </Link>
+                <div className="flex items-center gap-4">
+                  <LanguageSwitcher className="text-[#F7E2C6]" />
+                </div>
               </div>
-            </div>
-          </header>
-        }
-        primary={
-          <AuthCard
-            mode={mode}
-            onModeChange={setMode}
-            onAuthenticated={handleAuthenticated}
-            initialBanner={banner}
-          />
-        }
-      />
-    </div>
+            </header>
+          }
+          primary={
+            <AuthCard
+              mode={mode}
+              onModeChange={setMode}
+              onAuthenticated={handleAuthenticated}
+              initialBanner={banner}
+            />
+          }
+        />
+      </div>
+    </>
   );
 };
 

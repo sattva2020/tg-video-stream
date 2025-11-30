@@ -6,10 +6,13 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import clsx from 'clsx';
 import GoogleLoginButton from '../GoogleLoginButton';
+import TelegramLoginButton from '../TelegramLoginButton';
+import { PasswordInput } from '../ui/PasswordInput';
 import { authClient, isAuthClientError } from '../../lib/api/authClient';
 import ErrorToast from './ErrorToast';
 import { normalizeAuthError } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
+import { useTelegramAuth } from '../../hooks/useTelegramAuth';
 
 export type AuthMode = 'login' | 'register';
 
@@ -72,6 +75,20 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
     () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
     []
   );
+  
+  // Telegram auth hook
+  const { 
+    isLoading: isTelegramLoading, 
+    error: telegramError, 
+    handleTelegramAuth 
+  } = useTelegramAuth();
+
+  // Показываем ошибку Telegram если есть
+  useEffect(() => {
+    if (telegramError) {
+      setBanner({ tone: 'error', message: telegramError });
+    }
+  }, [telegramError]);
 
   useEffect(() => {
     setBanner(initialBanner ?? null);
@@ -155,8 +172,8 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
         shadow="none"
         className="relative z-10 h-full w-full bg-transparent p-0 text-white"
       >
-      <CardHeader className="flex flex-col gap-2 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg">
-        <p className="text-xs uppercase tracking-[0.45em] text-[#F5E6D3]/60 [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]">ZenScene Access</p>
+      <CardHeader className="flex flex-col items-center gap-3 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg">
+        <p className="text-xs uppercase tracking-[0.45em] text-[#F5E6D3]/60 [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]">{t('zenscene_access')}</p>
         <h2 className="font-landing-serif text-3xl text-[#F5E6D3] [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]" data-testid="auth-headline">
           {mode === 'login' ? t('sattva') : t('join_us')}
         </h2>
@@ -171,7 +188,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
           <Chip
             color={banner.tone === 'success' ? 'success' : 'default'}
             variant="bordered"
-            className="justify-start border-0 bg-white/10 px-4 py-3 text-sm font-medium text-white"
+            className="w-full justify-center text-center border-0 bg-white/10 px-4 py-3 text-sm font-medium text-white"
             aria-live="polite"
           >
             {banner.message}
@@ -185,6 +202,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
                 {t('email')}
               </label>
               <input
+                data-testid="email-input"
                 id="login-email"
                 type="email"
                 autoComplete="email"
@@ -198,19 +216,19 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
               <label className="text-xs uppercase tracking-[0.3em] text-white/60" htmlFor="login-password">
                 {t('password')}
               </label>
-              <input
+              <PasswordInput
+                data-testid="password-input"
                 id="login-password"
-                type="password"
                 autoComplete="current-password"
-                className={INPUT_BASE}
+                className={`${INPUT_BASE} pr-12`}
                 placeholder="••••••••••••"
                 {...loginForm.register('password')}
               />
               {renderFieldError(loginForm.formState.errors.password)}
             </div>
             <button
+              data-testid="login-button"
               type="submit"
-              data-testid="auth-primary-action"
               disabled={isSubmitting}
               className={clsx(
                 'w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30',
@@ -227,6 +245,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
                 {t('email')}
               </label>
               <input
+                data-testid="email-input"
                 id="register-email"
                 type="email"
                 autoComplete="email"
@@ -254,11 +273,11 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
               <label className="text-xs uppercase tracking-[0.3em] text-white/60" htmlFor="register-password">
                 {t('password')}
               </label>
-              <input
+              <PasswordInput
+                data-testid="password-input"
                 id="register-password"
-                type="password"
                 autoComplete="new-password"
-                className={INPUT_BASE}
+                className={`${INPUT_BASE} pr-12`}
                 placeholder="••••••••••••"
                 {...registerForm.register('password')}
               />
@@ -269,19 +288,18 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
               <label className="text-xs uppercase tracking-[0.3em] text-white/60" htmlFor="register-confirm-password">
                 {t('confirm_password')}
               </label>
-              <input
+              <PasswordInput
                 id="register-confirm-password"
-                type="password"
                 autoComplete="new-password"
-                className={INPUT_BASE}
+                className={`${INPUT_BASE} pr-12`}
                 placeholder="••••••••••••"
                 {...registerForm.register('confirmPassword')}
               />
               {renderFieldError(registerForm.formState.errors.confirmPassword)}
             </div>
             <button
+              data-testid="register-button"
               type="submit"
-              data-testid="auth-primary-action"
               disabled={isSubmitting}
               className={clsx(
                 'w-full rounded-2xl bg-[#F5E6D3]/10 px-6 py-4 text-center text-base font-semibold uppercase tracking-[0.4em] text-[#F5E6D3] shadow-xl transition-all duration-300 border border-[#F5E6D3]/30',
@@ -321,6 +339,12 @@ const AuthCard: React.FC<AuthCardProps> = ({ mode, onModeChange, onAuthenticated
           disabled={isSubmitting}
           label={googleLabel}
           className="!bg-[#F5E6D3]/10 !text-[#F5E6D3] !border-[#F5E6D3]/30 hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50 border transition-all duration-300"
+        />
+
+        <TelegramLoginButton
+          onAuth={handleTelegramAuth}
+          disabled={isSubmitting || isTelegramLoading}
+          className="mt-3"
         />
       </CardBody>
     </Card>

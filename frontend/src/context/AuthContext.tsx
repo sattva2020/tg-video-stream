@@ -9,6 +9,7 @@ interface AuthState {
   isLoading: boolean;
   login: (token: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -50,13 +51,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const userData = await authApi.getMe();
             console.log('User data fetched:', userData);
             // Ensure role is present. If backend doesn't send it yet, fallback to token role or USER.
-            // Note: userData might not strictly match User interface until T009 is done.
             const userWithRole: User = {
                 id: userData.id,
                 email: userData.email,
                 full_name: userData.full_name,
                 profile_picture_url: userData.profile_picture_url,
-                role: (userData.role as UserRole) || (decoded.role as UserRole) || UserRole.USER
+                role: (userData.role as UserRole) || (decoded.role as UserRole) || UserRole.USER,
+                status: userData.status,
+                google_id: userData.google_id,
+                telegram_id: userData.telegram_id,
+                telegram_username: userData.telegram_username,
             };
             setUser(userWithRole);
             setIsAuthenticated(true);
@@ -85,8 +89,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await checkAuth();
   };
 
+  const refreshUser = useCallback(async () => {
+    await checkAuth();
+  }, [checkAuth]);
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

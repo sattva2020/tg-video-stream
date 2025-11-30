@@ -1,0 +1,110 @@
+openapi: 3.0.0
+info:
+  title: Admin Ops API
+  version: 1.0.0
+paths:
+  /admin/stream/control:
+    post:
+      summary: Control stream state (restart/stop/start)
+      operationId: controlStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [restart, stop, start]
+      responses:
+        '200':
+          description: Action initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "restarting"
+
+  /admin/stream/logs:
+    get:
+      summary: Get recent logs
+      operationId: getStreamLogs
+      parameters:
+        - name: lines
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Log lines
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      type: string
+
+  /admin/stream/metrics:
+    get:
+      summary: Get current metrics
+      operationId: getStreamMetrics
+      responses:
+        '200':
+          description: Metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemMetrics'
+
+  /admin/playlist:
+    get:
+      summary: Get playlist
+      operationId: getPlaylist
+      responses:
+        '200':
+          description: List of tracks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+    post:
+      summary: Update playlist (replace all)
+      operationId: updatePlaylist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Playlist updated
+
+components:
+  schemas:
+    SystemMetrics:
+      type: object
+      properties:
+        cpu_percent:
+          type: number
+        memory_mb:
+          type: number
+        uptime_seconds:
+          type: integer
+        state:
+          type: string

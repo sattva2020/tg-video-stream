@@ -5,20 +5,23 @@ import sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 import api.auth as api_auth
-from models.user import User
+from src.models.user import User
 
 @pytest.fixture(autouse=True)
 def cleanup_data(db_session):
     """Clean up data in tables before/after each test."""
     # Ensure rate limiter storage is clean at test start
     try:
-        api_auth._rate_limit_storage.clear()
+        # rate limiter lives in api.auth.dependencies
+        import api.auth.dependencies as deps
+        deps._rate_limit_storage.clear()
     except Exception:
         pass
     yield
     # Reset in-memory rate limit storage between tests to avoid cross-test pollution
     try:
-        api_auth._rate_limit_storage.clear()
+        import api.auth.dependencies as deps
+        deps._rate_limit_storage.clear()
     except Exception:
         pass
 
@@ -38,7 +41,7 @@ def test_google_login_redirect(client):
     assert response.status_code == 307 # Temporary Redirect
     assert response.headers["location"].startswith("https://accounts.google.com/o/oauth2/v2/auth")
 
-@patch('api.auth.OAuth2Session')
+@patch('api.auth.oauth.OAuth2Session')
 def test_google_callback_success(mock_oauth_session, client, db_session):
     """
     Test the successful authentication callback flow.
@@ -104,7 +107,7 @@ def test_google_callback_existing_approved_user_gets_jwt(monkeypatch, client, db
 
     # Make OAuth flow return same user info
     from unittest.mock import patch
-    with patch('api.auth.OAuth2Session') as mock_oauth_session:
+    with patch('api.auth.oauth.OAuth2Session') as mock_oauth_session:
         mock_instance = mock_oauth_session.return_value
         mock_instance.authorization_url.return_value = ("https://accounts.google.com/o/oauth2/v2/auth?state=test_state", "test_state")
         mock_instance.fetch_token.return_value = {"access_token": "fake_token"}
@@ -141,8 +144,10 @@ def test_register_and_login_flow(client, db_session):
     assert data["status"] == "pending"
     assert "access_token" not in data
 
-    # Approve user manually
+    # Approve user manually - need to expire cache first
+    db_session.expire_all()
     user = db_session.query(User).filter(User.email == payload["email"]).first()
+    assert user is not None, "User not found in database after registration"
     user.status = "approved"
     db_session.commit()
 

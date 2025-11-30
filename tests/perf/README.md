@@ -53,6 +53,26 @@ USE_DEV_SERVER=0 SKIP_PLAYWRIGHT=1 npm run perf:auth-errors
 
 - CI сохраняет артефакты в `.internal/frontend-logs/perf/${run_id}` и прикладывает их к job `frontend-perf`.
 
+## Оптимизации (Feature 008 Remediation)
+
+В рамках задачи T5002 были выполнены следующие оптимизации:
+
+1. **Текстуры**: Удаленные текстуры (2048x2048) заменены на локальные WebP (оптимизированные).
+2. **Code Splitting**: Настроена `manualChunks` в `vite.config.ts` для разделения `vendor-react`, `vendor-three`, `vendor-icons`, `vendor-animation`.
+3. **Defer Loading**: Загрузка 3D сцены отложена на 2.5с (или `requestIdleCallback`) для приоритета LCP.
+
+### Анализ бандла
+
+Для анализа размера бандла используйте:
+
+```bash
+cd frontend
+export ANALYZE=true
+npm run build
+```
+
+Отчет будет сгенерирован в `.internal/frontend-logs/perf/profiling/bundle-report.html`.
+
 ---
 Автор: команда разработки
 Дата: 2025-11-26

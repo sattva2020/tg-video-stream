@@ -22,11 +22,14 @@ import os
 import sys
 from dotenv import load_dotenv
 
-# Add the 'src' directory to the Python path
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# Add the project root directory to the Python path
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
-from models.user import Base
+from src.database import Base
+# Import all models to ensure they are registered with Base.metadata
+from src.models import User, TelegramAccount, Channel, PlaylistItem
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,

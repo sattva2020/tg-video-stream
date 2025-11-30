@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { authApi } from '../api/auth';
+import { PasswordInput } from '../components/ui/PasswordInput';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PasswordResetRequestSchema, PasswordResetConfirmSchema } from '../api/auth';
@@ -148,11 +149,10 @@ const PasswordResetPage: React.FC = () => {
                 <label htmlFor="new_password" className="block text-sm font-medium text-gray-700">
                   New password
                 </label>
-                <input
+                <PasswordInput
                   id="new_password"
-                  type="password"
                   autoComplete="new-password"
-                  className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="block w-full px-3 py-2 pr-10 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   {...confirmForm.register('new_password')}
                 />
                 {confirmForm.formState.errors.new_password && (

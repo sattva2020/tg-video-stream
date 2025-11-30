@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import TelegramLoginButton from '../components/TelegramLoginButton';
+import { PasswordInput } from '../components/ui/PasswordInput';
 import { authApi } from '../api/auth';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoginSchema, type LoginRequest } from '../api/auth';
+import { useTelegramAuth } from '../hooks/useTelegramAuth';
 
 const errorMap: { [key: string]: string } = {
   state_mismatch: 'Authentication failed. State mismatch (CSRF protection). Please try again.',
@@ -20,6 +23,13 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Telegram auth hook
+  const { 
+    isLoading: isTelegramLoading, 
+    error: telegramError, 
+    handleTelegramAuth 
+  } = useTelegramAuth();
 
   const {
     register,
@@ -41,6 +51,13 @@ const LoginPage: React.FC = () => {
       setErrorMessage('An unknown error occurred. Please try again.');
     }
   }, [searchParams]);
+  
+  // Показываем ошибку Telegram если есть
+  useEffect(() => {
+    if (telegramError) {
+      setErrorMessage(telegramError);
+    }
+  }, [telegramError]);
 
   const handleGoogleLogin = () => {
     const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -111,11 +128,10 @@ const LoginPage: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="current-password"
-                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                className="block w-full px-3 py-2 pr-10 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                 {...register('password')}
               />
               {errors.password && (
@@ -149,8 +165,12 @@ const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div className="space-y-3">
             <GoogleLoginButton onClick={handleGoogleLogin} />
+            <TelegramLoginButton 
+              onAuth={handleTelegramAuth}
+              disabled={isTelegramLoading}
+            />
           </div>
         </div>
       </div>

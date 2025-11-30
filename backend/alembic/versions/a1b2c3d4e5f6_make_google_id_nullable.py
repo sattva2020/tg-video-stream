@@ -20,13 +20,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Make google_id nullable to allow email/password registration
-    op.alter_column('users', 'google_id',
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.alter_column('google_id',
                existing_type=sa.VARCHAR(),
                nullable=True)
 
 
 def downgrade() -> None:
     # Revert google_id to not nullable
-    op.alter_column('users', 'google_id',
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.alter_column('google_id',
                existing_type=sa.VARCHAR(),
                nullable=False)

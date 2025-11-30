@@ -1,0 +1,83 @@
+openapi: 3.0.0
+info:
+  title: Telegram Streamer Playlist API
+  version: 1.0.0
+paths:
+  /api/playlist/:
+    get:
+      summary: Get current playlist
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [queued, playing, played, error]
+          description: Filter by status (default returns queued + playing)
+      responses:
+        '200':
+          description: List of playlist items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaylistItem'
+    post:
+      summary: Add item to playlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaylistItemCreate'
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistItem'
+  
+  /api/playlist/{id}:
+    delete:
+      summary: Remove item from playlist
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Item deleted
+        '404':
+          description: Item not found
+
+components:
+  schemas:
+    PlaylistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        title:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [queued, playing, played, error]
+        created_at:
+          type: string
+          format: date-time
+    
+    PlaylistItemCreate:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+        title:
+          type: string

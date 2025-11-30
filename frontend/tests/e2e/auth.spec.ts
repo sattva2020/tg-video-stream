@@ -5,7 +5,61 @@ const ADMIN_PASSWORD = process.env.MCP_ADMIN_PASSWORD ?? 'Zxy1234567';
 const DUPLICATE_EMAIL = 'duplicate@sattva.com';
 // strong password to satisfy client-side RegisterSchema (min 12 chars, upper, lower, number, special)
 const REGISTER_STRONG_PASSWORD = process.env.REGISTER_STRONG_PASSWORD ?? 'Zxy1234567!A';
+const MOCK_API = process.env.MOCK_API === 'true';
+
 test.describe('Auth smoke tests', () => {
+  test.beforeEach(async ({ page }) => {
+    if (MOCK_API) {
+      await page.route('**/api/users/me', async route => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'user_123',
+            email: 'admin@sattva.studio',
+            full_name: 'Admin User',
+            role: 'admin',
+            status: 'approved'
+          })
+        });
+      });
+
+      await page.route('**/api/auth/login', async route => {
+        const postData = route.request().postDataJSON();
+        if (postData.password === 'Wrong123!') {
+          await route.fulfill({ 
+            status: 401, 
+            contentType: 'application/json', 
+            body: JSON.stringify({ 
+              code: 'rejected',
+              message: 'Invalid email or password.' 
+            }) 
+          });
+        } else {
+          // Valid JWT token (header.payload.signature) with future expiration
+          const mockJwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjMiLCJleHAiOjk5OTk5OTk5OTksInJvbGUiOiJhZG1pbiJ9.dummy_signature';
+          await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ access_token: mockJwt, token_type: 'bearer' }) });
+        }
+      });
+
+      await page.route('**/api/auth/register', async route => {
+        const postData = route.request().postDataJSON();
+        if (postData.email === DUPLICATE_EMAIL) {
+          await route.fulfill({ 
+            status: 409, 
+            contentType: 'application/json', 
+            body: JSON.stringify({ 
+              code: 'conflict',
+              message: 'Email already exists' 
+            }) 
+          });
+        } else {
+          await route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 1, email: postData.email }) });
+        }
+      });
+    }
+  });
+
   test('TC-AUTH-001 — positive login (admin)', async ({ page }) => {
     await page.goto('/login');
     const usernameField = page.locator('input[name="username"], input[name="email"], input[placeholder*="Email"], input[placeholder*="Электрон"]');
@@ -59,13 +113,16 @@ test.describe('Auth smoke tests', () => {
       page.click('button[type="submit"]'),
     ]);
     expect([200, 201].includes(resp.status())).toBeTruthy();
-    await expect(page).toHaveURL(/dashboard/);
+    // Registration success switches to login mode
+    await expect(page.locator('input[name="confirmPassword"]')).not.toBeVisible();
     await page.screenshot({ path: 'tests/e2e/artifacts/TC-REG-001.png' });
   });
 
   test('TC-REG-002 — registration duplicate returns 409', async ({ page }) => {
     // Ensure duplicate user exists via API before attempting UI registration
-    await page.request.post('http://localhost:8080/api/auth/register', { json: { email: DUPLICATE_EMAIL, password: REGISTER_STRONG_PASSWORD } }).catch(() => {});
+    if (!MOCK_API) {
+      await page.request.post('http://localhost:8080/api/auth/register', { json: { email: DUPLICATE_EMAIL, password: REGISTER_STRONG_PASSWORD } }).catch(() => {});
+    }
     await page.goto('/register');
     // Give the page animation a moment to settle
     await page.waitForTimeout(300);
@@ -98,7 +155,7 @@ test.describe('Auth smoke tests', () => {
     await page.waitForSelector('button[type="submit"]', { state: 'visible' });
     await page.click('button[type="submit"]');
     // expect client-side validation error message
-    await expect(page.locator('text=Password must be at least 12 characters')).toBeVisible();
+    await expect(page.locator('text=Пароль должен содержать не менее 12 символов')).toBeVisible();
     await page.screenshot({ path: 'tests/e2e/artifacts/TC-REG-003.png' });
   });
 

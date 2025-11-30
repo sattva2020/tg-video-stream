@@ -22,8 +22,10 @@ def upgrade():
     # 2) As a safety ensure existing rows are explicitly set (may be redundant)
     op.execute("UPDATE users SET status='approved' WHERE status IS NULL")
     # 3) Change server default for future inserts to 'pending'
-    op.alter_column('users', 'status', server_default='pending')
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.alter_column('status', server_default='pending')
 
 
 def downgrade():
-    op.drop_column('users', 'status')
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.drop_column('status')

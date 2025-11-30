@@ -13,10 +13,11 @@ const LandingPage = () => {
       background={<VisualBackground />}
       nav={(
         <nav
-          className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          className="flex w-full items-center justify-between"
           aria-label="Навигация лендинга"
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+          {/* Левая часть: логотип и переключатель языка */}
+          <div className="flex items-center gap-4 sm:gap-6">
             <div className="text-[0.65rem] font-semibold uppercase tracking-[0.4em] text-brand-glow xs:text-xs">
               SATTVA STREAMER
             </div>
@@ -28,11 +29,15 @@ const LandingPage = () => {
               needsFallbackHint={needsFallbackHint}
             />
           </div>
-          <PrimaryCTA
-            label={t('cta_enter')}
-            cta={heroContent.cta}
-            className="shadow-brand-glow/40 sm:w-auto"
-          />
+          
+          {/* Правая часть: кнопка Войти */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <PrimaryCTA
+              label={t('cta_enter')}
+              cta={heroContent.cta}
+              className="w-auto shadow-brand-glow/40"
+            />
+          </div>
         </nav>
       )}
       hero={<HeroSection content={heroContent} locale={locale} hideCta />}
