@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import AuthCard, { type AuthMode, type AuthBanner } from '../components/auth/AuthCard';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
 import AuthLayout from '../components/auth/AuthLayout';
-import PageLoader from '../components/ui/PageLoader';
 
 // Lazy load the 3D scene to improve TBT/LCP
 const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
@@ -17,7 +16,6 @@ const AuthPage3D: React.FC = () => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
 
   const forceStatic = searchParams.get('forceStatic') === '1';
 
@@ -69,29 +67,12 @@ const AuthPage3D: React.FC = () => {
     navigate('/dashboard');
   };
 
-  const handleLoaderComplete = () => {
-    setIsLoading(false);
-  };
-
   return (
     <>
-      {/* Лоадер с круговым прогрессом */}
-      {isLoading && (
-        <PageLoader 
-          minDisplayTime={1200} 
-          onComplete={handleLoaderComplete}
-          size="md"
-        />
-      )}
-
       <div
         data-testid="auth-page"
         data-theme="dark"
-        className={`
-          relative min-h-screen overflow-hidden bg-[#0c0a09] text-[#e5d9c7] font-landing-sans
-          transition-opacity duration-500
-          ${isLoading ? 'opacity-0' : 'opacity-100'}
-        `}
+        className="relative min-h-screen overflow-hidden bg-[#0c0a09] text-[#e5d9c7] font-landing-sans"
       >
         <Suspense fallback={<div className="absolute inset-0 bg-[#0c0a09]" />}>
           <AuthZenScene scrollY={scrollY} forceStatic={forceStatic} />
