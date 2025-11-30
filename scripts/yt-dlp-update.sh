@@ -15,9 +15,10 @@ set -euo pipefail
 
 # ==================== Конфигурация ====================
 LOG_FILE="/var/log/yt-dlp-update.log"
-STREAMER_DIR="/opt/sattva-streamer/streamer"
-VENV_DIR="${STREAMER_DIR}/venv"
-STREAMER_SERVICE="sattva-streamer"  # имя systemd сервиса стримера
+STREAMER_DIR="/opt/sattva-streamer"
+# yt-dlp установлен в backend venv (используется streamer'ом через PATH или напрямую)
+VENV_DIR="${STREAMER_DIR}/backend/venv"
+STREAMER_SERVICE="sattva-streamer"  # имя systemd сервиса стримера (если есть)
 
 # Опционально: Telegram уведомления
 TELEGRAM_NOTIFY="${TELEGRAM_NOTIFY:-false}"
