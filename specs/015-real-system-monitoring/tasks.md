@@ -22,9 +22,9 @@
 
 **Purpose**: Инициализация проекта, зависимости, типы
 
-- [ ] T001 Добавить `psutil>=5.9.0` в `backend/requirements.txt`
-- [ ] T002 [P] Создать TypeScript типы `SystemMetrics`, `ActivityEvent` в `frontend/src/types/system.ts`
-- [ ] T003 [P] Создать Pydantic схемы `SystemMetricsResponse`, `ActivityEventResponse` в `backend/src/api/schemas/system.py`
+- [X] T001 Добавить `psutil>=5.9.0` в `backend/requirements.txt`
+- [X] T002 [P] Создать TypeScript типы `SystemMetrics`, `ActivityEvent` в `frontend/src/types/system.ts`
+- [X] T003 [P] Создать Pydantic схемы `SystemMetricsResponse`, `ActivityEventResponse` в `backend/src/api/schemas/system.py`
 
 ---
 
@@ -34,13 +34,13 @@
 
 **⚠️ CRITICAL**: Работа над user stories невозможна до завершения этой фазы
 
-- [ ] T004 Создать SQLAlchemy модель `ActivityEvent` в `backend/src/models/activity_event.py`
-- [ ] T005 Зарегистрировать модель в `backend/src/models/__init__.py`
-- [ ] T006 Создать Alembic миграцию для таблицы `activity_events` в `backend/migrations/versions/`
-- [ ] T007 [P] Создать `MetricsService` с методами сбора psutil + pg_stat в `backend/src/services/metrics_service.py`
-- [ ] T008 [P] Создать `ActivityService` с методами log_event, get_events, cleanup в `backend/src/services/activity_service.py`
-- [ ] T009 Создать API роутер `/api/system` в `backend/src/api/system.py`
-- [ ] T010 Зарегистрировать роутер `system.router` в `backend/src/main.py` с prefix `/api/system`
+- [X] T004 Создать SQLAlchemy модель `ActivityEvent` в `backend/src/models/activity_event.py`
+- [X] T005 Зарегистрировать модель в `backend/src/models/__init__.py`
+- [X] T006 Создать Alembic миграцию для таблицы `activity_events` в `backend/migrations/versions/`
+- [X] T007 [P] Создать `MetricsService` с методами сбора psutil + pg_stat в `backend/src/services/metrics_service.py`
+- [X] T008 [P] Создать `ActivityService` с методами log_event, get_events, cleanup в `backend/src/services/activity_service.py`
+- [X] T009 Создать API роутер `/api/system` в `backend/src/api/system.py`
+- [X] T010 Зарегистрировать роутер `system.router` в `backend/src/main.py` с prefix `/api/system`
 
 **Checkpoint**: Foundation ready — можно начинать user stories
 
@@ -54,20 +54,20 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Написать pytest тест для `GET /api/system/metrics` в `backend/tests/api/test_system_metrics.py`
-- [ ] T012 [P] [US1] Написать Vitest тест для хука useSystemMetrics в `frontend/src/hooks/__tests__/useSystemMetrics.test.ts`
+- [X] T011 [P] [US1] Написать pytest тест для `GET /api/system/metrics` в `backend/tests/api/test_system_metrics.py`
+- [X] T012 [P] [US1] Написать Vitest тест для хука useSystemMetrics в `frontend/tests/hooks/useSystemMetrics.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Реализовать endpoint `GET /api/system/metrics` в `backend/src/api/system.py`
-- [ ] T014 [P] [US1] Создать API клиент `systemApi.getMetrics()` в `frontend/src/api/system.ts`
-- [ ] T015 [P] [US1] Создать TanStack Query хук `useSystemMetrics` с refetchInterval 30s в `frontend/src/hooks/useSystemMetrics.ts`
-- [ ] T016 [US1] Обновить компонент `SystemHealth.tsx` — подключить реальные данные вместо пропсов `frontend/src/components/dashboard/SystemHealth.tsx`
-- [ ] T017 [US1] Обновить `AdminDashboardV2.tsx` — убрать mock данные для SystemHealth `frontend/src/components/dashboard/AdminDashboardV2.tsx`
-- [ ] T018 [US1] Добавить обработку ошибок и состояние "Данные временно недоступны" в `SystemHealth.tsx`
-- [ ] T019 [US1] Добавить визуальную индикацию критических порогов (красный при >90% CPU и т.д.)
+- [X] T013 [US1] Реализовать endpoint `GET /api/system/metrics` в `backend/src/api/system.py`
+- [X] T014 [P] [US1] Создать API клиент `systemApi.getMetrics()` в `frontend/src/api/system.ts`
+- [X] T015 [P] [US1] Создать TanStack Query хук `useSystemMetrics` с refetchInterval 30s в `frontend/src/hooks/useSystemMetrics.ts`
+- [X] T016 [US1] Обновить компонент `SystemHealth.tsx` — подключить реальные данные вместо пропсов `frontend/src/components/dashboard/SystemHealth.tsx`
+- [X] T017 [US1] Обновить `AdminDashboardV2.tsx` — убрать mock данные для SystemHealth `frontend/src/components/dashboard/AdminDashboardV2.tsx`
+- [X] T018 [US1] Добавить обработку ошибок и состояние "Данные временно недоступны" в `SystemHealth.tsx`
+- [X] T019 [US1] Добавить визуальную индикацию критических порогов (красный при >90% CPU и т.д.)
 
-**Checkpoint**: US1 полностью функционален — метрики отображаются и обновляются
+**Checkpoint**: US1 полностью функционален — метрики отображаются и обновляются ✅
 
 ---
 
@@ -79,21 +79,21 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Написать pytest тест для `GET /api/system/activity` в `backend/tests/api/test_activity_events.py`
-- [ ] T021 [P] [US2] Написать pytest тест для записи событий в `backend/tests/api/test_activity_logging.py`
+- [X] T020 [P] [US2] Написать pytest тест для `GET /api/system/activity` в `backend/tests/api/test_activity_events.py` (существует)
+- [X] T021 [P] [US2] Написать pytest тест для записи событий в `backend/tests/api/test_activity_logging.py` (существует)
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Реализовать endpoint `GET /api/system/activity` с пагинацией в `backend/src/api/system.py`
-- [ ] T023 [P] [US2] Создать API клиент `systemApi.getActivity()` в `frontend/src/api/system.ts`
-- [ ] T024 [P] [US2] Создать хук `useActivityEvents` с refetchInterval 30s в `frontend/src/hooks/useActivityEvents.ts`
-- [ ] T025 [US2] Обновить компонент `ActivityTimeline.tsx` — подключить реальные данные `frontend/src/components/dashboard/ActivityTimeline.tsx`
-- [ ] T026 [US2] Обновить `AdminDashboardV2.tsx` — убрать mockActivityEvents `frontend/src/components/dashboard/AdminDashboardV2.tsx`
-- [ ] T027 [US2] Интегрировать запись событий в `backend/src/api/auth/routes.py` — user_registered
-- [ ] T028 [US2] Интегрировать запись событий в `backend/src/api/users.py` — user_approved, user_rejected
-- [ ] T029 [US2] Интегрировать запись событий в `backend/src/api/admin.py` — stream_started, stream_stopped
-- [ ] T030 [US2] Интегрировать запись событий в `backend/src/api/playlist.py` — track_added, track_removed
-- [ ] T031 [US2] Реализовать cleanup старых событий (>1000) в ActivityService
+- [X] T022 [US2] Реализовать endpoint `GET /api/system/activity` с пагинацией в `backend/src/api/system.py`
+- [X] T023 [P] [US2] Создать API клиент `systemApi.getActivity()` в `frontend/src/api/system.ts`
+- [X] T024 [P] [US2] Создать хук `useActivityEvents` с refetchInterval 30s в `frontend/src/hooks/useActivityEvents.ts`
+- [X] T025 [US2] Обновить компонент `ActivityTimeline.tsx` — подключить реальные данные `frontend/src/components/dashboard/ActivityTimeline.tsx`
+- [X] T026 [US2] Обновить `AdminDashboardV2.tsx` — убрать mockActivityEvents `frontend/src/components/dashboard/AdminDashboardV2.tsx`
+- [X] T027 [US2] Интегрировать запись событий в `backend/src/api/auth/email_password.py`, `backend/src/api/auth/oauth.py` — user_registered
+- [X] T028 [US2] Интегрировать запись событий в `backend/src/api/admin.py` — user_approved, user_rejected
+- [X] T029 [US2] Интегрировать запись событий в `backend/src/api/admin.py` — stream_started, stream_stopped
+- [X] T030 [US2] Интегрировать запись событий в `backend/src/api/playlist.py` — track_added, track_removed
+- [X] T031 [US2] Реализовать cleanup старых событий (>1000) в ActivityService
 
 **Checkpoint**: US2 полностью функционален — реальные события отображаются в ленте
 
@@ -107,9 +107,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Добавить детальную информацию о статусе в существующий `GET /api/admin/stream/status`
-- [ ] T033 [US3] Обновить `StreamStatusCard.tsx` — добавить описание ошибки при статусе error `frontend/src/components/dashboard/StreamStatusCard.tsx`
-- [ ] T034 [US3] Записывать событие stream_error при ошибках трансляции в соответствующий сервис
+- [X] T032 [US3] Добавить детальную информацию о статусе в существующий `GET /api/admin/stream/status` (уже есть — error поле)
+- [X] T033 [US3] Обновить `StreamStatusCard.tsx` — добавить описание ошибки при статусе error `frontend/src/components/dashboard/StreamStatusCard.tsx`
+- [X] T034 [US3] Записывать событие stream_error при ошибках трансляции в `backend/src/api/admin.py`
 
 **Checkpoint**: US3 функционален — статус трансляции отображается корректно
 
@@ -123,10 +123,10 @@
 
 ### Implementation for User Story 4
 
-- [ ] T035 [US4] Добавить query-параметры `type`, `search` в endpoint `GET /api/system/activity`
-- [ ] T036 [P] [US4] Добавить UI фильтра по типу в `ActivityTimeline.tsx`
-- [ ] T037 [P] [US4] Добавить UI поиска по тексту в `ActivityTimeline.tsx`
-- [ ] T038 [US4] Обновить хук `useActivityEvents` для поддержки фильтров
+- [X] T035 [US4] Добавить query-параметры `type`, `search` в endpoint `GET /api/system/activity` (уже реализовано)
+- [X] T036 [P] [US4] Добавить UI фильтра по типу в `ActivityTimeline.tsx`
+- [X] T037 [P] [US4] Добавить UI поиска по тексту в `ActivityTimeline.tsx`
+- [X] T038 [US4] Обновить хук `useActivityEvents` для поддержки фильтров (уже реализовано)
 
 **Checkpoint**: US4 функционален — фильтры и поиск работают
 
@@ -136,12 +136,12 @@
 
 **Purpose**: Документация, локализация, E2E тесты
 
-- [ ] T039 [P] Создать документацию API в `docs/api/system-metrics.md`
-- [ ] T040 [P] Создать документацию API в `docs/api/activity-events.md`
-- [ ] T041 [P] Добавить ключи локализации `dashboard.health.*`, `dashboard.activity.*` в i18n файлы
-- [ ] T042 Написать Playwright E2E тест в `frontend/tests/dashboard-monitoring.spec.ts`
-- [ ] T043 Запустить quickstart.md валидацию — проверить все чекпоинты
-- [ ] T044 Запустить `npm run docs:validate` и исправить broken links
+- [X] T039 [P] Создать документацию API в `docs/api/system-metrics.md`
+- [X] T040 [P] Создать документацию API в `docs/api/activity-events.md`
+- [X] T041 [P] Добавить ключи локализации `dashboard.health.*`, `dashboard.activity.*` в i18n файлы (уже существуют EN:218-246, RU:461-489)
+- [X] T042 Написать Playwright E2E тест в `frontend/tests/e2e/dashboard-monitoring.spec.ts`
+- [X] T043 Запустить quickstart.md валидацию — проверить все чекпоинты (документ обновлён)
+- [X] T044 Запустить `npm run docs:validate` и исправить broken links (исправлены activity-events.md и system-metrics.md)
 
 ---
 

@@ -12,6 +12,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from src.services.stream_controller import get_stream_controller, StreamController
 from src.services.playlist_service import playlist_service
+from src.services.activity_service import ActivityService
 
 router = APIRouter()
 
@@ -86,6 +87,17 @@ def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: Use
     user.status = 'approved'
     db.commit()
     db.refresh(user)
+    
+    # Логируем событие одобрения
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="user_approved",
+        message=f"Пользователь одобрен: {user.email}",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={"approved_user_id": str(user.id), "approved_user_email": user.email}
+    )
+    
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
 
 
@@ -100,6 +112,17 @@ def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     user.status = 'rejected'
     db.commit()
     db.refresh(user)
+    
+    # Логируем событие отклонения
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="user_rejected",
+        message=f"Пользователь отклонён: {user.email}",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={"rejected_user_id": str(user.id), "rejected_user_email": user.email}
+    )
+    
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
 
 
@@ -120,28 +143,86 @@ def delete_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     return {"status": "ok", "message": "User deleted", "id": str(user_id)}
 
 @router.post("/stream/start")
-def start_stream(current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
+def start_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     success = controller.start_stream()
     if not success:
+        # Логируем ошибку запуска
+        activity_service = ActivityService(db)
+        activity_service.log_event(
+            event_type="stream_error",
+            message="Не удалось запустить трансляцию",
+            user_id=current_user.id,
+            user_email=current_user.email,
+            details={"operation": "start", "error": "Controller returned failure"}
+        )
         raise HTTPException(status_code=500, detail="Failed to start stream")
+    
+    # Логируем событие запуска трансляции
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="stream_started",
+        message="Трансляция запущена",
+        user_id=current_user.id,
+        user_email=current_user.email
+    )
+    
     return {"status": "success", "message": "Stream started"}
 
 @router.post("/stream/stop")
-def stop_stream(current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
+def stop_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     success = controller.stop_stream()
     if not success:
+        # Логируем ошибку остановки
+        activity_service = ActivityService(db)
+        activity_service.log_event(
+            event_type="stream_error",
+            message="Не удалось остановить трансляцию",
+            user_id=current_user.id,
+            user_email=current_user.email,
+            details={"operation": "stop", "error": "Controller returned failure"}
+        )
         raise HTTPException(status_code=500, detail="Failed to stop stream")
+    
+    # Логируем событие остановки трансляции
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="stream_stopped",
+        message="Трансляция остановлена",
+        user_id=current_user.id,
+        user_email=current_user.email
+    )
+    
     return {"status": "success", "message": "Stream stopped"}
 
 @router.post("/stream/restart")
-def restart_stream(current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
+def restart_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     """
     Restarts the video stream service.
     Only accessible by admins.
     """
     success = controller.restart_stream()
     if not success:
+        # Логируем ошибку перезапуска
+        activity_service = ActivityService(db)
+        activity_service.log_event(
+            event_type="stream_error",
+            message="Не удалось перезапустить трансляцию",
+            user_id=current_user.id,
+            user_email=current_user.email,
+            details={"operation": "restart", "error": "Controller returned failure"}
+        )
         raise HTTPException(status_code=500, detail="Failed to restart stream")
+    
+    # Логируем перезапуск как последовательность stop->start
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="stream_started",
+        message="Трансляция перезапущена",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={"operation": "restart"}
+    )
+    
     return {"status": "success", "message": "Stream restarted"}
 
 @router.get("/stream/status")

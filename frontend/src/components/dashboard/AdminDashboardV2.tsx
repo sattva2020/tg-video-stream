@@ -14,8 +14,8 @@ import { useNavigate } from 'react-router-dom';
 // Components
 import { StatCard } from './StatCard';
 import { QuickActions } from './QuickActions';
-import { ActivityTimeline } from './ActivityTimeline';
-import { SystemHealth } from './SystemHealth';
+import { ActivityTimelineLive } from './ActivityTimeline';
+import { SystemHealthLive } from './SystemHealth';
 import { StreamStatusCard } from './StreamStatusCard';
 import { UserManagementPanel } from './UserManagementPanel';
 
@@ -26,37 +26,6 @@ import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
-
-// Mock activity data (would come from API in real implementation)
-const mockActivityEvents = [
-  {
-    id: '1',
-    type: 'user_registered' as const,
-    message: 'Новый пользователь зарегистрировался',
-    user: 'user@example.com',
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-  },
-  {
-    id: '2',
-    type: 'stream_started' as const,
-    message: 'Трансляция запущена',
-    timestamp: new Date(Date.now() - 1000 * 60 * 30),
-  },
-  {
-    id: '3',
-    type: 'user_approved' as const,
-    message: 'Пользователь одобрен',
-    user: 'newuser@test.com',
-    timestamp: new Date(Date.now() - 1000 * 60 * 60),
-  },
-  {
-    id: '4',
-    type: 'track_added' as const,
-    message: 'Добавлен новый трек',
-    details: 'Lofi Hip Hop Radio - Beats to Relax',
-    timestamp: new Date(Date.now() - 1000 * 60 * 120),
-  },
-];
 
 export const AdminDashboardV2: React.FC = () => {
   const { t } = useTranslation();
@@ -234,19 +203,12 @@ export const AdminDashboardV2: React.FC = () => {
             {/* Left Column */}
             <div className="space-y-6">
               <StreamStatusCard refreshInterval={10000} useWebSocket={true} />
-              <SystemHealth
-                cpuUsage={45}
-                memoryUsage={62}
-                diskUsage={38}
-                networkLatency={24}
-                dbConnections={12}
-                maxDbConnections={100}
-              />
+              <SystemHealthLive />
             </div>
             
             {/* Right Column */}
             <div>
-              <ActivityTimeline events={mockActivityEvents} />
+              <ActivityTimelineLive />
             </div>
           </div>
         </Tab>

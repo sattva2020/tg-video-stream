@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+psutil>=5.9.0
 python-jose[cryptography]
 requests-oauthlib
 psycopg2-binary

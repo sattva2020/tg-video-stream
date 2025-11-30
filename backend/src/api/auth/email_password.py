@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr
 from database import get_db
 from src.models.user import User
 from services.auth_service import auth_service, check_password_policy, is_password_pwned
+from src.services.activity_service import ActivityService
 from tasks.notifications import notify_admins_async
 from .dependencies import make_rate_limit_dep, _check_rate_limit
 from .utils import format_auth_error
@@ -97,6 +98,16 @@ def register_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # Логируем событие регистрации
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="user_registered",
+        message=f"Новый пользователь зарегистрирован: {new_user.email}",
+        user_id=new_user.id,
+        user_email=new_user.email,
+        details={"method": "email_password", "status": "pending"}
+    )
     
     # Уведомляем админов
     try:

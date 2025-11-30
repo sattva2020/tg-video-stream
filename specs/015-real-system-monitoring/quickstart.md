@@ -144,7 +144,7 @@ npm run test -- --grep "SystemHealth"
 
 ```bash
 cd frontend
-npx playwright test tests/dashboard-monitoring.spec.ts
+npx playwright test tests/e2e/dashboard-monitoring.spec.ts
 ```
 
 ## Troubleshooting

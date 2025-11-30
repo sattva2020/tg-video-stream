@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Activity, 
@@ -14,11 +14,16 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  LucideIcon
+  LucideIcon,
+  Search,
+  Filter,
+  X
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
+import { useActivityEvents } from '../../hooks/useActivityEvents';
+import type { ActivityEvent as ApiActivityEvent } from '../../types/system';
 
 interface ActivityEvent {
   id: string;
@@ -112,6 +117,19 @@ const SkeletonEvent: React.FC = () => (
     </div>
   </div>
 );
+
+/** Типы событий для фильтра */
+const eventTypeOptions: { value: string; label: string; labelRu: string }[] = [
+  { value: '', label: 'All events', labelRu: 'Все события' },
+  { value: 'user_registered', label: 'Registration', labelRu: 'Регистрации' },
+  { value: 'user_approved', label: 'Approvals', labelRu: 'Одобрения' },
+  { value: 'user_rejected', label: 'Rejections', labelRu: 'Отклонения' },
+  { value: 'stream_started', label: 'Stream started', labelRu: 'Запуск стрима' },
+  { value: 'stream_stopped', label: 'Stream stopped', labelRu: 'Остановка стрима' },
+  { value: 'stream_error', label: 'Stream errors', labelRu: 'Ошибки стрима' },
+  { value: 'track_added', label: 'Tracks added', labelRu: 'Добавление треков' },
+  { value: 'track_removed', label: 'Tracks removed', labelRu: 'Удаление треков' },
+];
 
 export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   events,
@@ -226,6 +244,277 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
           <div className="p-3 text-center border-t border-[color:var(--color-border)]">
             <button className="text-sm text-[color:var(--color-accent)] hover:underline">
               {t('admin.viewAll', 'Показать все')} ({events.length - maxItems} {t('admin.more', 'ещё')})
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * ActivityTimelineLive — компонент с реальными данными через useActivityEvents.
+ * Spec: 015-real-system-monitoring
+ * 
+ * Автоматически обновляется каждые 30 секунд.
+ * Показывает индикатор загрузки и обработку ошибок.
+ * Поддерживает фильтрацию по типу события и поиск по тексту (US4).
+ */
+export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems = 10 }) => {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'ru' ? ru : enUS;
+  
+  // Состояние фильтров (US4: T036-T038)
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchInput, setSearchInput] = useState<string>('');
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+  
+  const { 
+    events, 
+    total,
+    isLoading, 
+    isError, 
+    error,
+    refetch,
+    isFetching,
+  } = useActivityEvents({ 
+    limit: maxItems,
+    type: typeFilter || undefined,
+    search: searchQuery || undefined,
+  });
+  
+  // Обработчик поиска с debounce-like поведением
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSearchQuery(searchInput);
+  };
+  
+  const clearFilters = () => {
+    setTypeFilter('');
+    setSearchQuery('');
+    setSearchInput('');
+  };
+  
+  const hasActiveFilters = typeFilter || searchQuery;
+
+  // Состояние ошибки
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-violet-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.activity.title', 'Последняя активность')}
+          </h3>
+        </div>
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <XCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">
+                {t('dashboard.activity.unavailable', 'Данные временно недоступны')}
+              </span>
+            </div>
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 text-rose-500 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[color:var(--color-text-muted)]">
+            {error instanceof Error ? error.message : t('dashboard.activity.tryAgain', 'Попробуйте обновить страницу')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Состояние загрузки
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-violet-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.activity.title', 'Последняя активность')}
+          </h3>
+        </div>
+        <div className="space-y-4 p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <SkeletonEvent key={i} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Пустой список
+  if (events.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-violet-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.activity.title', 'Последняя активность')}
+          </h3>
+        </div>
+        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center">
+          <Clock className="w-12 h-12 mx-auto mb-3 text-[color:var(--color-text-muted)]" />
+          <p className="text-[color:var(--color-text-muted)]">
+            {t('dashboard.activity.noActivity', 'Нет недавней активности')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <Activity className="w-5 h-5 text-violet-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.activity.title', 'Последняя активность')}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+            >
+              <X className="w-3 h-3" />
+              {t('dashboard.activity.clearFilters', 'Сбросить')}
+            </button>
+          )}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-lg transition-colors ${
+              showFilters || hasActiveFilters
+                ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400'
+                : 'hover:bg-[color:var(--color-surface-muted)]'
+            }`}
+            title={t('dashboard.activity.filters', 'Фильтры')}
+          >
+            <Filter className="w-4 h-4" />
+          </button>
+          <span className="text-xs text-[color:var(--color-text-muted)] px-2 py-1 rounded-full bg-[color:var(--color-surface-muted)]">
+            {total} {t('dashboard.activity.events', 'событий')}
+          </span>
+        </div>
+      </div>
+      
+      {/* Фильтры (US4: T036-T037) */}
+      {showFilters && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="flex flex-col sm:flex-row gap-3 p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]"
+        >
+          {/* Фильтр по типу */}
+          <div className="flex-1">
+            <label className="block text-xs text-[color:var(--color-text-muted)] mb-1">
+              {t('dashboard.activity.filterByType', 'Тип события')}
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-panel)] text-[color:var(--color-text)] focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+            >
+              {eventTypeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {i18n.language === 'ru' ? opt.labelRu : opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Поиск по тексту */}
+          <div className="flex-1">
+            <label className="block text-xs text-[color:var(--color-text-muted)] mb-1">
+              {t('dashboard.activity.search', 'Поиск')}
+            </label>
+            <form onSubmit={handleSearchSubmit} className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[color:var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder={t('dashboard.activity.searchPlaceholder', 'Поиск по сообщению...')}
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-panel)] text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-3 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg transition-colors"
+              >
+                {t('dashboard.activity.searchBtn', 'Найти')}
+              </button>
+            </form>
+          </div>
+        </motion.div>
+      )}
+      
+      <div className="relative rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] overflow-hidden">
+        {/* Timeline line */}
+        <div className="absolute left-[1.125rem] top-0 bottom-0 w-px bg-[color:var(--color-border)]" />
+        
+        <div className="divide-y divide-[color:var(--color-border)]">
+          {events.map((event: ApiActivityEvent, index: number) => {
+            const config = eventConfig[event.type] || eventConfig.success;
+            const Icon = config.icon;
+            const timestamp = parseISO(event.created_at);
+            
+            return (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="relative flex gap-3 p-4 hover:bg-[color:var(--color-surface-muted)]/50 transition-colors"
+              >
+                {/* Icon */}
+                <div className={`
+                  relative z-10 flex-shrink-0 w-9 h-9 rounded-full 
+                  ${config.bgColor} flex items-center justify-center
+                  ring-4 ring-[color:var(--color-panel)]
+                `}>
+                  <Icon className={`w-4 h-4 ${config.color}`} />
+                </div>
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-[color:var(--color-text)]">
+                    {event.message}
+                    {event.user_email && (
+                      <span className="font-medium"> — {event.user_email}</span>
+                    )}
+                  </p>
+                  {event.details && (
+                    <p className="text-xs text-[color:var(--color-text-muted)] mt-0.5 truncate">
+                      {typeof event.details === 'object' 
+                        ? JSON.stringify(event.details) 
+                        : String(event.details)}
+                    </p>
+                  )}
+                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
+                    {formatDistanceToNow(timestamp, { addSuffix: true, locale })}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+        
+        {total > maxItems && (
+          <div className="p-3 text-center border-t border-[color:var(--color-border)]">
+            <button className="text-sm text-[color:var(--color-accent)] hover:underline">
+              {t('dashboard.activity.viewAll', 'Показать все')} ({total - maxItems} {t('dashboard.activity.more', 'ещё')})
             </button>
           </div>
         )}

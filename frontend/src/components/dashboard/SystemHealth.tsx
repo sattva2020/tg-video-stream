@@ -9,10 +9,13 @@ import {
   Activity,
   CheckCircle,
   AlertTriangle,
-  XCircle
+  XCircle,
+  RefreshCw
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Progress } from '@heroui/react';
+import { useSystemMetrics } from '../../hooks/useSystemMetrics';
+import { formatUptime } from '../../types/system';
 
 interface SystemMetric {
   id: string;
@@ -259,6 +262,173 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
             value={dbConnections}
             maxValue={maxDbConnections}
             color={getStatusColor(getStatusFromValue((dbConnections / maxDbConnections) * 100, 70, 90)) as any}
+            className="mt-2"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * SystemHealthLive — компонент с реальными данными через useSystemMetrics.
+ * Spec: 015-real-system-monitoring
+ * 
+ * Автоматически обновляется каждые 30 секунд.
+ * Показывает индикатор загрузки и обработку ошибок.
+ */
+export const SystemHealthLive: React.FC = () => {
+  const { t } = useTranslation();
+  const { 
+    metrics, 
+    isLoading, 
+    isError, 
+    error,
+    cpuStatus,
+    ramStatus,
+    diskStatus,
+    overallStatus,
+    refetch,
+    isFetching,
+  } = useSystemMetrics();
+
+  // Состояние ошибки
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Server className="w-5 h-5 text-cyan-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.health.title', 'Здоровье системы')}
+          </h3>
+        </div>
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+              <XCircle className="w-5 h-5" />
+              <span className="text-sm font-medium">
+                {t('dashboard.health.unavailable', 'Данные временно недоступны')}
+              </span>
+            </div>
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-2 rounded-lg hover:bg-rose-500/10 transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 text-rose-500 ${isFetching ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-[color:var(--color-text-muted)]">
+            {error instanceof Error ? error.message : t('dashboard.health.tryAgain', 'Попробуйте обновить страницу')}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Состояние загрузки
+  if (isLoading || !metrics) {
+    return (
+      <SystemHealth
+        cpuUsage={0}
+        memoryUsage={0}
+        diskUsage={0}
+        networkLatency={0}
+        dbConnections={0}
+        maxDbConnections={100}
+        loading={true}
+      />
+    );
+  }
+
+  // Нормальное состояние с данными
+  // Примечание: networkLatency не доступен через psutil, используем 0
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Server className="w-5 h-5 text-cyan-500" />
+          <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+            {t('dashboard.health.title', 'Здоровье системы')}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Uptime badge */}
+          <span className="text-xs text-[color:var(--color-text-muted)]">
+            {t('dashboard.health.uptime', 'Uptime')}: {formatUptime(metrics.uptime_seconds)}
+          </span>
+          {/* Overall status badge */}
+          <div className={`
+            flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
+            ${overallStatus === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+              overallStatus === 'warning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
+              'bg-rose-500/10 text-rose-600 dark:text-rose-400'}
+          `}>
+            {overallStatus === 'healthy' && <CheckCircle className="w-3.5 h-3.5" />}
+            {overallStatus === 'warning' && <AlertTriangle className="w-3.5 h-3.5" />}
+            {overallStatus === 'critical' && <XCircle className="w-3.5 h-3.5" />}
+            {overallStatus === 'healthy' ? t('dashboard.health.allSystemsGo', 'Всё в норме') :
+             overallStatus === 'warning' ? t('dashboard.health.needsAttention', 'Требует внимания') :
+             t('dashboard.health.critical', 'Критично')}
+          </div>
+        </div>
+      </div>
+      
+      <div className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <MetricCard
+            icon={Cpu}
+            label={t('dashboard.health.cpu', 'CPU')}
+            value={metrics.cpu_percent}
+            unit="%"
+            status={cpuStatus}
+            index={0}
+          />
+          <MetricCard
+            icon={HardDrive}
+            label={t('dashboard.health.ram', 'RAM')}
+            value={metrics.ram_percent}
+            unit="%"
+            status={ramStatus}
+            index={1}
+          />
+          <MetricCard
+            icon={Database}
+            label={t('dashboard.health.disk', 'Диск')}
+            value={metrics.disk_percent}
+            unit="%"
+            status={diskStatus}
+            index={2}
+          />
+          <MetricCard
+            icon={Activity}
+            label={t('dashboard.health.uptime', 'Uptime')}
+            value={Math.floor(metrics.uptime_seconds / 3600)}
+            unit="h"
+            status="healthy"
+            showProgress={false}
+            index={3}
+          />
+        </div>
+        
+        {/* Database connections */}
+        <div className="mt-4 pt-4 border-t border-[color:var(--color-border)]">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-[color:var(--color-text-muted)]" />
+              <span className="text-[color:var(--color-text-muted)]">
+                {t('dashboard.health.dbConnections', 'DB Connections')}
+              </span>
+            </div>
+            <span className="font-medium text-[color:var(--color-text)]">
+              {metrics.db_connections_active} {t('dashboard.health.active', 'активных')} / {metrics.db_connections_idle} {t('dashboard.health.idle', 'idle')}
+            </span>
+          </div>
+          <Progress
+            size="sm"
+            value={metrics.db_connections_active}
+            maxValue={Math.max(metrics.db_connections_active + metrics.db_connections_idle, 10)}
+            color={getStatusColor(getStatusFromValue((metrics.db_connections_active / 10) * 100, 70, 90)) as any}
             className="mt-2"
           />
         </div>

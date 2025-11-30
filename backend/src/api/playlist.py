@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from src.database import get_db
 from src.models.playlist import PlaylistItem
 from src.models.user import User
+from src.services.activity_service import ActivityService
 from api.auth import get_current_user
 from tasks.media import fetch_metadata_async, import_playlist_async
 import uuid
@@ -117,6 +118,21 @@ async def add_playlist_item(
     db.commit()
     db.refresh(new_item)
     
+    # Логируем событие добавления трека
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="track_added",
+        message=f"Добавлен трек: {new_item.title or new_item.url}",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "track_id": str(new_item.id),
+            "track_url": new_item.url,
+            "track_title": new_item.title,
+            "track_type": new_item.type
+        }
+    )
+    
     # Notify WebSocket clients
     ws_module = _get_ws_module()
     if ws_module:
@@ -156,9 +172,25 @@ async def delete_playlist_item(
     
     channel_id = str(item.channel_id) if item.channel_id else None
     item_id_str = str(item.id)
+    item_title = item.title
+    item_url = item.url
     
     db.delete(item)
     db.commit()
+    
+    # Логируем событие удаления трека
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="track_removed",
+        message=f"Удалён трек: {item_title or item_url}",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "track_id": item_id_str,
+            "track_url": item_url,
+            "track_title": item_title
+        }
+    )
     
     # Notify WebSocket clients
     ws_module = _get_ws_module()

@@ -14,6 +14,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 from api.auth import router as auth_router  # noqa: E402
 from api import users, playlist, admin, telegram_auth, channels, files, websocket, schedule  # noqa: E402
 from api.health import router as health_router  # noqa: E402
+from api.system import router as system_router  # noqa: E402
 from database import engine, Base
 
 
@@ -86,6 +87,7 @@ app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
 app.include_router(files.router, prefix="/api/files", tags=["Files"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["WebSocket"])
 app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
+app.include_router(system_router, prefix="/api/system", tags=["System Monitoring"])
 
 
 

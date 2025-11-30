@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from database import get_db
 from services.auth_service import auth_service
+from src.services.activity_service import ActivityService
 
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env'))
@@ -181,6 +182,17 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             user, created = result
         else:
             user, created = result, False
+
+        # Логируем регистрацию нового пользователя через OAuth
+        if created:
+            activity_service = ActivityService(db)
+            activity_service.log_event(
+                event_type="user_registered",
+                message=f"Новый пользователь зарегистрирован через Google: {user.email}",
+                user_id=user.id,
+                user_email=user.email,
+                details={"method": "google_oauth", "status": "pending"}
+            )
 
         # Новый пользователь — статус pending, JWT не выдаём
         if created or getattr(user, 'status', 'approved') != 'approved':

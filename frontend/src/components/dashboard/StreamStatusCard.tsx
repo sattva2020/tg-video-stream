@@ -307,9 +307,10 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
         )}
 
         {/* Error message */}
-        {error && (
-          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
-            {error}
+        {(error || status?.error) && (
+          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error || status?.error}</span>
           </div>
         )}
       </CardBody>
