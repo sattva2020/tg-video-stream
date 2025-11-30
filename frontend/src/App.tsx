@@ -6,6 +6,7 @@ import LandingPage from './pages/LandingPage';
 
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
+const PendingApprovalPage = lazy(() => import('./pages/PendingApprovalPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const PlaylistPage = lazy(() => import('./pages/Playlist'));
 const PendingUsers = lazy(() => import('./pages/admin/PendingUsers'));
@@ -31,6 +32,7 @@ const App: React.FC = () => {
             <Route path="/auth" element={<AuthPage3D />} />
             <Route path="/register" element={<AuthPage3D />} />
             <Route path="/login" element={<AuthPage3D />} />
+            <Route path="/pending-approval" element={<PendingApprovalPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<DashboardPage />} />
