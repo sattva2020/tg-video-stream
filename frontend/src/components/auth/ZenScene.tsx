@@ -18,11 +18,13 @@ const checkWebGLAvailability = () => {
 
 const AuthZenScene: React.FC<AuthZenSceneProps> = ({ scrollY, forceStatic = false }) => {
   const [webGLReady, setWebGLReady] = useState(false);
-  const [shouldLoad, setShouldLoad] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     if (forceStatic) {
       setWebGLReady(false);
+      // Показываем fallback сразу с анимацией
+      requestAnimationFrame(() => setIsVisible(true));
       return;
     }
 
@@ -30,31 +32,27 @@ const AuthZenScene: React.FC<AuthZenSceneProps> = ({ scrollY, forceStatic = fals
       return;
     }
 
-    // Defer loading to prioritize LCP and TBT
-    const timer = setTimeout(() => {
-      setShouldLoad(true);
-    }, 2500);
-
-    return () => clearTimeout(timer);
+    // Проверяем WebGL сразу, без задержки
+    const hasWebGL = checkWebGLAvailability();
+    setWebGLReady(hasWebGL);
+    
+    // Плавное появление
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIsVisible(true));
+    });
   }, [forceStatic]);
 
-  useEffect(() => {
-    if (shouldLoad && !forceStatic) {
-      setWebGLReady(checkWebGLAvailability());
-    }
-  }, [shouldLoad, forceStatic]);
-
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+    <div 
+      className={`pointer-events-none absolute inset-0 transition-opacity duration-1000 ${isVisible ? 'opacity-100' : 'opacity-0'}`} 
+      aria-hidden="true"
+    >
       {webGLReady ? (
-        <Suspense fallback={null}>
+        <Suspense fallback={<div className="h-full w-full bg-[#0c0a09]" />}>
           <LazyZenCanvas scrollY={scrollY} />
         </Suspense>
       ) : (
-        <picture data-testid="auth-zen-fallback" className="block h-full w-full">
-          <source srcSet="/fallback/zen-scene.svg" type="image/svg+xml" />
-          <img src="/fallback/zen-scene.svg" alt="ZenScene static background" className="h-full w-full object-cover" loading="lazy" />
-        </picture>
+        <div className="h-full w-full bg-[#0c0a09]" />
       )}
     </div>
   );

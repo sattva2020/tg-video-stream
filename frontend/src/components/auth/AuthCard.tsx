@@ -24,10 +24,17 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const { t } = useTranslation();
   const [banner, setBanner] = useState<AuthBanner | null>(initialBanner);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const API_URL = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
     []
   );
+
+  // Плавное появление карточки
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 300);
+    return () => clearTimeout(timer);
+  }, []);
   
   // Telegram auth hook
   const { 
@@ -50,7 +57,10 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const googleLabel = `${t('or_continue')} Google`;
 
   return (
-    <div data-testid="auth-card" className="h-full">
+    <div 
+      data-testid="auth-card" 
+      className={`h-full transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+    >
       <Card
         shadow="none"
         className="relative z-10 h-full w-full bg-transparent p-0 text-white"
