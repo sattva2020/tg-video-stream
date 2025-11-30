@@ -19,6 +19,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-22
 - PostgreSQL 15, Redis 7 (012-project-improvements)
 - Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy, React 18, Vite, TailwindCSS (013-telegram-login)
 - PostgreSQL 15+ (новые поля: telegram_id, telegram_username) (013-telegram-login)
+- Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI, psutil, SQLAlchemy/Alembic (backend); React 18, TanStack Query, date-fns (frontend) (015-real-system-monitoring)
+- PostgreSQL 16 (systemd service) — таблица `activity_events` (015-real-system-monitoring)
 
 - TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS) + Tailwind CSS, React Three Fiber + Drei, i18next, Framer Motion (existing), Vite build system (001-modern-home-design)
 
@@ -39,9 +41,9 @@ npm test; npm run lint
 TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS): Follow standard conventions
 
 ## Recent Changes
+- 015-real-system-monitoring: Added Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI, psutil, SQLAlchemy/Alembic (backend); React 18, TanStack Query, date-fns (frontend)
 - 013-telegram-login: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy, React 18, Vite, TailwindCSS
 - 012-project-improvements: Added Python 3.11+, Node 20+, TypeScript 5.x + FastAPI 0.100+, SQLAlchemy 2.0+, Pydantic 2.x, React 18, Vite 5, TailwindCSS
-- 011-advanced-audio: Added Python 3.12 (Backend/Streamer), Node 20+ (Frontend)
 
 
 <!-- MANUAL ADDITIONS START -->
