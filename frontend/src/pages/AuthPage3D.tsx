@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AuthCard, { type AuthBanner } from '../components/auth/AuthCard';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
@@ -10,7 +10,6 @@ const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
 
 const AuthPage3D: React.FC = () => {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
@@ -53,10 +52,6 @@ const AuthPage3D: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleAuthenticated = () => {
-    navigate('/dashboard');
-  };
-
   return (
     <>
       <div
@@ -88,9 +83,6 @@ const AuthPage3D: React.FC = () => {
           }
           primary={
             <AuthCard
-              mode="login"
-              onModeChange={() => {}}
-              onAuthenticated={handleAuthenticated}
               initialBanner={banner}
             />
           }

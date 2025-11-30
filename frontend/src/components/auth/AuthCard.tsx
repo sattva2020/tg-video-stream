@@ -14,13 +14,13 @@ export interface AuthBanner {
 }
 
 interface AuthCardProps {
-  mode: AuthMode;
-  onModeChange: (nextMode: AuthMode) => void;
+  mode?: AuthMode;
+  onModeChange?: (nextMode: AuthMode) => void;
   onAuthenticated?: () => void;
   initialBanner?: AuthBanner | null;
 }
 
-const AuthCard: React.FC<AuthCardProps> = ({ mode, onAuthenticated, initialBanner = null }) => {
+const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const { t } = useTranslation();
   const [banner, setBanner] = useState<AuthBanner | null>(initialBanner);
   const [isSubmitting, setIsSubmitting] = useState(false);
