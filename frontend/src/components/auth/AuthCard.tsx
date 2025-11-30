@@ -75,7 +75,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
           </p>
         </CardHeader>
 
-        <CardBody className="flex flex-col gap-6 px-2">
+        <CardBody className="flex flex-col gap-6 px-0">
           {banner && banner.tone === 'error' ? (
             <ErrorToast message={banner.message} data-testid="auth-error-toast" tone="error" />
           ) : banner ? (
