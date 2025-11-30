@@ -160,4 +160,4 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   );
 };
 
-export default TelegramLoginButton;export default TelegramLoginButton;
+export default TelegramLoginButton;
