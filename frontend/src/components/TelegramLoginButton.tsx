@@ -115,14 +115,25 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
 
   // Обработчик клика на кастомную кнопку
   const handleCustomButtonClick = () => {
-    if (disabled || !isWidgetReady) return;
+    if (disabled) return;
     
-    // Находим iframe от Telegram Widget и кликаем на него
-    const iframe = hiddenContainerRef.current?.querySelector('iframe');
-    if (iframe) {
-      // Симулируем клик на iframe - это откроет popup Telegram
-      iframe.click();
-    }
+    const botUsername = config.telegram.botUsername;
+    const origin = window.location.origin;
+    
+    // Размеры popup окна
+    const width = 550;
+    const height = 470;
+    const left = Math.round((window.screen.width - width) / 2);
+    const top = Math.round((window.screen.height - height) / 2);
+    
+    // Telegram Login Widget использует этот URL формат
+    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botUsername}&origin=${encodeURIComponent(origin)}&embed=1&request_access=write&return_to=${encodeURIComponent(origin + '/login')}`;
+    
+    window.open(
+      authUrl,
+      'TelegramAuth',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+    );
   };
 
   // Если bot username не настроен, показываем заглушку
@@ -147,7 +158,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
       <button
         type="button"
         onClick={handleCustomButtonClick}
-        disabled={disabled || !isWidgetReady}
+        disabled={disabled}
         className={clsx(
           'group flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold shadow-lg transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
           '!bg-[#F5E6D3]/10 !text-[#F5E6D3] !border !border-[#F5E6D3]/30',
