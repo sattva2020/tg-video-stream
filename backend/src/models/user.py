@@ -34,9 +34,9 @@ class User(Base):
     full_name = Column(String, nullable=True)
     profile_picture_url = Column(String, nullable=True)
     hashed_password = Column(String, nullable=True)
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.USER)
+    role = Column(String, nullable=False, default="user")
     # New for user approval workflow: 'pending' | 'approved' | 'rejected'
-    status = Column(Enum(UserStatus), nullable=False, server_default=UserStatus.PENDING, default=UserStatus.PENDING)
+    status = Column(String, nullable=False, server_default="pending", default="pending")
     email_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
