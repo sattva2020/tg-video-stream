@@ -113,7 +113,7 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
   const handleCustomButtonClick = () => {
     if (disabled) return;
     
-    const botUsername = config.telegram.botUsername;
+    const botId = config.telegram.botId;
     const origin = window.location.origin;
     
     // Размеры popup окна
@@ -122,8 +122,8 @@ export const TelegramLoginButton: React.FC<TelegramLoginButtonProps> = ({
     const left = Math.round((window.screen.width - width) / 2);
     const top = Math.round((window.screen.height - height) / 2);
     
-    // Telegram Login Widget использует этот URL формат
-    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botUsername}&origin=${encodeURIComponent(origin)}&embed=1&request_access=write&return_to=${encodeURIComponent(origin + '/login')}`;
+    // Telegram Login Widget использует числовой bot_id
+    const authUrl = `https://oauth.telegram.org/auth?bot_id=${botId}&origin=${encodeURIComponent(origin)}&embed=1&request_access=write&return_to=${encodeURIComponent(origin + '/login')}`;
     
     window.open(
       authUrl,

@@ -10,6 +10,7 @@ export const config = {
   // Telegram Login Widget
   telegram: {
     botUsername: import.meta.env.VITE_TELEGRAM_BOT_USERNAME || '',
+    botId: import.meta.env.VITE_TELEGRAM_BOT_ID || '',
     // Размер кнопки: 'large' | 'medium' | 'small'
     buttonSize: 'large' as const,
     // Радиус углов кнопки (0-20)
