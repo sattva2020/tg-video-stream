@@ -8,7 +8,6 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { systemApi, GetActivityParams } from '../api/system';
-import type { ActivityEventsResponse } from '../types/system';
 
 /**
  * Query key для событий активности.

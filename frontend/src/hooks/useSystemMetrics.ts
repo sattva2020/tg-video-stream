@@ -8,7 +8,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { systemApi } from '../api/system';
-import type { SystemMetrics, MetricStatus } from '../types/system';
+import type { MetricStatus } from '../types/system';
 import { METRIC_THRESHOLDS, getMetricStatus } from '../types/system';
 
 /**
