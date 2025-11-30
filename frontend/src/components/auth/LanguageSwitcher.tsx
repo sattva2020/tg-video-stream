@@ -40,10 +40,10 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ className })
           base: "data-[hover=true]:bg-[#F5E6D3]/20 data-[hover=true]:text-[#F5E6D3] text-[#F5E6D3]/80",
         }}
       >
-        <DropdownItem key="en">English</DropdownItem>
         <DropdownItem key="ru">Русский</DropdownItem>
         <DropdownItem key="uk">Українська</DropdownItem>
         <DropdownItem key="de">Deutsch</DropdownItem>
+        <DropdownItem key="en">English</DropdownItem>
       </DropdownMenu>
     </Dropdown>
   );
