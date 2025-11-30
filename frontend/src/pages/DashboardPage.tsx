@@ -25,7 +25,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
-        {user?.role === UserRole.ADMIN ? <AdminDashboardV2 /> : <UserDashboard />}
+        {(user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN) ? <AdminDashboardV2 /> : <UserDashboard />}
       </main>
     </div>
   );
