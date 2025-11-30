@@ -30,7 +30,6 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage3D />} />
-            <Route path="/register" element={<AuthPage3D />} />
             <Route path="/login" element={<AuthPage3D />} />
             <Route path="/pending-approval" element={<PendingApprovalPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />

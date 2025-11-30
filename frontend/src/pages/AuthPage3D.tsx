@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import AuthCard, { type AuthMode, type AuthBanner } from '../components/auth/AuthCard';
+import AuthCard, { type AuthBanner } from '../components/auth/AuthCard';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
 import AuthLayout from '../components/auth/AuthLayout';
 
@@ -11,21 +11,11 @@ const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
 const AuthPage3D: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<AuthMode>('login');
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
 
   const forceStatic = searchParams.get('forceStatic') === '1';
-
-  useEffect(() => {
-    if (location.pathname.includes('/register')) {
-      setMode('register');
-    } else {
-      setMode('login');
-    }
-  }, [location.pathname]);
 
   useEffect(() => {
     const status = searchParams.get('status');
@@ -98,8 +88,8 @@ const AuthPage3D: React.FC = () => {
           }
           primary={
             <AuthCard
-              mode={mode}
-              onModeChange={setMode}
+              mode="login"
+              onModeChange={() => {}}
               onAuthenticated={handleAuthenticated}
               initialBanner={banner}
             />
