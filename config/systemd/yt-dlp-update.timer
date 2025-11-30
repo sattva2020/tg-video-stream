@@ -1,0 +1,20 @@
+[Unit]
+Description=yt-dlp Auto-Update Timer
+Documentation=https://github.com/yt-dlp/yt-dlp
+
+[Timer]
+# Запуск ежедневно в 04:00 UTC (07:00 MSK)
+# Выбрано время минимальной нагрузки
+OnCalendar=*-*-* 04:00:00
+
+# Случайная задержка до 30 минут для распределения нагрузки на PyPI
+RandomizedDelaySec=1800
+
+# Запустить при включении если пропустили время
+Persistent=true
+
+# Не запускать чаще чем раз в 12 часов
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target
