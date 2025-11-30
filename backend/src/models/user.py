@@ -8,11 +8,13 @@ class UserRole(str, PyEnum):
     """Роли пользователей."""
     USER = "user"
     ADMIN = "admin"
+    SUPERADMIN = "superadmin"
 
 
 class UserStatus(str, PyEnum):
     """Статусы пользователей."""
     PENDING = "pending"
+    ACTIVE = "active"
     APPROVED = "approved"
     REJECTED = "rejected"
 

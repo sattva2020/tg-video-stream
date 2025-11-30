@@ -14,9 +14,11 @@ from fastapi import HTTPException, Request
 
 class UserRole(str, Enum):
     """User role enumeration for type safety."""
+    SUPERADMIN = "SUPERADMIN"
     ADMIN = "ADMIN"
     MODERATOR = "MODERATOR"
     OPERATOR = "OPERATOR"
+    USER = "USER"
 
 
 def require_role(required_roles: Union[str, List[str], List[UserRole]]):
