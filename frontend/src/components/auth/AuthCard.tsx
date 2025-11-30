@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, CardBody, CardHeader, Chip } from '@heroui/react';
+import { Card, CardBody, CardHeader } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import GoogleLoginButton from '../GoogleLoginButton';
 import TelegramLoginButton from '../TelegramLoginButton';
@@ -79,14 +79,12 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
           {banner && banner.tone === 'error' ? (
             <ErrorToast message={banner.message} data-testid="auth-error-toast" tone="error" />
           ) : banner ? (
-            <Chip
-              color={banner.tone === 'success' ? 'success' : 'default'}
-              variant="bordered"
-              className="w-full justify-center text-center border-0 bg-white/10 px-4 py-3 text-sm font-medium text-white"
+            <div
+              className="w-full flex justify-center text-center rounded-full bg-white/10 px-4 py-3 text-sm font-medium text-white"
               aria-live="polite"
             >
               {banner.message}
-            </Chip>
+            </div>
           ) : null}
 
           {/* Основной текст */}
