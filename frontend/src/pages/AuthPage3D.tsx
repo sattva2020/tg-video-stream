@@ -93,17 +93,6 @@ const AuthPage3D: React.FC = () => {
           ${isLoading ? 'opacity-0' : 'opacity-100'}
         `}
       >
-        {/* Логотип янтры в левом верхнем углу */}
-        <div className="fixed top-4 left-4 z-50">
-          <Link to="/" className="block">
-            <img 
-              src="/assets/yantra-logo.svg" 
-              alt="Sattva Yantra" 
-              className="w-12 h-12 rounded-xl hover:scale-105 transition-transform duration-300"
-            />
-          </Link>
-        </div>
-
         <Suspense fallback={<div className="absolute inset-0 bg-[#0c0a09]" />}>
           <AuthZenScene scrollY={scrollY} forceStatic={forceStatic} />
         </Suspense>
