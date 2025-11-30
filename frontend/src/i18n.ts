@@ -5,7 +5,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 const resources = {
     en: {
         translation: {
-            "zenscene_access": "ZenScene Access",
+            "zenscene_access": "ZENSTREAM ACCESS",
             "sattva": "SATTVA",
             "join_us": "JOIN US",
             "enter_stream": "Enter the stream of consciousness",
@@ -218,7 +218,7 @@ const resources = {
     },
     ru: {
         translation: {
-            "zenscene_access": "ZenScene Access",
+            "zenscene_access": "ZENSTREAM ACCESS",
             "sattva": "САТТВА",
             "join_us": "ПРИСОЕДИНЯЙТЕСЬ",
             "enter_stream": "Войдите в поток сознания",
