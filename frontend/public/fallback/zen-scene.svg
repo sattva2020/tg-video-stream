@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1440" height="900" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Space background with Earth">
+  <defs>
+    <!-- Deep space gradient -->
+    <radialGradient id="spaceGlow" cx="50%" cy="50%" r="100%">
+      <stop offset="0%" stop-color="#0a1628" />
+      <stop offset="50%" stop-color="#050d1a" />
+      <stop offset="100%" stop-color="#000408" />
+    </radialGradient>
+    <!-- Stars layer -->
+    <filter id="stars" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" seed="42" result="noise"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 -0.97" result="stars"/>
+      <feComponentTransfer>
+        <feFuncA type="discrete" tableValues="0 0.15 0.4 0.7 1"/>
+      </feComponentTransfer>
+    </filter>
+    <!-- Earth glow -->
+    <radialGradient id="earthGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1e90ff" stop-opacity="0.3" />
+      <stop offset="70%" stop-color="#1e90ff" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#1e90ff" stop-opacity="0" />
+    </radialGradient>
+    <!-- Earth gradient -->
+    <radialGradient id="earthSurface" cx="40%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#4a90c2" />
+      <stop offset="30%" stop-color="#2d6a9f" />
+      <stop offset="60%" stop-color="#1a4d70" />
+      <stop offset="100%" stop-color="#0d2840" />
+    </radialGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="1440" height="900" fill="url(#spaceGlow)" />
+  <!-- Stars -->
+  <rect width="1440" height="900" filter="url(#stars)" opacity="0.8" />
+  <!-- Earth glow -->
+  <circle cx="500" cy="450" r="280" fill="url(#earthGlow)" />
+  <!-- Earth -->
+  <circle cx="500" cy="450" r="200" fill="url(#earthSurface)" opacity="0.9" />
+  <!-- Atmosphere edge -->
+  <circle cx="500" cy="450" r="205" fill="none" stroke="#87ceeb" stroke-width="3" opacity="0.2" />
+</svg>

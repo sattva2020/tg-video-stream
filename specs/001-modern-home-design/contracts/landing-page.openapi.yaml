@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: Telegram 24/7 Landing Page Contract
+  version: 1.0.0
+  description: >-
+    HTTP контракт главной страницы. Страница рендерится фронтендом, но сервер
+    обязан отдавать HTML оболочку и статические ассеты с корректными заголовками
+    кеширования.
+servers:
+  - url: http://localhost:3000
+    description: Vite dev server
+  - url: https://app.sattva.stream
+    description: Production Nginx
+paths:
+  "/":
+    get:
+      summary: Render landing page with localized hero block
+      description: >-
+        Возвращает HTML SPA shell. Клиент сам подгружает i18n и WebGL ассеты.
+      parameters:
+        - in: header
+          name: Accept-Language
+          schema:
+            type: string
+          description: RFC 7231 язык; используется для autodetect локализации.
+      responses:
+        "200":
+          description: SPA shell отдаётся успешно
+          headers:
+            Content-Type:
+              schema:
+                type: string
+                example: text/html; charset=utf-8
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            text/html:
+              schema:
+                type: string
+              examples:
+                landing:
+                  summary: Skeleton HTML
+                  value: |
+                    <!doctype html>
+                    <html lang="en">
+                      <head>
+                        <meta charset="utf-8" />
+                        <meta name="viewport" content="width=device-width, initial-scale=1" />
+                        <link rel="preload" href="/assets/landing-poster.webp" as="image" />
+                        <title>Telegram 24/7 Video Streamer</title>
+                      </head>
+                      <body>
+                        <div id="root">Loading...</div>
+                        <script type="module" src="/src/main.tsx"></script>
+                      </body>
+                    </html>
+        "302":
+          description: Legacy deployments могут редиректить на /login пока лендинг не доступен
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /login
+        "500":
+          description: Ошибка сборки фронтенда / отсутствующие ассеты
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: landing build unavailable
+                  requestId:
+                    type: string

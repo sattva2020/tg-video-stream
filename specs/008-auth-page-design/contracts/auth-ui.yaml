@@ -1,0 +1,145 @@
+openapi: 3.0.1
+info:
+  title: Auth UI Integration
+  version: 0.1.0
+paths:
+  /api/auth/login:
+    post:
+      summary: Password-based login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 12
+      responses:
+        '200':
+          description: JWT issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+        '403':
+          description: Account pending or rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+        '409':
+          description: Conflict (email already registered)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+  /api/auth/register:
+    post:
+      summary: Register new user with password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Registration accepted, status pending
+        '409':
+          description: Conflict (email already registered)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthError'
+  /api/users/me:
+    get:
+      summary: Fetch authenticated user profile (used for dashboard greeting + role)
+      responses:
+        '200':
+          description: User object
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                    format: email
+                  full_name:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+components:
+  schemas:
+    AuthError:
+      type: object
+      description: >-
+        Structured error returned by auth endpoints for 403/409 responses.
+        `code` and `hint` are required.
+        Exactly one of `message` (server-localized text) or `message_key` (client-resolvable key)
+        MUST be present according to the following rule:
+
+        - If the client sends `Accept-Language` and the server supports/has a translation for
+          that language, server SHOULD return `message` (localized text). It MAY also include
+          `message_key` but `message` is authoritative for display.
+        - If server does not localize for the requested language, it MUST return `message_key`.
+
+      required: [code, hint]
+      properties:
+        code:
+          type: string
+          enum: [pending, rejected, conflict, server]
+        hint:
+          type: string
+          description: Action hint for the engineer/tester (short, technical instruction)
+        message:
+          type: string
+          description: >-
+            Localized human readable text (server-provided). Returned when server honored
+            Accept-Language and had a translation for that locale. If present, frontend
+            MUST display this value and SHOULD NOT re-localize it.
+        message_key:
+          type: string
+          description: >-
+            Message key for client-side localization (e.g. "auth.email_registered").
+            Returned when server did not localize the text for the client's language.
+          pattern: '^[a-z0-9_]+(\.[a-z0-9_]+)*$'
+      anyOf:
+        - required: [message]
+        - required: [message_key]
+      examples:
+        conflict_with_key:
+          summary: Returns a message_key when not localized
+          value:
+            code: "conflict"
+            hint: "email already registered"
+            message_key: "auth.email_registered"
+        conflict_with_message:
+          summary: Server returned localized message
+          value:
+            code: "conflict"
+            hint: "email already registered"
+            message: "Этот адрес электронной почты уже зарегистрирован"

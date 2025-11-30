@@ -1,0 +1,22 @@
+[Unit]
+Description=Telegram Video Streamer
+After=network.target
+
+[Service]
+Type=simple
+# Run the per-release python from the current symlink
+EnvironmentFile=/opt/tg_video_streamer/current/.env
+User=tgstream
+WorkingDirectory=/opt/tg_video_streamer/current
+ExecStart=/opt/tg_video_streamer/current/venv/bin/python /opt/tg_video_streamer/current/main.py
+Restart=always
+RestartSec=10
+StartLimitIntervalSec=0
+
+# Sandboxing and hardening
+ProtectSystem=full
+NoNewPrivileges=yes
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

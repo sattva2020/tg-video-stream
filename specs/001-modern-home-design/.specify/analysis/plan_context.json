@@ -1,0 +1,11 @@
+{
+  "feature": "001-modern-home-design",
+  "spec": "specs/001-modern-home-design/spec.md",
+  "plan": "specs/001-modern-home-design/plan.md",
+  "dataModel": "specs/001-modern-home-design/data-model.md",
+  "contracts": [
+    "specs/001-modern-home-design/contracts/landing-page.openapi.yaml"
+  ],
+  "quickstart": "specs/001-modern-home-design/quickstart.md",
+  "research": "specs/001-modern-home-design/research.md"
+}

@@ -1,0 +1,221 @@
+openapi: 3.1.0
+info:
+  title: Health API
+  description: Health check endpoints для 24/7 TV Telegram Backend
+  version: 1.0.0
+  
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.example.com
+    description: Production
+
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Health Check
+      description: |
+        Возвращает текущее состояние сервиса и его зависимостей.
+        Используется Docker health check и мониторингом.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Сервис работает
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  summary: Все зависимости работают
+                  value:
+                    status: healthy
+                    version: "1.0.0"
+                    uptime_seconds: 3600.5
+                    timestamp: "2025-11-29T12:00:00Z"
+                    dependencies:
+                      - name: database
+                        status: up
+                        latency_ms: 5.2
+                        last_check: "2025-11-29T11:59:55Z"
+                      - name: redis
+                        status: up
+                        latency_ms: 1.1
+                        last_check: "2025-11-29T11:59:55Z"
+                degraded:
+                  summary: Одна зависимость деградирована
+                  value:
+                    status: degraded
+                    version: "1.0.0"
+                    uptime_seconds: 7200.0
+                    timestamp: "2025-11-29T12:00:00Z"
+                    dependencies:
+                      - name: database
+                        status: up
+                        latency_ms: 5.2
+                        last_check: "2025-11-29T11:59:55Z"
+                      - name: redis
+                        status: degraded
+                        latency_ms: 150.0
+                        message: "High latency detected"
+                        last_check: "2025-11-29T11:59:55Z"
+        '503':
+          description: Сервис недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: unhealthy
+                version: "1.0.0"
+                uptime_seconds: 100.0
+                timestamp: "2025-11-29T12:00:00Z"
+                dependencies:
+                  - name: database
+                    status: down
+                    latency_ms: -1
+                    message: "Connection refused"
+                    last_check: "2025-11-29T11:59:55Z"
+                  - name: redis
+                    status: up
+                    latency_ms: 1.1
+                    last_check: "2025-11-29T11:59:55Z"
+
+  /health/live:
+    get:
+      operationId: livenessCheck
+      summary: Liveness Probe
+      description: |
+        Простая проверка что приложение запущено.
+        Не проверяет зависимости — только сам процесс.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Приложение живо
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [alive]
+              example:
+                status: alive
+
+  /health/ready:
+    get:
+      operationId: readinessCheck
+      summary: Readiness Probe
+      description: |
+        Проверка готовности принимать трафик.
+        Возвращает 200 только если все критические зависимости доступны.
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Готов принимать трафик
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+              example:
+                status: ready
+        '503':
+          description: Не готов принимать трафик
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [not_ready]
+                  reason:
+                    type: string
+              example:
+                status: not_ready
+                reason: "Database connection failed"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - uptime_seconds
+        - timestamp
+        - dependencies
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: |
+            - healthy: все зависимости работают
+            - degraded: некоторые зависимости работают с ограничениями
+            - unhealthy: критические зависимости недоступны
+        version:
+          type: string
+          description: Версия приложения
+          example: "1.0.0"
+        uptime_seconds:
+          type: number
+          format: float
+          description: Время работы приложения в секундах
+          minimum: 0
+          example: 3600.5
+        timestamp:
+          type: string
+          format: date-time
+          description: Время формирования ответа (ISO 8601)
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyHealth'
+          minItems: 1
+
+    DependencyHealth:
+      type: object
+      required:
+        - name
+        - status
+        - latency_ms
+        - last_check
+      properties:
+        name:
+          type: string
+          description: Имя зависимости
+          example: database
+        status:
+          type: string
+          enum: [up, down, degraded]
+          description: |
+            - up: работает нормально
+            - degraded: работает с ограничениями (high latency)
+            - down: недоступен
+        latency_ms:
+          type: number
+          format: float
+          description: Время отклика в миллисекундах. -1 если недоступен.
+          example: 5.2
+        message:
+          type: string
+          nullable: true
+          description: Сообщение об ошибке (обязательно если status=down)
+          example: "Connection refused"
+        last_check:
+          type: string
+          format: date-time
+          description: Время последней проверки (ISO 8601)
+
+tags:
+  - name: Health
+    description: Health check endpoints

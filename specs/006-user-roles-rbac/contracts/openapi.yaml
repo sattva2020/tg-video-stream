@@ -1,0 +1,48 @@
+openapi: 3.0.0
+info:
+  title: Telegram Video Streamer API
+  version: 1.0.0
+paths:
+  /auth/token:
+    post:
+      summary: Login for access token
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  token_type:
+                    type: string
+                  role:
+                    type: string
+                    enum: [user, admin]
+                    description: User role included for convenience
+
+  /users/me:
+    get:
+      summary: Get current user
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]

@@ -1,0 +1,25 @@
+fastapi
+uvicorn
+psutil>=5.9.0
+python-jose[cryptography]
+requests-oauthlib
+psycopg2-binary
+SQLAlchemy
+alembic
+pytest
+itsdangerous
+
+passlib[bcrypt]
+bcrypt<5.0
+fastapi-mail
+fastapi-limiter
+redis>=4.2.0
+jinja2
+docker>=7.0.0
+celery>=5.3.0
+yt-dlp>=2024.1.0
+
+# Dev tools (not required in production) - used for local dev and CI
+pre-commit
+pyrogram
+tgcrypto

@@ -1,0 +1,84 @@
+name: CI — tests (unit + e2e)
+
+on:
+  push:
+    branches: [ 001-modern-home-design, main ]
+  pull_request:
+    branches: [ main ]
+  # allow manual runs to test feature branches or manually re-run the suite
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: 1
+      RATE_LIMIT_MAX: 100  # relax rate limiter for CI
+      RATE_LIMIT_WINDOW: 60
+      FRONTEND_URL: http://localhost:3000
+      VITE_API_BASE_URL: http://localhost:8080
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt || true
+          pip install -r backend/requirements-dev.txt || true
+
+      - name: Run backend unit tests
+        working-directory: backend
+        run: |
+          python -m pytest -q tests || true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install system dependencies (unixODBC)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          nohup uvicorn src.main:app --host 0.0.0.0 --port 8080 &
+          sleep 2
+
+      - name: Build & preview frontend
+        working-directory: frontend
+        run: |
+          npm run build
+          nohup npm run preview -- --port 3000 --host 0.0.0.0 &
+          sleep 4
+
+      - name: Run Playwright e2e tests (single worker)
+        working-directory: frontend
+        run: |
+          npx playwright test tests/e2e --project=chromium --workers=1 --reporter=list
+
+      - name: Collect Playwright report
+        run: |
+          mkdir -p .internal/frontend-logs/playwright/${{ github.run_id }}
+          if [ -d frontend/playwright-report ]; then cp -r frontend/playwright-report .internal/frontend-logs/playwright/${{ github.run_id }}; fi
+
+      - name: Upload frontend Playwright artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-playwright-${{ github.run_id }}
+          path: .internal/frontend-logs/playwright/${{ github.run_id }}

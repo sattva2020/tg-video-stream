@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # allow manual dispatch for branches (useful when running CI for feature branches)
+  workflow_dispatch: {}
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check for secrets in code
+      run: |
+        # Проверка на случайно закоммиченные секреты
+        if git log --all --full-history -p | grep -E "(API_KEY|SECRET_KEY|PASSWORD|api_key|secret_key|password)\s*=\s*['\"][^'\"]{8,}['\"]" | grep -v "change_this\|example\|placeholder\|your_"; then
+          echo "⚠️ Potential secrets found in git history"
+          exit 1
+        fi
+        echo "✓ No obvious secrets in code"
+    
+    - name: Validate Docker configuration
+      run: |
+        # Проверка на Docker socket mount
+        if grep -q "docker.sock" docker-compose.yml; then
+          echo "❌ Docker socket mount found - security risk!"
+          exit 1
+        fi
+        echo "✓ No Docker socket mount"
+        
+        # Проверка network isolation
+        if grep -q "internal: true" docker-compose.yml; then
+          echo "✓ Network isolation configured"
+        else
+          echo "⚠️ No network isolation found"
+        fi
+    
+    - name: Check for weak password patterns in templates
+      run: |
+        # Убедиться что template не содержит реальных паролей
+        weak_patterns=("admin123" "password123" "123456789" "qwerty")
+        for pattern in "${weak_patterns[@]}"; do
+          if grep -rq "$pattern" .env.template .env.example backend/.env.example 2>/dev/null; then
+            echo "❌ Weak password pattern found: $pattern"
+            exit 1
+          fi
+        done
+        echo "✓ No weak password patterns in templates"
+
+  backend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    - name: Install pre-commit
+      run: |
+        pip install pre-commit
+    - name: Run pre-commit hooks
+      run: |
+        pre-commit run --all-files
+        
+    - name: Run tests with coverage
+      run: |
+        pytest --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+        
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-coverage
+        path: |
+          backend/htmlcov
+          backend/coverage.xml
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    - name: Install system dependencies (unixODBC)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
+        
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Set up Python for pre-commit
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install pre-commit
+      run: pip install pre-commit
+
+    - name: Run pre-commit hooks
+      run: pre-commit run --all-files
+      
+    - name: Lint
+      run: npm run lint
+      
+    - name: Run unit tests with coverage
+      run: npm run test:coverage
+      
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-coverage
+        path: frontend/coverage
+      
+    - name: Build
+      run: npm run build
+
+  frontend-perf:
+    runs-on: ubuntu-latest
+    needs: frontend-test
+    defaults:
+      run:
+        working-directory: ./
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies (odbc + build tools)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
+
+      - name: Install project dependencies (root)
+        run: npm ci
+
+      - name: Run perf measurement
+        env:
+          # skip slow Playwright e2e step in perf job to get stable Lighthouse numbers
+          SKIP_PLAYWRIGHT: '1'
+          USE_DEV_SERVER: '0'
+        run: npm run perf:auth-errors
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-perf-reports
+          path: .internal/frontend-logs/perf/**

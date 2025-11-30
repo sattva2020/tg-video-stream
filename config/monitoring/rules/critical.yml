@@ -1,0 +1,92 @@
+# Critical Alert Rules for 24/7 TV Telegram
+# These alerts require immediate action
+
+groups:
+  - name: critical
+    rules:
+      # Streamer is down
+      - alert: StreamerDown
+        expr: up{job="streamer"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Streamer service is down"
+          description: "Streamer has been unreachable for more than 1 minute. Stream is likely offline."
+
+      # Backend is down
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend API is down"
+          description: "Backend API has been unreachable for more than 1 minute."
+
+      # Database connection failed
+      - alert: DatabaseDown
+        expr: |
+          absent(db_connections_active{pool="default"}) 
+          or db_connections_active{pool="default"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection lost"
+          description: "No active database connections. Application cannot process requests."
+
+      # High error rate (>10% of requests)
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) 
+          / sum(rate(http_requests_total[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "More than 10% of HTTP requests are failing in the last 5 minutes."
+
+      # Stream stopped unexpectedly
+      - alert: StreamStopped
+        expr: stream_status == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stream stopped for {{ $labels.channel_id }}"
+          description: "Stream has been stopped for more than 5 minutes on channel {{ $labels.channel_id }}."
+
+      # No viewers for too long (might indicate stream issue)
+      - alert: NoViewers
+        expr: stream_viewers_current == 0 and stream_status == 1
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No viewers on active stream"
+          description: "Stream is running but has 0 viewers for 30 minutes. Possible stream quality issue."
+
+      # Disk space critical
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} 
+          / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low"
+          description: "Less than 10% disk space remaining on root filesystem."
+
+      # Memory exhausted
+      - alert: MemoryExhausted
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memory almost exhausted"
+          description: "More than 95% of memory is in use for 5 minutes."

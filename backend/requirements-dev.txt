@@ -1,0 +1,8 @@
+# Dev dependencies for backend
+pre-commit
+black
+isort
+ruff
+pytest
+pytest-cov
+pytest-asyncio

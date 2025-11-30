@@ -1,0 +1,212 @@
+name: CD - Deploy to VPS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+# Prevent concurrent deploys to the same environment
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  VPS_HOST: 37.53.91.144
+  VPS_USER: root
+  DEPLOY_PATH: /root/telegram-broadcast
+
+jobs:
+  # Build and run tests before deployment
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          
+      - name: Run backend tests
+        run: |
+          cd backend
+          pytest -v --tb=short
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+          
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm run test
+
+  # Deploy to staging (automatic on push to main)
+  deploy-staging:
+    name: Deploy to Staging
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: http://${{ env.VPS_HOST }}:3000
+    
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Deploying to staging..."
+            
+            # Navigate to project directory
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Save current commit for potential rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "Previous commit: $PREVIOUS_COMMIT"
+            echo "$PREVIOUS_COMMIT" > .previous_commit
+            
+            # Pull latest changes
+            echo "📥 Pulling latest changes..."
+            git fetch origin main
+            git checkout main
+            git pull origin main
+            
+            # Pull new Docker images
+            echo "🐳 Pulling Docker images..."
+            docker compose pull
+            
+            # Rebuild and restart services
+            echo "🔧 Rebuilding and restarting services..."
+            docker compose up -d --build
+            
+            # Wait for services to be healthy
+            echo "⏳ Waiting for services to be healthy..."
+            sleep 30
+            
+            # Health check
+            echo "🏥 Running health check..."
+            curl -f http://localhost:8000/health || {
+              echo "❌ Health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+            
+            echo "✅ Deployment successful!"
+            echo "Deployed commit: $(git rev-parse HEAD)"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Deployment to staging failed!"
+
+  # Deploy to production (manual approval required)
+  deploy-production:
+    name: Deploy to Production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: http://${{ env.VPS_HOST }}:3000
+    
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ env.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Deploying to PRODUCTION..."
+            
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Save current state for rollback
+            PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            echo "$PREVIOUS_COMMIT" > .previous_commit
+            
+            # Create backup of data
+            echo "📦 Creating database backup..."
+            docker compose exec -T db pg_dump -U postgres telegram_db > /root/backups/telegram_db_$(date +%Y%m%d_%H%M%S).sql || true
+            
+            # Pull and deploy
+            git fetch origin main
+            git checkout main
+            git pull origin main
+            docker compose pull
+            docker compose up -d --build
+            
+            # Extended health check for production
+            echo "⏳ Waiting for services..."
+            sleep 45
+            
+            # Multiple health checks
+            for i in 1 2 3; do
+              echo "Health check attempt $i..."
+              if curl -f http://localhost:8000/health; then
+                echo "✅ Health check $i passed"
+              else
+                echo "❌ Health check $i failed"
+                if [ $i -eq 3 ]; then
+                  echo "❌ All health checks failed! Rolling back..."
+                  git checkout $PREVIOUS_COMMIT
+                  docker compose up -d --build
+                  exit 1
+                fi
+                sleep 10
+              fi
+            done
+            
+            echo "✅ Production deployment successful!"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Production deployment failed! Check logs for rollback status."
+
+# =============================================================================
+# ROLLBACK INSTRUCTIONS
+# =============================================================================
+# To manually rollback to a previous version:
+#
+# 1. SSH to VPS: ssh root@37.53.91.144
+# 2. Navigate to project: cd /root/telegram-broadcast
+# 3. Get previous commit: cat .previous_commit
+# 4. Rollback: git checkout <commit_hash>
+# 5. Rebuild: docker compose up -d --build
+#
+# Or use the rollback script: ./scripts/rollback_release.sh
+# =============================================================================

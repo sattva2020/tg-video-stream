@@ -1,0 +1,12 @@
+[Unit]
+Description=Update yt-dlp in per-release venv
+After=network.target
+
+[Service]
+Type=oneshot
+User=tgstream
+WorkingDirectory=/opt/tg_video_streamer/current
+ExecStart=/opt/tg_video_streamer/current/scripts/yt-dlp-update.sh
+
+[Install]
+WantedBy=multi-user.target

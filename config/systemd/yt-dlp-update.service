@@ -1,0 +1,30 @@
+[Unit]
+Description=yt-dlp Auto-Update Service
+Documentation=https://github.com/yt-dlp/yt-dlp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sattva-streamer/scripts/yt-dlp-update.sh
+User=root
+Group=root
+
+# Безопасность
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths=/var/log /opt/sattva-streamer
+
+# Окружение (опционально для Telegram уведомлений)
+EnvironmentFile=-/opt/sattva-streamer/.env
+
+# Таймауты
+TimeoutStartSec=300
+
+# Логирование
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yt-dlp-update
+
+[Install]
+WantedBy=multi-user.target

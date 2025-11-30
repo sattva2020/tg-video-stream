@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: Telegram Login API
+  description: API для авторизации и регистрации через Telegram
+  version: 1.0.0
+
+paths:
+  /api/auth/telegram:
+    post:
+      summary: Авторизация через Telegram Login Widget
+      description: |
+        Принимает данные от Telegram Login Widget, верифицирует подпись,
+        создаёт нового пользователя или авторизует существующего.
+      operationId: telegramAuth
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramAuthRequest'
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramAuthResponse'
+        '400':
+          description: Невалидные данные или истёкший auth_date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Невалидная подпись
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Аккаунт заблокирован или отклонён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit превышен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/telegram/link:
+    post:
+      summary: Связывание Telegram с существующим аккаунтом
+      description: |
+        Позволяет авторизованному пользователю привязать свой Telegram аккаунт
+        для использования как дополнительного способа входа.
+      operationId: telegramLink
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramAuthRequest'
+      responses:
+        '200':
+          description: Telegram успешно привязан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLinkResponse'
+        '400':
+          description: Невалидные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Telegram уже привязан к другому аккаунту
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/telegram/unlink:
+    delete:
+      summary: Отвязка Telegram от аккаунта
+      description: |
+        Позволяет отвязать Telegram от аккаунта.
+        Разрешено только если есть альтернативный способ входа.
+      operationId: telegramUnlink
+      tags:
+        - auth
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Telegram успешно отвязан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramUnlinkResponse'
+        '400':
+          description: Нельзя отвязать — нет альтернативного способа входа
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TelegramAuthRequest:
+      type: object
+      required:
+        - id
+        - first_name
+        - auth_date
+        - hash
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Уникальный ID пользователя в Telegram
+          example: 123456789
+        first_name:
+          type: string
+          description: Имя пользователя
+          example: John
+        last_name:
+          type: string
+          nullable: true
+          description: Фамилия пользователя
+          example: Doe
+        username:
+          type: string
+          nullable: true
+          description: Username в Telegram (без @)
+          example: johndoe
+        photo_url:
+          type: string
+          format: uri
+          nullable: true
+          description: URL аватара пользователя
+          example: https://t.me/i/userpic/320/abc123.jpg
+        auth_date:
+          type: integer
+          format: int64
+          description: Unix timestamp момента авторизации
+          example: 1732960800
+        hash:
+          type: string
+          description: Подпись данных для верификации
+          example: a1b2c3d4e5f6...
+
+    TelegramAuthResponse:
+      type: object
+      required:
+        - access_token
+        - token_type
+        - user
+      properties:
+        access_token:
+          type: string
+          description: JWT токен для авторизации
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          enum: [bearer]
+          example: bearer
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        is_new_user:
+          type: boolean
+          description: Был ли создан новый аккаунт
+          example: false
+
+    TelegramLinkResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Telegram аккаунт успешно привязан
+        telegram_username:
+          type: string
+          nullable: true
+          example: johndoe
+
+    TelegramUnlinkResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Telegram аккаунт успешно отвязан
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1b2c3d4-e5f6-7890-1234-567890abcdef
+        email:
+          type: string
+          format: email
+          nullable: true
+          example: user@example.com
+        full_name:
+          type: string
+          nullable: true
+          example: John Doe
+        profile_picture_url:
+          type: string
+          format: uri
+          nullable: true
+        telegram_username:
+          type: string
+          nullable: true
+          example: johndoe
+        role:
+          type: string
+          enum: [user, admin]
+          example: user
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+          example: pending
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Описание ошибки
+          example: Время авторизации истекло. Пожалуйста, попробуйте ещё раз.

@@ -1,0 +1,48 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - generic [ref=e11]:
+      - paragraph [ref=e12]: Sattva studio
+      - button "en" [ref=e14] [cursor=pointer]:
+        - img [ref=e15]
+        - generic [ref=e18]: en
+    - generic [ref=e22]:
+      - generic [ref=e23]:
+        - paragraph [ref=e24]: ZenScene Access
+        - heading "JOIN US" [level=2] [ref=e25]
+        - paragraph [ref=e26]: Begin your journey
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - text: Email
+            - textbox "Email" [ref=e30]:
+              - /placeholder: founder@sattva.studio
+          - generic [ref=e31]:
+            - text: Full Name (Optional)
+            - textbox "Full Name (Optional)" [ref=e32]:
+              - /placeholder: Aleksandra P.
+          - generic [ref=e33]:
+            - text: Password
+            - generic [ref=e34]:
+              - textbox "Password" [ref=e35]:
+                - /placeholder: ••••••••••••
+              - button "Show password" [ref=e36] [cursor=pointer]:
+                - img [ref=e37]
+            - paragraph [ref=e40]: Must contain 12+ chars, uppercase, lowercase, number, special char.
+          - generic [ref=e41]:
+            - text: Confirm Password
+            - generic [ref=e42]:
+              - textbox "Confirm Password" [ref=e43]:
+                - /placeholder: ••••••••••••
+              - button "Show password" [ref=e44] [cursor=pointer]:
+                - img [ref=e45]
+          - button "Begin Journey" [ref=e48] [cursor=pointer]
+        - link "Already have an account? Sign in" [ref=e50] [cursor=pointer]
+        - generic [ref=e55]: Or continue with
+        - button "Or continue with Google" [ref=e56] [cursor=pointer]:
+          - img [ref=e57]
+          - generic [ref=e62]: Or continue with Google
+  - region "Notifications alt+T"
+```
