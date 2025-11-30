@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { LanguageSwitcher } from '../auth/LanguageSwitcher';
+import { ThemeToggle } from '../auth/ThemeToggle';
+import UserBadge from '../UserBadge';
 import { MobileNav } from './MobileNav';
 import { DesktopNav } from './DesktopNav';
 
@@ -44,8 +46,8 @@ export const ResponsiveHeader: React.FC = () => {
             <DesktopNav />
           </div>
 
-          {/* Right side: User info + Language + Logout */}
-          <div className="flex items-center gap-2 sm:gap-4">
+          {/* Right side: User info + Badge + Language + Theme + Logout */}
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* User info - hidden on small screens */}
             {user && (
               <div className="hidden sm:flex items-center gap-2 text-sm text-[color:var(--color-text-muted)]">
@@ -56,8 +58,14 @@ export const ResponsiveHeader: React.FC = () => {
               </div>
             )}
 
+            {/* User Role Badge */}
+            {user && <UserBadge role={user.role} />}
+
             {/* Language Switcher */}
             <LanguageSwitcher className="text-[color:var(--color-text)]" />
+
+            {/* Theme Toggle */}
+            <ThemeToggle className="text-[color:var(--color-text)]" />
 
             {/* Logout button */}
             <button
