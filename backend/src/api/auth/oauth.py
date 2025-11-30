@@ -126,7 +126,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     Обрабатывает callback от Google, создаёт/получает пользователя,
     генерирует JWT и перенаправляет на фронтенд.
     """
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
     
     # Получаем state из callback и из cookie
     callback_state = request.query_params.get('state', '')
