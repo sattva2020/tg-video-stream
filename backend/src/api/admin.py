@@ -80,6 +80,9 @@ def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: Use
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return {"status": "error", "message": "User not found"}
+    # Защита: нельзя изменять superadmin
+    if getattr(user, 'role', '').lower() == 'superadmin':
+        raise HTTPException(status_code=403, detail="Cannot modify superadmin account")
     user.status = 'approved'
     db.commit()
     db.refresh(user)
@@ -91,10 +94,30 @@ def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         return {"status": "error", "message": "User not found"}
+    # Защита: нельзя изменять superadmin
+    if getattr(user, 'role', '').lower() == 'superadmin':
+        raise HTTPException(status_code=403, detail="Cannot modify superadmin account")
     user.status = 'rejected'
     db.commit()
     db.refresh(user)
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
+
+
+@router.delete("/users/{user_id}")
+def delete_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
+    """Delete a user. Superadmin accounts cannot be deleted."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Защита: нельзя удалить superadmin
+    if getattr(user, 'role', '').lower() == 'superadmin':
+        raise HTTPException(status_code=403, detail="Cannot delete superadmin account")
+    # Нельзя удалить самого себя
+    if user.id == current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot delete yourself")
+    db.delete(user)
+    db.commit()
+    return {"status": "ok", "message": "User deleted", "id": str(user_id)}
 
 @router.post("/stream/start")
 def start_stream(current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
