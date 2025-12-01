@@ -8,6 +8,7 @@ SQLAlchemy
 alembic
 pytest
 itsdangerous
+httpx
 
 passlib[bcrypt]
 bcrypt<5.0
