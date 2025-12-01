@@ -1,6 +1,7 @@
 import uuid
 from enum import Enum as PyEnum
 from sqlalchemy import Column, String, DateTime, func, Boolean, text, Enum, BigInteger
+from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
 
@@ -40,6 +41,14 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    audit_logs = relationship(
+        "AdminAuditLog",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User(email='{self.email}', telegram_id={self.telegram_id})>"
@@ -52,3 +61,13 @@ class User(Base):
         has_google = bool(self.google_id)
         has_email_password = bool(self.email and self.hashed_password)
         return has_google or has_email_password
+    
+    @property
+    def is_superuser(self) -> bool:
+        """Проверяет, является ли пользователь суперадмином."""
+        return self.role == UserRole.SUPERADMIN.value or self.role == "superadmin"
+    
+    @property
+    def is_admin(self) -> bool:
+        """Проверяет, является ли пользователь администратором."""
+        return self.role in (UserRole.ADMIN.value, UserRole.SUPERADMIN.value, "admin", "superadmin")
