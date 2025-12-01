@@ -82,7 +82,7 @@ backend/
 │   ├── services/
 │   │   ├── queue_service.py   # NEW: логика очереди с Redis
 │   │   ├── auto_end_service.py # NEW: логика auto-end
-│   │   └── prometheus_service.py # NEW: сбор и экспорт метрик
+│   │   └── metrics_service.py # EXTEND: добавить Prometheus экспорт (уже есть)
 │   └── admin/
 │       ├── __init__.py        # NEW: sqladmin setup
 │       ├── views.py           # NEW: UserAdmin, PlaylistAdmin, etc.
@@ -95,9 +95,9 @@ backend/
         └── test_admin_panel.py     # NEW
 
 streamer/
-├── queue_manager.py       # MODIFY: интеграция с Redis, placeholder support
+├── queue_manager.py       # EXTEND: интеграция с Redis, placeholder support (уже есть StreamQueue)
 ├── auto_end.py            # NEW: отслеживание слушателей через PyTgCalls
-└── metrics.py             # MODIFY: экспорт в Prometheus формат
+└── metrics.py             # EXTEND: экспорт в Prometheus формат
 
 frontend/
 └── src/

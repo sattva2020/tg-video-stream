@@ -30,7 +30,7 @@
 - [ ] T004 Create QueueItem Pydantic model in backend/src/models/queue.py
 - [ ] T005 [P] Create StreamState model in backend/src/models/stream_state.py
 - [ ] T006 Create QueueService with Redis persistence in backend/src/services/queue_service.py
-- [ ] T007 [P] Create base Prometheus metrics registry in backend/src/services/prometheus_service.py
+- [ ] T007 [P] Extend existing metrics_service.py with Prometheus registry in backend/src/services/metrics_service.py
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -51,11 +51,11 @@
 - [ ] T012 [US1] Add DELETE, PUT position endpoints in backend/src/api/queue.py
 - [ ] T013 [US1] Add POST /api/v1/queue/{channel_id}/skip endpoint in backend/src/api/queue.py
 - [ ] T014 [US1] Register queue router in backend/src/main.py
-- [ ] T015 [US1] Create QueueManager class in streamer/queue_manager.py
+- [ ] T015 [US1] Extend existing StreamQueue class with Redis sync in streamer/queue_manager.py
 - [ ] T016 [US1] Implement on_track_end handler in streamer/queue_manager.py
 - [ ] T017 [US1] Create placeholder.py with loop playback in streamer/placeholder.py
 - [ ] T018 [US1] Integrate QueueManager into streamer/main.py
-- [ ] T019 [US1] Add queue_update WebSocket event in backend/src/api/websocket.py
+- [ ] T019 [US1] Extend ConnectionManager with queue_update event in backend/src/api/websocket.py
 
 **Checkpoint**: User Story 1 — очередь работает и автоматически переключает треки
 
@@ -132,9 +132,9 @@
 
 ### Implementation for User Story 5
 
-- [ ] T044 [US5] Add metrics_update event type in backend/src/api/websocket.py
-- [ ] T045 [US5] Add stream_status event type in backend/src/api/websocket.py
-- [ ] T046 [US5] Add listeners_update event type in backend/src/api/websocket.py
+- [ ] T044 [US5] Extend ConnectionManager with metrics_update event in backend/src/api/websocket.py
+- [ ] T045 [US5] Extend ConnectionManager with stream_status event in backend/src/api/websocket.py
+- [ ] T046 [US5] Extend ConnectionManager with listeners_update event in backend/src/api/websocket.py
 - [ ] T047 [US5] Implement periodic metrics broadcast (5s interval) in backend/src/api/websocket.py
 - [ ] T048 [US5] Create useMonitoringWebSocket hook in frontend/src/hooks/useMonitoringWebSocket.ts
 - [ ] T049 [US5] Create StreamCard component in frontend/src/components/StreamCard.tsx
@@ -145,13 +145,29 @@
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 8: Polish, Testing & Documentation
 
-**Purpose**: Improvements that affect multiple user stories
+**Purpose**: Tests, docs, and improvements that affect multiple user stories
 
-- [ ] T052 [P] Create docs/features/queue-system.md documentation
-- [ ] T053 [P] Create docs/features/admin-panel.md documentation
-- [ ] T054 [P] Create docs/features/monitoring.md documentation
+### Unit Tests
+
+- [ ] T052 [P] Create backend/tests/test_queue_service.py with pytest
+- [ ] T053 [P] Create backend/tests/test_auto_end_service.py with pytest
+- [ ] T054 [P] Create backend/tests/test_prometheus_metrics.py with pytest
+- [ ] T055 [P] Create backend/tests/api/test_admin_panel.py with pytest
+
+### Smoke Tests
+
+- [ ] T056 Create tests/smoke/test_queue_operations.sh
+- [ ] T057 Create tests/smoke/test_auto_end.sh
+
+### Documentation
+
+- [ ] T058 [P] Create docs/features/queue-system.md
+- [ ] T059 [P] Create docs/features/admin-panel.md  
+- [ ] T060 [P] Create docs/features/monitoring.md
+- [ ] T061 Run npm run docs:validate and fix issues
+- [ ] T062 Run quickstart.md validation
 ---
 
 ## Dependencies & Execution Order
@@ -191,12 +207,21 @@ Phase 8: T052 || T053 || T054
 
 | Metric | Value |
 |--------|-------|
-| Total Tasks | 58 |
+| Total Tasks | 62 |
 | Setup Phase | 3 tasks |
 | Foundational Phase | 4 tasks |
 | User Story Tasks | 44 tasks |
-| Polish Tasks | 7 tasks |
+| Testing Tasks | 6 tasks |
+| Documentation Tasks | 5 tasks |
 | P1 (MVP) Tasks | 19 tasks |
 | P2 Tasks | 17 tasks |
 | P3 Tasks | 8 tasks |
-| Parallel Tasks [P] | 15 tasks |
+| Parallel Tasks [P] | 18 tasks |
+
+## Existing Code to Extend (NOT create new)
+
+| File | Action | Tasks |
+|------|--------|-------|
+| `streamer/queue_manager.py` | EXTEND with Redis | T015, T016 |
+| `backend/src/services/metrics_service.py` | EXTEND with Prometheus | T007 |
+| `backend/src/api/websocket.py` | EXTEND ConnectionManager | T019, T025, T044-T047 |

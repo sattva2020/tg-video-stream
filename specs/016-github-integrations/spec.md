@@ -186,11 +186,14 @@
 - Redis — для хранения очередей и состояния auto-end
 - prometheus_client — Python библиотека для экспорта метрик
 - sqladmin — Административная панель для FastAPI + SQLAlchemy
-- Существующая WebSocket инфраструктура в backend
+- PyTgCalls — для отслеживания участников голосового чата (on_participants_change callback)
+- Существующая WebSocket инфраструктура в backend (`ConnectionManager`)
+- Существующий `streamer/queue_manager.py` — расширяем, не создаём заново
+- Существующий `backend/src/services/metrics_service.py` — расширяем для Prometheus
 
 ## Out of Scope
 
-- Интеграция PyTgCalls (требует отдельного исследования совместимости)
 - Amplitude/PostHog аналитика (не приоритет для MVP)
 - Multi-tenant административная панель
 - Кастомные Grafana дашборды (будет отдельная задача)
+- Миграция существующих плейлистов в новую очередь (ручной процесс)
