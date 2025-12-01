@@ -44,7 +44,7 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement add/remove/move operations in backend/src/services/queue_service.py
+- [ ] T008 [US1] Implement add/remove/move/priority_add operations in backend/src/services/queue_service.py (FR-001, FR-004)
 - [ ] T009 [US1] Create Queue API router in backend/src/api/queue.py
 - [ ] T010 [P] [US1] Add GET /api/v1/queue/{channel_id} endpoint in backend/src/api/queue.py
 - [ ] T011 [P] [US1] Add POST /api/v1/queue/{channel_id}/items endpoint in backend/src/api/queue.py
@@ -53,7 +53,7 @@
 - [ ] T014 [US1] Register queue router in backend/src/main.py
 - [ ] T015 [US1] Extend existing StreamQueue class with Redis sync in streamer/queue_manager.py
 - [ ] T016 [US1] Implement on_track_end handler in streamer/queue_manager.py
-- [ ] T017 [US1] Create placeholder.py with loop playback in streamer/placeholder.py
+- [ ] T017 [US1] Create placeholder.py with loop playback for static audio/video file (FR-019) in streamer/placeholder.py
 - [ ] T018 [US1] Integrate QueueManager into streamer/main.py
 - [ ] T019 [US1] Extend ConnectionManager with queue_update event in backend/src/api/websocket.py
 
@@ -118,7 +118,7 @@
 - [ ] T040 [US4] Create PrometheusMiddleware in backend/src/middleware/prometheus.py
 - [ ] T041 [US4] Register middleware in backend/src/main.py
 - [ ] T042 [US4] Add GET /api/v1/metrics/system JSON endpoint in backend/src/api/metrics.py
-- [ ] T043 [US4] Implement system metrics (CPU, memory) collection in backend/src/services/prometheus_service.py
+- [ ] T043 [US4] Extend system metrics in prometheus_service.py (reuse existing psutil from metrics_service.py)
 
 **Checkpoint**: User Story 4 — /metrics работает, Prometheus собирает данные
 
@@ -208,6 +208,7 @@ Phase 8: T052 || T053 || T054
 | Metric | Value |
 |--------|-------|
 | Total Tasks | 62 |
+| Total FRs | 19 |
 | Setup Phase | 3 tasks |
 | Foundational Phase | 4 tasks |
 | User Story Tasks | 44 tasks |
@@ -225,3 +226,6 @@ Phase 8: T052 || T053 || T054
 | `streamer/queue_manager.py` | EXTEND with Redis | T015, T016 |
 | `backend/src/services/metrics_service.py` | EXTEND with Prometheus | T007 |
 | `backend/src/api/websocket.py` | EXTEND ConnectionManager | T019, T025, T044-T047 |
+
+> **ℹ️ Prometheus**: Streamer уже экспортирует метрики на `:9090/metrics` (в main.py).
+> Backend добавляет отдельный `/api/v1/metrics` для API-метрик (latency, requests).

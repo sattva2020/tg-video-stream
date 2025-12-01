@@ -23,32 +23,32 @@
 **Constraints**: Обратная совместимость API, <5% overhead от метрик, использование существующего WebSocket  
 **Scale/Scope**: 1-10 одновременных стримов, 50+ WebSocket соединений
 
-## Constitution Check
+## Design Principles
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+*Практические принципы для этой фичи:*
 
-1. **SSoT подтверждён (Принцип I)** ✅
+1. **SSoT (Единый источник правды)** ✅
    - Спецификация на русском с 5 независимыми user stories
    - Измеримые критерии успеха (SC-001...SC-007)
-   - 18 функциональных требований с трассируемостью
+   - 19 функциональных требований с трассируемостью
 
-2. **Структура репозитория соблюдена (Принцип II)** ✅
+2. **Структура репозитория** ✅
    - Артефакты в `specs/016-github-integrations/`
    - Код будет в `backend/src/`, `streamer/`, `frontend/src/`
-   - Тесты планируются в `backend/tests/`, `tests/smoke/`
+   - Тесты в `backend/tests/`, `tests/smoke/`
 
-3. **Тесты и наблюдаемость спланированы (Принцип III)** ✅
+3. **Тесты и наблюдаемость** ✅
    - pytest для queue_service, auto_end_service, admin, metrics
    - Playwright для админ-панели UI
-   - smoke-тесты для auto-end и очередей в streamer
-   - Prometheus /metrics endpoint для наблюдаемости
+   - smoke-тесты для auto-end и очередей
+   - Prometheus /metrics эндпоинты (streamer:9090 + backend API)
 
-4. **Документация и локализация покрыты (Принцип IV)** ✅
+4. **Документация и локализация** ✅
    - Обновление `docs/features/` с описанием новых модулей
    - Все сообщения и UI на русском
    - `npm run docs:validate` после завершения
 
-5. **Секреты и окружения учтены (Принцип V)** ✅
+5. **Секреты и окружения** ✅
    - Новые переменные: `AUTO_END_TIMEOUT_MINUTES`, `PLACEHOLDER_AUDIO_PATH`
    - Добавить в `template.env` перед `.env`
    - Prometheus не требует секретов
@@ -117,13 +117,13 @@ tests/
 ### Источники интеграции
 
 | Функция | Источник (GitHub) | Оценка времени | Приоритет |
-|---------|-------------------|----------------|-----------|
+|---------|-------------------|----------------|------------|
 | Система очередей | [YukkiMusicBot](https://github.com/TeamYukki/YukkiMusicBot) | 2-3 дня | P1 |
 | Auto-end стримов | [YukkiMusicBot](https://github.com/TeamYukki/YukkiMusicBot) | 0.5 дня | P1 |
 | Admin панель (sqladmin) | [telegram-bot-template](https://github.com/Latand/telegram-bot-template) | 2-3 дня | P2 |
 | Prometheus метрики | [telegram-bot-template](https://github.com/Latand/telegram-bot-template) | 1 день | P2 |
 | Аналитика событий | [telegram-bot-template](https://github.com/Latand/telegram-bot-template) | 1-2 дня | P2 |
-| WebSocket мониторинг | [monitrix](https://github.com/user/monitrix) | 1-2 дня | P3 |
+| WebSocket мониторинг | Расширение существующего ConnectionManager | 1-2 дня | P3 |
 
 ### Timeline
 
@@ -154,8 +154,12 @@ Week 3 (P3 - Monitoring):
 | YukkiMusicBot | `YukkiMusic/plugins/play/callback.py` | PyTgCalls participants check |
 | telegram-bot-template | `infrastructure/database/repo/` | SQLAlchemy patterns |
 | telegram-bot-template | `bot/middlewares/` | Prometheus middleware pattern |
-| monitrix | `src/websocket/` | Real-time event broadcasting |
+| Существующий код | `backend/src/api/websocket.py` | ConnectionManager расширение |
 
 ## Complexity Tracking
 
-> Нет нарушений Constitution — все компоненты соответствуют существующей архитектуре.
+> **Prometheus архитектура**: Два источника метрик:
+> - `streamer:9090/metrics` — уже реализовано (PyTgCalls, стримы)
+> - `backend:8000/api/v1/metrics` — NEW (API latency, HTTP requests, DB)
+>
+> Все компоненты соответствуют существующей архитектуре.
