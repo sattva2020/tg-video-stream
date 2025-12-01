@@ -104,3 +104,94 @@ AI-агент добавил `VITE_TELEGRAM_BOT_ID` только на удалё
 ---
 
 **Это правило ОБЯЗАТЕЛЬНО для выполнения при КАЖДОМ изменении!**
+
+---
+
+## 🏗️ Архитектура деплоймента (Hybrid: Systemd + Docker)
+
+### ⚠️ КРИТИЧЕСКИ ВАЖНО: Почему НЕ Docker для Backend/Streamer
+
+**Причина**: YouTube постоянно меняет API, что требует регулярного обновления `yt-dlp`. 
+При использовании Docker обновление зависимостей требует пересборки образа, что усложняет процесс.
+
+**Решение**: Backend и Streamer работают через **systemd** на хосте, а не в Docker.
+
+### Архитектура сервисов
+
+| Сервис | Метод запуска | Причина |
+|--------|---------------|---------|
+| **Backend (FastAPI)** | `systemd` | Требует обновления yt-dlp на лету |
+| **Streamer (PyTgCalls)** | `systemd` | Требует обновления yt-dlp на лету |
+| **Frontend (Nginx)** | `Docker` | Статический контент, не требует обновлений |
+| **PostgreSQL** | `Docker` | Стабильный, не требует частых обновлений |
+| **Redis** | `Docker` | Стабильный |
+| **Prometheus/Grafana** | `Docker` | Мониторинг, изолированный |
+
+### Автообновление yt-dlp
+
+```bash
+# Cron задача (04:00 ежедневно)
+0 4 * * * /opt/sattva-streamer/backend/venv/bin/pip install -U yt-dlp && systemctl restart sattva-backend sattva-streamer
+```
+
+### Конфигурация nginx для связи с хостом
+
+```nginx
+# frontend/nginx.conf
+location /api/ {
+    # Backend на хосте (systemd), не в Docker!
+    proxy_pass http://172.17.0.1:8000;
+    ...
+}
+```
+
+**172.17.0.1** — IP адрес docker0 интерфейса, через который Docker-контейнеры обращаются к хосту.
+
+### Systemd сервисы
+
+Файлы в `/etc/systemd/system/`:
+- `sattva-backend.service` — FastAPI backend
+- `sattva-streamer.service` — PyTgCalls streamer
+
+### Команды управления
+
+```bash
+# Backend
+systemctl status sattva-backend
+systemctl restart sattva-backend
+journalctl -u sattva-backend -f
+
+# Streamer  
+systemctl status sattva-streamer
+systemctl restart sattva-streamer
+journalctl -u sattva-streamer -f
+
+# Frontend (Docker)
+docker compose restart frontend
+docker logs sattva-streamer-frontend-1
+```
+
+### ❌ Типичные ошибки (НЕ ДОПУСКАТЬ!)
+
+- Запускать backend через `docker compose up backend` — конфликт портов с systemd!
+- Забыть остановить Docker backend после включения systemd сервиса
+- Использовать `proxy_pass http://backend:8000` — Docker DNS не резолвит systemd сервис!
+
+### ✅ Правильный порядок запуска
+
+```bash
+# 1. Проверить что systemd сервисы работают
+systemctl status sattva-backend sattva-streamer
+
+# 2. Запустить Docker сервисы (БЕЗ backend!)
+docker compose up -d db redis frontend prometheus grafana alertmanager
+
+# 3. НЕ запускать docker backend!
+# docker compose up -d backend  ← НЕ ДЕЛАТЬ!
+```
+
+---
+
+**Дата добавления правила**: 1 декабря 2025  
+**Причина**: AI-агент случайно включил Docker backend, что привело к конфликту с systemd сервисом на порту 8000.
+
