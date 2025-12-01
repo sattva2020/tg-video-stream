@@ -57,4 +57,12 @@ async def login(request: LoginRequest, current_user: User = Depends(get_current_
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        # Handle specific Telegram errors with user-friendly messages
+        if "PHONE_CODE_EXPIRED" in error_msg:
+            raise HTTPException(status_code=400, detail="Code expired. Please request a new code.")
+        elif "PHONE_CODE_INVALID" in error_msg:
+            raise HTTPException(status_code=400, detail="Invalid code. Please check and try again.")
+        elif "FLOOD_WAIT" in error_msg:
+            raise HTTPException(status_code=429, detail="Too many attempts. Please wait a few minutes.")
+        raise HTTPException(status_code=500, detail=error_msg)
