@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from src.models.user import User
+from src.services.playback_service import PlaybackService
 from auth import jwt
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,13 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="The user doesn't have enough privileges",
         )
     return current_user
+
+
+def get_playback_service(db: Session = Depends(get_db)) -> PlaybackService:
+    """
+    Dependency для PlaybackService.
+    """
+    return PlaybackService(db_session=db)
 
 
 # ============================================================================
