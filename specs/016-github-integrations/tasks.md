@@ -1,510 +1,202 @@
-# Tasks Decomposition: 016-github-integrations
+# Tasks: Интеграция компонентов из GitHub-проектов
 
-**Branch**: `016-github-integrations` | **Date**: 2025-12-01 | **Plan**: [plan.md](./plan.md)
+**Input**: Design documents from `/specs/016-github-integrations/`  
+**Prerequisites**: plan.md ✅, spec.md ✅, research.md ✅, data-model.md ✅, contracts/ ✅
 
-## Обзор
+## Format: `[ID] [P?] [Story] Description`
 
-Декомпозиция feature на конкретные задачи для разработки. Каждая задача:
-- Независима и может быть выполнена изолированно
-- Имеет чёткие критерии приёмки (DoD)
-- Ссылается на источник паттерна из GitHub
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2)
+- Include exact file paths in descriptions
 
 ---
 
-## Sprint 1: Core — Queue & Auto-End (P1)
+## Phase 1: Setup (Shared Infrastructure)
 
-### TASK-001: Модель QueueItem и Redis persistence
+**Purpose**: Project initialization and dependencies
 
-**Тип**: Backend  
-**Источник**: [YukkiMusicBot/core/queue.py](https://github.com/TeamYukki/YukkiMusicBot)  
-**Оценка**: 4h  
-**Файлы**:
-- `backend/src/models/queue.py` — NEW
-- `backend/src/services/queue_service.py` — NEW
+- [ ] T001 Add sqladmin, prometheus_client to backend/requirements.txt
+- [ ] T002 [P] Add AUTO_END_TIMEOUT_MINUTES, PLACEHOLDER_AUDIO_PATH to template.env
+- [ ] T003 [P] Create backend/src/admin/ directory structure
 
-**Описание**:
-Создать Pydantic модель QueueItem и сервис для работы с очередью в Redis.
+---
 
-**Acceptance Criteria**:
-- [ ] Модель QueueItem с полями: id, title, url, duration, source, position, added_by, added_at
-- [ ] Сериализация/десериализация в JSON для Redis
-- [ ] CRUD операции: add, remove, get_all, clear
-- [ ] Unit-тесты для queue_service
+## Phase 2: Foundational (Blocking Prerequisites)
 
-**Code Pattern** (из YukkiMusicBot):
-```python
-# Адаптировать из YukkiMusic/core/queue.py
-class Queue:
-    def __init__(self):
-        self.queue: Dict[str, List[QueueItem]] = {}
-    
-    async def add(self, chat_id: str, item: QueueItem) -> int:
-        """Добавить в конец очереди, вернуть позицию"""
-        
-    async def get_next(self, chat_id: str) -> Optional[QueueItem]:
-        """Получить и удалить следующий элемент"""
+**Purpose**: Core infrastructure that MUST be complete before ANY user story
+
+⚠️ **CRITICAL**: No user story work can begin until this phase is complete
+
+- [ ] T004 Create QueueItem Pydantic model in backend/src/models/queue.py
+- [ ] T005 [P] Create StreamState model in backend/src/models/stream_state.py
+- [ ] T006 Create QueueService with Redis persistence in backend/src/services/queue_service.py
+- [ ] T007 [P] Create base Prometheus metrics registry in backend/src/services/prometheus_service.py
+
+**Checkpoint**: Foundation ready — user story implementation can now begin
+
+---
+
+## Phase 3: User Story 1 — Система очередей треков (Priority: P1) 🎯 MVP
+
+**Goal**: Администратор может добавлять треки в очередь, и они автоматически переключаются
+
+**Independent Test**: Добавить 5 треков, запустить воспроизведение, убедиться что треки переключаются автоматически
+
+### Implementation for User Story 1
+
+- [ ] T008 [US1] Implement add/remove/move operations in backend/src/services/queue_service.py
+- [ ] T009 [US1] Create Queue API router in backend/src/api/queue.py
+- [ ] T010 [P] [US1] Add GET /api/v1/queue/{channel_id} endpoint in backend/src/api/queue.py
+- [ ] T011 [P] [US1] Add POST /api/v1/queue/{channel_id}/items endpoint in backend/src/api/queue.py
+- [ ] T012 [US1] Add DELETE, PUT position endpoints in backend/src/api/queue.py
+- [ ] T013 [US1] Add POST /api/v1/queue/{channel_id}/skip endpoint in backend/src/api/queue.py
+- [ ] T014 [US1] Register queue router in backend/src/main.py
+- [ ] T015 [US1] Create QueueManager class in streamer/queue_manager.py
+- [ ] T016 [US1] Implement on_track_end handler in streamer/queue_manager.py
+- [ ] T017 [US1] Create placeholder.py with loop playback in streamer/placeholder.py
+- [ ] T018 [US1] Integrate QueueManager into streamer/main.py
+- [ ] T019 [US1] Add queue_update WebSocket event in backend/src/api/websocket.py
+
+**Checkpoint**: User Story 1 — очередь работает и автоматически переключает треки
+
+---
+
+## Phase 4: User Story 2 — Автоматическое завершение пустого стрима (Priority: P1)
+
+**Goal**: Система автоматически завершает стрим при отсутствии слушателей N минут
+
+**Independent Test**: Запустить стрим без слушателей, дождаться таймаута, стрим остановился
+
+### Implementation for User Story 2
+
+- [ ] T020 [US2] Create AutoEndService in backend/src/services/auto_end_service.py
+- [ ] T021 [US2] Implement start_timer/cancel_timer with Redis TTL in backend/src/services/auto_end_service.py
+- [ ] T022 [US2] Create auto_end.py with PyTgCalls integration in streamer/auto_end.py
+- [ ] T023 [US2] Add on_participants_change handler in streamer/auto_end.py
+- [ ] T024 [US2] Integrate AutoEndService into streamer/main.py
+- [ ] T025 [US2] Add auto_end_warning WebSocket event in backend/src/api/websocket.py
+- [ ] T026 [US2] Log stream end reason (auto-end/manual/error) in backend/src/services/auto_end_service.py
+
+**Checkpoint**: User Story 2 — auto-end работает корректно
+
+---
+
+## Phase 5: User Story 3 — Административная панель (Priority: P2)
+
+**Goal**: Администратор управляет пользователями и контентом через веб-интерфейс /admin
+
+**Independent Test**: Войти в /admin, изменить роль пользователя, изменения применились
+
+### Implementation for User Story 3
+
+- [ ] T027 [US3] Create AdminAuth backend in backend/src/admin/auth.py
+- [ ] T028 [US3] Setup sqladmin Admin instance in backend/src/admin/__init__.py
+- [ ] T029 [US3] Create UserAdmin view in backend/src/admin/views.py
+- [ ] T030 [P] [US3] Create PlaylistAdmin view in backend/src/admin/views.py
+- [ ] T031 [P] [US3] Create StreamAdmin view in backend/src/admin/views.py
+- [ ] T032 [US3] Mount admin to FastAPI app in backend/src/main.py
+- [ ] T033 [US3] Create AdminAuditLog SQLAlchemy model in backend/src/models/audit_log.py
+- [ ] T034 [US3] Create Alembic migration for audit_log table
+- [ ] T035 [US3] Implement audit logging middleware in backend/src/admin/auth.py
+
+**Checkpoint**: User Story 3 — админ-панель работает с аудитом
+
+---
+
+## Phase 6: User Story 4 — Prometheus мониторинг (Priority: P2)
+
+**Goal**: DevOps получает метрики в формате Prometheus на /metrics
+
+**Independent Test**: curl /metrics возвращает OpenMetrics, Prometheus scrapes успешно
+
+### Implementation for User Story 4
+
+- [ ] T036 [US4] Create /metrics endpoint in backend/src/api/metrics.py
+- [ ] T037 [US4] Add http_requests_total Counter in backend/src/services/prometheus_service.py
+- [ ] T038 [US4] Add http_request_duration_seconds Histogram in backend/src/services/prometheus_service.py
+- [ ] T039 [US4] Add active_streams, total_listeners Gauges in backend/src/services/prometheus_service.py
+- [ ] T040 [US4] Create PrometheusMiddleware in backend/src/middleware/prometheus.py
+- [ ] T041 [US4] Register middleware in backend/src/main.py
+- [ ] T042 [US4] Add GET /api/v1/metrics/system JSON endpoint in backend/src/api/metrics.py
+- [ ] T043 [US4] Implement system metrics (CPU, memory) collection in backend/src/services/prometheus_service.py
+
+**Checkpoint**: User Story 4 — /metrics работает, Prometheus собирает данные
+
+---
+
+## Phase 7: User Story 5 — WebSocket мониторинг (Priority: P3)
+
+**Goal**: Оператор видит статистику стримов в реальном времени без перезагрузки
+
+**Independent Test**: Открыть дашборд, запустить стрим, метрики обновляются live
+
+### Implementation for User Story 5
+
+- [ ] T044 [US5] Add metrics_update event type in backend/src/api/websocket.py
+- [ ] T045 [US5] Add stream_status event type in backend/src/api/websocket.py
+- [ ] T046 [US5] Add listeners_update event type in backend/src/api/websocket.py
+- [ ] T047 [US5] Implement periodic metrics broadcast (5s interval) in backend/src/api/websocket.py
+- [ ] T048 [US5] Create useMonitoringWebSocket hook in frontend/src/hooks/useMonitoringWebSocket.ts
+- [ ] T049 [US5] Create StreamCard component in frontend/src/components/StreamCard.tsx
+- [ ] T050 [US5] Create Monitoring page in frontend/src/pages/Monitoring.tsx
+- [ ] T051 [US5] Add Monitoring route to frontend router
+
+**Checkpoint**: User Story 5 — real-time мониторинг работает
+
+---
+
+## Phase 8: Polish & Cross-Cutting Concerns
+
+**Purpose**: Improvements that affect multiple user stories
+
+- [ ] T052 [P] Create docs/features/queue-system.md documentation
+- [ ] T053 [P] Create docs/features/admin-panel.md documentation
+- [ ] T054 [P] Create docs/features/monitoring.md documentation
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies — can start immediately
+- **Foundational (Phase 2)**: Depends on Setup — BLOCKS all user stories
+- **User Stories (Phase 3-7)**: All depend on Foundational phase completion
+  - User stories can proceed in parallel (if staffed)
+  - Or sequentially in priority order (P1 → P2 → P3)
+- **Polish (Phase 8)**: Depends on all user stories being complete
+
+### User Story Dependencies
+
+| Story | Can Start After | May Integrate With |
+|-------|-----------------|-------------------|
+| US1 (Queue) | Phase 2 | - |
+| US2 (Auto-end) | Phase 2 | - |
+| US3 (Admin) | Phase 2 | - |
+| US4 (Prometheus) | Phase 2 | US3 (audit logs) |
+| US5 (WebSocket) | Phase 2 | US4 (metrics) |
+
+### Parallel Opportunities per Phase
+
+```
+Phase 1: T001, T002, T003 — all parallel
+Phase 2: T004 || T005, T006 || T007
+Phase 3: T010 || T011
+Phase 5: T030 || T031
+Phase 8: T052 || T053 || T054
 ```
 
 ---
 
-### TASK-002: Queue API endpoints
-
-**Тип**: Backend API  
-**Источник**: [contracts/queue-api.yaml](./contracts/queue-api.yaml)  
-**Оценка**: 3h  
-**Зависит от**: TASK-001  
-**Файлы**:
-- `backend/src/api/queue.py` — NEW
-- `backend/src/api/__init__.py` — MODIFY (add router)
-
-**Описание**:
-REST API для управления очередью стрима.
-
-**Endpoints**:
-- `GET /api/v1/queue/{channel_id}` — получить очередь
-- `POST /api/v1/queue/{channel_id}/items` — добавить элемент
-- `DELETE /api/v1/queue/{channel_id}/items/{item_id}` — удалить
-- `PUT /api/v1/queue/{channel_id}/items/{item_id}/position` — переместить
-- `POST /api/v1/queue/{channel_id}/skip` — пропустить текущий
-- `DELETE /api/v1/queue/{channel_id}` — очистить очередь
-
-**Acceptance Criteria**:
-- [ ] Все endpoints реализованы согласно OpenAPI spec
-- [ ] Авторизация: admin/moderator для модификаций
-- [ ] Валидация channel_id
-- [ ] Integration tests
-
----
-
-### TASK-003: Интеграция Queue в Streamer
-
-**Тип**: Streamer  
-**Источник**: [YukkiMusicBot](https://github.com/TeamYukki/YukkiMusicBot)  
-**Оценка**: 4h  
-**Зависит от**: TASK-001  
-**Файлы**:
-- `streamer/queue_manager.py` — NEW
-- `streamer/main.py` — MODIFY
-
-**Описание**:
-Интеграция queue_service в streamer для автоматического переключения треков.
-
-**Acceptance Criteria**:
-- [ ] Автоматическое получение следующего трека при завершении текущего
-- [ ] Fallback на placeholder при пустой очереди
-- [ ] Синхронизация с Redis при старте
-- [ ] Smoke-тест: добавить 3 трека, проверить автопереключение
-
-**Code Pattern**:
-```python
-class QueueManager:
-    async def on_track_end(self, channel_id: str):
-        next_item = await self.queue_service.get_next(channel_id)
-        if next_item:
-            await self.play_track(next_item)
-        else:
-            await self.play_placeholder(channel_id)
-```
-
----
-
-### TASK-004: Placeholder audio support
-
-**Тип**: Streamer  
-**Источник**: [YukkiMusicBot](https://github.com/TeamYukki/YukkiMusicBot)  
-**Оценка**: 2h  
-**Зависит от**: TASK-003  
-**Файлы**:
-- `streamer/placeholder.py` — NEW
-- `data/placeholder.mp3` — NEW (asset)
-- `template.env` — MODIFY
-
-**Описание**:
-Воспроизведение заглушки когда очередь пуста.
-
-**Acceptance Criteria**:
-- [ ] Placeholder воспроизводится в цикле
-- [ ] Настраиваемый путь через `PLACEHOLDER_AUDIO_PATH`
-- [ ] Автоматическое переключение на реальный трек при появлении
-- [ ] Индикатор placeholder в метриках
-
----
-
-### TASK-005: Auto-end сервис
-
-**Тип**: Backend + Streamer  
-**Источник**: [YukkiMusicBot/plugins/play/callback.py](https://github.com/TeamYukki/YukkiMusicBot)  
-**Оценка**: 4h  
-**Файлы**:
-- `backend/src/services/auto_end_service.py` — NEW
-- `streamer/auto_end.py` — NEW
-- `template.env` — MODIFY
-
-**Описание**:
-Автоматическое завершение стрима при отсутствии слушателей.
-
-**Acceptance Criteria**:
-- [ ] Отслеживание через PyTgCalls `on_participants_change`
-- [ ] Настраиваемый таймаут через `AUTO_END_TIMEOUT_MINUTES` (default: 5)
-- [ ] Сброс таймера при появлении слушателя
-- [ ] Логирование причины завершения
-- [ ] Unit-тесты с mock PyTgCalls
-
-**Code Pattern** (из YukkiMusicBot):
-```python
-@app.on_participants_change()
-async def participants_change_handler(client, chat_id, participants):
-    if len(participants) == 0:
-        await auto_end_service.start_timer(chat_id)
-    else:
-        await auto_end_service.cancel_timer(chat_id)
-```
-
----
-
-### TASK-006: WebSocket события очереди
-
-**Тип**: Backend  
-**Источник**: [contracts/websocket-events.md](./contracts/websocket-events.md)  
-**Оценка**: 3h  
-**Зависит от**: TASK-001, TASK-002  
-**Файлы**:
-- `backend/src/api/websocket.py` — MODIFY
-
-**Описание**:
-Расширение WebSocket для событий очереди: playlist_update, track_change, queue_update.
-
-**Acceptance Criteria**:
-- [ ] События отправляются при изменении очереди
-- [ ] Формат согласно websocket-events.md
-- [ ] Подписка по channel_id
-- [ ] Frontend получает обновления без перезагрузки
-
----
-
-### TASK-007: Smoke-тесты Queue & Auto-End
-
-**Тип**: Testing  
-**Оценка**: 2h  
-**Зависит от**: TASK-003, TASK-005  
-**Файлы**:
-- `tests/smoke/test_queue_operations.sh` — NEW
-- `tests/smoke/test_auto_end.sh` — NEW
-
-**Описание**:
-End-to-end smoke тесты для проверки основных сценариев.
-
-**Acceptance Criteria**:
-- [ ] test_queue_operations: добавление, удаление, переключение
-- [ ] test_auto_end: запуск без слушателей → таймаут → завершение
-- [ ] Запуск в CI/CD pipeline
-
----
-
-## Sprint 2: Admin Panel & Metrics (P2)
-
-### TASK-008: sqladmin setup
-
-**Тип**: Backend  
-**Источник**: [telegram-bot-template](https://github.com/Latand/telegram-bot-template)  
-**Оценка**: 3h  
-**Файлы**:
-- `backend/src/admin/__init__.py` — NEW
-- `backend/src/admin/auth.py` — NEW
-- `backend/requirements.txt` — MODIFY
-
-**Описание**:
-Установка и настройка sqladmin для FastAPI.
-
-**Acceptance Criteria**:
-- [ ] sqladmin интегрирован в FastAPI app
-- [ ] Custom AuthenticationBackend с проверкой ролей
-- [ ] Доступ только для admin/superadmin
-- [ ] `/admin` endpoint работает
-
-**Code Pattern**:
-```python
-from sqladmin import Admin
-from sqladmin.authentication import AuthenticationBackend
-
-class AdminAuth(AuthenticationBackend):
-    async def login(self, request) -> bool:
-        # JWT/session validation
-        
-    async def logout(self, request) -> bool:
-        # Clear session
-        
-    async def authenticate(self, request) -> Optional[str]:
-        # Return user if authenticated
-```
-
----
-
-### TASK-009: Admin Views для основных моделей
-
-**Тип**: Backend  
-**Источник**: [telegram-bot-template](https://github.com/Latand/telegram-bot-template)  
-**Оценка**: 4h  
-**Зависит от**: TASK-008  
-**Файлы**:
-- `backend/src/admin/views.py` — NEW
-
-**Описание**:
-CRUD views для User, Playlist, Track, Stream.
-
-**Acceptance Criteria**:
-- [ ] UserAdmin: list, search, edit role, deactivate
-- [ ] PlaylistAdmin: list, view items, bulk actions
-- [ ] StreamAdmin: view status, stop stream
-- [ ] Форматирование дат, статусов, ссылок
-
----
-
-### TASK-010: AdminAuditLog модель и логирование
-
-**Тип**: Backend  
-**Источник**: [telegram-bot-template](https://github.com/Latand/telegram-bot-template)  
-**Оценка**: 3h  
-**Зависит от**: TASK-009  
-**Файлы**:
-- `backend/src/models/audit_log.py` — NEW
-- `backend/migrations/versions/xxx_add_audit_log.py` — NEW
-
-**Описание**:
-Логирование всех действий администраторов.
-
-**Acceptance Criteria**:
-- [ ] Модель AdminAuditLog в PostgreSQL
-- [ ] Автоматическое логирование CRUD операций
-- [ ] Просмотр логов в админ-панели
-- [ ] Фильтрация по admin_id, action, target
-
----
-
-### TASK-011: Prometheus metrics endpoint
-
-**Тип**: Backend  
-**Источник**: [telegram-bot-template/bot/middlewares/](https://github.com/Latand/telegram-bot-template)  
-**Оценка**: 3h  
-**Файлы**:
-- `backend/src/services/prometheus_service.py` — NEW
-- `backend/src/api/metrics.py` — NEW
-- `backend/requirements.txt` — MODIFY
-
-**Описание**:
-Экспорт метрик в формате Prometheus.
-
-**Acceptance Criteria**:
-- [ ] `/metrics` endpoint возвращает OpenMetrics формат
-- [ ] Метрики: http_requests_total, http_request_duration_seconds
-- [ ] Метрики: active_streams, total_listeners, websocket_connections
-- [ ] Middleware для автоматического сбора request metrics
-
-**Code Pattern**:
-```python
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
-
-REQUEST_COUNT = Counter('http_requests_total', 'Total requests', ['method', 'endpoint', 'status'])
-REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'Request latency')
-ACTIVE_STREAMS = Gauge('active_streams', 'Currently active streams')
-
-@app.get("/metrics")
-async def metrics():
-    return Response(generate_latest(), media_type="text/plain")
-```
-
----
-
-### TASK-012: System metrics collection
-
-**Тип**: Backend  
-**Источник**: [contracts/metrics-api.yaml](./contracts/metrics-api.yaml)  
-**Оценка**: 2h  
-**Зависит от**: TASK-011  
-**Файлы**:
-- `backend/src/services/prometheus_service.py` — MODIFY
-
-**Описание**:
-Сбор системных метрик: CPU, memory, disk.
-
-**Acceptance Criteria**:
-- [ ] `GET /api/v1/metrics/system` возвращает JSON
-- [ ] cpu_percent, memory_percent, disk_percent
-- [ ] Кеширование в Redis (5 сек TTL)
-- [ ] Экспорт в Prometheus формат
-
----
-
-### TASK-013: Admin панель UI тесты
-
-**Тип**: Testing  
-**Оценка**: 3h  
-**Зависит от**: TASK-009  
-**Файлы**:
-- `backend/tests/api/test_admin_panel.py` — NEW
-
-**Описание**:
-Тесты для админ-панели.
-
-**Acceptance Criteria**:
-- [ ] Login/logout flow
-- [ ] CRUD операции для User
-- [ ] Проверка разграничения доступа по ролям
-- [ ] Audit log записывается
-
----
-
-## Sprint 3: WebSocket Monitoring & Frontend (P3)
-
-### TASK-014: WebSocket monitoring events
-
-**Тип**: Backend  
-**Источник**: [monitrix](https://github.com/user/monitrix)  
-**Оценка**: 3h  
-**Зависит от**: TASK-011  
-**Файлы**:
-- `backend/src/api/websocket.py` — MODIFY
-
-**Описание**:
-Расширение WebSocket для событий мониторинга.
-
-**Events**:
-- `metrics_update` — периодические метрики системы
-- `stream_status` — изменение статуса стрима
-- `listeners_update` — изменение количества слушателей
-- `auto_end_warning` — предупреждение о скором завершении
-
-**Acceptance Criteria**:
-- [ ] Все события согласно contracts/websocket-events.md
-- [ ] Подписка на типы событий
-- [ ] Throttling для metrics_update (5 сек)
-- [ ] Автопереподключение клиента
-
----
-
-### TASK-015: Frontend Monitoring.tsx
-
-**Тип**: Frontend  
-**Источник**: [monitrix](https://github.com/user/monitrix)  
-**Оценка**: 4h  
-**Зависит от**: TASK-014  
-**Файлы**:
-- `frontend/src/pages/Monitoring.tsx` — NEW
-- `frontend/src/components/StreamCard.tsx` — NEW
-- `frontend/src/hooks/useMonitoringWebSocket.ts` — NEW
-
-**Описание**:
-Real-time dashboard для мониторинга стримов.
-
-**Acceptance Criteria**:
-- [ ] Карточки активных стримов
-- [ ] Графики CPU/memory (последние 5 минут)
-- [ ] Счётчики слушателей в реальном времени
-- [ ] Индикаторы статуса (playing, paused, placeholder)
-- [ ] Адаптивный дизайн
-
----
-
-### TASK-016: Integration tests
-
-**Тип**: Testing  
-**Оценка**: 4h  
-**Зависит от**: TASK-014, TASK-015  
-**Файлы**:
-- `frontend/tests/monitoring.spec.ts` — NEW
-- `backend/tests/integration/test_websocket_monitoring.py` — NEW
-
-**Описание**:
-End-to-end тесты для мониторинга.
-
-**Acceptance Criteria**:
-- [ ] WebSocket connection → receive events
-- [ ] Frontend отображает обновления
-- [ ] Playwright тест для Monitoring.tsx
-
----
-
-### TASK-017: Документация feature
-
-**Тип**: Documentation  
-**Оценка**: 2h  
-**Файлы**:
-- `docs/features/queue-system.md` — NEW
-- `docs/features/admin-panel.md` — NEW
-- `docs/features/monitoring.md` — NEW
-
-**Описание**:
-Документация для новых модулей.
-
-**Acceptance Criteria**:
-- [ ] Описание функционала
-- [ ] API reference
-- [ ] Конфигурация
-- [ ] `npm run docs:validate` проходит
-
----
-
-## Сводка задач
-
-| ID | Название | Sprint | Оценка | Зависит от |
-|----|----------|--------|--------|------------|
-| TASK-001 | QueueItem модель и Redis persistence | 1 | 4h | - |
-| TASK-002 | Queue API endpoints | 1 | 3h | TASK-001 |
-| TASK-003 | Интеграция Queue в Streamer | 1 | 4h | TASK-001 |
-| TASK-004 | Placeholder audio support | 1 | 2h | TASK-003 |
-| TASK-005 | Auto-end сервис | 1 | 4h | - |
-| TASK-006 | WebSocket события очереди | 1 | 3h | TASK-001, TASK-002 |
-| TASK-007 | Smoke-тесты Queue & Auto-End | 1 | 2h | TASK-003, TASK-005 |
-| TASK-008 | sqladmin setup | 2 | 3h | - |
-| TASK-009 | Admin Views для моделей | 2 | 4h | TASK-008 |
-| TASK-010 | AdminAuditLog модель | 2 | 3h | TASK-009 |
-| TASK-011 | Prometheus metrics endpoint | 2 | 3h | - |
-| TASK-012 | System metrics collection | 2 | 2h | TASK-011 |
-| TASK-013 | Admin панель UI тесты | 2 | 3h | TASK-009 |
-| TASK-014 | WebSocket monitoring events | 3 | 3h | TASK-011 |
-| TASK-015 | Frontend Monitoring.tsx | 3 | 4h | TASK-014 |
-| TASK-016 | Integration tests | 3 | 4h | TASK-014, TASK-015 |
-| TASK-017 | Документация feature | 3 | 2h | - |
-
-**Итого**: 17 задач, ~53 часов (~7 рабочих дней)
-
----
-
-## Граф зависимостей
-
-```
-Sprint 1 (P1):
-TASK-001 ─┬─> TASK-002 ─┬─> TASK-006
-          │             │
-          └─> TASK-003 ─┴─> TASK-007
-                │
-                └─> TASK-004
-
-TASK-005 ────────────────> TASK-007
-
-Sprint 2 (P2):
-TASK-008 ──> TASK-009 ──> TASK-010
-                    │
-                    └──> TASK-013
-
-TASK-011 ──> TASK-012
-
-Sprint 3 (P3):
-TASK-011 ──> TASK-014 ──> TASK-015 ──> TASK-016
-```
-
----
-
-## Критический путь
-
-```
-TASK-001 → TASK-003 → TASK-004 → TASK-007
-         (4h)        (4h)       (2h)      (2h)
-         
-Total: 12h (критический путь Sprint 1)
-```
-
-Параллельно можно выполнять:
-- TASK-005 (auto-end)
-- TASK-008 (sqladmin setup)
-- TASK-011 (Prometheus)
+## Summary
+
+| Metric | Value |
+|--------|-------|
+| Total Tasks | 58 |
+| Setup Phase | 3 tasks |
+| Foundational Phase | 4 tasks |
+| User Story Tasks | 44 tasks |
+| Polish Tasks | 7 tasks |
+| P1 (MVP) Tasks | 19 tasks |
+| P2 Tasks | 17 tasks |
+| P3 Tasks | 8 tasks |
+| Parallel Tasks [P] | 15 tasks |
