@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import axios from 'axios';
 import { Loader2, Phone, KeyRound, Lock } from 'lucide-react';
 import { PasswordInput } from '../ui/PasswordInput';
+import { client } from '../../api/client';
 
 // Define schemas
 const phoneSchema = z.object({
@@ -37,11 +37,6 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess }) => {
   const phoneForm = useForm<PhoneForm>({ resolver: zodResolver(phoneSchema) });
   const codeForm = useForm<CodeForm>({ resolver: zodResolver(codeSchema) });
   const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) });
-
-  const client = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-    withCredentials: true,
-  });
 
   const onPhoneSubmit = async (data: PhoneForm) => {
     setLoading(true);
@@ -154,6 +149,26 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess }) => {
             className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center justify-center disabled:opacity-50"
           >
             {loading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Verify Code'}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              setLoading(true);
+              setError('');
+              try {
+                await client.post('/api/auth/telegram/send-code', { phone });
+                codeForm.reset();
+                setError('');
+              } catch (err: any) {
+                setError(err.response?.data?.detail || 'Failed to resend code');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="w-full py-2 px-4 border border-blue-600 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-md flex items-center justify-center disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin h-4 w-4" /> : 'Request New Code'}
           </button>
           <button
             type="button"

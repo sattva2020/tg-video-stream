@@ -20,6 +20,7 @@ class TelegramAuthService:
         return await redis.from_url(self.redis_url, decode_responses=True)
 
     async def send_code(self, phone: str):
+        logger.info(f"send_code called for phone: {phone}")
         # Use a random session name to avoid conflicts
         session_name = f"auth_{uuid.uuid4()}"
         client = Client(name=session_name, api_id=self.api_id, api_hash=self.api_hash, in_memory=True)
@@ -27,10 +28,20 @@ class TelegramAuthService:
         try:
             sent_code = await client.send_code(phone)
             phone_code_hash = sent_code.phone_code_hash
+            logger.info(f"Code sent, hash: {phone_code_hash[:10]}...")
             
-            # Store hash in Redis (expire in 5 mins)
+            # Export session string to restore client later
+            session_string = await client.export_session_string()
+            logger.info(f"Session exported, length: {len(session_string)}")
+            
+            # Store hash AND session in Redis (expire in 5 mins)
             r = await self._get_redis()
             await r.setex(f"auth:{phone}:hash", 300, phone_code_hash)
+            await r.setex(f"auth:{phone}:session", 300, session_string)
+            
+            # Verify storage
+            stored_hash = await r.get(f"auth:{phone}:hash")
+            logger.info(f"Verified Redis storage - hash stored: {bool(stored_hash)}")
             await r.close()
             
             return {"status": "code_sent", "phone_code_hash": phone_code_hash}
@@ -41,16 +52,20 @@ class TelegramAuthService:
             await client.disconnect()
 
     async def sign_in(self, user_id: str, phone: str, code: str, password: str = None):
-        # Retrieve hash
+        # Retrieve hash and session
+        logger.info(f"sign_in called for phone: {phone}, code: {code[:2]}***")
         r = await self._get_redis()
         phone_code_hash = await r.get(f"auth:{phone}:hash")
+        session_string = await r.get(f"auth:{phone}:session")
+        logger.info(f"Redis lookup - hash exists: {bool(phone_code_hash)}, session exists: {bool(session_string)}")
         await r.close()
 
-        if not phone_code_hash:
-            raise ValueError("Code expired or invalid flow")
+        if not phone_code_hash or not session_string:
+            logger.warning(f"Missing data in Redis for phone {phone}")
+            raise ValueError("Code expired or invalid flow. Please request a new code.")
 
-        session_name = f"auth_{uuid.uuid4()}"
-        client = Client(name=session_name, api_id=self.api_id, api_hash=self.api_hash, in_memory=True)
+        # Restore the same client session that was used for send_code
+        client = Client(name="auth_restore", api_id=self.api_id, api_hash=self.api_hash, session_string=session_string)
         await client.connect()
         
         try:
@@ -61,10 +76,11 @@ class TelegramAuthService:
                     return {"status": "2fa_required"}
                 user = await client.check_password(password)
             
-            session_string = await client.export_session_string()
+            # Get final session string after successful auth
+            final_session_string = await client.export_session_string()
             
             # Encrypt and Save
-            encrypted_session = encryption_service.encrypt(session_string)
+            encrypted_session = encryption_service.encrypt(final_session_string)
             
             db = SessionLocal()
             try:
@@ -87,6 +103,12 @@ class TelegramAuthService:
                     )
                     db.add(new_account)
                 db.commit()
+                
+                # Clear Redis keys after successful login
+                r = await self._get_redis()
+                await r.delete(f"auth:{phone}:hash", f"auth:{phone}:session")
+                await r.close()
+                
             finally:
                 db.close()
                 
