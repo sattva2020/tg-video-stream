@@ -10,11 +10,17 @@ Stores user-specific playback preferences:
 Database: PostgreSQL (sqlalchemy ORM)
 """
 
-from sqlalchemy import Column, Integer, Float, String, Boolean, JSON, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, Float, String, Boolean, JSON, ForeignKey, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 
-from src.database import Base
+from src.database import Base, GUID
+
+
+def _utcnow() -> datetime:
+    """Return timezone-aware UTC timestamps for SQLAlchemy defaults."""
+
+    return datetime.now(timezone.utc)
 
 
 class PlaybackSettings(Base):
@@ -22,8 +28,12 @@ class PlaybackSettings(Base):
     
     __tablename__ = "playback_settings"
     
+    __table_args__ = (
+        UniqueConstraint("user_id", "channel_id", name="uq_playback_user_channel"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user.id"), unique=True, nullable=False, index=True)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     channel_id = Column(Integer, nullable=True)  # For multi-channel support (US11)
     
     # Speed/Pitch Control (US1)
@@ -44,8 +54,8 @@ class PlaybackSettings(Base):
     repeat_mode = Column(String(10), default="off")  # off, one, all
     
     # Timestamps
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
     
     # Relationships
     user = relationship("User", back_populates="playback_settings")

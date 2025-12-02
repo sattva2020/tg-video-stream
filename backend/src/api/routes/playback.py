@@ -11,7 +11,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional
 import logging
 from sqlalchemy.orm import Session
@@ -20,6 +20,12 @@ from ..auth.dependencies import get_current_user, get_playback_service
 from ...services.playback_service import PlaybackService
 from ...models.user import User
 from ...database import get_db
+from src.config.equalizer_presets import (
+    BAND_FREQUENCIES,
+    PRESET_CATEGORIES,
+    list_presets_by_category,
+    list_presets_grouped_with_metadata,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/playback", tags=["playback"])
@@ -60,6 +66,81 @@ class SetEqualizerCustomRequest(BaseModel):
     """Request to set custom equalizer bands."""
     bands: list[float] = Field(..., min_length=10, max_length=10, description="10 band values in dB")
     channel_id: Optional[int] = Field(None, description="Telegram channel ID for multi-channel support")
+
+
+class UpdateEqualizerRequest(BaseModel):
+    """Unified equalizer update request (preset or custom bands)."""
+
+    preset_name: Optional[str] = Field(
+        None,
+        description="Preset name to apply (flat, rock, meditation, etc.)",
+    )
+    bands: Optional[list[float]] = Field(
+        None,
+        min_length=10,
+        max_length=10,
+        description="Custom 10-band equalizer values in dB",
+    )
+    channel_id: Optional[int] = Field(
+        None,
+        description="Telegram channel ID for multi-channel support",
+    )
+
+    @model_validator(mode="after")
+    def _validate_choice(self) -> "UpdateEqualizerRequest":  # type: ignore[override]
+        preset = self.preset_name
+        bands = self.bands
+
+        if not preset and bands is None:
+            raise ValueError("Either preset_name or bands must be provided")
+        if preset and bands is not None:
+            raise ValueError("Provide preset_name or bands, not both")
+        return self
+
+
+class EqualizerPresetMetadata(BaseModel):
+    """Metadata describing a single equalizer preset."""
+
+    name: str
+    display_name: str
+    description: str
+    category: str
+    bands: list[float] = Field(..., min_length=10, max_length=10)
+
+
+class EqualizerPresetCategory(BaseModel):
+    """Group of presets that belong to the same category."""
+
+    id: str = Field(..., description="Category identifier from config")
+    label: str = Field(..., description="Human readable category name")
+    presets: list[EqualizerPresetMetadata]
+
+
+class EqualizerPresetListResponse(BaseModel):
+    """Response describing all available presets grouped by category."""
+
+    total: int
+    categories: list[EqualizerPresetCategory]
+    band_frequencies: list[dict]
+
+
+def _build_preset_catalog() -> tuple[list[EqualizerPresetCategory], int]:
+    """Собрать метаданные пресетов по категориям."""
+
+    grouped = list_presets_grouped_with_metadata()
+    categories: list[EqualizerPresetCategory] = []
+    total = 0
+
+    for category_id, presets in grouped.items():
+        metadata_items = [EqualizerPresetMetadata(**preset) for preset in presets]
+        label = PRESET_CATEGORIES.get(category_id, category_id.title())
+        categories.append(
+            EqualizerPresetCategory(id=category_id, label=label, presets=metadata_items)
+        )
+        total += len(metadata_items)
+
+    categories.sort(key=lambda category: category.label)
+    return categories, total
 
 
 class PlaybackSettingsResponse(BaseModel):
@@ -356,22 +437,81 @@ async def get_equalizer(
             }
         }
     """
-    from src.config.equalizer_presets import list_presets_by_category
-    
     try:
         eq_state = playback_service.get_equalizer_state(current_user.id, channel_id)
         presets_by_category = list_presets_by_category()
+        categories, total = _build_preset_catalog()
+        preset_catalog = {
+            "total": total,
+            "categories": [category.model_dump() for category in categories],
+            "band_frequencies": BAND_FREQUENCIES,
+        }
         
         return {
             "preset": eq_state["preset"],
             "bands": eq_state["bands"],
             "available_presets": presets_by_category,
+            "preset_catalog": preset_catalog,
         }
     except Exception as e:
         logger.error(f"Error getting equalizer state: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get equalizer state"
+        )
+
+
+@router.get("/equalizer/presets", response_model=EqualizerPresetListResponse, status_code=200)
+async def list_equalizer_presets(current_user: User = Depends(get_current_user)):
+    """Вернуть полные метаданные пресетов для UI."""
+
+    _ = current_user  # ensure dependency evaluated for auth
+    categories, total = _build_preset_catalog()
+    return EqualizerPresetListResponse(
+        total=total,
+        categories=categories,
+        band_frequencies=BAND_FREQUENCIES,
+    )
+
+
+@router.put("/equalizer", response_model=dict, status_code=200)
+async def update_equalizer(
+    request: UpdateEqualizerRequest,
+    current_user: User = Depends(get_current_user),
+    playback_service: PlaybackService = Depends(get_playback_service),
+):
+    """Применить пресет или пользовательские полосы через единый endpoint."""
+
+    try:
+        if request.preset_name:
+            result = playback_service.set_equalizer_preset(
+                current_user.id,
+                request.preset_name,
+                request.channel_id,
+            )
+        else:
+            if request.bands is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="bands are required when preset_name is not provided",
+                )
+
+            result = playback_service.set_equalizer_custom(
+                current_user.id,
+                request.bands,
+                request.channel_id,
+            )
+
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(e))
+    except Exception as e:
+        logger.error("Error updating equalizer", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update equalizer",
         )
 
 
@@ -415,31 +555,6 @@ async def set_equalizer_preset(
         )
 
 
-@router.put("/equalizer/custom", response_model=dict, status_code=200)
-async def set_equalizer_custom(
-    request: SetEqualizerCustomRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Set custom equalizer bands.
-    
-    Provide an array of 10 values (dB) for each frequency band:
-    - Band 0: 29 Hz
-    - Band 1: 59 Hz
-    - Band 2: 119 Hz
-    - Band 3: 237 Hz
-    - Band 4: 474 Hz
-    - Band 5: 947 Hz
-    - Band 6: 1.9 kHz
-    - Band 7: 3.8 kHz
-    - Band 8: 7.5 kHz
-    - Band 9: 15 kHz
-    
-    Values range: -24 to +12 dB (recommended: -6 to +6)
-    """
-    from streamer.playback_control import get_playback_controller
-    from src.config.equalizer_presets import validate_custom_bands
-@router.put("/equalizer/custom", response_model=dict, status_code=200)
 async def set_equalizer_custom(
     request: SetEqualizerCustomRequest,
     current_user: User = Depends(get_current_user),
