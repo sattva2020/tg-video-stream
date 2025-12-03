@@ -1,0 +1,490 @@
+# Queue API Contract
+
+openapi: 3.1.0
+info:
+  title: Sattva Streamer Queue API
+  version: 1.0.0
+  description: |
+    API для управления очередью воспроизведения стримов.
+    Поддерживает добавление, удаление, перемещение и просмотр элементов очереди.
+
+servers:
+  - url: /api/v1
+    description: Production API
+
+tags:
+  - name: Queue
+    description: Операции с очередью воспроизведения
+
+paths:
+  /queue/{channel_id}:
+    get:
+      summary: Получить очередь канала
+      description: Возвращает текущую очередь воспроизведения для указанного канала
+      operationId: getQueue
+      tags: [Queue]
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+            example: -1001234567890
+          description: ID Telegram канала
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Максимальное количество элементов
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Смещение для пагинации
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueResponse'
+        '404':
+          description: Канал не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    
+    delete:
+      summary: Очистить очередь канала
+      description: Удаляет все элементы из очереди указанного канала
+      operationId: clearQueue
+      tags: [Queue]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Очередь очищена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /queue/{channel_id}/items:
+    post:
+      summary: Добавить элемент в очередь
+      description: Добавляет новый трек в конец очереди
+      operationId: addQueueItem
+      tags: [Queue]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueItemCreate'
+      responses:
+        '201':
+          description: Элемент добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueItem'
+        '400':
+          description: Некорректные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /queue/{channel_id}/items/{item_id}:
+    delete:
+      summary: Удалить элемент из очереди
+      description: Удаляет указанный элемент из очереди
+      operationId: removeQueueItem
+      tags: [Queue]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Элемент удален
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Элемент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /queue/{channel_id}/items/{item_id}/move:
+    patch:
+      summary: Переместить элемент в очереди
+      description: Изменяет позицию элемента в очереди
+      operationId: moveQueueItem
+      tags: [Queue]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [position]
+              properties:
+                position:
+                  type: integer
+                  minimum: 0
+                  description: Новая позиция в очереди (0 = первый)
+      responses:
+        '200':
+          description: Элемент перемещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueResponse'
+        '400':
+          description: Некорректная позиция
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '404':
+          description: Элемент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/{channel_id}/skip:
+    post:
+      summary: Пропустить текущий трек
+      description: Пропускает текущий трек и переходит к следующему в очереди
+      operationId: skipCurrentTrack
+      tags: [Queue]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Трек пропущен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  next_item:
+                    $ref: '#/components/schemas/QueueItem'
+                  message:
+                    type: string
+                    example: "Трек пропущен"
+        '400':
+          description: Очередь пуста
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/{channel_id}/state:
+    get:
+      summary: Получить состояние стрима
+      description: Возвращает текущее состояние стрима (статус, текущий трек, слушатели)
+      operationId: getStreamState
+      tags: [Queue]
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Состояние стрима
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamState'
+        '404':
+          description: Стрим не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    QueueItem:
+      type: object
+      required:
+        - id
+        - channel_id
+        - title
+        - url
+        - source
+        - added_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        channel_id:
+          type: integer
+          example: -1001234567890
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Meditation Music - 1 Hour"
+        url:
+          type: string
+          format: uri
+          example: "https://youtube.com/watch?v=abc123"
+        duration:
+          type: integer
+          minimum: 0
+          nullable: true
+          example: 3600
+          description: Длительность в секундах
+        source:
+          type: string
+          enum: [youtube, file, stream]
+          example: "youtube"
+        requested_by:
+          type: integer
+          nullable: true
+          example: 123456789
+          description: Telegram user_id
+        added_at:
+          type: string
+          format: date-time
+          example: "2025-12-01T10:30:00Z"
+        metadata:
+          type: object
+          additionalProperties: true
+          example:
+            thumbnail: "https://i.ytimg.com/vi/abc123/default.jpg"
+            artist: "Relaxing Sounds"
+
+    QueueItemCreate:
+      type: object
+      required:
+        - title
+        - url
+        - source
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+        url:
+          type: string
+          format: uri
+        duration:
+          type: integer
+          minimum: 0
+          nullable: true
+        source:
+          type: string
+          enum: [youtube, file, stream]
+        metadata:
+          type: object
+          additionalProperties: true
+
+    QueueResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+        total:
+          type: integer
+          example: 15
+        current_playing:
+          $ref: '#/components/schemas/QueueItem'
+        is_placeholder:
+          type: boolean
+          example: false
+          description: Воспроизводится ли placeholder (заглушка)
+
+    StreamState:
+      type: object
+      required:
+        - channel_id
+        - status
+        - started_at
+        - last_activity
+      properties:
+        channel_id:
+          type: integer
+          example: -1001234567890
+        status:
+          type: string
+          enum: [playing, paused, stopped, placeholder]
+          example: "playing"
+        current_item:
+          $ref: '#/components/schemas/QueueItem'
+        started_at:
+          type: string
+          format: date-time
+        current_position:
+          type: integer
+          minimum: 0
+          example: 120
+          description: Текущая позиция в секундах
+        listeners_count:
+          type: integer
+          minimum: 0
+          example: 5
+        is_placeholder:
+          type: boolean
+          example: false
+        auto_end_timer:
+          type: object
+          nullable: true
+          properties:
+            started_at:
+              type: string
+              format: date-time
+            timeout_at:
+              type: string
+              format: date-time
+            remaining_seconds:
+              type: integer
+        last_activity:
+          type: string
+          format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Операция выполнена успешно"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "not_found"
+        message:
+          type: string
+          example: "Элемент не найден"
+        details:
+          type: object
+          additionalProperties: true
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+          example: "Ошибка валидации данных"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "title"
+              message:
+                type: string
+                example: "Поле обязательно для заполнения"
+
+  responses:
+    Unauthorized:
+      description: Требуется авторизация
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "unauthorized"
+            message: "Требуется авторизация"
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "forbidden"
+            message: "Недостаточно прав для выполнения операции"

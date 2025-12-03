@@ -1,0 +1,674 @@
+# Admin API Contract
+
+openapi: 3.1.0
+info:
+  title: Sattva Streamer Admin API
+  version: 1.0.0
+  description: |
+    API административной панели для управления пользователями, 
+    плейлистами и просмотра аудит-логов.
+    Доступно только для пользователей с ролями admin/superadmin.
+
+servers:
+  - url: /admin
+    description: Admin panel base URL
+
+tags:
+  - name: Authentication
+    description: Аутентификация в админ-панели
+  - name: Users
+    description: Управление пользователями
+  - name: Playlists
+    description: Управление плейлистами
+  - name: AuditLogs
+    description: Просмотр аудит-логов
+  - name: Dashboard
+    description: Дашборд статистики
+
+paths:
+  /login:
+    get:
+      summary: Страница входа
+      description: HTML страница для входа в админ-панель
+      operationId: loginPage
+      tags: [Authentication]
+      responses:
+        '200':
+          description: HTML страница входа
+          content:
+            text/html:
+              schema:
+                type: string
+    
+    post:
+      summary: Аутентификация
+      description: Вход в админ-панель по email и паролю
+      operationId: login
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: Email пользователя
+                password:
+                  type: string
+                  format: password
+      responses:
+        '302':
+          description: Успешный вход, редирект на /admin
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /admin
+            Set-Cookie:
+              schema:
+                type: string
+                example: session=abc123; HttpOnly; Secure; SameSite=Lax
+        '401':
+          description: Неверные учетные данные
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /logout:
+    get:
+      summary: Выход из админ-панели
+      operationId: logout
+      tags: [Authentication]
+      responses:
+        '302':
+          description: Редирект на страницу входа
+          headers:
+            Location:
+              schema:
+                type: string
+                example: /admin/login
+
+  /api/users:
+    get:
+      summary: Список пользователей
+      description: Получить список всех пользователей с пагинацией и фильтрацией
+      operationId: listUsers
+      tags: [Users]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Поиск по email, telegram_id
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [user, admin, superadmin]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, active, approved, rejected]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: -created_at
+          description: Сортировка (prefix - для desc)
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/{user_id}:
+    get:
+      summary: Получить пользователя
+      operationId: getUser
+      tags: [Users]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Данные пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    patch:
+      summary: Обновить пользователя
+      description: Обновить роль или статус пользователя
+      operationId: updateUser
+      tags: [Users]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Пользователь обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{user_id}/approve:
+    post:
+      summary: Одобрить пользователя
+      description: Изменить статус пользователя на approved
+      operationId: approveUser
+      tags: [Users]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Пользователь одобрен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Пользователь уже одобрен или отклонен
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{user_id}/reject:
+    post:
+      summary: Отклонить пользователя
+      description: Изменить статус пользователя на rejected
+      operationId: rejectUser
+      tags: [Users]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Причина отклонения
+      responses:
+        '200':
+          description: Пользователь отклонен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/playlists:
+    get:
+      summary: Список плейлистов
+      operationId: listPlaylists
+      tags: [Playlists]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 25
+        - name: channel_id
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, playing, played, skipped, error]
+      responses:
+        '200':
+          description: Список плейлистов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaylistListResponse'
+
+  /api/playlists/{item_id}:
+    delete:
+      summary: Удалить элемент плейлиста
+      operationId: deletePlaylistItem
+      tags: [Playlists]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Элемент удален
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/audit-logs:
+    get:
+      summary: Список аудит-логов
+      description: Получить логи действий администраторов
+      operationId: listAuditLogs
+      tags: [AuditLogs]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: admin_user_id
+          in: query
+          schema:
+            type: integer
+          description: Фильтр по админу
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [create, update, delete, login, logout, view, export, bulk_update, bulk_delete]
+        - name: model_name
+          in: query
+          schema:
+            type: string
+          description: Фильтр по модели (User, PlaylistItem, etc.)
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Начало периода
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Конец периода
+        - name: sort
+          in: query
+          schema:
+            type: string
+            default: -created_at
+      responses:
+        '200':
+          description: Список аудит-логов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '403':
+          description: Только для superadmin
+
+  /api/audit-logs/{log_id}:
+    get:
+      summary: Детали аудит-лога
+      operationId: getAuditLog
+      tags: [AuditLogs]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: log_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Детали лога
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLog'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/dashboard:
+    get:
+      summary: Данные дашборда
+      description: Агрегированная статистика для главной страницы админки
+      operationId: getDashboard
+      tags: [Dashboard]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Данные дашборда
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardData'
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+        telegram_id:
+          type: integer
+          nullable: true
+        telegram_username:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [user, admin, superadmin]
+        status:
+          type: string
+          enum: [pending, active, approved, rejected]
+        is_active:
+          type: boolean
+        last_login:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, admin, superadmin]
+        status:
+          type: string
+          enum: [pending, active, approved, rejected]
+        is_active:
+          type: boolean
+
+    UserListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        pages:
+          type: integer
+
+    PlaylistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        channel_id:
+          type: integer
+        title:
+          type: string
+        url:
+          type: string
+        duration:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [pending, playing, played, skipped, error]
+        added_by:
+          type: integer
+          nullable: true
+        played_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    PlaylistListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaylistItem'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        admin_user_id:
+          type: integer
+        admin_user:
+          $ref: '#/components/schemas/User'
+        action:
+          type: string
+          enum: [create, update, delete, login, logout, view, export, bulk_update, bulk_delete]
+        model_name:
+          type: string
+        model_id:
+          type: integer
+          nullable: true
+        old_values:
+          type: object
+          nullable: true
+        new_values:
+          type: object
+          nullable: true
+        ip_address:
+          type: string
+          nullable: true
+        user_agent:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    DashboardData:
+      type: object
+      properties:
+        users:
+          type: object
+          properties:
+            total:
+              type: integer
+            active:
+              type: integer
+            pending_approval:
+              type: integer
+            new_today:
+              type: integer
+        streams:
+          type: object
+          properties:
+            active:
+              type: integer
+            total_listeners:
+              type: integer
+            total_queue_items:
+              type: integer
+        system:
+          type: object
+          properties:
+            cpu_usage:
+              type: number
+            memory_usage:
+              type: number
+            disk_usage:
+              type: number
+            uptime_hours:
+              type: integer
+        recent_activity:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
+          maxItems: 10
+
+  responses:
+    Unauthorized:
+      description: Требуется авторизация
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: unauthorized
+
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: forbidden
+              message:
+                type: string
+                example: "Требуется роль admin или superadmin"
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: not_found
+
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: validation_error
+              details:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    field:
+                      type: string
+                    message:
+                      type: string
