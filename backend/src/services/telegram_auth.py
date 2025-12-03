@@ -211,6 +211,8 @@ class TelegramAuthService:
         client, phone_code_hash = _pending_clients[phone]
         print(f"[sign_in_public] Found client, hash={phone_code_hash[:10]}...", flush=True)
 
+        should_disconnect = True  # Flag to control client disconnection
+        
         try:
             try:
                 print("[sign_in_public] Calling sign_in...", flush=True)
@@ -219,11 +221,16 @@ class TelegramAuthService:
             except SessionPasswordNeeded:
                 print("[sign_in_public] 2FA required", flush=True)
                 if not password:
+                    # DON'T disconnect - we need the client for the next request with password
+                    should_disconnect = False
+                    print("[sign_in_public] Keeping client connected for 2FA", flush=True)
                     return {"status": "2fa_required"}
+                # Password provided, try to authenticate
+                print("[sign_in_public] Checking 2FA password...", flush=True)
                 user = await client.check_password(password)
                 print(f"[sign_in_public] 2FA passed! user_id={user.id}", flush=True)
 
-            # Cleanup
+            # Cleanup - only on success
             del _pending_clients[phone]
             r = await self._get_redis()
             await r.delete(f"auth:{phone}:hash")
@@ -239,16 +246,24 @@ class TelegramAuthService:
 
         except (PhoneCodeInvalid, PasswordHashInvalid) as e:
             print(f"[sign_in_public] Invalid code/password: {e}", flush=True)
+            # Cleanup on error
+            if phone in _pending_clients:
+                del _pending_clients[phone]
             raise ValueError("Неверный код или пароль")
         except Exception as e:
             print(f"[sign_in_public] ERROR: {type(e).__name__}: {e}", flush=True)
+            # Cleanup on error
+            if phone in _pending_clients:
+                del _pending_clients[phone]
             raise e
         finally:
-            # Disconnect client
-            try:
-                await client.disconnect()
-            except Exception:
-                pass
+            # Disconnect client only if needed
+            if should_disconnect:
+                try:
+                    await client.disconnect()
+                    print("[sign_in_public] Client disconnected", flush=True)
+                except Exception:
+                    pass
 
     async def resend_code(self, phone: str):
         """Resend code via alternative method (SMS/call instead of app notification)"""
