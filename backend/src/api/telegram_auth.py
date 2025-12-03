@@ -3,13 +3,18 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from src.services.telegram_auth import telegram_auth_service, RateLimitError
 from src.services.telegram_rate_limiter import rate_limiter
+from src.services.encryption import encryption_service
 from api.auth import get_current_user
 from src.models.user import User
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.telegram import TelegramAccount
-from typing import List
+from pyrogram import Client
+from typing import List, Optional
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -55,6 +60,129 @@ def list_accounts(
 ):
     accounts = db.query(TelegramAccount).filter(TelegramAccount.user_id == current_user.id).all()
     return accounts
+
+
+class DialogInfo(BaseModel):
+    """Информация о диалоге (канал/группа/чат)"""
+    id: int
+    title: str
+    type: str  # 'channel', 'supergroup', 'group', 'private'
+    username: Optional[str] = None
+    members_count: Optional[int] = None
+    photo_url: Optional[str] = None
+    is_creator: bool = False
+    is_admin: bool = False
+
+
+@router.get("/accounts/{account_id}/dialogs", response_model=List[DialogInfo])
+async def get_account_dialogs(
+    account_id: uuid.UUID,
+    filter_type: Optional[str] = None,  # 'channels', 'groups', 'all'
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить список каналов и групп для указанного Telegram аккаунта.
+    
+    filter_type:
+    - 'channels' - только каналы
+    - 'groups' - только группы (включая супергруппы)
+    - 'all' или None - все диалоги где пользователь может стримить
+    """
+    # Проверяем, что аккаунт принадлежит текущему пользователю
+    account = db.query(TelegramAccount).filter(
+        TelegramAccount.id == account_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+    
+    if not account:
+        raise HTTPException(status_code=404, detail="Telegram account not found")
+    
+    if not account.encrypted_session:
+        raise HTTPException(status_code=400, detail="Account session not found. Please re-authenticate.")
+    
+    # Расшифровываем сессию
+    try:
+        session_string = encryption_service.decrypt(account.encrypted_session)
+    except Exception as e:
+        logger.error(f"Failed to decrypt session for account {account_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to decrypt session")
+    
+    dialogs = []
+    
+    try:
+        # Создаём клиент из сохранённой сессии
+        client = Client(
+            name=f"dialogs_{account_id}",
+            api_id=telegram_auth_service.api_id,
+            api_hash=telegram_auth_service.api_hash,
+            session_string=session_string,
+            in_memory=True
+        )
+        
+        async with client:
+            async for dialog in client.get_dialogs(limit=100):
+                chat = dialog.chat
+                
+                # Определяем тип чата
+                if chat.type.value == "channel":
+                    chat_type = "channel"
+                elif chat.type.value == "supergroup":
+                    chat_type = "supergroup"
+                elif chat.type.value == "group":
+                    chat_type = "group"
+                else:
+                    # Пропускаем личные чаты
+                    continue
+                
+                # Применяем фильтр
+                if filter_type == "channels" and chat_type != "channel":
+                    continue
+                if filter_type == "groups" and chat_type not in ("group", "supergroup"):
+                    continue
+                
+                # Проверяем права администратора
+                is_creator = False
+                is_admin = False
+                
+                try:
+                    # Для каналов и супергрупп проверяем права
+                    if chat_type in ("channel", "supergroup"):
+                        member = await client.get_chat_member(chat.id, "me")
+                        is_creator = member.status.value == "owner"
+                        is_admin = member.status.value in ("owner", "administrator")
+                except Exception:
+                    # Если не можем получить права, пропускаем
+                    pass
+                
+                # Формируем URL фото
+                photo_url = None
+                if chat.photo:
+                    # Можно добавить скачивание фото, но пока оставим None
+                    pass
+                
+                dialogs.append(DialogInfo(
+                    id=chat.id,
+                    title=chat.title or chat.first_name or "Unknown",
+                    type=chat_type,
+                    username=chat.username,
+                    members_count=chat.members_count,
+                    photo_url=photo_url,
+                    is_creator=is_creator,
+                    is_admin=is_admin
+                ))
+        
+        # Сортируем: сначала где админ, потом по названию
+        dialogs.sort(key=lambda d: (not d.is_admin, d.title.lower()))
+        
+        return dialogs
+        
+    except Exception as e:
+        logger.error(f"Failed to get dialogs for account {account_id}: {e}")
+        error_msg = str(e)
+        if "AUTH_KEY" in error_msg or "SESSION" in error_msg:
+            raise HTTPException(status_code=401, detail="Session expired. Please re-authenticate your Telegram account.")
+        raise HTTPException(status_code=500, detail=f"Failed to get dialogs: {error_msg}")
 
 
 @router.get("/limit-status/{phone}")

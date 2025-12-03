@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { CreateChannelData } from '../api/channels';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X } from 'lucide-react';
+import { TelegramDialog } from '../api/telegram';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
+import { DialogPicker } from '../components/channels/DialogPicker';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
 import { ResponsiveHeader } from '../components/layout';
 import { useTranslation } from 'react-i18next';
@@ -30,12 +32,22 @@ const ChannelManager: React.FC = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [formData, setFormData] = useState<CreateChannelData>({
     account_id: '',
     chat_id: 0,
     name: '',
     video_quality: 'best',
   });
+
+  const handleDialogSelect = (dialog: TelegramDialog) => {
+    setFormData({
+      ...formData,
+      chat_id: dialog.id,
+      name: dialog.title,
+    });
+    setShowDialogPicker(false);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,15 +225,33 @@ const ChannelManager: React.FC = () => {
             <div className="bg-[color:var(--color-panel)] rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-[color:var(--color-text)]">
-                  {t('channels.addNew', 'Add New Channel')}
+                  {showDialogPicker 
+                    ? t('channels.selectFromList', 'Выберите канал или группу')
+                    : t('channels.addNew', 'Add New Channel')
+                  }
                 </h2>
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    if (showDialogPicker) {
+                      setShowDialogPicker(false);
+                    } else {
+                      setIsModalOpen(false);
+                    }
+                  }}
                   className="p-2 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
+              
+              {/* DialogPicker или форма */}
+              {showDialogPicker && formData.account_id ? (
+                <DialogPicker
+                  accountId={formData.account_id}
+                  onSelect={handleDialogSelect}
+                  onCancel={() => setShowDialogPicker(false)}
+                />
+              ) : (
               <form onSubmit={handleCreate}>
                 <div className="space-y-4">
                   <div>
@@ -267,16 +297,31 @@ const ChannelManager: React.FC = () => {
                     <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
                       {t('channels.chatId', 'Chat ID')}
                     </label>
-                    <input
-                      type="number"
-                      required
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.chat_id || ''}
-                      onChange={(e) => setFormData({ ...formData, chat_id: Number(e.target.value) })}
-                      placeholder="-1001234567890"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        required
+                        className="flex-1 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.chat_id || ''}
+                        onChange={(e) => setFormData({ ...formData, chat_id: Number(e.target.value) })}
+                        placeholder="-1001234567890"
+                      />
+                      {formData.account_id && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDialogPicker(true)}
+                          className="px-3 py-2 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg hover:bg-[color:var(--color-surface-muted)] transition-colors"
+                          title={t('channels.selectFromList', 'Выбрать из списка')}
+                        >
+                          <List className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
                     <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                      {t('channels.chatIdHint', 'Enter the numeric ID of the channel/chat.')}
+                      {formData.account_id 
+                        ? t('channels.chatIdHintWithPicker', 'Введите ID или выберите из списка ваших каналов')
+                        : t('channels.chatIdHint', 'Enter the numeric ID of the channel/chat.')
+                      }
                     </p>
                   </div>
 
@@ -314,6 +359,7 @@ const ChannelManager: React.FC = () => {
                   </button>
                 </div>
               </form>
+              )}
             </div>
           </div>
         )}
