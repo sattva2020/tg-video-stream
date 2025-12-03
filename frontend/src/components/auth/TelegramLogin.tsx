@@ -279,16 +279,17 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
       {step === 'password' && (
         <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-300">Пароль 2FA</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 z-10" />
-              <PasswordInput
-                {...passwordForm.register('password')}
-                placeholder="******"
-                className="w-full pl-10 pr-12 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                iconSize={16}
-              />
-            </div>
+            <label className="block text-sm font-medium mb-1 text-gray-300 flex items-center gap-2">
+              <Lock className="h-4 w-4 text-gray-400" />
+              Пароль 2FA
+            </label>
+            <PasswordInput
+              {...passwordForm.register('password')}
+              placeholder="Введите пароль 2FA"
+              className="w-full px-4 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              buttonClassName="text-gray-400 hover:text-gray-200"
+              iconSize={20}
+            />
             {passwordForm.formState.errors.password && (
               <p className="text-red-400 text-xs mt-1">{passwordForm.formState.errors.password.message}</p>
             )}
