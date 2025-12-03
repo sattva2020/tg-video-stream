@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ErrorCode(str, Enum):
@@ -148,8 +148,8 @@ class ErrorResponse(BaseModel):
     """Standardized error response model."""
     error: Dict[str, Any]
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": {
                     "code": "VALIDATION_ERROR",
@@ -161,6 +161,7 @@ class ErrorResponse(BaseModel):
                 }
             }
         }
+    )
 
 
 def create_error_response(

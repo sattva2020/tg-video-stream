@@ -1,11 +1,17 @@
-import pytest
-import sys
 import os
+import sys
+import warnings
+
+import pytest
+import redis
+import redis.asyncio as redis_async
+from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
+from fakeredis import FakeRedis, FakeServer
+from fakeredis import aioredis as fakeredis_aioredis
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
-from cryptography.fernet import Fernet
 
 # Set encryption key for tests
 if not os.getenv("SESSION_ENCRYPTION_KEY"):
@@ -15,14 +21,72 @@ if not os.getenv("SESSION_ENCRYPTION_KEY"):
 if not os.getenv("JWT_SECRET"):
     os.environ["JWT_SECRET"] = "test_jwt_secret_key_for_testing_only"
 
-# Add src to path
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
+# Add backend/src and project root to sys.path so tests can import all packages
+backend_root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, backend_root)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Third-party dependency noise (Python 3.12 deprecates audioop but shazamio/pydub still import it)
+warnings.filterwarnings(
+    "ignore",
+    message="'audioop' is deprecated",
+    category=DeprecationWarning,
+)
+
+# Test Redis factory ---------------------------------------------------------
+
+
+class _AwaitableFakeRedis(fakeredis_aioredis.FakeRedis):
+    """fakeredis client that works with both sync and await callers."""
+
+    def __await__(self):
+        async def _inner():
+            return self
+
+        return _inner().__await__()
+
+
+# Create shared in-memory Redis servers for sync/async code paths.
+_FAKEREDIS_SERVER = FakeServer()
+_TEST_SYNC_REDIS = FakeRedis(server=_FAKEREDIS_SERVER)
+_TEST_ASYNC_REDIS = _AwaitableFakeRedis(
+    server=_FAKEREDIS_SERVER,
+    decode_responses=True,
+    encoding="utf-8",
+)
+
+
+def _sync_from_url(*_args, **_kwargs):
+    return _TEST_SYNC_REDIS
+
+
+def _async_from_url(*_args, **_kwargs):
+    return _TEST_ASYNC_REDIS
+
+
+# Patch redis helpers at import time so any module importing redis uses fakeredis.
+redis.from_url = _sync_from_url
+redis.Redis.from_url = classmethod(lambda cls, *args, **kwargs: _TEST_SYNC_REDIS)
+redis_async.from_url = _async_from_url
+redis_async.Redis.from_url = classmethod(lambda cls, *args, **kwargs: _TEST_ASYNC_REDIS)
+
+
+@pytest.fixture(autouse=True)
+def reset_fake_redis_state():
+    """Ensure fakeredis storage is cleared between tests."""
+
+    _TEST_SYNC_REDIS.flushall()
+    yield
+    _TEST_SYNC_REDIS.flushall()
 
 # Import Base from src.database to match models' Base
 from src.database import Base
 
 # Import all models to register them with Base.metadata
 from src.models.user import User
+from src.models.audit_log import AdminAuditLog
 from src.models.telegram import TelegramAccount, Channel
 from src.models.schedule import ScheduleSlot, ScheduleTemplate, Playlist
 from src.models.playlist import PlaylistItem
@@ -323,6 +387,12 @@ def regular_user(db_session):
     db_session.commit()
     db_session.refresh(user)
     return user
+
+
+@pytest.fixture(scope="function")
+def test_user(regular_user):
+    """Backward-compatible alias so tests using legacy fixture keep working."""
+    return regular_user
 
 
 @pytest.fixture(autouse=True)

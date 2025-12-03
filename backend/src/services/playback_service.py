@@ -15,10 +15,10 @@ Integrates with:
 
 import logging
 from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from src.models import PlaybackSettings
-from src.config.rate_limits import RateLimit
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +42,14 @@ class PlaybackService:
         self.db = db_session
         self.logger = logger
     
+    @staticmethod
+    def _channel_scope(channel_id: Optional[int], fallback: int) -> int:
+        """Return a deterministic channel identifier for multi-channel isolation."""
+
+        if channel_id is None:
+            return int(fallback)
+        return int(channel_id)
+
     def get_or_create_settings(self, user_id: int, channel_id: Optional[int] = None) -> PlaybackSettings:
         """
         Get existing playback settings or create new ones.
@@ -53,16 +61,22 @@ class PlaybackService:
         Returns:
             PlaybackSettings object
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         settings = self.db.query(PlaybackSettings).filter(
             PlaybackSettings.user_id == user_id,
-            PlaybackSettings.channel_id == channel_id
+            PlaybackSettings.channel_id == channel_scope,
         ).first()
         
         if not settings:
-            settings = PlaybackSettings(user_id=user_id, channel_id=channel_id)
+            settings = PlaybackSettings(user_id=user_id, channel_id=channel_scope)
             self.db.add(settings)
             self.db.commit()
-            self.logger.info(f"Created playback settings for user={user_id}, channel={channel_id}")
+            self.logger.info(
+                "Created playback settings for user=%s, channel=%s",
+                user_id,
+                channel_scope,
+            )
         
         return settings
     
@@ -81,6 +95,8 @@ class PlaybackService:
         Raises:
             ValueError: If speed is outside valid range
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         # Validate speed
         if not (self.MIN_SPEED <= speed <= self.MAX_SPEED):
             raise ValueError(
@@ -88,16 +104,22 @@ class PlaybackService:
             )
         
         # Get or create settings
-        settings = self.get_or_create_settings(user_id, channel_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         old_speed = settings.speed
         settings.speed = speed
         self.db.commit()
         
-        self.logger.info(f"Speed changed for user={user_id}: {old_speed}x → {speed}x")
+        self.logger.info(
+            "Speed changed for user=%s channel=%s: %sx → %sx",
+            user_id,
+            channel_scope,
+            old_speed,
+            speed,
+        )
         
         return {
             "user_id": user_id,
-            "channel_id": channel_id,
+            "channel_id": channel_scope,
             "speed": speed,
             "pitch_correction": settings.pitch_correction,
             "message": f"Speed changed to {speed}x"
@@ -118,6 +140,8 @@ class PlaybackService:
         Raises:
             ValueError: If pitch is outside valid range
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         # Validate pitch
         if not (self.MIN_PITCH <= semitones <= self.MAX_PITCH):
             raise ValueError(
@@ -125,15 +149,20 @@ class PlaybackService:
             )
         
         # Get or create settings
-        settings = self.get_or_create_settings(user_id, channel_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         settings.pitch_correction = True  # Enable pitch correction
         self.db.commit()
         
-        self.logger.info(f"Pitch set for user={user_id}: {semitones} semitones")
+        self.logger.info(
+            "Pitch set for user=%s channel=%s: %s semitones",
+            user_id,
+            channel_scope,
+            semitones,
+        )
         
         return {
             "user_id": user_id,
-            "channel_id": channel_id,
+            "channel_id": channel_scope,
             "pitch_semitones": semitones,
             "pitch_correction": True,
             "message": f"Pitch shifted {semitones:+d} semitones"
@@ -150,14 +179,16 @@ class PlaybackService:
         Returns:
             Dict with reset status
         """
-        settings = self.get_or_create_settings(user_id, channel_id)
+        channel_scope = self._channel_scope(channel_id, user_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         settings.speed = self.DEFAULT_SPEED
         self.db.commit()
         
-        self.logger.info(f"Speed reset for user={user_id}")
+        self.logger.info("Speed reset for user=%s channel=%s", user_id, channel_scope)
         
         return {
             "user_id": user_id,
+            "channel_id": channel_scope,
             "speed": self.DEFAULT_SPEED,
             "message": "Speed reset to 1.0x"
         }
@@ -177,14 +208,21 @@ class PlaybackService:
         Raises:
             ValueError: If position is negative
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         if position_ms < 0:
             raise ValueError(f"Position cannot be negative, got {position_ms}ms")
         
-        self.logger.info(f"Seek requested for user={user_id} to position={position_ms}ms")
+        self.logger.info(
+            "Seek requested for user=%s channel=%s to position=%sms",
+            user_id,
+            channel_scope,
+            position_ms,
+        )
         
         return {
             "user_id": user_id,
-            "channel_id": channel_id,
+            "channel_id": channel_scope,
             "position_ms": position_ms,
             "message": f"Seeking to {position_ms}ms ({position_ms // 1000}s)"
         }
@@ -204,10 +242,17 @@ class PlaybackService:
         Raises:
             ValueError: If position is negative
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         if position_seconds < 0:
             raise ValueError(f"Position cannot be negative, got {position_seconds}s")
         
-        self.logger.info(f"Seek to {position_seconds}s for user={user_id}, channel={channel_id}")
+        self.logger.info(
+            "Seek to %ss for user=%s channel=%s",
+            position_seconds,
+            user_id,
+            channel_scope,
+        )
         
         # TODO: Integration with PyTgCalls seek_stream API
         # This will be implemented in T021 (streamer/playback_control.py)
@@ -229,6 +274,8 @@ class PlaybackService:
         Raises:
             ValueError: If seconds is not positive
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         if seconds <= 0:
             raise ValueError(f"Rewind duration must be positive, got {seconds}s")
         
@@ -236,7 +283,14 @@ class PlaybackService:
         current_position = 0  # TODO: Get from stream state
         new_position = max(0, current_position - seconds)
         
-        self.logger.info(f"Rewind {seconds}s for user={user_id}: {current_position}s → {new_position}s")
+        self.logger.info(
+            "Rewind %ss for user=%s channel=%s: %ss → %ss",
+            seconds,
+            user_id,
+            channel_scope,
+            current_position,
+            new_position,
+        )
         
         return new_position
     
@@ -254,9 +308,12 @@ class PlaybackService:
             - total_duration_seconds: Total track duration
             - is_playing: Whether stream is currently playing
         """
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         # TODO: Get actual position from PyTgCalls/GStreamer
         # For now, return placeholder data
         return {
+            "channel_id": channel_scope,
             "current_position_seconds": 0,
             "total_duration_seconds": 0,
             "is_playing": False
@@ -273,11 +330,12 @@ class PlaybackService:
         Returns:
             Dict with all playback settings
         """
-        settings = self.get_or_create_settings(user_id, channel_id)
+        channel_scope = self._channel_scope(channel_id, user_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         
         return {
             "user_id": user_id,
-            "channel_id": channel_id,
+            "channel_id": channel_scope,
             "speed": settings.speed,
             "pitch_correction": settings.pitch_correction,
             "equalizer_preset": settings.equalizer_preset,
@@ -303,9 +361,10 @@ class PlaybackService:
         """
         from streamer.playback_control import get_playback_controller
         
-        settings = self.get_or_create_settings(user_id, channel_id)
+        channel_scope = self._channel_scope(channel_id, user_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         controller = get_playback_controller()
-        channel_id_str = str(channel_id or user_id)
+        channel_id_str = str(channel_scope)
         
         # Get live state from playback controller
         live_state = controller.get_equalizer_state(channel_id_str)
@@ -317,7 +376,11 @@ class PlaybackService:
                 settings.equalizer_custom = live_state["bands"]
             self.db.commit()
         
-        return live_state
+        return {
+            "user_id": user_id,
+            "channel_id": channel_scope,
+            **live_state,
+        }
     
     def set_equalizer_preset(
         self, user_id: int, preset_name: str, channel_id: Optional[int] = None
@@ -347,24 +410,33 @@ class PlaybackService:
             )
         
         # Apply to playback controller
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         controller = get_playback_controller()
-        channel_id_str = str(channel_id or user_id)
+        channel_id_str = str(channel_scope)
         success = controller.set_equalizer_preset(channel_id_str, preset_name)
         
         if not success:
             raise RuntimeError("Failed to apply equalizer preset. GStreamer may not be available.")
         
         # Update DB settings
-        settings = self.get_or_create_settings(user_id, channel_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         settings.equalizer_preset = preset_name
         settings.equalizer_custom = None  # Clear custom bands
         self.db.commit()
         
         preset = get_preset(preset_name)
-        self.logger.info(f"Equalizer preset '{preset_name}' set for user={user_id}")
+        self.logger.info(
+            "Equalizer preset '%s' set for user=%s channel=%s",
+            preset_name,
+            user_id,
+            channel_scope,
+        )
         
         return {
             "success": True,
+            "user_id": user_id,
+            "channel_id": channel_scope,
             "preset": preset_name,
             "display_name": preset.display_name,
             "description": preset.description,
@@ -395,23 +467,31 @@ class PlaybackService:
         validate_custom_bands(bands)
         
         # Apply to playback controller
+        channel_scope = self._channel_scope(channel_id, user_id)
+
         controller = get_playback_controller()
-        channel_id_str = str(channel_id or user_id)
+        channel_id_str = str(channel_scope)
         success = controller.set_equalizer_custom(channel_id_str, bands)
         
         if not success:
             raise RuntimeError("Failed to apply custom equalizer. GStreamer may not be available.")
         
         # Update DB settings
-        settings = self.get_or_create_settings(user_id, channel_id)
+        settings = self.get_or_create_settings(user_id, channel_scope)
         settings.equalizer_preset = "custom"
         settings.equalizer_custom = bands
         self.db.commit()
         
-        self.logger.info(f"Custom equalizer bands set for user={user_id}")
+        self.logger.info(
+            "Custom equalizer bands set for user=%s channel=%s",
+            user_id,
+            channel_scope,
+        )
         
         return {
             "success": True,
+            "user_id": user_id,
+            "channel_id": channel_scope,
             "preset": "custom",
             "bands": bands,
         }

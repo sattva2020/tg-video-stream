@@ -218,3 +218,245 @@ async def notify_playlist_reordered(channel_id: Optional[str] = None):
         await manager.broadcast_to_channel(channel_id, message)
     else:
         await manager.broadcast_all(message)
+
+
+# === Queue Events (US1 - Queue System) ===
+
+async def notify_queue_update(
+    channel_id: int,
+    operation: str,
+    item_id: Optional[str] = None,
+    position: Optional[int] = None,
+    item_data: Optional[dict] = None
+):
+    """
+    Уведомить клиентов об изменении очереди.
+    
+    Args:
+        channel_id: ID канала
+        operation: Тип операции (add, remove, move, clear, skip, priority_add)
+        item_id: ID элемента (опционально)
+        position: Новая позиция (для move)
+        item_data: Данные элемента (для add)
+    """
+    message = {
+        "type": "queue_update",
+        "channel_id": channel_id,
+        "operation": operation,
+        "timestamp": _get_timestamp()
+    }
+    
+    if item_id:
+        message["item_id"] = item_id
+    if position is not None:
+        message["position"] = position
+    if item_data:
+        message["item"] = item_data
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    
+    # Также отправляем в общий канал
+    await manager.broadcast_to_channel(None, message)
+
+
+async def notify_stream_state_update(
+    channel_id: int,
+    status: str,
+    current_item_id: Optional[str] = None,
+    listeners_count: int = 0,
+    is_placeholder: bool = False,
+    current_position: int = 0
+):
+    """
+    Уведомить клиентов об изменении состояния стрима.
+    
+    Args:
+        channel_id: ID канала
+        status: Статус (playing, paused, stopped, placeholder)
+        current_item_id: ID текущего трека
+        listeners_count: Количество слушателей
+        is_placeholder: Воспроизводится ли placeholder
+        current_position: Текущая позиция в секундах
+    """
+    message = {
+        "type": "stream_state",
+        "channel_id": channel_id,
+        "status": status,
+        "current_item_id": current_item_id,
+        "listeners_count": listeners_count,
+        "is_placeholder": is_placeholder,
+        "current_position": current_position,
+        "timestamp": _get_timestamp()
+    }
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    await manager.broadcast_to_channel(None, message)
+
+
+async def notify_auto_end_warning(
+    channel_id: int,
+    remaining_seconds: int,
+    timeout_at: str
+):
+    """
+    Уведомить клиентов о скором auto-end.
+    
+    Args:
+        channel_id: ID канала
+        remaining_seconds: Оставшееся время до auto-end
+        timeout_at: ISO timestamp завершения
+    """
+    message = {
+        "type": "auto_end_warning",
+        "channel_id": channel_id,
+        "remaining_seconds": remaining_seconds,
+        "timeout_at": timeout_at,
+        "timestamp": _get_timestamp()
+    }
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    await manager.broadcast_to_channel(None, message)
+
+
+async def notify_auto_end_cancelled(channel_id: int):
+    """Уведомить об отмене auto-end таймера."""
+    message = {
+        "type": "auto_end_cancelled",
+        "channel_id": channel_id,
+        "timestamp": _get_timestamp()
+    }
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    await manager.broadcast_to_channel(None, message)
+
+
+async def notify_auto_end_triggered(channel_id: int, reason: str):
+    """
+    Уведомить о срабатывании auto-end.
+    
+    Args:
+        channel_id: ID канала
+        reason: Причина (timeout, no_listeners, manual)
+    """
+    message = {
+        "type": "auto_end_triggered",
+        "channel_id": channel_id,
+        "reason": reason,
+        "timestamp": _get_timestamp()
+    }
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    await manager.broadcast_to_channel(None, message)
+
+
+# === Helper functions ===
+
+def _get_timestamp() -> str:
+    """Получить текущий timestamp в ISO формате."""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
+# === Metrics Broadcast (T047 - Periodic metrics update) ===
+
+_metrics_broadcast_task: Optional[asyncio.Task] = None
+
+
+async def _periodic_metrics_broadcast():
+    """
+    Периодическая рассылка метрик всем подключенным клиентам.
+    
+    Интервал: 5 секунд
+    """
+    while True:
+        try:
+            await asyncio.sleep(5)
+            
+            # Собираем метрики
+            metrics = await _get_current_metrics()
+            
+            # Отправляем всем
+            await manager.broadcast_all({
+                "type": "metrics_update",
+                "data": metrics,
+                "timestamp": _get_timestamp()
+            })
+            
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error(f"Metrics broadcast error: {e}")
+            await asyncio.sleep(5)
+
+
+async def _get_current_metrics() -> dict:
+    """
+    Получить текущие метрики системы.
+    
+    Returns:
+        Dict с метриками стримов, очередей и системы
+    """
+    try:
+        from src.services.prometheus_metrics import prometheus_helper
+        
+        stats = prometheus_helper.get_current_values()
+        
+        return {
+            "streams": {
+                "active": stats.get("streams", {}).get("active", 0),
+                "total_listeners": stats.get("streams", {}).get("listeners", 0)
+            },
+            "queue": {
+                "total_items": stats.get("queue", {}).get("size", 0)
+            },
+            "http": {
+                "requests_in_progress": stats.get("http", {}).get("in_progress", 0)
+            },
+            "websocket": {
+                "connections": manager._total_connections()
+            }
+        }
+    except Exception as e:
+        log.error(f"Failed to get metrics: {e}")
+        return {}
+
+
+def start_metrics_broadcast():
+    """Запустить фоновую задачу рассылки метрик."""
+    global _metrics_broadcast_task
+    
+    if _metrics_broadcast_task is None or _metrics_broadcast_task.done():
+        _metrics_broadcast_task = asyncio.create_task(_periodic_metrics_broadcast())
+        log.info("Started periodic metrics broadcast")
+
+
+def stop_metrics_broadcast():
+    """Остановить фоновую задачу рассылки метрик."""
+    global _metrics_broadcast_task
+    
+    if _metrics_broadcast_task and not _metrics_broadcast_task.done():
+        _metrics_broadcast_task.cancel()
+        log.info("Stopped periodic metrics broadcast")
+
+
+async def notify_listeners_update(channel_id: int, listeners_count: int):
+    """
+    Уведомить об изменении количества слушателей.
+    
+    Args:
+        channel_id: ID канала
+        listeners_count: Текущее количество слушателей
+    """
+    message = {
+        "type": "listeners_update",
+        "channel_id": channel_id,
+        "listeners_count": listeners_count,
+        "timestamp": _get_timestamp()
+    }
+    
+    await manager.broadcast_to_channel(str(channel_id), message)
+    await manager.broadcast_to_channel(None, message)
+
+
+# Экспорт connection_manager для использования в других модулях
+connection_manager = manager

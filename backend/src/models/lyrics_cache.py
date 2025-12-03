@@ -10,9 +10,14 @@ Database: PostgreSQL (sqlalchemy ORM)
 """
 
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from src.database import Base
+
+
+def utcnow() -> datetime:
+    """Return timezone-aware UTC timestamp."""
+    return datetime.now(timezone.utc)
 
 
 class LyricsCache(Base):
@@ -40,9 +45,9 @@ class LyricsCache(Base):
     source_api = Column(String(50), default="genius")  # API source name
     
     # Timestamps
-    fetched_at = Column(DateTime, default=datetime.utcnow)
-    expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(days=7))
-    last_accessed = Column(DateTime, default=datetime.utcnow)
+    fetched_at = Column(DateTime(timezone=True), default=utcnow)
+    expires_at = Column(DateTime(timezone=True), default=lambda: utcnow() + timedelta(days=7))
+    last_accessed = Column(DateTime(timezone=True), default=utcnow)
     access_count = Column(Integer, default=0)
     
     def __repr__(self):
@@ -50,4 +55,9 @@ class LyricsCache(Base):
     
     def is_expired(self) -> bool:
         """Check if cache entry has expired."""
-        return datetime.utcnow() > self.expires_at
+        expires_at = self.expires_at
+        if expires_at is None:
+            return True
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return utcnow() > expires_at
