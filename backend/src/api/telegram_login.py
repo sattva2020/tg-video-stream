@@ -4,6 +4,7 @@
 """
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from typing import Union
 from src.services.telegram_auth import telegram_auth_service, RateLimitError
 from src.services.telegram_rate_limiter import rate_limiter
 from sqlalchemy.orm import Session
@@ -29,6 +30,11 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class TwoFARequiredResponse(BaseModel):
+    status: str = "2fa_required"
+    message: str = "Введите пароль двухфакторной аутентификации"
 
 
 def _handle_rate_limit_error(e: RateLimitError) -> HTTPException:
@@ -69,11 +75,12 @@ async def send_code_public(request: PhoneRequest):
         raise HTTPException(status_code=400, detail=error_msg)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=Union[TokenResponse, TwoFARequiredResponse])
 async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
     """
     Авторизация через Telegram (публичный endpoint).
     Возвращает JWT токен при успешной авторизации.
+    При необходимости 2FA возвращает status: 2fa_required.
     """
     try:
         # Авторизуемся в Telegram
@@ -84,7 +91,7 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
         )
         
         if telegram_user.get("status") == "2fa_required":
-            return {"status": "2fa_required", "message": "Введите пароль двухфакторной аутентификации"}
+            return TwoFARequiredResponse()
         
         # Получаем данные Telegram пользователя
         telegram_id = telegram_user.get("telegram_id")
