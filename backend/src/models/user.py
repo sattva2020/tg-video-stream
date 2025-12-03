@@ -49,6 +49,12 @@ class User(Base):
         lazy="dynamic",
         cascade="all, delete-orphan"
     )
+    playback_settings = relationship(
+        "PlaybackSettings",
+        back_populates="user",
+        uselist=True,
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<User(email='{self.email}', telegram_id={self.telegram_id})>"
