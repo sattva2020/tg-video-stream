@@ -7,9 +7,11 @@ from pydantic import BaseModel
 from typing import Union
 from src.services.telegram_auth import telegram_auth_service, RateLimitError
 from src.services.telegram_rate_limiter import rate_limiter
+from src.services.encryption import encryption_service
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
+from src.models.telegram import TelegramAccount
 from src.auth.jwt import create_access_token
 import uuid
 from datetime import timedelta
@@ -97,6 +99,8 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
         telegram_id = telegram_user.get("telegram_id")
         first_name = telegram_user.get("first_name", "")
         username = telegram_user.get("username")
+        phone = telegram_user.get("phone")
+        session_string = telegram_user.get("session_string")
         
         if not telegram_id:
             raise HTTPException(status_code=400, detail="Не удалось получить данные пользователя Telegram")
@@ -125,6 +129,39 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
                 user.telegram_username = username
             if first_name:
                 user.name = first_name
+            db.commit()
+        
+        # Сохраняем или обновляем TelegramAccount для стриминга
+        if session_string and phone:
+            encrypted_session = encryption_service.encrypt(session_string)
+            
+            # Ищем существующий аккаунт по telegram_id или phone
+            telegram_account = db.query(TelegramAccount).filter(
+                (TelegramAccount.tg_user_id == telegram_id) | 
+                (TelegramAccount.phone == phone)
+            ).first()
+            
+            if telegram_account:
+                # Обновляем существующий аккаунт
+                telegram_account.encrypted_session = encrypted_session
+                telegram_account.phone = phone
+                telegram_account.tg_user_id = telegram_id
+                telegram_account.first_name = first_name
+                telegram_account.username = username
+                telegram_account.user_id = user.id  # Привязываем к текущему пользователю
+            else:
+                # Создаём новый аккаунт
+                telegram_account = TelegramAccount(
+                    id=uuid.uuid4(),
+                    user_id=user.id,
+                    phone=phone,
+                    encrypted_session=encrypted_session,
+                    tg_user_id=telegram_id,
+                    first_name=first_name,
+                    username=username,
+                )
+                db.add(telegram_account)
+            
             db.commit()
         
         # Создаём JWT токен

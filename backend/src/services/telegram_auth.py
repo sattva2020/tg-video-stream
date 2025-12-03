@@ -230,6 +230,10 @@ class TelegramAuthService:
                 user = await client.check_password(password)
                 print(f"[sign_in_public] 2FA passed! user_id={user.id}", flush=True)
 
+            # Export session string before disconnecting
+            session_string = await client.export_session_string()
+            print(f"[sign_in_public] Session exported, length={len(session_string)}", flush=True)
+
             # Cleanup - only on success
             del _pending_clients[phone]
             r = await self._get_redis()
@@ -241,7 +245,8 @@ class TelegramAuthService:
                 "telegram_id": user.id,
                 "first_name": user.first_name,
                 "username": user.username,
-                "phone": phone
+                "phone": phone,
+                "session_string": session_string  # For saving TelegramAccount
             }
 
         except (PhoneCodeInvalid, PasswordHashInvalid) as e:
