@@ -1,0 +1,523 @@
+# Metrics API Contract
+
+openapi: 3.1.0
+info:
+  title: Sattva Streamer Metrics API
+  version: 1.0.0
+  description: |
+    API для получения метрик системы и стримов.
+    Включает Prometheus endpoint и JSON API для дашборда.
+
+servers:
+  - url: /
+    description: Root for /metrics
+  - url: /api/v1
+    description: JSON API
+
+tags:
+  - name: Prometheus
+    description: Prometheus scrape endpoint
+  - name: Metrics
+    description: JSON API для метрик
+
+paths:
+  /metrics:
+    get:
+      summary: Prometheus metrics endpoint
+      description: |
+        Возвращает метрики в формате Prometheus text exposition.
+        Используется для scraping Prometheus сервером.
+      operationId: getPrometheusMetrics
+      tags: [Prometheus]
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain; version=0.0.4; charset=utf-8:
+              schema:
+                type: string
+              example: |
+                # HELP sattva_active_streams Number of active streams
+                # TYPE sattva_active_streams gauge
+                sattva_active_streams 3
+                
+                # HELP sattva_queue_size Queue size per channel
+                # TYPE sattva_queue_size gauge
+                sattva_queue_size{channel_id="-1001234567890"} 5
+                sattva_queue_size{channel_id="-1001234567891"} 2
+                
+                # HELP sattva_stream_listeners Number of listeners per stream
+                # TYPE sattva_stream_listeners gauge
+                sattva_stream_listeners{channel_id="-1001234567890"} 15
+                
+                # HELP sattva_http_requests_total Total HTTP requests
+                # TYPE sattva_http_requests_total counter
+                sattva_http_requests_total{method="GET",path="/api/queue/{id}",status="200"} 1523
+
+  /api/v1/metrics/system:
+    get:
+      summary: Системные метрики
+      description: Возвращает метрики системы (CPU, память, диск)
+      operationId: getSystemMetrics
+      tags: [Metrics]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Системные метрики
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/metrics/streams:
+    get:
+      summary: Метрики стримов
+      description: Возвращает агрегированные метрики всех активных стримов
+      operationId: getStreamsMetrics
+      tags: [Metrics]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Метрики стримов
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamsMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/metrics/streams/{channel_id}:
+    get:
+      summary: Метрики конкретного стрима
+      description: Возвращает детальные метрики для указанного канала
+      operationId: getStreamMetrics
+      tags: [Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: channel_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Метрики стрима
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamMetricsDetail'
+        '404':
+          description: Стрим не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/metrics/websocket:
+    get:
+      summary: Метрики WebSocket соединений
+      description: Возвращает статистику активных WebSocket соединений
+      operationId: getWebSocketMetrics
+      tags: [Metrics]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: WebSocket метрики
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebSocketMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/metrics/history:
+    get:
+      summary: История метрик
+      description: |
+        Возвращает исторические данные метрик за указанный период.
+        Данные агрегированы по интервалам.
+      operationId: getMetricsHistory
+      tags: [Metrics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - active_streams
+              - queue_size
+              - listeners_count
+              - cpu_usage
+              - memory_usage
+        - name: channel_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Фильтр по каналу (для queue_size, listeners_count)
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Начало периода (default: 1 час назад)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Конец периода (default: сейчас)
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [1m, 5m, 15m, 1h]
+            default: 5m
+          description: Интервал агрегации
+      responses:
+        '200':
+          description: История метрик
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricsHistory'
+        '400':
+          description: Некорректные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SystemMetrics:
+      type: object
+      properties:
+        cpu:
+          type: object
+          properties:
+            usage_percent:
+              type: number
+              format: float
+              example: 45.2
+            cores:
+              type: integer
+              example: 4
+            load_average:
+              type: array
+              items:
+                type: number
+              example: [1.2, 0.8, 0.5]
+        memory:
+          type: object
+          properties:
+            usage_percent:
+              type: number
+              format: float
+              example: 62.5
+            total_gb:
+              type: number
+              format: float
+              example: 8.0
+            used_gb:
+              type: number
+              format: float
+              example: 5.0
+            available_gb:
+              type: number
+              format: float
+              example: 3.0
+        disk:
+          type: object
+          properties:
+            usage_percent:
+              type: number
+              format: float
+              example: 35.0
+            total_gb:
+              type: number
+              format: float
+              example: 100.0
+            used_gb:
+              type: number
+              format: float
+              example: 35.0
+            free_gb:
+              type: number
+              format: float
+              example: 65.0
+        network:
+          type: object
+          properties:
+            bytes_sent:
+              type: integer
+              format: int64
+              example: 1234567890
+            bytes_recv:
+              type: integer
+              format: int64
+              example: 9876543210
+        uptime_seconds:
+          type: integer
+          example: 86400
+        timestamp:
+          type: string
+          format: date-time
+
+    StreamsMetrics:
+      type: object
+      properties:
+        total_active_streams:
+          type: integer
+          example: 3
+        total_listeners:
+          type: integer
+          example: 45
+        total_queue_items:
+          type: integer
+          example: 12
+        streams:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamMetricsSummary'
+        timestamp:
+          type: string
+          format: date-time
+
+    StreamMetricsSummary:
+      type: object
+      properties:
+        channel_id:
+          type: integer
+          example: -1001234567890
+        channel_name:
+          type: string
+          example: "Sattva FM"
+        status:
+          type: string
+          enum: [playing, paused, stopped, placeholder]
+        listeners_count:
+          type: integer
+          example: 15
+        queue_size:
+          type: integer
+          example: 5
+        current_track:
+          type: string
+          nullable: true
+          example: "Meditation Music - 1 Hour"
+        uptime_seconds:
+          type: integer
+          example: 3600
+
+    StreamMetricsDetail:
+      type: object
+      properties:
+        channel_id:
+          type: integer
+        channel_name:
+          type: string
+        status:
+          type: string
+          enum: [playing, paused, stopped, placeholder]
+        listeners:
+          type: object
+          properties:
+            current:
+              type: integer
+              example: 15
+            peak:
+              type: integer
+              example: 25
+            average:
+              type: number
+              format: float
+              example: 12.5
+        queue:
+          type: object
+          properties:
+            size:
+              type: integer
+              example: 5
+            total_duration_seconds:
+              type: integer
+              example: 18000
+            operations:
+              type: object
+              properties:
+                added:
+                  type: integer
+                  example: 150
+                removed:
+                  type: integer
+                  example: 145
+                skipped:
+                  type: integer
+                  example: 10
+        playback:
+          type: object
+          properties:
+            current_track:
+              type: string
+              nullable: true
+            current_position:
+              type: integer
+              example: 120
+            total_tracks_played:
+              type: integer
+              example: 50
+            total_playback_time_seconds:
+              type: integer
+              example: 36000
+        auto_end:
+          type: object
+          properties:
+            triggers_count:
+              type: integer
+              example: 2
+            current_timer:
+              type: object
+              nullable: true
+              properties:
+                started_at:
+                  type: string
+                  format: date-time
+                remaining_seconds:
+                  type: integer
+        started_at:
+          type: string
+          format: date-time
+        last_activity:
+          type: string
+          format: date-time
+
+    WebSocketMetrics:
+      type: object
+      properties:
+        total_connections:
+          type: integer
+          example: 50
+        connections_by_channel:
+          type: array
+          items:
+            type: object
+            properties:
+              channel_id:
+                type: string
+                nullable: true
+              count:
+                type: integer
+        connections_by_event:
+          type: object
+          additionalProperties:
+            type: integer
+          example:
+            playlist_update: 30
+            metrics_update: 15
+            listeners_update: 5
+        messages_sent:
+          type: integer
+          example: 15000
+        messages_per_second:
+          type: number
+          format: float
+          example: 2.5
+        timestamp:
+          type: string
+          format: date-time
+
+    MetricsHistory:
+      type: object
+      properties:
+        metric:
+          type: string
+          example: "listeners_count"
+        channel_id:
+          type: integer
+          nullable: true
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        interval:
+          type: string
+          example: "5m"
+        data_points:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              value:
+                type: number
+              min:
+                type: number
+                nullable: true
+              max:
+                type: number
+                nullable: true
+              avg:
+                type: number
+                nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    ValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "validation_error"
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+  responses:
+    Unauthorized:
+      description: Требуется авторизация
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
