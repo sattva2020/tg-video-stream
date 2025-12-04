@@ -25,7 +25,7 @@ interface LyricsLine {
   text: string;
 }
 
-interface LyricsDisplayProps {
+export interface LyricsDisplayProps {
   /** Track title for lyrics lookup */
   trackTitle?: string;
   /** Artist name for lyrics lookup */

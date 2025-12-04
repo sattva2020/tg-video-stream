@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 import axios from 'axios';
 
-interface LanguageSwitcherProps {
+export interface LanguageSwitcherProps {
   /** Style variant: dropdown, inline, or compact */
   variant?: 'dropdown' | 'inline' | 'compact';
   /** Callback when language changes */

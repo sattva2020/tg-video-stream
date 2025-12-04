@@ -13,6 +13,6 @@ export { LanguageSwitcher } from './LanguageSwitcher';
 // Type exports
 export type { SpeedControlProps } from './SpeedControl';
 export type { SeekBarProps } from './SeekBar';
-export type { EqualizerPanelProps, EqualizerPreset, EqualizerBand } from './EqualizerPanel';
+export type { EqualizerPanelProps, EqualizerPreset } from './EqualizerPanel';
 export type { LyricsDisplayProps } from './LyricsDisplay';
 export type { LanguageSwitcherProps } from './LanguageSwitcher';

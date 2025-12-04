@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Play, SkipBack, SkipForward } from 'lucide-react';
 
-interface SeekBarProps {
+export interface SeekBarProps {
   /** Current playback position in seconds */
   currentTime?: number;
   /** Total track duration in seconds */

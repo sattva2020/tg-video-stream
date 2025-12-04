@@ -92,7 +92,7 @@ export const Monitoring: React.FC = () => {
     metrics,
     isConnected,
     error,
-    streamStates,
+    streams: streamMap,
     autoEndWarnings,
     lastUpdate,
   } = useMonitoringWebSocket({
@@ -102,8 +102,8 @@ export const Monitoring: React.FC = () => {
 
   // Convert streamStates Map to array
   const streams = useMemo((): StreamState[] => {
-    return Array.from(streamStates.values());
-  }, [streamStates]);
+    return Array.from(streamMap.values());
+  }, [streamMap]);
 
   // Get active streams only
   const activeStreams = useMemo(() => {
@@ -245,7 +245,7 @@ export const Monitoring: React.FC = () => {
           <details>
             <summary className="cursor-pointer hover:text-white">Debug Info</summary>
             <pre className="mt-2 overflow-auto max-h-64">
-              {JSON.stringify({ metrics, streamStates: Object.fromEntries(streamStates), autoEndWarnings: Object.fromEntries(autoEndWarnings) }, null, 2)}
+              {JSON.stringify({ metrics, streamStates: Object.fromEntries(streamMap), autoEndWarnings: Object.fromEntries(autoEndWarnings) }, null, 2)}
             </pre>
           </details>
         </div>

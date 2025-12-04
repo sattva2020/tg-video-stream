@@ -18,7 +18,7 @@ test.describe('Landing responsive layout', () => {
     });
     expect(hasHorizontalScroll).toBeFalsy();
 
-    const cta = page.getByRole('link', { name: /enter/i });
+    const cta = page.getByRole('link', { name: /get started/i }).first();
     await expect(cta).toBeVisible();
 
     const isCTAInViewport = await cta.evaluate((node) => {

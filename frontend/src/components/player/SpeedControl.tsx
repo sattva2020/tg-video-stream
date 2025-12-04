@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Play } from 'lucide-react';
 
-interface SpeedControlProps {
+export interface SpeedControlProps {
   /** Initial speed value (0.5 - 2.0) */
   initialSpeed?: number;
   /** Callback when speed changes */

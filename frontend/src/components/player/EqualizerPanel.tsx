@@ -18,14 +18,14 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Volume2, Settings, X } from 'lucide-react';
 
-interface EqualizerPreset {
+export interface EqualizerPreset {
   id: string;
   name: string;
   description?: string;
   bands: number[]; // Array of 10 dB values
 }
 
-interface EqualizerPanelProps {
+export interface EqualizerPanelProps {
   /** Initial preset ID */
   initialPreset?: string;
   /** Callback when preset changes */
