@@ -11,9 +11,12 @@ import {
   LucideIcon
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { UserRole } from '../../types/user';
+
+type QuickActionId = 'stream-toggle' | 'restart' | 'users' | 'playlist' | 'settings';
 
 interface QuickAction {
-  id: string;
+  id: QuickActionId;
   icon: LucideIcon;
   label: string;
   description: string;
@@ -32,7 +35,16 @@ interface QuickActionsProps {
   onOpenSettings: () => void;
   streamStatus: 'running' | 'stopped' | 'error' | 'unknown';
   isLoading?: boolean;
+  role?: UserRole;
 }
+
+const QUICK_ACTIONS_BY_ROLE: Record<UserRole, readonly QuickActionId[]> = {
+  [UserRole.SUPERADMIN]: ['stream-toggle', 'restart', 'users', 'playlist', 'settings'],
+  [UserRole.ADMIN]: ['stream-toggle', 'restart', 'users', 'playlist', 'settings'],
+  [UserRole.MODERATOR]: ['stream-toggle', 'restart', 'playlist'],
+  [UserRole.OPERATOR]: ['stream-toggle', 'restart'],
+  [UserRole.USER]: ['stream-toggle', 'restart'],
+};
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
   onStartStream,
@@ -43,9 +55,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   onOpenSettings,
   streamStatus,
   isLoading = false,
+  role,
 }) => {
   const { t } = useTranslation();
   const isRunning = streamStatus === 'running';
+  const resolvedRole = role ?? UserRole.ADMIN;
+  const allowedActions = new Set(QUICK_ACTIONS_BY_ROLE[resolvedRole] ?? QUICK_ACTIONS_BY_ROLE[UserRole.USER]);
 
   const actions: QuickAction[] = [
     {
@@ -108,7 +123,9 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       </div>
       
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {actions.map((action, index) => (
+        {actions
+          .filter((action) => allowedActions.has(action.id))
+          .map((action, index) => (
           <motion.button
             key={action.id}
             initial={{ opacity: 0, y: 20 }}
@@ -151,7 +168,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
               </div>
             </div>
           </motion.button>
-        ))}
+          ))}
       </div>
     </div>
   );

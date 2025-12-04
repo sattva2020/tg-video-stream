@@ -1,7 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-const MOCK_API = true; // Force mock for this test to ensure deterministic behavior
-
 test.describe('Playlist Status UI', () => {
   test.beforeEach(async ({ page }) => {
     // Mock Auth

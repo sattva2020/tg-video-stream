@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sattva Help Center</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --panel: #1b1f27;
+        --text: #f4f6fb;
+        --muted: #a7b0c5;
+        --accent: #a855f7;
+      }
+      body {
+        margin: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 48px 24px 16px;
+        text-align: center;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3rem);
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 24px 64px;
+        display: grid;
+        gap: 24px;
+      }
+      section {
+        background: var(--panel);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+      h2 {
+        margin-top: 0;
+        font-size: 1.5rem;
+      }
+      p,
+      li {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      ul {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 8px;
+      }
+      .pill-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .pill {
+        padding: 8px 16px;
+        border-radius: 999px;
+        background: rgba(168, 85, 247, 0.15);
+        color: var(--text);
+        font-size: 0.9rem;
+        text-decoration: none;
+      }
+      .contact-card {
+        display: grid;
+        gap: 12px;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p>Sattva · Центр поддержки</p>
+      <h1>Помогаем работать с ролью и дашбордом</h1>
+      <p>Подберите сценарий: супер-админ, админ, модератор, оператор или слушатель.</p>
+    </header>
+    <main>
+      <section>
+        <h2>Быстрые ссылки</h2>
+        <div class="pill-list">
+          <span class="pill">US1 · Модераторы</span>
+          <span class="pill">US2 · Суперадмины</span>
+          <span class="pill">US4 · Операторы</span>
+          <span class="pill">US5 · Пользователи</span>
+        </div>
+        <ul>
+          <li><strong>Доступ к админ-панели:</strong> модераторы видят AdminDashboardV2 без вкладки Users.</li>
+          <li><strong>Управление трансляциями:</strong> операторы используют OperatorDashboard c действиями Play/Stop/Restart.</li>
+          <li><strong>Навигация:</strong> супер-админы всегда видят Monitoring, Users, Pending.</li>
+          <li><strong>Справка:</strong> раздел «Помощь» на пользовательском дашборде открывает эту страницу.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Частые вопросы</h2>
+        <ul>
+          <li><strong>Почему нет Users вкладки?</strong> Роль MODERATOR не имеет права управлять пользователями. Назначьте ADMIN, чтобы увидеть вкладку.</li>
+          <li><strong>Как проверить доступы?</strong> Используйте чеклист в <code>specs/018-role-ui-fixes/quickstart.md</code> и убедитесь, что роль передаётся в JWT.</li>
+          <li><strong>Что делать при ошибке API?</strong> OperatorDashboard показывает toast и предлагает повторить попытку. Проверьте состояние стрима в Monitoring.</li>
+        </ul>
+      </section>
+      <section class="contact-card">
+        <h2>Нужна помощь?</h2>
+        <p>Свяжитесь с дежурным инженером через Telegram канал @sattva-support или создайте задачу в Service Desk.</p>
+        <p>Отправляя запрос, приложите ID пользователя, роль и скриншот проблемы.</p>
+      </section>
+    </main>
+  </body>
+</html>

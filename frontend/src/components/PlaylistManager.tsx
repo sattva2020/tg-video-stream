@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Reorder, useDragControls, motion } from 'framer-motion';
 import { Card, CardBody, CardHeader, Button, Input, Select, SelectItem, Chip } from '@heroui/react';
@@ -113,7 +113,7 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
-    const fetchPlaylist = async () => {
+    const fetchPlaylist = useCallback(async () => {
         setLoading(true);
         try {
             const response = await client.get('/api/playlist/');
@@ -124,9 +124,9 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast, t]);
 
-    const fetchLocalFiles = async () => {
+    const fetchLocalFiles = useCallback(async () => {
         try {
             const response = await client.get('/api/files/');
             setLocalFiles(response.data);
@@ -137,17 +137,17 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
             console.error('Failed to fetch local files', err);
             toast.error(t('playlist.filesLoadError', 'Не удалось загрузить локальные файлы'));
         }
-    };
+    }, [toast, t]);
 
     useEffect(() => {
         fetchPlaylist();
-    }, [token]);
+    }, [token, fetchPlaylist]);
 
     useEffect(() => {
         if (sourceType === 'local') {
             fetchLocalFiles();
         }
-    }, [sourceType]);
+    }, [sourceType, fetchLocalFiles]);
 
     const handleReorder = (newItems: PlaylistItem[]) => {
         setItems(newItems);

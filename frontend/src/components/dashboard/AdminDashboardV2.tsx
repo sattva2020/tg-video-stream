@@ -26,12 +26,22 @@ import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
+import { UserRole } from '../../types/user';
+import { ROLE_PERMISSIONS } from '../../types/permissions';
 
-export const AdminDashboardV2: React.FC = () => {
+interface AdminDashboardV2Props {
+  role?: UserRole;
+}
+
+export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  const resolvedRole = role ?? UserRole.ADMIN;
+  const permissions = ROLE_PERMISSIONS[resolvedRole];
+  const canManageUsers = permissions?.canManageUsers ?? false;
   
   // State
   const [activeTab, setActiveTab] = useState('overview');
@@ -186,6 +196,7 @@ export const AdminDashboardV2: React.FC = () => {
         onOpenSettings={handleOpenSettings}
         streamStatus={streamStatus}
         isLoading={isStreamLoading}
+        role={resolvedRole}
       />
 
       {/* Main Content Tabs */}
@@ -213,11 +224,13 @@ export const AdminDashboardV2: React.FC = () => {
           </div>
         </Tab>
 
-        <Tab key="users" title={t('admin.users', 'Пользователи')}>
-          <div className="mt-4">
-            <UserManagementPanel />
-          </div>
-        </Tab>
+        {canManageUsers && (
+          <Tab key="users" title={t('admin.users', 'Пользователи')}>
+            <div className="mt-4">
+              <UserManagementPanel />
+            </div>
+          </Tab>
+        )}
 
         <Tab key="stream" title={t('admin.stream', 'Трансляция')}>
           <div className="grid lg:grid-cols-2 gap-6 mt-4">

@@ -28,7 +28,10 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 from src.database import Base
 # Import all models to ensure they are registered with Base.metadata
-from src.models import User, TelegramAccount, Channel, PlaylistItem
+from src.models import (
+    User, TelegramAccount, Channel, PlaylistItem,
+    PlaybackSettings, RadioStream, ScheduledPlaylist, LyricsCache
+)
 
 target_metadata = Base.metadata
 

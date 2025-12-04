@@ -1,23 +1,24 @@
 """
 Equalizer Commands for Telegram Bot
 
-Telegram команды для управления эквалайзером:
-- /eq - показать текущий пресет и список доступных
-- /eq <preset> - установить пресет эквалайзера
+Telegram команды для управления эквалайзером через PlaybackService API:
+- /eq — показать текущее состояние и каталог пресетов
+- /eq <preset> — применить пресет (bass_boost, meditation и т.д.)
 """
 
-from typing import Optional
 import logging
+from typing import List, Tuple
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import CallbackQueryHandler, ContextTypes
 
-from streamer.playback_control import get_playback_controller
+from database import SessionLocal
 from src.config.equalizer_presets import (
     EQUALIZER_PRESETS,
     PRESET_CATEGORIES,
-    list_presets_by_category,
+    list_presets_grouped_with_metadata,
 )
+from src.services.playback_service import PlaybackService
 from src.telegram.utils.auth import get_or_create_user
 from src.telegram.utils.decorators import with_error_handling
 
@@ -33,118 +34,70 @@ async def eq_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         /eq - показать текущий пресет и меню выбора
         /eq <preset_name> - установить пресет
     """
-    user = await get_or_create_user(update.effective_user)
-    channel_id = str(update.effective_chat.id)
-    
-    playback_controller = get_playback_controller()
-    
-    # Если нет аргументов - показать текущее состояние и меню
-    if not context.args:
-        await _show_equalizer_menu(update, channel_id, playback_controller)
+    message = update.effective_message
+    if message is None:
+        logger.error("/eq command invoked without message context")
         return
-    
-    # Если указан пресет - установить его
-    preset_name = context.args[0].lower()
-    
-    if preset_name not in EQUALIZER_PRESETS:
-        await update.message.reply_text(
-            f"❌ Неизвестный пресет: {preset_name}\n\n"
-            f"Используйте /eq для просмотра доступных пресетов"
-        )
-        return
-    
-    # Установить пресет
+
+    db = SessionLocal()
     try:
-        success = playback_controller.set_equalizer_preset(channel_id, preset_name)
-        
-        if success:
-            preset = EQUALIZER_PRESETS[preset_name]
-            await update.message.reply_text(
-                f"🎛️ <b>Эквалайзер обновлен</b>\n\n"
-                f"Пресет: <b>{preset.display_name}</b>\n"
-                f"Описание: {preset.description}",
-                parse_mode="HTML"
+        user = await get_or_create_user(update.effective_user, db)
+        channel_id = update.effective_chat.id
+        playback_service = PlaybackService(db)
+
+        if not context.args:
+            await _reply_with_equalizer_menu(message, playback_service, user.id, channel_id)
+            return
+
+        preset_name = context.args[0].lower()
+
+        try:
+            result = playback_service.set_equalizer_preset(user.id, preset_name, channel_id)
+        except ValueError as exc:
+            await message.reply_text(
+                f"❌ {exc}\n\n"
+                f"Используйте /eq для списка доступных пресетов"
             )
-            
-            logger.info(
-                f"User {user.id} set equalizer preset '{preset_name}' for channel {channel_id}"
+            return
+        except RuntimeError as exc:
+            logger.error("Equalizer backend unavailable", exc_info=True)
+            await message.reply_text(
+                "⚠️ Не удалось применить эквалайзер. Проверите доступность GStreamer."
             )
-        else:
-            await update.message.reply_text(
-                "⚠️ Не удалось применить эквалайзер. "
-                "Возможно, GStreamer не доступен."
-            )
-    
-    except Exception as e:
-        logger.error(f"Error setting equalizer preset: {e}", exc_info=True)
-        await update.message.reply_text(
-            f"❌ Ошибка при установке пресета: {str(e)}"
+            return
+        except Exception as exc:  # noqa: BLE001 - хотим показать текст ошибки
+            logger.error("Unexpected error in /eq", exc_info=True)
+            await message.reply_text(f"❌ Ошибка при установке пресета: {exc}")
+            return
+
+        await message.reply_text(
+            "🎛️ <b>Эквалайзер обновлен</b>\n\n"
+            f"Пресет: <b>{result['display_name']}</b>\n"
+            f"Описание: {result['description']}\n\n"
+            "Используйте /eq для выбора другого пресета",
+            parse_mode="HTML",
         )
 
+        logger.info(
+            "User %s set equalizer preset '%s' for channel %s",
+            user.id,
+            preset_name,
+            channel_id,
+        )
+    finally:
+        db.close()
 
-async def _show_equalizer_menu(update: Update, channel_id: str, playback_controller):
-    """Показать меню выбора пресета эквалайзера."""
-    # Получить текущее состояние
-    eq_state = playback_controller.get_equalizer_state(channel_id)
-    current_preset = eq_state["preset"]
-    
-    # Заголовок сообщения
-    message = "🎛️ <b>Эквалайзер</b>\n\n"
-    
-    if current_preset in EQUALIZER_PRESETS:
-        preset_obj = EQUALIZER_PRESETS[current_preset]
-        message += f"Текущий пресет: <b>{preset_obj.display_name}</b>\n"
-        message += f"{preset_obj.description}\n\n"
-    else:
-        message += f"Текущий пресет: <b>Кастомный</b>\n\n"
-    
-    # Группировка пресетов по категориям
-    presets_by_category = list_presets_by_category()
-    
-    # Создать inline keyboard с пресетами
-    keyboard = []
-    
-    for category, preset_names in presets_by_category.items():
-        # Заголовок категории
-        category_label = PRESET_CATEGORIES.get(category, category)
-        message += f"<b>{category_label}:</b>\n"
-        
-        # Кнопки для пресетов в этой категории
-        category_buttons = []
-        for preset_name in preset_names:
-            preset = EQUALIZER_PRESETS[preset_name]
-            
-            # Добавить ✓ если это текущий пресет
-            label = preset.display_name
-            if preset_name == current_preset:
-                label = f"✓ {label}"
-            
-            # Команда для установки пресета
-            message += f"  • {preset.display_name} - /eq {preset_name}\n"
-            
-            category_buttons.append(
-                InlineKeyboardButton(
-                    label,
-                    callback_data=f"eq:{preset_name}"
-                )
-            )
-        
-        # Добавить ряды кнопок (по 2 в ряд)
-        for i in range(0, len(category_buttons), 2):
-            row = category_buttons[i:i+2]
-            keyboard.append(row)
-        
-        message += "\n"
-    
-    message += "Выберите пресет из кнопок ниже или используйте команду /eq <название>"
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        message,
-        parse_mode="HTML",
-        reply_markup=reply_markup
-    )
+
+async def _reply_with_equalizer_menu(
+    message,
+    playback_service: PlaybackService,
+    user_id: int,
+    channel_id: int,
+) -> None:
+    eq_state = playback_service.get_equalizer_state(user_id, channel_id)
+    categories, total = _build_preset_catalog()
+    text, markup = _render_equalizer_view(eq_state, categories, total)
+    await message.reply_text(text, parse_mode="HTML", reply_markup=markup)
 
 
 async def eq_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -155,52 +108,125 @@ async def eq_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     """
     query = update.callback_query
     await query.answer()
-    
-    user = await get_or_create_user(update.effective_user)
-    channel_id = str(update.effective_chat.id)
-    
-    # Парсить callback data
+
     if not query.data or not query.data.startswith("eq:"):
         await query.edit_message_text("❌ Неверный формат данных")
         return
-    
-    preset_name = query.data[3:]  # Удалить "eq:" префикс
-    
-    if preset_name not in EQUALIZER_PRESETS:
-        await query.edit_message_text(f"❌ Неизвестный пресет: {preset_name}")
-        return
-    
-    # Установить пресет
-    playback_controller = get_playback_controller()
-    
+
+    preset_name = query.data[3:]
+    db = SessionLocal()
     try:
-        success = playback_controller.set_equalizer_preset(channel_id, preset_name)
-        
-        if success:
-            preset = EQUALIZER_PRESETS[preset_name]
-            
-            # Обновить сообщение
+        user = await get_or_create_user(update.effective_user, db)
+        channel_id = update.effective_chat.id
+        playback_service = PlaybackService(db)
+
+        try:
+            playback_service.set_equalizer_preset(user.id, preset_name, channel_id)
+        except ValueError as exc:
+            await query.edit_message_text(f"❌ {exc}")
+            return
+        except RuntimeError:
             await query.edit_message_text(
-                f"🎛️ <b>Эквалайзер обновлен</b>\n\n"
-                f"Пресет: <b>{preset.display_name}</b>\n"
-                f"Описание: {preset.description}\n\n"
-                f"Используйте /eq для изменения пресета",
-                parse_mode="HTML"
+                "⚠️ Не удалось применить эквалайзер. Проверьте состояние пайплайна."
             )
-            
-            logger.info(
-                f"User {user.id} set equalizer preset '{preset_name}' "
-                f"via callback for channel {channel_id}"
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Error in eq callback handler", exc_info=True)
+            await query.edit_message_text(f"❌ Ошибка: {exc}")
+            return
+
+        eq_state = playback_service.get_equalizer_state(user.id, channel_id)
+        categories, total = _build_preset_catalog()
+        text, markup = _render_equalizer_view(eq_state, categories, total)
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=markup)
+
+        logger.info(
+            "User %s set equalizer preset '%s' via callback for channel %s",
+            user.id,
+            preset_name,
+            channel_id,
+        )
+    finally:
+        db.close()
+
+
+def _build_preset_catalog() -> Tuple[List[dict], int]:
+    """Подготовить структуру каталога как в REST API."""
+
+    grouped = list_presets_grouped_with_metadata()
+    categories: List[dict] = []
+    total = 0
+
+    for category_id, presets in grouped.items():
+        sorted_presets = sorted(presets, key=lambda preset: preset["display_name"])
+        categories.append(
+            {
+                "id": category_id,
+                "label": PRESET_CATEGORIES.get(category_id, category_id.title()),
+                "presets": sorted_presets,
+            }
+        )
+        total += len(sorted_presets)
+
+    categories.sort(key=lambda category: category["label"])
+    return categories, total
+
+
+def _render_equalizer_view(
+    eq_state: dict,
+    categories: List[dict],
+    total: int,
+) -> Tuple[str, InlineKeyboardMarkup]:
+    """Сформировать текст и клавиатуру для отображения каталога."""
+
+    current_preset = eq_state.get("preset", "flat")
+    lines: List[str] = ["🎛️ <b>Эквалайзер</b>", ""]
+
+    if current_preset == "custom":
+        lines.append("Текущий пресет: <b>Кастомный</b>")
+        lines.append("Настройки были сохранены вручную")
+    elif current_preset in EQUALIZER_PRESETS:
+        preset_obj = EQUALIZER_PRESETS[current_preset]
+        lines.append(f"Текущий пресет: <b>{preset_obj.display_name}</b>")
+        lines.append(preset_obj.description)
+    else:
+        lines.append(f"Текущий пресет: <b>{current_preset}</b>")
+    lines.append("")
+    lines.append(f"Всего доступно пресетов: {total}")
+    lines.append("")
+
+    keyboard: List[List[InlineKeyboardButton]] = []
+    for category in categories:
+        lines.append(f"<b>{category['label']}:</b>")
+        row: List[InlineKeyboardButton] = []
+        for preset in category["presets"]:
+            label = preset["display_name"]
+            if preset["name"] == current_preset:
+                label = f"✓ {label}"
+
+            lines.append(
+                f"  • {preset['display_name']} — /eq {preset['name']}"
             )
-        else:
-            await query.edit_message_text(
-                "⚠️ Не удалось применить эквалайзер. "
-                "Возможно, GStreamer не доступен."
+
+            row.append(
+                InlineKeyboardButton(label, callback_data=f"eq:{preset['name']}")
             )
-    
-    except Exception as e:
-        logger.error(f"Error in eq callback handler: {e}", exc_info=True)
-        await query.edit_message_text(f"❌ Ошибка: {str(e)}")
+
+            if len(row) == 2:
+                keyboard.append(row)
+                row = []
+
+        if row:
+            keyboard.append(row)
+
+        lines.append("")
+
+    lines.append(
+        "Выберите пресет кнопками ниже или отправьте команду /eq <название>"
+    )
+
+    text = "\n".join(lines)
+    return text, InlineKeyboardMarkup(keyboard)
 
 
 def register_equalizer_commands(application):

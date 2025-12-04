@@ -59,7 +59,7 @@ WantedBy=multi-user.target
         try:
             os.makedirs(os.path.dirname(env_file), exist_ok=True)
             
-            session_string = self.encryption_service.decrypt_session(channel.account.encrypted_session)
+            session_string = self.encryption_service.decrypt(channel.account.encrypted_session)
             api_id = os.getenv("API_ID", "")
             api_hash = os.getenv("API_HASH", "")
             

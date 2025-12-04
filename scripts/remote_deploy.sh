@@ -15,6 +15,7 @@ fi
 APP_DIR=/opt/tg_video_streamer
 RELEASES_DIR="$APP_DIR/releases"
 CURRENT_LINK="$APP_DIR/current"
+FALLBACK_ENV="/opt/sattva-streamer/.env"
 
 echo "Using TAR=$TARFILE"
 
@@ -53,6 +54,19 @@ if [ -f "$DEST/requirements.txt" ]; then
   python -m pip install -r "$DEST/requirements.txt" || true
 else
   echo "No requirements.txt in release; skipping pip install"
+fi
+
+# Preserve environment file from previous release or fallback location
+PREVIOUS_ENV=""
+if [ -L "$CURRENT_LINK" ] && [ -f "$CURRENT_LINK/.env" ]; then
+  PREVIOUS_ENV="$CURRENT_LINK/.env"
+elif [ -f "$FALLBACK_ENV" ]; then
+  PREVIOUS_ENV="$FALLBACK_ENV"
+fi
+
+if [ -n "$PREVIOUS_ENV" ] && [ ! -f "$DEST/.env" ]; then
+  echo "Copying environment file from $PREVIOUS_ENV"
+  cp "$PREVIOUS_ENV" "$DEST/.env"
 fi
 
 # Create dedicated deploy user if it exists in /etc/passwd, else we'll keep current ownership (script usually run as root)

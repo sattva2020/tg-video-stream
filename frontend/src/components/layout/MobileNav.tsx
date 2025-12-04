@@ -11,17 +11,13 @@ import {
   Users, 
   Settings,
   LogOut,
-  CalendarDays
+  CalendarDays,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { UserRole } from '../../types/user';
-
-interface NavItem {
-  path: string;
-  label: string;
-  icon: React.ReactNode;
-  adminOnly?: boolean;
-}
+import { filterNavItems } from '../../utils/navigationHelpers';
+import { isAdminLike } from '../../utils';
+import { NavItem } from '../../types/navigation';
 
 export const MobileNav: React.FC = () => {
   const { t } = useTranslation();
@@ -62,11 +58,16 @@ export const MobileNav: React.FC = () => {
       icon: <Users className="w-5 h-5" />,
       adminOnly: true 
     },
+    { 
+      path: '/admin/monitoring', 
+      label: t('nav.monitoring', 'Мониторинг'), 
+      icon: <Activity className="w-5 h-5" />,
+      adminOnly: true,
+      moderatorAllowed: true,
+    },
   ];
 
-  const filteredNavItems = navItems.filter(
-    item => !item.adminOnly || user?.role === UserRole.ADMIN
-  );
+  const filteredNavItems = filterNavItems(navItems, user?.role);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -127,11 +128,13 @@ export const MobileNav: React.FC = () => {
                     {user.email}
                   </div>
                   <div className="mt-1">
-                    <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                      user.role === UserRole.ADMIN 
-                        ? 'bg-purple-500/20 text-purple-400'
-                        : 'bg-blue-500/20 text-blue-400'
-                    }`}>
+                    <span
+                      className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
+                        isAdminLike(user.role)
+                          ? 'bg-purple-500/20 text-purple-400'
+                          : 'bg-blue-500/20 text-blue-400'
+                      }`}
+                    >
                       {user.role}
                     </span>
                   </div>

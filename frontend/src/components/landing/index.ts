@@ -3,4 +3,8 @@ export { default as HeroSection } from './HeroSection';
 export { default as PrimaryCTA } from './PrimaryCTA';
 export { default as LanguageSwitcher } from './LanguageSwitcher';
 export { default as VisualBackground } from './VisualBackground';
+export { default as FeatureSection } from './FeatureSection';
+export { default as WorkflowSection } from './WorkflowSection';
+export { default as TrustSection } from './TrustSection';
+export { default as UseCasesSection } from './UseCasesSection';
 export * from './types';

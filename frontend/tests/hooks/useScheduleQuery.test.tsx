@@ -1,8 +1,8 @@
 /**
  * (migrated to .tsx to support JSX in wrapper)
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode } from 'react';
 
@@ -11,14 +11,6 @@ import {
   useScheduleCalendar,
   usePlaylists,
   useScheduleTemplates,
-  useCreateSlot,
-  useUpdateSlot,
-  useDeleteSlot,
-  useCreatePlaylist,
-  useUpdatePlaylist,
-  useDeletePlaylist,
-  useCopySchedule,
-  useApplyTemplate,
 } from '@/hooks/useScheduleQuery';
 import { scheduleApi } from '@/api/schedule';
 import type { ScheduleSlot, Playlist, ScheduleTemplate, CalendarDay } from '@/api/schedule';

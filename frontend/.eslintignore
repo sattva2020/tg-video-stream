@@ -1,0 +1,11 @@
+# Исключаем артефакты сборки и служебные каталоги
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+playwright-report/
+test-results/
+logs/
+public/
+*.min.js

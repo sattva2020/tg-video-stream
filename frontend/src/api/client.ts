@@ -24,9 +24,17 @@ client.interceptors.request.use(
   }
 );
 
-// Add a response interceptor to handle 401 errors
+// Add a response interceptor to handle 401 errors and sliding session
 client.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Sliding Session: если сервер вернул новый токен — сохраняем его
+    const newToken = response.headers['x-new-token'];
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+      console.debug('Token refreshed via sliding session');
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       // Clear token and redirect to login

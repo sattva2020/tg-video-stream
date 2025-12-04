@@ -201,20 +201,54 @@ def get_preset_bands(name: str) -> List[float]:
 
 
 def list_presets_by_category() -> Dict[str, List[str]]:
-    """
-    Получить список пресетов, сгруппированных по категориям.
-    
-    Returns:
-        Словарь {category: [preset_names]}
-    """
-    result = {}
+    """Вернуть имена пресетов, сгруппированные по категориям."""
+
+    result: Dict[str, List[str]] = {}
     for preset_name, preset in EQUALIZER_PRESETS.items():
-        category = preset.category
-        if category not in result:
-            result[category] = []
-        result[category].append(preset_name)
-    
+        result.setdefault(preset.category, []).append(preset_name)
+
+    for category in result:
+        result[category].sort()
+
     return result
+
+
+def list_presets_with_metadata() -> List[dict]:
+    """Вернуть сериализованный список всех пресетов с описанием."""
+
+    serialized: List[dict] = []
+    for preset in EQUALIZER_PRESETS.values():
+        serialized.append(
+            {
+                "name": preset.name,
+                "display_name": preset.display_name,
+                "description": preset.description,
+                "category": preset.category,
+                "bands": preset.bands,
+            }
+        )
+    return serialized
+
+
+def list_presets_grouped_with_metadata() -> Dict[str, List[dict]]:
+    """Вернуть пресеты с метаданными, сгруппированные по категориям."""
+
+    grouped: Dict[str, List[dict]] = {}
+    for preset in EQUALIZER_PRESETS.values():
+        grouped.setdefault(preset.category, []).append(
+            {
+                "name": preset.name,
+                "display_name": preset.display_name,
+                "description": preset.description,
+                "category": preset.category,
+                "bands": preset.bands,
+            }
+        )
+
+    for category in grouped:
+        grouped[category].sort(key=lambda item: item["display_name"])
+
+    return grouped
 
 
 def validate_custom_bands(bands: List[float]) -> bool:
@@ -261,20 +295,4 @@ BAND_FREQUENCIES = [
 ]
 
 
-def list_presets_by_category() -> dict[str, list[str]]:
-    """
-    List all preset names grouped by category.
-    
-    Returns:
-        {
-            "standard": ["flat", "rock", ...],
-            "meditation": ["meditation", "relax", ...]
-        }
-    """
-    categories = {}
-    for preset_name, preset in EQUALIZER_PRESETS.items():
-        if preset.category not in categories:
-            categories[preset.category] = []
-        categories[preset.category].append(preset_name)
-    return categories
 

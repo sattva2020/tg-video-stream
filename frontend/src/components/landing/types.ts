@@ -18,12 +18,43 @@ export type CTAConfig = {
   styleVariant?: CTAStyleVariant;
 };
 
+export type SecondaryCTAConfig = {
+  labelKey: string;
+  href: string;
+  trackingId?: string;
+};
+
+export type HeroChecklistItem = {
+  id: string;
+  labelKey: string;
+};
+
+export type HeroAudienceTag = {
+  id: string;
+  labelKey: string;
+};
+
+export type HeroValuePoint = {
+  id: string;
+  labelKey: string;
+};
+
+export type HeroClarityPoint = {
+  id: string;
+  labelKey: string;
+};
+
 export type HeroContent = {
   labelKey: string;
   titleKey: string;
   subtitleKey: string;
   benefits: BenefitItem[];
   cta: CTAConfig;
+  secondaryCta?: SecondaryCTAConfig;
+  checklist?: HeroChecklistItem[];
+  audienceTags?: HeroAudienceTag[];
+  valueProps?: HeroValuePoint[];
+  clarityList?: HeroClarityPoint[];
 };
 
 export type LanguageOption = {

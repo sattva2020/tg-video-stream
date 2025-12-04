@@ -1,0 +1,42 @@
+# Files and directories that must never be published to npm
+# Keep this list in sync with tooling outputs (build artifacts, secrets, tooling configs)
+
+# Dependencies and build output
+node_modules/
+build/
+dist/
+coverage/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+frontend/playwright-report/
+frontend/test-results/
+
+# Environment and secrets
+.env
+.env.*
+.session-env/
+.internal/
+
+# Source control and tooling metadata
+.git/
+.github/
+.vscode/
+.idea/
+*.log
+*.log.*
+
+# Tests and temp assets
+__tests__/
+test/
+tests/
+frontend/tests/
+frontend/__tests__/
+playwright-report/
+.xunit/
+.pytest_cache/
+
+# Documentation and assets (not needed in npm tarball)
+docs/
+specs/
+img/

@@ -11,27 +11,23 @@ export type HeroSectionProps = {
   hideCta?: boolean;
 };
 
-const BenefitList = ({
+const HeroStatGrid = ({
   content,
   locale,
-  listId,
 }: {
   content: HeroContent['benefits'];
   locale: LocaleKey;
-  listId: string;
 }) => {
   const { t, i18n } = useTranslation();
 
-  const benefits = useMemo(
+  const stats = useMemo(
     () =>
-      content.map((benefit) => {
-        const hasTranslation = i18n.exists(benefit.labelKey, { lng: locale });
-        const label = t(benefit.labelKey);
-        const metric = benefit.metricKey ? t(benefit.metricKey) : undefined;
+      content.map((item) => {
+        const hasTranslation = i18n.exists(item.labelKey, { lng: locale });
         return {
-          ...benefit,
-          label,
-          metric,
+          ...item,
+          label: t(item.labelKey),
+          metric: item.metricKey ? t(item.metricKey) : undefined,
           isFallback: !hasTranslation,
         };
       }),
@@ -39,36 +35,36 @@ const BenefitList = ({
   );
 
   return (
-    <ul
-      id={listId}
-      data-testid="hero-benefits"
-      className="space-y-4 4xl:space-y-6"
+    <div
+      className="rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/40 backdrop-blur"
       aria-label={t('hero_benefits_label', 'Key benefits')}
-      aria-live="polite"
+      data-testid="hero-benefits"
     >
-      {benefits.map((benefit) => (
-        <li
-          key={benefit.id}
-          className="rounded-3xl border border-white/20 bg-white/10 p-4 shadow-lg shadow-black/20 backdrop-blur-md 3xl:p-5"
-        >
-          <p
-            className={clsx('text-base font-semibold text-white 3xl:text-lg', {
-              'italic text-white/80': benefit.isFallback,
-            })}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {stats.map((item) => (
+          <article
+            key={item.id}
+            className="rounded-2xl border border-white/10 bg-brand-midnight/40 p-4 text-white/90"
           >
-            <span lang={benefit.isFallback ? 'en' : undefined}>{benefit.label}</span>
-            {benefit.isFallback ? (
-              <span className="sr-only">{t('landing_benefit_fallback_notice')}</span>
-            ) : null}
-          </p>
-          {benefit.metric ? (
-            <p className="text-sm font-semibold uppercase tracking-wide text-brand-glow/90 3xl:text-base">
-              {benefit.metric}
+            <p
+              className={clsx('text-base font-semibold 3xl:text-lg', {
+                'italic text-white/75': item.isFallback,
+              })}
+            >
+              <span lang={item.isFallback ? 'en' : undefined}>{item.label}</span>
+              {item.isFallback ? (
+                <span className="sr-only">{t('landing_benefit_fallback_notice')}</span>
+              ) : null}
             </p>
-          ) : null}
-        </li>
-      ))}
-    </ul>
+            {item.metric ? (
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-glow">
+                {item.metric}
+              </p>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 };
 
@@ -76,50 +72,54 @@ const HeroSection = ({ content, locale, onCtaClick, hideCta }: HeroSectionProps)
   const { t } = useTranslation();
   const headingId = useId();
   const subtitleId = useId();
-  const ctaDescriptionId = useId();
-  const benefitListId = useId();
 
   return (
     <section
-      className="grid gap-10 xs:gap-12 md:grid-cols-[minmax(0,1fr)_minmax(240px,320px)]"
+      className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]"
       aria-labelledby={headingId}
       aria-describedby={subtitleId}
       data-landing-hero
     >
       <div className="space-y-6">
-        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.25em] text-brand-glow xs:text-xs xs:tracking-[0.4em]">
-          {t(content.labelKey)}
-        </p>
-        <h1
-          id={headingId}
-          className="text-[clamp(2.25rem,8vw,3rem)] font-semibold leading-tight text-white sm:text-5xl 3xl:text-6xl 4xl:text-7xl"
-        >
-          {t(content.titleKey)}
-        </h1>
-        <p id={subtitleId} className="text-base leading-relaxed text-white/85 sm:text-lg 3xl:text-xl">
-          {t(content.subtitleKey)}
-        </p>
+        <div className="space-y-4">
+          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.4em] text-brand-glow xs:text-xs">
+            {t(content.labelKey)}
+          </p>
+          <h1
+            id={headingId}
+            className="text-[clamp(2.35rem,6vw,3.65rem)] font-bold leading-tight text-white drop-shadow-[0_25px_60px_rgba(15,185,255,0.35)]"
+          >
+            {t(content.titleKey)}
+          </h1>
+          <p id={subtitleId} className="text-base leading-relaxed text-white/85 sm:text-lg">
+            {t(content.subtitleKey)}
+          </p>
+        </div>
         {!hideCta ? (
-          <div className="flex flex-col gap-3 xs:flex-row xs:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <PrimaryCTA
               label={t(content.cta.labelKey)}
               cta={content.cta}
               onClick={onCtaClick}
-              ariaDescribedBy={ctaDescriptionId}
-              className="shadow-brand-glow/40"
+              ariaDescribedBy={subtitleId}
+              className="w-full sm:w-auto"
             />
-            <p
-              id={ctaDescriptionId}
-              className="text-xs text-white/70"
-              aria-live="polite"
-              role="status"
-            >
-              {t('cta_support_copy', 'Single entry point to /login with full WCAG AA compliance.')}
-            </p>
+            {content.secondaryCta ? (
+              <a
+                href={content.secondaryCta.href}
+                data-tracking-id={content.secondaryCta.trackingId}
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:border-white/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-glow sm:w-auto sm:min-w-[210px] sm:px-8 sm:py-4 sm:text-base"
+              >
+                {t(content.secondaryCta.labelKey)}
+              </a>
+            ) : null}
           </div>
         ) : null}
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/80 shadow-inner shadow-black/20">
+          <p>{t('landing_features_thesis')}</p>
+        </div>
       </div>
-      <BenefitList content={content.benefits} locale={locale} listId={benefitListId} />
+      <HeroStatGrid content={content.benefits} locale={locale} />
     </section>
   );
 };

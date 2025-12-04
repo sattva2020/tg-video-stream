@@ -268,31 +268,31 @@ async def add_queue_item(
     "/{channel_id}/items/{item_id}",
     response_model=SuccessResponse,
     summary="Удалить элемент из очереди",
+    description="Удаляет указанный элемент из очереди независимо от активного режима"
+)
 async def remove_queue_item(
     channel_id: int,
     item_id: str,
     current_user: User = Depends(get_current_user),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
-) -> SuccessResponse:r = Depends(get_current_user),
-    queue_service: QueueService = Depends(get_queue_svc)
 ) -> SuccessResponse:
     """Удалить элемент из очереди."""
     try:
         await queue_service.remove(channel_id=channel_id, item_id=item_id)
-        
+
         record_queue_operation(channel_id, "remove")
-        
-        # Обновляем метрику
+
+        # Обновляем метрику размера очереди
         size = await queue_service.get_size(channel_id)
         set_queue_size(channel_id, size)
-        
+
         logger.info(
             f"User {current_user.id} removed item from queue: "
             f"channel={channel_id}, item={item_id}"
         )
-        
+
         return SuccessResponse(message="Элемент удален из очереди")
-        
+
     except ItemNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -304,38 +304,38 @@ async def remove_queue_item(
     "/{channel_id}/items/{item_id}/move",
     response_model=QueueResponse,
     summary="Переместить элемент в очереди",
+    description="Доступно только в FIFO режиме; в PRIORITY режиме вернет ошибку"
+)
 async def move_queue_item(
     channel_id: int,
     item_id: str,
     move_data: MoveRequest,
     current_user: User = Depends(get_current_user),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
-) -> QueueResponse:ser = Depends(get_current_user),
-    queue_service: QueueService = Depends(get_queue_svc)
 ) -> QueueResponse:
-    """Переместить элемент на новую позицию."""
+    """Переместить элемент на новую позицию (FIFO режим)."""
     try:
         items = await queue_service.move(
             channel_id=channel_id,
             item_id=item_id,
             new_position=move_data.position
         )
-        
+
         record_queue_operation(channel_id, "move")
-        
+
         logger.info(
             f"User {current_user.id} moved item in queue: "
             f"channel={channel_id}, item={item_id}, position={move_data.position}"
         )
-        
+
         response_items = [QueueItemResponse.from_queue_item(item) for item in items]
-        
+
         return QueueResponse(
             items=response_items,
             total=len(items),
             current_playing=response_items[0] if response_items else None
         )
-        
+
     except ItemNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -1,20 +1,30 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AuthCard, { type AuthBanner } from '../components/auth/AuthCard';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
 import AuthLayout from '../components/auth/AuthLayout';
+import { useAuth } from '../context/AuthContext';
 
 // Lazy load the 3D scene to improve TBT/LCP
 const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
 
 const AuthPage3D: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
+  const { isAuthenticated, isLoading } = useAuth();
 
   const forceStatic = searchParams.get('forceStatic') === '1';
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const status = searchParams.get('status');
@@ -51,6 +61,20 @@ const AuthPage3D: React.FC = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0c0a09] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#e5d9c7]" />
+      </div>
+    );
+  }
+
+  // Don't render auth page if authenticated (will redirect)
+  if (isAuthenticated) {
+    return null;
+  }
 
   return (
     <>

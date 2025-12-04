@@ -1,35 +1,35 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Landing visual fallbacks', () => {
-  test('renders ZenScene on capable devices', async ({ page }) => {
+test.describe('Landing visual background', () => {
+  test('renders particle background with 30 nodes by default', async ({ page }) => {
     await page.goto('/');
 
     const background = page.getByTestId('visual-background');
-    await expect(background).toHaveAttribute('data-visual-mode', 'webgl');
-    await expect(background).toHaveAttribute('data-webgl-ready', 'true');
-    await expect(background.locator('canvas')).toHaveCount(1);
+    await expect(background).toHaveAttribute('data-visual-mode', 'particles');
+    await expect(background).toHaveAttribute('data-particle-count', '30');
+    await expect(background.getByTestId('visual-particle')).toHaveCount(30);
   });
 
-  test('switches to gradient when prefers-reduced-motion is enabled', async ({ page }) => {
+  test('switches to minimal mode when prefers-reduced-motion is enabled', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
 
     const background = page.getByTestId('visual-background');
-    await expect(background).toHaveAttribute('data-visual-mode', 'gradient');
-    await expect(background).toHaveAttribute('data-fallback-reason', 'reduced-motion');
-    await expect(background.locator('canvas')).toHaveCount(0);
+    await expect(background).toHaveAttribute('data-visual-mode', 'minimal');
+    await expect(background).toHaveAttribute('data-reduced-motion', 'true');
+    await expect(background.getByTestId('visual-particle')).toHaveCount(0);
   });
 
-  test('falls back to poster when WebGL is unavailable', async ({ page }) => {
+  test('allows forcing minimal visuals via window override', async ({ page }) => {
     await page.addInitScript(() => {
-      (window as Window & { __DISABLE_WEBGL__?: boolean }).__DISABLE_WEBGL__ = true;
-      window.localStorage.clear();
+      (window as Window & { __VISUAL_BACKGROUND_MODE__?: 'particles' | 'minimal' }).__VISUAL_BACKGROUND_MODE__ =
+        'minimal';
     });
+
     await page.goto('/');
 
     const background = page.getByTestId('visual-background');
-    await expect(background).toHaveAttribute('data-visual-mode', 'poster');
-    await expect(background).toHaveAttribute('data-poster-visible', 'true');
-    await expect(background.locator('canvas')).toHaveCount(0);
+    await expect(background).toHaveAttribute('data-visual-mode', 'minimal');
+    await expect(background.getByTestId('visual-particle')).toHaveCount(0);
   });
 });

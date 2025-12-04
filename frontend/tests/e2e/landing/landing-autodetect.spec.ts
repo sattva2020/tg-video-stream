@@ -11,22 +11,22 @@ const scenarios: Scenario[] = [
   {
     header: 'ru-RU,ru;q=0.9,en;q=0.8',
     expectedLocale: 'ru',
-    expectedHeadingSnippet: 'Круглосуточные трансляции',
+    expectedHeadingSnippet: 'Круглосуточное вещание в Telegram',
   },
   {
     header: 'uk-UA,uk;q=0.9,en;q=0.6',
     expectedLocale: 'uk',
-    expectedHeadingSnippet: 'Безперервні стрими',
+    expectedHeadingSnippet: 'Безперервне мовлення в Telegram',
   },
   {
     header: 'de-DE,de;q=0.9,en;q=0.5',
     expectedLocale: 'de',
-    expectedHeadingSnippet: 'Durchgängiges Streaming',
+    expectedHeadingSnippet: 'Durchgängiges Broadcasting in Telegram',
   },
   {
     header: 'es-ES,es;q=0.9,fr;q=0.8',
     expectedLocale: 'en',
-    expectedHeadingSnippet: 'Always-on streaming',
+    expectedHeadingSnippet: 'Always-on Telegram broadcasting',
     expectFallbackHint: true,
   },
 ];

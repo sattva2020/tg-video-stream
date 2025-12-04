@@ -28,6 +28,13 @@ const Metrics: React.FC = () => {
   const sys = metrics.metrics?.system;
   const proc = metrics.metrics?.process;
 
+  const systemCpuPercent = typeof sys?.cpu_percent === 'number' ? sys.cpu_percent : null;
+  const systemMemoryPercent = typeof sys?.memory_percent === 'number' ? sys.memory_percent : null;
+  const processCpuPercent = typeof proc?.cpu_percent === 'number' ? proc.cpu_percent : null;
+  const processMemoryMb = ((proc?.memory_rss ?? 0) / 1024 / 1024).toFixed(0);
+
+  const formatPercent = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)}%`);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -44,14 +51,17 @@ const Metrics: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>CPU Usage:</span>
-                <span className="font-mono">{sys?.cpu_percent.toFixed(1)}%</span>
+                <span className="font-mono">{formatPercent(systemCpuPercent)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Memory Usage:</span>
-                <span className="font-mono">{sys?.memory_percent.toFixed(1)}%</span>
+                <span className="font-mono">{formatPercent(systemMemoryPercent)}</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${sys?.cpu_percent}%` }}></div>
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full"
+                  style={{ width: `${systemCpuPercent ?? 0}%` }}
+                ></div>
               </div>
             </div>
           </div>
@@ -61,11 +71,11 @@ const Metrics: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>CPU Usage:</span>
-                <span className="font-mono">{proc?.cpu_percent.toFixed(1)}%</span>
+                <span className="font-mono">{formatPercent(processCpuPercent)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Memory (RSS):</span>
-                <span className="font-mono">{(proc?.memory_rss! / 1024 / 1024).toFixed(0)} MB</span>
+                <span className="font-mono">{processMemoryMb} MB</span>
               </div>
             </div>
           </div>

@@ -6,9 +6,22 @@ Spec: 015-real-system-monitoring
 Используется для отображения в ActivityTimeline на Dashboard.
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Index, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, Index, func, JSON
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import TypeDecorator
 from src.database import Base
+
+
+class JSONBCompat(TypeDecorator):
+    """Use JSONB on PostgreSQL and JSON elsewhere for test compatibility."""
+
+    impl = JSONB
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(JSONB)
+        return dialect.type_descriptor(JSON())
 
 
 class ActivityEvent(Base):
@@ -32,7 +45,7 @@ class ActivityEvent(Base):
     type = Column(String(50), nullable=False, index=True)
     message = Column(Text, nullable=False)
     user_email = Column(String(255), nullable=True)
-    details = Column(JSONB, nullable=True)
+    details = Column(JSONBCompat, nullable=True)
     created_at = Column(
         DateTime(timezone=True), 
         server_default=func.now(), 

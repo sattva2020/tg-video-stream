@@ -1,29 +1,35 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Landing visual metrics', () => {
-  test('collects fps samples for ZenScene', async ({ page }) => {
+test.describe('Landing metric bars', () => {
+  test('renders animated progress bars for uptime metrics', async ({ page }) => {
     await page.goto('/');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(300);
 
-    const metrics = await page.evaluate(() => window.__landingMetrics);
-    expect(metrics).toBeTruthy();
-    expect(metrics?.mode).toBe('webgl');
-    expect(metrics?.fpsSamples ?? 0).toBeGreaterThanOrEqual(5);
-    expect(metrics?.averageFps ?? 0).toBeGreaterThanOrEqual(45);
+    const metricsContainer = page.getByLabel('Metric snapshots');
+    await expect(metricsContainer).toBeVisible();
+
+    const bars = metricsContainer.getByTestId('feature-metric-bar');
+    await expect(bars).toHaveCount(3);
+
+    for (let i = 0; i < 3; i += 1) {
+      const progressValue = await bars.nth(i).getAttribute('data-progress-target');
+      expect(Number.parseFloat(progressValue ?? '0')).toBeGreaterThan(0);
+    }
   });
 
-  test('records fallback latency when WebGL is disabled', async ({ page }) => {
+  test('updates metric labels when switching locale to ru', async ({ page }) => {
     await page.addInitScript(() => {
-      (window as Window & { __DISABLE_WEBGL__?: boolean }).__DISABLE_WEBGL__ = true;
+      window.localStorage.setItem('landing:locale', 'ru');
+      (window as Window & { __ACCEPT_LANGUAGE__?: string }).__ACCEPT_LANGUAGE__ = 'ru';
     });
-
     await page.goto('/');
-    await page.waitForTimeout(200);
 
-    const metrics = await page.evaluate(() => window.__landingMetrics);
-    expect(metrics).toBeTruthy();
-    expect(metrics?.mode).toBe('poster');
-    expect(metrics?.fallbackReason).toBeDefined();
-    expect(metrics?.fallbackLatencyMs ?? 0).toBeLessThanOrEqual(500);
+    const labels = await page
+      .getByLabel('Metric snapshots')
+      .getByTestId('feature-metric-label')
+      .allTextContents();
+
+    expect(labels.some((text) => text.includes('Целевой аптайм'))).toBeTruthy();
+    expect(labels.some((text) => text.includes('Инцидентов автоисправлено'))).toBeTruthy();
   });
 });

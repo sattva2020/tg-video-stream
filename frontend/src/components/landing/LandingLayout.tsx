@@ -17,21 +17,25 @@ const SectionShell: FC<{ children: ReactNode; className?: string }> = ({ childre
 const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background, className }) => {
   return (
     <div
-      className={clsx('relative min-h-dvh overflow-hidden bg-brand-midnight text-white', className)}
+      className={clsx('relative min-h-dvh bg-brand-midnight text-white', className)}
       data-landing-surface="hero"
     >
       {background ? (
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
           {background}
         </div>
       ) : null}
-      <div className="relative z-10 flex min-h-dvh flex-col">
-        {nav ? (
-          <header className="px-4 py-4 sm:px-8 sm:py-6" data-testid="landing-nav">
-            <SectionShell className="px-0">{nav}</SectionShell>
-          </header>
-        ) : null}
-        <main className="flex flex-1 flex-col justify-center pb-10 pt-4 xs:pb-12 xs:pt-6" role="main">
+      {/* Sticky header вынесен на уровень выше, чтобы работал корректно */}
+      {nav ? (
+        <header
+          className="sticky top-0 z-50 border-b border-white/5 bg-brand-midnight/80 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-brand-midnight/60 sm:px-8 sm:py-6"
+          data-testid="landing-nav"
+        >
+          <SectionShell className="px-0">{nav}</SectionShell>
+        </header>
+      ) : null}
+      <div className="relative z-10 flex min-h-[calc(100dvh-80px)] flex-col">
+        <main className="flex flex-1 flex-col justify-start pb-10 pt-4 xs:pb-12 xs:pt-6" role="main">
           <SectionShell>{hero}</SectionShell>
         </main>
         {footer ? (

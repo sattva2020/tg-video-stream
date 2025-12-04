@@ -2,20 +2,20 @@ import { test, expect } from '@playwright/test';
 
 const expectations = {
   en: {
-    heading: 'Always-on streaming',
-    cta: 'Enter',
+    heading: '24/7 Telegram broadcasting without OBS or hardware',
+    cta: 'Get Started',
   },
   ru: {
-    heading: 'Круглосуточные трансляции',
-    cta: 'Войти',
+    heading: '24/7 трансляции в Telegram без OBS и серверов',
+    cta: 'Начать работу',
   },
   uk: {
-    heading: 'Безперервні стрими',
-    cta: 'Увійти',
+    heading: '24/7 мовлення в Telegram без OBS і серверів',
+    cta: 'Почати роботу',
   },
   de: {
-    heading: 'Durchgängiges Streaming',
-    cta: 'Eintreten',
+    heading: '24/7 Telegram Broadcasting ohne OBS oder Hardware',
+    cta: 'Jetzt starten',
   },
 } as const;
 
@@ -28,13 +28,13 @@ test.describe('Landing language switcher', () => {
 
     // Ensure default English copy is visible.
     await expect(heading).toContainText(expectations.en.heading);
-    await expect(page.getByRole('link', { name: expectations.en.cta })).toBeVisible();
+    await expect(page.getByRole('link', { name: expectations.en.cta }).first()).toBeVisible();
 
     const switchLocale = async (code: keyof typeof expectations) => {
       await trigger.click();
       await page.locator(`[data-locale="${code}"]`).click();
       await expect(heading).toContainText(expectations[code].heading);
-      await expect(page.getByRole('link', { name: expectations[code].cta })).toBeVisible();
+      await expect(page.getByRole('link', { name: expectations[code].cta }).first()).toBeVisible();
     };
 
     await switchLocale('ru');

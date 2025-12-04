@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
@@ -17,7 +17,6 @@ import i18n from '@/i18n';
 
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { SlotEditorModal } from '@/components/schedule/SlotEditorModal';
-import { CopyScheduleModal } from '@/components/schedule/CopyScheduleModal';
 import { PlaylistManager } from '@/components/schedule/PlaylistManager';
 import type { ScheduleSlot, Playlist, CalendarDay } from '@/api/schedule';
 
@@ -366,8 +365,6 @@ describe('SlotEditorModal', () => {
 // ==================== CopyScheduleModal Tests ====================
 
 describe('CopyScheduleModal', () => {
-  const mockOnClose = vi.fn();
-
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -569,13 +566,15 @@ describe('Accessibility', () => {
     render(<PlaylistManager />, { wrapper: createWrapper() });
 
     const buttons = screen.getAllByRole('button');
-    buttons.forEach(button => {
-      // Пустая кнопка меню (MoreVertical) может не иметь label, это ок для иконок
-      const hasName = button.textContent?.trim() || 
+    const buttonsWithName = buttons.filter(button => {
+      const name =
+        button.textContent?.trim() ||
         button.getAttribute('aria-label') ||
         button.getAttribute('title');
-      // Не строгая проверка — некоторые иконки-кнопки могут не иметь явного label
+      return Boolean(name);
     });
+
+    expect(buttonsWithName.length).toBeGreaterThan(0);
   });
 });
 

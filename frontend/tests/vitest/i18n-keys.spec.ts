@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import * as i18nModule from '../../src/i18n';
 const i18n = (i18nModule as any).default;
 const RESOURCES = (i18nModule as any).I18N_RESOURCES || (i18n as any).options?.resources || {};
@@ -13,10 +15,13 @@ describe('i18n smoke-check', () => {
 
   const langs = ['ru', 'en'];
 
+  it('loads resource bundles for at least two locales', () => {
+    const availableLocales = Object.keys(RESOURCES);
+    expect(availableLocales).toEqual(expect.arrayContaining(langs));
+  });
+
   // The test uses a static, deterministic check (read from src/i18n/index.ts)
   // instead of relying on runtime i18n state which can be flaky when running tests in parallel.
-  const path = require('path');
-  const fs = require('fs');
   const i18nSource = fs.readFileSync(path.resolve(__dirname, '../../src/i18n/index.ts'), 'utf8');
 
   langs.forEach((lng) => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -7,7 +6,7 @@ vi.mock('../../src/lib/api/authClient', () => {
     authClient: {
       register: vi.fn().mockRejectedValue({ payload: { code: 'conflict', message: 'Пользователь с таким email уже существует', hint: 'email_exists' } }),
     },
-    isAuthClientError: (e: unknown) => true,
+    isAuthClientError: (_e: unknown) => true,
   };
 });
 

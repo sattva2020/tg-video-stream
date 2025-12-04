@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -23,7 +23,7 @@ const PendingUsers: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await adminApi.listUsers({ status: 'pending' });
@@ -33,11 +33,11 @@ const PendingUsers: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const onApprove = async (id: string, email: string) => {
     try {
