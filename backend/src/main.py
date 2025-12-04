@@ -82,6 +82,8 @@ ALLOWED_ORIGINS = [
     "http://flowbooster.xyz",
     "http://flowbooster.xyz:80",
     "https://flowbooster.xyz",
+    "http://sattva-streamer.top",
+    "https://sattva-streamer.top",
 ]
 
 app.add_middleware(
@@ -90,6 +92,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-New-Token"],  # Для sliding session
 )
 
 # Session middleware с настройками для proxy
@@ -133,6 +136,11 @@ app.include_router(playback_routes.router)
 # Setup Prometheus middleware
 from src.middleware.prometheus import PrometheusMiddleware
 app.add_middleware(PrometheusMiddleware)
+
+# Setup sliding session middleware (auto-refresh JWT tokens)
+from src.middleware.sliding_session import SlidingSessionMiddleware
+app.add_middleware(SlidingSessionMiddleware)
+print("✓ Sliding session middleware initialized")
 
 # Setup rate limiter middleware
 from src.middleware.rate_limiter import RateLimiterMiddleware
