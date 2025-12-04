@@ -43,7 +43,7 @@ except ImportError:
 
 try:
     from pytgcalls import PyTgCalls
-    from pytgcalls.types import AudioVideoPiped, HighQualityAudio, HighQualityVideo
+    from pytgcalls.types import MediaStream, AudioQuality, VideoQuality
     PYTGCALLS_AVAILABLE = True
 except ImportError:
     PYTGCALLS_AVAILABLE = False
@@ -159,12 +159,12 @@ async def stop_channel_stream(channel_id: str) -> bool:
             except asyncio.CancelledError:
                 pass
         
-        # Leave group call
+        # Leave call
         pytg = channel_data.get("pytg")
         chat_id = channel_data.get("chat_id")
         if pytg and chat_id:
             try:
-                await pytg.leave_group_call(chat_id)
+                await pytg.leave_call(chat_id)
             except Exception as e:
                 log.debug(f"Leave call error (ok): {e}")
         
@@ -269,12 +269,12 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                     
                     # Join group call and stream
                     try:
-                        await pytg.join_group_call(
+                        await pytg.play(
                             chat_id,
-                            AudioVideoPiped(
+                            MediaStream(
                                 stream_url,
-                                video_parameters=v_args,
-                                audio_parameters=a_args
+                                audio_parameters=AudioQuality.STUDIO,
+                                video_parameters=VideoQuality.FHD_1080p
                             )
                         )
                     except Exception as e:
@@ -290,12 +290,12 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                         elapsed += 5
                         
                         # Check if still in call
-                        if pytg.get_call(chat_id) is None:
+                        if chat_id not in pytg.calls:
                             break
                     
                     # Leave call before next track
                     try:
-                        await pytg.leave_group_call(chat_id)
+                        await pytg.leave_call(chat_id)
                     except Exception:
                         pass
                     
