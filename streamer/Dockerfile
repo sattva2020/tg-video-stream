@@ -2,9 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (ffmpeg is required)
+# Install system dependencies for ffmpeg and tgcalls compilation
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    build-essential \
+    cmake \
+    libopus-dev \
+    libffi-dev \
+    libssl-dev \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
