@@ -7,7 +7,7 @@ Pydantic модели для API мониторинга системы.
 
 from datetime import datetime
 from typing import Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class SystemMetricsResponse(BaseModel):
@@ -21,8 +21,8 @@ class SystemMetricsResponse(BaseModel):
     uptime_seconds: int = Field(..., ge=0, description="Uptime системы в секундах")
     collected_at: datetime = Field(..., description="Время сбора метрик (ISO 8601)")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "cpu_percent": 23.5,
                 "ram_percent": 45.2,
@@ -33,6 +33,7 @@ class SystemMetricsResponse(BaseModel):
                 "collected_at": "2025-01-15T10:30:00Z"
             }
         }
+    )
 
 
 class ActivityEventResponse(BaseModel):
@@ -45,9 +46,9 @@ class ActivityEventResponse(BaseModel):
     details: Optional[dict[str, Any]] = Field(None, description="Дополнительные данные")
     created_at: datetime = Field(..., description="Время создания события (ISO 8601)")
 
-    class Config:
-        from_attributes = True
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": 1,
                 "type": "user_login",
@@ -57,6 +58,7 @@ class ActivityEventResponse(BaseModel):
                 "created_at": "2025-01-15T10:30:00Z"
             }
         }
+    )
 
 
 class ActivityEventsListResponse(BaseModel):
@@ -65,8 +67,8 @@ class ActivityEventsListResponse(BaseModel):
     events: list[ActivityEventResponse] = Field(..., description="Список событий")
     total: int = Field(..., ge=0, description="Общее количество событий")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "events": [
                     {
@@ -81,6 +83,7 @@ class ActivityEventsListResponse(BaseModel):
                 "total": 42
             }
         }
+    )
 
 
 class ActivityEventCreate(BaseModel):

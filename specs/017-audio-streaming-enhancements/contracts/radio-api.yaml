@@ -1,0 +1,251 @@
+# Radio Streams API Contract
+
+openapi: 3.0.3
+info:
+  title: Radio Streams API
+  description: API для управления интернет-радио потоками
+  version: 1.0.0
+
+paths:
+  /api/v1/radio/streams:
+    get:
+      summary: Список доступных радио-станций
+      operationId: listRadioStreams
+      tags:
+        - Radio
+      parameters:
+        - name: genre
+          in: query
+          schema:
+            type: string
+          description: Фильтр по жанру
+        - name: country
+          in: query
+          schema:
+            type: string
+          description: Фильтр по стране
+        - name: active_only
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Только активные станции
+      responses:
+        '200':
+          description: Список радио-станций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RadioStreamResponse'
+
+    post:
+      summary: Добавить новую радио-станцию
+      operationId: createRadioStream
+      tags:
+        - Radio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RadioStreamCreate'
+      responses:
+        '201':
+          description: Станция создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadioStreamResponse'
+        '400':
+          description: Некорректный URL
+        '409':
+          description: Станция с таким URL уже существует
+
+  /api/v1/radio/streams/{stream_id}:
+    get:
+      summary: Получить информацию о станции
+      operationId: getRadioStream
+      tags:
+        - Radio
+      parameters:
+        - name: stream_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация о станции
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadioStreamResponse'
+        '404':
+          description: Станция не найдена
+
+    delete:
+      summary: Удалить радио-станцию
+      operationId: deleteRadioStream
+      tags:
+        - Radio
+      parameters:
+        - name: stream_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Станция удалена
+        '404':
+          description: Станция не найдена
+
+  /api/v1/radio/play:
+    post:
+      summary: Начать воспроизведение радио-потока
+      operationId: playRadioStream
+      tags:
+        - Radio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayRadioRequest'
+      responses:
+        '200':
+          description: Воспроизведение начато
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayRadioResponse'
+        '400':
+          description: Некорректный URL потока
+        '503':
+          description: Не удалось подключиться к потоку
+
+  /api/v1/radio/status:
+    get:
+      summary: Статус текущего радио-воспроизведения
+      operationId: getRadioStatus
+      tags:
+        - Radio
+      responses:
+        '200':
+          description: Статус воспроизведения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RadioStatusResponse'
+
+components:
+  schemas:
+    RadioStreamCreate:
+      type: object
+      required:
+        - name
+        - url
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: "Radio Record"
+        url:
+          type: string
+          pattern: ^https?://
+          maxLength: 1024
+          example: "https://air.radiorecord.ru:805/rr_320"
+        genre:
+          type: string
+          maxLength: 100
+          example: "Electronic"
+        country:
+          type: string
+          maxLength: 100
+          example: "Russia"
+        logo_url:
+          type: string
+          maxLength: 1024
+
+    RadioStreamResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        url:
+          type: string
+        genre:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
+        logo_url:
+          type: string
+          nullable: true
+        bitrate:
+          type: integer
+          nullable: true
+          description: Битрейт в kbps
+        is_active:
+          type: boolean
+        last_checked:
+          type: string
+          format: date-time
+          nullable: true
+
+    PlayRadioRequest:
+      type: object
+      properties:
+        stream_id:
+          type: integer
+          description: ID сохранённой станции
+        url:
+          type: string
+          pattern: ^https?://
+          description: Прямой URL для воспроизведения
+      description: Указать либо stream_id, либо url
+
+    PlayRadioResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [buffering, playing, error]
+        stream_name:
+          type: string
+        current_track:
+          type: string
+          nullable: true
+          description: Название текущего трека (из ICY metadata)
+
+    RadioStatusResponse:
+      type: object
+      properties:
+        is_playing:
+          type: boolean
+        stream_id:
+          type: integer
+          nullable: true
+        stream_name:
+          type: string
+          nullable: true
+        stream_url:
+          type: string
+          nullable: true
+        current_track:
+          type: string
+          nullable: true
+        listeners:
+          type: integer
+          description: Количество слушателей (если доступно)
+        uptime:
+          type: integer
+          description: Время воспроизведения в секундах
+        reconnect_attempts:
+          type: integer
+          description: Количество переподключений

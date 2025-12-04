@@ -1,0 +1,248 @@
+# i18n API Contract
+
+openapi: 3.0.3
+info:
+  title: Internationalization (i18n) API
+  description: API для управления локализацией интерфейса
+  version: 1.0.0
+
+paths:
+  /api/v1/i18n/locales:
+    get:
+      summary: Список доступных языков
+      operationId: getAvailableLocales
+      tags:
+        - i18n
+      responses:
+        '200':
+          description: Список языков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalesListResponse'
+
+  /api/v1/i18n/locale/{locale}:
+    get:
+      summary: Получить все переводы для языка
+      operationId: getLocaleTranslations
+      tags:
+        - i18n
+      parameters:
+        - name: locale
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ru, en, uk, es]
+        - name: namespace
+          in: query
+          schema:
+            type: string
+          description: Фильтр по namespace (common, player, settings)
+      responses:
+        '200':
+          description: Переводы
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationsResponse'
+        '404':
+          description: Язык не найден
+
+  /api/v1/user/language:
+    get:
+      summary: Получить язык пользователя
+      operationId: getUserLanguage
+      tags:
+        - i18n
+      responses:
+        '200':
+          description: Текущий язык
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLanguageResponse'
+
+    put:
+      summary: Установить язык пользователя
+      operationId: setUserLanguage
+      tags:
+        - i18n
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetLanguageRequest'
+      responses:
+        '200':
+          description: Язык установлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserLanguageResponse'
+        '400':
+          description: Неподдерживаемый язык
+
+components:
+  schemas:
+    LocalesListResponse:
+      type: object
+      properties:
+        locales:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleInfo'
+        default:
+          type: string
+          example: "en"
+
+    LocaleInfo:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "ru"
+        name:
+          type: string
+          example: "Русский"
+        native_name:
+          type: string
+          example: "Русский"
+        flag:
+          type: string
+          example: "🇷🇺"
+        direction:
+          type: string
+          enum: [ltr, rtl]
+          example: "ltr"
+        coverage:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+          example: 100
+          description: Процент переведённых строк
+
+    TranslationsResponse:
+      type: object
+      properties:
+        locale:
+          type: string
+          example: "ru"
+        translations:
+          type: object
+          additionalProperties:
+            type: object
+          description: Вложенный объект с переводами
+          example:
+            common:
+              loading: "Загрузка..."
+              error: "Ошибка"
+            player:
+              play: "Воспроизвести"
+              pause: "Пауза"
+              speed: "Скорость"
+
+    UserLanguageResponse:
+      type: object
+      properties:
+        language:
+          type: string
+          example: "ru"
+        detected_from:
+          type: string
+          enum: [user_preference, browser, default]
+          example: "user_preference"
+
+    SetLanguageRequest:
+      type: object
+      required:
+        - language
+      properties:
+        language:
+          type: string
+          enum: [ru, en, uk, es]
+          example: "uk"
+
+# Frontend i18n Structure
+x-frontend-structure:
+  library: react-i18next
+  config:
+    fallbackLng: en
+    supportedLngs: [ru, en, uk, es]
+    detection:
+      order: [localStorage, navigator]
+    interpolation:
+      escapeValue: false
+  
+  files:
+    - path: frontend/src/i18n/locales/ru.json
+      description: Русский язык (основной)
+    - path: frontend/src/i18n/locales/en.json
+      description: English (fallback)
+    - path: frontend/src/i18n/locales/uk.json
+      description: Українська
+    - path: frontend/src/i18n/locales/es.json
+      description: Español
+
+# Translation Keys Structure
+x-translation-keys:
+  namespaces:
+    - name: common
+      keys:
+        - loading
+        - error
+        - success
+        - cancel
+        - save
+        - delete
+        - confirm
+    
+    - name: player
+      keys:
+        - play
+        - pause
+        - stop
+        - next
+        - previous
+        - speed
+        - seek_forward
+        - seek_backward
+        - volume
+        - mute
+        - unmute
+        - shuffle
+        - repeat
+    
+    - name: equalizer
+      keys:
+        - preset_flat
+        - preset_rock
+        - preset_jazz
+        - preset_classical
+        - preset_voice
+        - preset_bass_boost
+        - reset
+    
+    - name: radio
+      keys:
+        - add_station
+        - playing_now
+        - buffering
+        - connection_lost
+        - reconnecting
+    
+    - name: lyrics
+      keys:
+        - show_lyrics
+        - hide_lyrics
+        - not_found
+        - loading_lyrics
+    
+    - name: settings
+      keys:
+        - language
+        - theme
+        - notifications
+        - playback_settings

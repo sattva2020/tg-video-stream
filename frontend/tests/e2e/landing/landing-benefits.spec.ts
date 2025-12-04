@@ -14,33 +14,33 @@ const LOCALES: LocaleExpectation[] = [
   {
     code: 'en',
     benefits: [
-      { label: 'Instant switching without lag', metric: '<100 ms latency' },
       { label: 'Automated 24/7 uptime', metric: '365 days live' },
       { label: 'Managed playlist ingestion', metric: '50+ videos rotating' },
+      { label: 'Instant switching without lag', metric: '<100 ms latency' },
     ],
   },
   {
     code: 'ru',
     benefits: [
-      { label: 'Мгновенное переключение без лагов', metric: '<100 мс задержка' },
       { label: 'Автоматический аптайм 24/7', metric: '365 дней в эфире' },
       { label: 'Умное управление плейлистами', metric: '50+ видео в ротации' },
+      { label: 'Мгновенное переключение без лагов', metric: '<100 мс задержка' },
     ],
   },
   {
     code: 'uk',
     benefits: [
-      { label: 'Миттєве перемикання без затримок', metric: '<100 мс затримки' },
       { label: 'Автоматичний аптайм 24/7', metric: '365 днів наживо' },
       { label: 'Керований імпорт плейлистів', metric: '50+ відео в ротації' },
+      { label: 'Миттєве перемикання без затримок', metric: '<100 мс затримки' },
     ],
   },
   {
     code: 'de',
     benefits: [
-      { label: 'Sofortiges Umschalten ohne Lag', metric: '<100 ms Latenz' },
       { label: 'Automatischer 24/7-Betrieb', metric: '365 Tage live' },
       { label: 'Verwaltetes Playlist-Ingest', metric: '50+ Videos in Rotation' },
+      { label: 'Sofortiges Umschalten ohne Lag', metric: '<100 ms Latenz' },
     ],
   },
 ];

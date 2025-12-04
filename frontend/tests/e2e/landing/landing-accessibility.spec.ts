@@ -13,7 +13,7 @@ test.describe('Landing accessibility', () => {
     await prepareLocale(page);
     await page.goto('/');
 
-    const cta = page.getByRole('link', { name: /enter/i });
+    const cta = page.getByRole('link', { name: /get started/i }).first();
     let reached = false;
 
     for (let attempt = 0; attempt < 3; attempt += 1) {

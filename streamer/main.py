@@ -32,7 +32,19 @@ from dotenv import load_dotenv
 from utils import expand_playlist, build_ffmpeg_av_args, best_stream_url
 import audio_utils
 from metrics import MetricsCollector
-from queue_manager import StreamQueue
+from queue_manager import StreamQueue, QueueManager
+from radio_handler import get_radio_handler, RadioStreamHandler
+
+# Global queue manager instance
+queue_manager: QueueManager = None
+
+# Auto-End imports
+try:
+    from auto_end import AutoEndHandler
+    AUTO_END_AVAILABLE = True
+except ImportError:
+    AUTO_END_AVAILABLE = False
+    logging.getLogger("tg_video_streamer").warning("auto_end module not available — auto-end disabled")
 
 # Prometheus imports
 try:
@@ -58,10 +70,27 @@ CHANNEL_ID = os.getenv("CHANNEL_ID", "")
 VIDEO_QUALITY = os.getenv("VIDEO_QUALITY", "720p")
 LOOP = os.getenv("LOOP", "1") == "1"
 PROMETHEUS_PORT = int(os.getenv("PROMETHEUS_PORT", "9090"))
+AUTO_END_TIMEOUT_MINUTES = int(os.getenv("AUTO_END_TIMEOUT_MINUTES", "5"))
+AUTO_END_ENABLED = os.getenv("AUTO_END_ENABLED", "1") == "1"
+
+# Global auto-end handler instance
+auto_end_handler = None
 
 
 def _get_backend_url() -> str:
     return os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
+
+
+def _get_redis_url() -> str:
+    redis_host = os.getenv("REDIS_HOST")
+    redis_port = os.getenv("REDIS_PORT", "6379")
+    redis_db = os.getenv("REDIS_DB", "0")
+    if redis_host:
+        return f"redis://{redis_host}:{redis_port}/{redis_db}"
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        return redis_url
+    return f"redis://redis:{redis_port}/{redis_db}"
 
 
 def _report_streamer_status(item_id: Union[str, None], status: str, duration: Union[int, None] = None):
@@ -161,6 +190,8 @@ async def ensure_join(chat: Union[int, str]):
         log.info("join test: %s", e)
 
 async def play_sequence(items: List[dict]):
+    global queue_manager
+    
     v_args, a_args = build_ffmpeg_av_args(VIDEO_QUALITY)
     log.info("Playlist contains %d items", len(items))
     if not pytg:
@@ -168,8 +199,15 @@ async def play_sequence(items: List[dict]):
         await asyncio.sleep(60)
         return
 
-    queue = StreamQueue(max_buffer_size=3)
-    queue.add_items(items)
+    # Use QueueManager for Redis sync
+    chat_id = int(CHAT_ID) if isinstance(CHAT_ID, str) and CHAT_ID.isdigit() else CHAT_ID
+    if queue_manager is None:
+        queue_manager = QueueManager()
+        redis_url = _get_redis_url()
+        await queue_manager.init(redis_url)
+    
+    queue = await queue_manager.get_queue(chat_id)
+    await queue.add_items(items)
     
     try:
         while True:
@@ -245,10 +283,18 @@ async def play_sequence(items: List[dict]):
                         break
                 
                 await pytg.leave_group_call(CHAT_ID)
+                
+                # Notify track ended
+                await queue.on_track_end(track_id, reason="completed")
+                
                 _report_streamer_status(track_id, "queued")
                 
             except Exception as e:
                 log.exception("Stream error while playing %s: %s", link, e)
+                
+                # Notify track ended with error
+                await queue.on_track_end(track_id, reason="error")
+                
                 _report_streamer_status(track_id, "error")
                 try:
                     await pytg.leave_group_call(CHAT_ID)
@@ -257,6 +303,8 @@ async def play_sequence(items: List[dict]):
                 await asyncio.sleep(5)
     finally:
         await queue.stop()
+        # Close Redis connection
+        await queue.close_redis()
 
 async def main():
     if not RUN_APP:
@@ -290,6 +338,23 @@ async def main():
             log.info("Logged in as: %s", me.id)
             await ensure_join(CHAT_ID)
             
+            # Initialize auto-end handler if available
+            global auto_end_handler
+            if AUTO_END_AVAILABLE and AUTO_END_ENABLED and pytg:
+                try:
+                    auto_end_handler = AutoEndHandler(
+                        pytgcalls=pytg,
+                        chat_id=CHAT_ID,
+                        timeout_minutes=AUTO_END_TIMEOUT_MINUTES
+                    )
+                    await auto_end_handler.start()
+                    log.info("Auto-end handler started with %d min timeout", AUTO_END_TIMEOUT_MINUTES)
+                except Exception as e:
+                    log.warning("Failed to start auto-end handler: %s", e)
+                    auto_end_handler = None
+            else:
+                log.info("Auto-end disabled or not available")
+            
             while True:
                 params = {}
                 if CHANNEL_ID:
@@ -322,6 +387,22 @@ async def main():
                 
                 if not LOOP:
                     break
+            
+            # Stop auto-end handler on exit
+            if auto_end_handler:
+                try:
+                    await auto_end_handler.stop()
+                    log.info("Auto-end handler stopped")
+                except Exception as e:
+                    log.warning("Error stopping auto-end handler: %s", e)
+            
+            # Close queue manager
+            if queue_manager:
+                try:
+                    await queue_manager.close_all()
+                    log.info("Queue manager closed")
+                except Exception as e:
+                    log.warning("Error closing queue manager: %s", e)
 
     except RPCError as e:
         log.exception("Telegram RPC error during startup: %s", e)

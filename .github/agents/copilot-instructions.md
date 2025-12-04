@@ -21,6 +21,12 @@ Auto-generated from all feature plans. Last updated: 2025-11-22
 - PostgreSQL 15+ (новые поля: telegram_id, telegram_username) (013-telegram-login)
 - Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI, psutil, SQLAlchemy/Alembic (backend); React 18, TanStack Query, date-fns (frontend) (015-real-system-monitoring)
 - PostgreSQL 16 (systemd service) — таблица `activity_events` (015-real-system-monitoring)
+- Python 3.11+, TypeScript 5.x (frontend) + FastAPI, SQLAlchemy, Redis, PyTgCalls, Pyrogram, sqladmin, prometheus_client (016-github-integrations)
+- PostgreSQL (users, audit logs), Redis (очереди, auto-end таймеры, метрики кеш) (016-github-integrations)
+- Python 3.11+, TypeScript 5.x + FastAPI 0.104+, SQLAlchemy 2.0, PyTgCalls, GStreamer, React 18, react-i18next (017-audio-streaming-enhancements)
+- PostgreSQL 15 (основные данные), Redis 7 (rate limiting, кэш, очереди) (017-audio-streaming-enhancements)
+- TypeScript 5.x, React 18.x + @heroui/react, framer-motion, react-router-dom, i18next (018-role-ui-fixes)
+- N/A (frontend-only changes) (018-role-ui-fixes)
 
 - TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS) + Tailwind CSS, React Three Fiber + Drei, i18next, Framer Motion (existing), Vite build system (001-modern-home-design)
 
@@ -41,9 +47,9 @@ npm test; npm run lint
 TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS): Follow standard conventions
 
 ## Recent Changes
-- 015-real-system-monitoring: Added Python 3.12 (backend), TypeScript 5.x (frontend) + FastAPI, psutil, SQLAlchemy/Alembic (backend); React 18, TanStack Query, date-fns (frontend)
-- 013-telegram-login: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy, React 18, Vite, TailwindCSS
-- 012-project-improvements: Added Python 3.11+, Node 20+, TypeScript 5.x + FastAPI 0.100+, SQLAlchemy 2.0+, Pydantic 2.x, React 18, Vite 5, TailwindCSS
+- 018-role-ui-fixes: Added TypeScript 5.x, React 18.x + @heroui/react, framer-motion, react-router-dom, i18next
+- 017-audio-streaming-enhancements: Added Python 3.11+, TypeScript 5.x + FastAPI 0.104+, SQLAlchemy 2.0, PyTgCalls, GStreamer, React 18, react-i18next
+- 016-github-integrations: Added Python 3.11+, TypeScript 5.x (frontend) + FastAPI, SQLAlchemy, Redis, PyTgCalls, Pyrogram, sqladmin, prometheus_client
 
 
 <!-- MANUAL ADDITIONS START -->

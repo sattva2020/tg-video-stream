@@ -1,0 +1,162 @@
+# Rate Limiting Contract
+
+openapi: 3.0.3
+info:
+  title: Rate Limiting Specification
+  description: Спецификация rate limiting для API
+  version: 1.0.0
+
+# Rate Limiting Configuration
+x-rate-limiting:
+  algorithm: fixed_window_counter
+  storage: redis
+  default_limits:
+    - requests: 100
+      window: 60  # seconds
+      scope: user
+  headers:
+    limit: X-RateLimit-Limit
+    remaining: X-RateLimit-Remaining
+    reset: X-RateLimit-Reset
+    retry_after: Retry-After
+
+paths:
+  # All API endpoints should include these response headers and 429 response
+  /{any}:
+    get:
+      summary: Example endpoint with rate limiting
+      responses:
+        '200':
+          description: Success
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Maximum requests per window
+              example: 100
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests in current window
+              example: 95
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Unix timestamp when window resets
+              example: 1705700000
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until rate limit resets
+              example: 45
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              example: 100
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              example: 0
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              example: 1705700060
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+
+components:
+  schemas:
+    RateLimitError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "rate_limit_exceeded"
+        message:
+          type: string
+          example: "Too many requests. Please retry after 45 seconds."
+        retry_after:
+          type: integer
+          description: Seconds until rate limit resets
+          example: 45
+        limit:
+          type: integer
+          description: Request limit per window
+          example: 100
+        window:
+          type: integer
+          description: Window size in seconds
+          example: 60
+
+# Redis Schema Documentation
+x-redis-schema:
+  rate_limit_counter:
+    key_pattern: "rate_limit:{user_id}"
+    type: string
+    ttl: 60  # seconds (window size)
+    operations:
+      increment: "INCR rate_limit:{user_id}"
+      set_expiry: "EXPIRE rate_limit:{user_id} 60"
+      get_count: "GET rate_limit:{user_id}"
+      get_ttl: "TTL rate_limit:{user_id}"
+
+# Implementation Reference
+x-implementation:
+  middleware:
+    file: "backend/src/middleware/rate_limiter.py"
+    class: "RateLimitMiddleware"
+  
+  example_code: |
+    from fastapi import Request, HTTPException
+    import redis.asyncio as redis
+    
+    class RateLimiter:
+        def __init__(self, redis: redis.Redis, limit: int = 100, window: int = 60):
+            self.redis = redis
+            self.limit = limit
+            self.window = window
+        
+        async def check(self, user_id: str) -> tuple[bool, dict]:
+            """
+            Returns: (allowed, headers)
+            """
+            key = f"rate_limit:{user_id}"
+            
+            current = await self.redis.incr(key)
+            if current == 1:
+                await self.redis.expire(key, self.window)
+            
+            ttl = await self.redis.ttl(key)
+            reset_at = int(time.time()) + ttl
+            
+            headers = {
+                "X-RateLimit-Limit": str(self.limit),
+                "X-RateLimit-Remaining": str(max(0, self.limit - current)),
+                "X-RateLimit-Reset": str(reset_at),
+            }
+            
+            if current > self.limit:
+                headers["Retry-After"] = str(ttl)
+                return False, headers
+            
+            return True, headers
+
+# VIP User Exemptions
+x-vip-exemptions:
+  description: VIP users have higher limits or exemptions
+  config:
+    vip_limit: 1000  # 10x normal limit
+    admin_exempt: true  # Admins bypass rate limiting
+  implementation: |
+    async def get_user_limit(user_id: str) -> int:
+        user = await get_user(user_id)
+        if user.role == "admin":
+            return float('inf')  # No limit
+        if user.is_vip:
+            return 1000
+        return 100

@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, CardBody, CardHeader } from '@heroui/react';
+import { Card, CardBody, CardHeader, Modal, ModalContent, ModalBody } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import GoogleLoginButton from '../GoogleLoginButton';
-import TelegramLoginButton from '../TelegramLoginButton';
+import { TelegramLogin } from './TelegramLogin';
 import ErrorToast from './ErrorToast';
-import { useTelegramAuth } from '../../hooks/useTelegramAuth';
+import { Send } from 'lucide-react';
+import { authApi } from '../../api/auth';
+import { useAuth } from '../../context/AuthContext';
 
 export type AuthMode = 'login' | 'register';
 
@@ -22,39 +25,69 @@ interface AuthCardProps {
 
 const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
   const [banner, setBanner] = useState<AuthBanner | null>(initialBanner);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [showTelegramModal, setShowTelegramModal] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   const API_URL = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
     []
   );
+  const enableBasicLogin = (import.meta.env.VITE_ENABLE_BASIC_LOGIN ?? 'true') !== 'false';
 
   // Плавное появление карточки
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), 300);
     return () => clearTimeout(timer);
   }, []);
-  
-  // Telegram auth hook
-  const { 
-    isLoading: isTelegramLoading, 
-    error: telegramError, 
-    handleTelegramAuth 
-  } = useTelegramAuth();
-
-  // Показываем ошибку Telegram если есть
-  useEffect(() => {
-    if (telegramError) {
-      setBanner({ tone: 'error', message: telegramError });
-    }
-  }, [telegramError]);
 
   useEffect(() => {
     setBanner(initialBanner ?? null);
   }, [initialBanner]);
 
   const googleLabel = `${t('or_continue')} Google`;
+
+  // Обработчик успешной авторизации через Telegram
+  const handleTelegramSuccess = async (token?: string) => {
+    if (token) {
+      // Используем authLogin для правильного сохранения токена и обновления состояния
+      await authLogin(token);
+    }
+    setShowTelegramModal(false);
+    navigate('/channels');
+  };
+
+  const handleBasicLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!enableBasicLogin) {
+      return;
+    }
+
+    setFormError(null);
+    setIsSubmitting(true);
+    try {
+      const response = await authApi.login({ username: email, password });
+      await authLogin(response.access_token);
+      navigate('/dashboard');
+    } catch (error: any) {
+      const serverMessage = error?.response?.data?.message;
+      const status = error?.response?.status;
+      if (status === 401) {
+        setFormError(t('invalid_credentials', 'Неверный email или пароль.'));
+      } else if (status === 403) {
+        setFormError(t('account_pending_or_blocked', 'Учетная запись ожидает одобрения или заблокирована.'));
+      } else {
+        setFormError(serverMessage ?? t('login_failed_try_again', 'Войти не удалось. Попробуйте ещё раз.'));
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div 
@@ -92,6 +125,67 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
             {t('choose_auth_method', 'Выберите способ входа')}
           </p>
 
+          {enableBasicLogin && (
+            <form
+              className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4"
+              onSubmit={handleBasicLogin}
+              data-testid="credentials-form"
+            >
+              <div className="space-y-1">
+                <label htmlFor="auth-email" className="text-xs uppercase tracking-[0.3em] text-[#F5E6D3]/60">
+                  Email
+                </label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  className="w-full rounded-full border border-white/20 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/60 focus:outline-none"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={isSubmitting}
+                  data-testid="email-input"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="auth-password" className="text-xs uppercase tracking-[0.3em] text-[#F5E6D3]/60">
+                  {t('password', 'Пароль')}
+                </label>
+                <input
+                  id="auth-password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                  className="w-full rounded-full border border-white/20 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/60 focus:outline-none"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={isSubmitting}
+                  data-testid="password-input"
+                />
+              </div>
+
+              {formError && (
+                <p className="text-xs text-red-300" role="alert">
+                  {formError}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting || !email || !password}
+                className="rounded-full bg-[#F5E6D3] px-6 py-2 text-sm font-semibold uppercase tracking-[0.3em] text-black transition hover:bg-white disabled:opacity-50"
+                data-testid="login-button"
+              >
+                {isSubmitting ? t('logging_in', 'Входим…') : t('login', 'Войти')}
+              </button>
+
+              <p className="text-center text-[10px] uppercase tracking-[0.35em] text-[#F5E6D3]/50">
+                {t('qa_login_hint', 'Для QA и Playwright тестов')}  
+              </p>
+            </form>
+          )}
+
           {/* Google кнопка */}
           <GoogleLoginButton
             onClick={() => {
@@ -100,7 +194,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
                 window.location.href = `${API_URL}/api/auth/google`;
               }
             }}
-            disabled={isSubmitting || isTelegramLoading}
+            disabled={isSubmitting}
             label={googleLabel}
             className="!bg-[#F5E6D3]/10 !text-[#F5E6D3] !border-[#F5E6D3]/30 hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50 border transition-all duration-300"
           />
@@ -115,13 +209,43 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
             </div>
           </div>
 
-          {/* Telegram кнопка */}
-          <TelegramLoginButton
-            onAuth={handleTelegramAuth}
-            disabled={isSubmitting || isTelegramLoading}
-          />
+          {/* Telegram кнопка - открывает модальное окно с Pyrogram-авторизацией */}
+          <button
+            onClick={() => setShowTelegramModal(true)}
+            disabled={isSubmitting}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full
+              bg-[#F5E6D3]/10 text-[#F5E6D3] border border-[#F5E6D3]/30
+              hover:shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:bg-[#F5E6D3]/20 hover:border-[#F5E6D3]/50
+              transition-all duration-300 disabled:opacity-50"
+          >
+            <Send className="w-5 h-5" />
+            <span>{t('login_telegram', 'Войти через Telegram')}</span>
+          </button>
         </CardBody>
       </Card>
+
+      {/* Модальное окно для Telegram авторизации */}
+      <Modal 
+        isOpen={showTelegramModal} 
+        onClose={() => setShowTelegramModal(false)}
+        size="md"
+        backdrop="blur"
+        classNames={{
+          base: "bg-gray-900 border border-gray-700",
+          header: "border-b border-gray-700",
+          body: "py-6",
+          closeButton: "hover:bg-gray-700 active:bg-gray-600 text-gray-400"
+        }}
+      >
+        <ModalContent>
+          <ModalBody>
+            <TelegramLogin 
+              onSuccess={handleTelegramSuccess} 
+              apiPrefix="/api/auth/telegram-login"
+            />
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 };

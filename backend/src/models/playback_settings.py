@@ -10,7 +10,19 @@ Stores user-specific playback preferences:
 Database: PostgreSQL (sqlalchemy ORM)
 """
 
-from sqlalchemy import Column, Integer, Float, String, Boolean, JSON, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import (
+    Column,
+    Integer,
+    Float,
+    String,
+    Boolean,
+    JSON,
+    ForeignKey,
+    DateTime,
+    UniqueConstraint,
+    BigInteger,
+    Index,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -30,11 +42,18 @@ class PlaybackSettings(Base):
     
     __table_args__ = (
         UniqueConstraint("user_id", "channel_id", name="uq_playback_user_channel"),
+        Index("ix_playback_settings_channel_id", "channel_id"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
-    channel_id = Column(Integer, nullable=True)  # For multi-channel support (US11)
+    channel_id = Column(
+        BigInteger,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment="Telegram chat/channel identifier",
+    )
     
     # Speed/Pitch Control (US1)
     speed = Column(Float, default=1.0)  # Range: 0.5 - 2.0

@@ -1,0 +1,232 @@
+# Playback API Contract
+
+openapi: 3.0.3
+info:
+  title: Playback Control API
+  description: API для управления воспроизведением (скорость, перемотка, эквалайзер)
+  version: 1.0.0
+
+paths:
+  /api/v1/playback/speed:
+    post:
+      summary: Изменить скорость воспроизведения
+      operationId: setPlaybackSpeed
+      tags:
+        - Playback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpeedChangeRequest'
+      responses:
+        '200':
+          description: Скорость успешно изменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackSettingsResponse'
+        '400':
+          description: Неверный диапазон скорости
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds until rate limit resets
+
+  /api/v1/playback/seek:
+    post:
+      summary: Перемотка трека
+      operationId: seekTrack
+      tags:
+        - Playback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeekRequest'
+      responses:
+        '200':
+          description: Позиция успешно изменена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeekResponse'
+        '400':
+          description: Некорректное значение секунд
+        '409':
+          description: Seek невозможен для текущего источника (радио)
+
+  /api/v1/playback/equalizer:
+    get:
+      summary: Получить текущие настройки эквалайзера
+      operationId: getEqualizer
+      tags:
+        - Playback
+      responses:
+        '200':
+          description: Текущие настройки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EqualizerResponse'
+
+    post:
+      summary: Применить пресет эквалайзера
+      operationId: setEqualizerPreset
+      tags:
+        - Playback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EqualizerPresetRequest'
+      responses:
+        '200':
+          description: Пресет применён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EqualizerResponse'
+        '400':
+          description: Неизвестный пресет
+
+  /api/v1/playback/settings:
+    get:
+      summary: Получить настройки пользователя
+      operationId: getPlaybackSettings
+      tags:
+        - Playback
+      responses:
+        '200':
+          description: Настройки пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackSettingsResponse'
+
+    patch:
+      summary: Обновить настройки пользователя
+      operationId: updatePlaybackSettings
+      tags:
+        - Playback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybackSettingsUpdate'
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackSettingsResponse'
+
+components:
+  schemas:
+    SpeedChangeRequest:
+      type: object
+      required:
+        - speed
+      properties:
+        speed:
+          type: number
+          format: float
+          minimum: 0.5
+          maximum: 2.0
+          example: 1.5
+          description: Множитель скорости воспроизведения
+
+    SeekRequest:
+      type: object
+      required:
+        - seconds
+      properties:
+        seconds:
+          type: integer
+          example: -30
+          description: Секунды для перемотки (отрицательные - назад)
+
+    SeekResponse:
+      type: object
+      properties:
+        previous_position:
+          type: integer
+          description: Позиция до перемотки (секунды)
+        current_position:
+          type: integer
+          description: Текущая позиция (секунды)
+        duration:
+          type: integer
+          description: Общая длительность трека (секунды)
+
+    EqualizerPresetRequest:
+      type: object
+      required:
+        - preset
+      properties:
+        preset:
+          type: string
+          enum:
+            - flat
+            - rock
+            - jazz
+            - classical
+            - voice
+            - bass_boost
+          example: rock
+
+    EqualizerResponse:
+      type: object
+      properties:
+        preset:
+          type: string
+          description: Текущий пресет или "custom"
+        bands:
+          type: array
+          items:
+            type: integer
+            minimum: -12
+            maximum: 12
+          minItems: 10
+          maxItems: 10
+          example: [5, 4, 3, 2, -1, -1, 0, 2, 3, 4]
+
+    PlaybackSettingsResponse:
+      type: object
+      properties:
+        speed:
+          type: number
+          format: float
+        pitch_correction:
+          type: boolean
+        equalizer_preset:
+          type: string
+        language:
+          type: string
+        show_lyrics:
+          type: boolean
+
+    PlaybackSettingsUpdate:
+      type: object
+      properties:
+        speed:
+          type: number
+          format: float
+          minimum: 0.5
+          maximum: 2.0
+        pitch_correction:
+          type: boolean
+        equalizer_preset:
+          type: string
+        language:
+          type: string
+          enum: [ru, en, uk, es]
+        show_lyrics:
+          type: boolean

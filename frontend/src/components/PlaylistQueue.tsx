@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PlaylistItem } from '../services/playlist'
 import * as playlistService from '../services/playlist'
@@ -52,12 +52,12 @@ const PlaylistQueue: React.FC<PlaylistQueueProps> = ({ channelId }) => {
         }
         break
     }
-  }, [lastEvent])
+  }, [lastEvent, toast])
 
   // Fallback to polling if WebSocket is not connected
   const [fallbackItems, setFallbackItems] = useState<PlaylistItem[]>([])
   
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     if (isConnected) return // Skip polling if WebSocket is connected
     
     setLoading(true)
@@ -70,7 +70,7 @@ const PlaylistQueue: React.FC<PlaylistQueueProps> = ({ channelId }) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [channelId, isConnected, toast])
 
   useEffect(() => {
     if (!isConnected) {
@@ -78,7 +78,7 @@ const PlaylistQueue: React.FC<PlaylistQueueProps> = ({ channelId }) => {
       const id = setInterval(fetch, POLL_INTERVAL_MS)
       return () => clearInterval(id)
     }
-  }, [isConnected, channelId])
+  }, [isConnected, fetch])
 
   // Use WebSocket items if connected, otherwise use fallback
   const displayItems = isConnected ? items : fallbackItems

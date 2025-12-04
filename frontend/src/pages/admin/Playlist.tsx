@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Reorder, useDragControls, motion } from 'framer-motion';
 import { Card, CardBody, CardHeader, Button, Input } from '@heroui/react';
@@ -81,7 +81,7 @@ const Playlist: React.FC = () => {
   const [newItem, setNewItem] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const fetchPlaylist = async () => {
+  const fetchPlaylist = useCallback(async () => {
     setLoading(true);
     try {
       const data = await adminApi.getPlaylist();
@@ -91,11 +91,11 @@ const Playlist: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, t]);
 
   useEffect(() => {
     fetchPlaylist();
-  }, []);
+  }, [fetchPlaylist]);
 
   const savePlaylist = async (newItems: string[]) => {
     setLoading(true);

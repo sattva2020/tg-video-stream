@@ -33,7 +33,7 @@ export const ResponsiveHeader: React.FC = () => {
               className="flex items-center gap-2 text-lg font-semibold text-[color:var(--color-text)]"
             >
               <img 
-                src="/assets/yantra-logo.svg" 
+                src="/img/yantra.png" 
                 alt="Sattva Yantra" 
                 className="w-8 h-8 rounded-lg"
               />
