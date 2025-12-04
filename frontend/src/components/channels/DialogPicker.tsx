@@ -102,12 +102,20 @@ export const DialogPicker: React.FC<DialogPickerProps> = ({
         ) : filteredDialogs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-[color:var(--color-text-muted)]">
             <Radio className="w-8 h-8 mb-2" />
-            <p className="text-sm">
+            <p className="text-sm font-medium">
               {search 
                 ? t('dialogs.noResults', 'Ничего не найдено')
                 : t('dialogs.noDialogs', 'Нет доступных каналов или групп')
               }
             </p>
+            <div className="mt-3 p-3 bg-[color:var(--color-surface-muted)] rounded-lg text-xs max-w-xs text-center">
+              <p className="font-medium text-[color:var(--color-text)] mb-1">
+                {t('dialogs.notFoundHint', '💡 Канал/группа не в списке?')}
+              </p>
+              <p>
+                {t('dialogs.notFoundInstruction', 'Напишите любое сообщение в нужный чат в Telegram, затем обновите этот список. Или введите Chat ID вручную.')}
+              </p>
+            </div>
           </div>
         ) : (
           <div className="divide-y divide-[color:var(--color-border)]">

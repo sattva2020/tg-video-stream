@@ -16,5 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Command to run the streamer
-CMD ["python", "main.py"]
+# Default: multi-channel runner with Redis control
+# Set STREAMER_MODE=legacy to use old main.py
+ENV STREAMER_MODE=multi
+
+# Entrypoint script to select mode
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]

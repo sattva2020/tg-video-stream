@@ -30,7 +30,7 @@ const HeroPanel: React.FC = () => {
         Calm Broadcast
       </h3>
       <p className="mt-2 text-sm text-[color:var(--color-text-muted)]">
-        45 820 зрителей сейчас · +12% удержание
+        45 820 зрителей сейчас · +12% удержание
       </p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -18,10 +18,6 @@ description: "Task list template for feature implementation"
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
 
-> ⚖️ Конституция: для каждой пользовательской истории фиксируйте связанные тесты в `tests/`
-> и необходимые обновления документации (`docs/`, `ai-instructions/`). Задачи по работе с
-> окружением обязаны ссылаться на `template.env`, а временные файлы направлять в `.internal/`.
-
 ## Path Conventions
 
 - **Single project**: `src/`, `tests/` at repository root

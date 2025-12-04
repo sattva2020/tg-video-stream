@@ -4,7 +4,7 @@ from src.database import get_db
 from src.models.user import User
 from src.models.telegram import Channel, TelegramAccount
 from api.auth import get_current_user
-from src.services.systemd import SystemdService
+from src.services.redis_stream_controller import RedisStreamController
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 import uuid
@@ -89,13 +89,17 @@ def start_channel(
     
     # TODO: Check if current_user owns the channel's account
     
-    service = SystemdService(db)
+    controller = RedisStreamController(db)
     try:
-        service.start_channel(str(channel_id))
+        success = controller.start_channel(str(channel_id))
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to send start command")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-    return {"status": "started"}
+    return {"status": "starting", "message": "Start command sent to streamer"}
 
 @router.post("/{channel_id}/stop")
 def stop_channel(
@@ -107,13 +111,17 @@ def stop_channel(
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
         
-    service = SystemdService(db)
+    controller = RedisStreamController(db)
     try:
-        service.stop_channel(str(channel_id))
+        success = controller.stop_channel(str(channel_id))
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to send stop command")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-    return {"status": "stopped"}
+    return {"status": "stopping", "message": "Stop command sent to streamer"}
 
 @router.get("/{channel_id}/status")
 def get_channel_status(

@@ -269,11 +269,10 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onApplyTemplate,
 }) => {
   const { t } = useTranslation();
-  const today = new Date();
   
   // State
-  const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Data
@@ -305,10 +304,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   }, [currentMonth]);
 
   const goToToday = useCallback(() => {
-    setCurrentYear(today.getFullYear());
-    setCurrentMonth(today.getMonth());
-    setSelectedDate(today.toISOString().split('T')[0]);
-  }, [today]);
+    const now = new Date();
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
+    setSelectedDate(now.toISOString().split('T')[0]);
+  }, []);
 
   // Build calendar grid
   const calendarGrid = useMemo(() => {
@@ -342,7 +342,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     return grid;
   }, [currentYear, currentMonth, calendarData]);
 
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
 
   return (
     <div className="space-y-4">

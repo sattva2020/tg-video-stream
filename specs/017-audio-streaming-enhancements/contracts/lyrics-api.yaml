@@ -1,0 +1,246 @@
+# Lyrics & Recognition API Contract
+
+openapi: 3.0.3
+info:
+  title: Lyrics & Music Recognition API
+  description: API для получения текстов песен и распознавания музыки
+  version: 1.0.0
+
+paths:
+  /api/v1/lyrics:
+    get:
+      summary: Получить текст песни
+      operationId: getLyrics
+      tags:
+        - Lyrics
+      parameters:
+        - name: artist
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Имя исполнителя
+        - name: title
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Название песни
+      responses:
+        '200':
+          description: Текст найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LyricsResponse'
+        '404':
+          description: Текст не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LyricsNotFoundResponse'
+
+  /api/v1/lyrics/current:
+    get:
+      summary: Получить текст текущего трека
+      operationId: getCurrentLyrics
+      tags:
+        - Lyrics
+      responses:
+        '200':
+          description: Текст текущего трека
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LyricsResponse'
+        '404':
+          description: Нет активного трека или текст не найден
+
+  /api/v1/recognize:
+    post:
+      summary: Распознать музыку по аудио
+      operationId: recognizeMusic
+      tags:
+        - Recognition
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                audio:
+                  type: string
+                  format: binary
+                  description: Аудио файл (WAV, MP3, OGG)
+                duration:
+                  type: integer
+                  default: 10
+                  description: Длительность сэмпла в секундах
+      responses:
+        '200':
+          description: Трек распознан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionResponse'
+        '400':
+          description: Некорректный формат аудио
+        '404':
+          description: Трек не распознан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionNotFoundResponse'
+        '429':
+          description: Rate limit для распознавания (5 запросов/минуту)
+
+  /api/v1/recognize/current:
+    post:
+      summary: Распознать текущее воспроизведение
+      operationId: recognizeCurrentPlayback
+      tags:
+        - Recognition
+      description: Записывает 10 секунд текущего воспроизведения и распознаёт
+      responses:
+        '200':
+          description: Трек распознан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecognitionResponse'
+        '404':
+          description: Трек не распознан или нет активного воспроизведения
+
+components:
+  schemas:
+    LyricsResponse:
+      type: object
+      properties:
+        artist:
+          type: string
+          example: "Queen"
+        title:
+          type: string
+          example: "Bohemian Rhapsody"
+        lyrics:
+          type: string
+          description: Полный текст песни
+        synced:
+          type: boolean
+          description: Есть ли синхронизированный текст (LRC)
+        synced_lyrics:
+          type: array
+          nullable: true
+          description: Синхронизированные строки (если synced=true)
+          items:
+            $ref: '#/components/schemas/SyncedLine'
+        source:
+          type: string
+          enum: [genius, manual, musixmatch]
+        source_url:
+          type: string
+          nullable: true
+          description: Ссылка на источник
+        cached:
+          type: boolean
+          description: Был ли результат из кэша
+
+    SyncedLine:
+      type: object
+      properties:
+        time:
+          type: number
+          format: float
+          description: Время в секундах
+        text:
+          type: string
+          description: Текст строки
+
+    LyricsNotFoundResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "lyrics_not_found"
+        message:
+          type: string
+          example: "Lyrics not found for 'Artist - Title'"
+        suggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              artist:
+                type: string
+              title:
+                type: string
+          description: Возможные альтернативные названия
+
+    RecognitionResponse:
+      type: object
+      properties:
+        recognized:
+          type: boolean
+          example: true
+        track:
+          $ref: '#/components/schemas/RecognizedTrack'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.95
+          description: Уверенность распознавания
+
+    RecognizedTrack:
+      type: object
+      properties:
+        title:
+          type: string
+          example: "Bohemian Rhapsody"
+        artist:
+          type: string
+          example: "Queen"
+        album:
+          type: string
+          nullable: true
+          example: "A Night at the Opera"
+        year:
+          type: integer
+          nullable: true
+          example: 1975
+        cover_url:
+          type: string
+          nullable: true
+          description: URL обложки альбома
+        preview_url:
+          type: string
+          nullable: true
+          description: URL превью трека
+        external_urls:
+          type: object
+          properties:
+            spotify:
+              type: string
+            apple_music:
+              type: string
+            youtube:
+              type: string
+
+    RecognitionNotFoundResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "recognition_failed"
+        message:
+          type: string
+          example: "Could not recognize the audio"
+        reason:
+          type: string
+          enum:
+            - no_match
+            - low_quality
+            - too_short
+            - network_error

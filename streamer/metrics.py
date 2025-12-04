@@ -10,8 +10,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class MetricsCollector:
-    def __init__(self, redis_host='redis', redis_port=6379, redis_db=0):
-        self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
+    def __init__(
+        self,
+        redis_host='redis',
+        redis_port=6379,
+        redis_db=0,
+        redis_url: str | None = None,
+    ):
+        if redis_url:
+            self.redis_client = redis.from_url(redis_url)
+        else:
+            self.redis_client = redis.Redis(host=redis_host, port=redis_port, db=redis_db)
         self.process = psutil.Process(os.getpid())
 
     def collect_metrics(self):
@@ -71,8 +80,21 @@ class MetricsCollector:
 
 if __name__ == "__main__":
     # Allow configuration via environment variables
-    REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
-    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
-    
-    collector = MetricsCollector(redis_host=REDIS_HOST, redis_port=REDIS_PORT)
+    REDIS_HOST = os.getenv('REDIS_HOST')
+    REDIS_PORT = os.getenv('REDIS_PORT', '6379')
+    REDIS_DB = os.getenv('REDIS_DB', '0')
+    REDIS_URL = os.getenv('REDIS_URL')
+
+    resolved_url = None
+    if REDIS_HOST:
+        resolved_url = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+    elif REDIS_URL:
+        resolved_url = REDIS_URL
+
+    collector = MetricsCollector(
+        redis_host=REDIS_HOST or 'redis',
+        redis_port=int(REDIS_PORT),
+        redis_db=int(REDIS_DB),
+        redis_url=resolved_url,
+    )
     collector.run_loop()
