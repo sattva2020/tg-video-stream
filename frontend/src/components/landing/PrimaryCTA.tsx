@@ -13,7 +13,8 @@ export type PrimaryCTAProps = {
 
 const variantClasses: Record<CTAStyleVariant, string> = {
   glass: 'backdrop-blur-md bg-white/10 hover:bg-white/20 text-white shadow-[0_0_40px_rgba(14,165,233,0.45)]',
-  solid: 'bg-brand-sky text-brand-midnight hover:bg-brand-glow focus-visible:bg-brand-glow shadow-lg shadow-brand-sky/40',
+  solid:
+    'bg-gradient-to-r from-sky-300 via-sky-400 to-cyan-400 text-brand-midnight hover:from-sky-200 hover:via-sky-300 hover:to-cyan-300 focus-visible:from-sky-200 focus-visible:via-sky-300 focus-visible:to-cyan-300 shadow-[0_20px_60px_rgba(14,165,233,0.45)]',
 };
 
 const PrimaryCTA = forwardRef<HTMLAnchorElement, PrimaryCTAProps>(
