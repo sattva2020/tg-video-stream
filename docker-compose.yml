@@ -96,6 +96,7 @@ services:
       - streamer
       - monitoring
       - external
+      - internal
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
       interval: 30s
