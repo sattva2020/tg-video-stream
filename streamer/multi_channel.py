@@ -35,9 +35,15 @@ try:
     from streamer.playback_control import PlaybackController, get_playback_controller
     from streamer.radio_handler import RadioHandler
 except ImportError:
-    from queue_manager import StreamQueue, QueueManager
-    from playback_control import PlaybackController, get_playback_controller
-    from radio_handler import RadioHandler
+    try:
+        from queue_manager import StreamQueue, QueueManager
+        from playback_control import PlaybackController, get_playback_controller
+        from radio_handler import RadioHandler
+    except ImportError:
+        # Modules not available - define stubs
+        StreamQueue = QueueManager = PlaybackController = RadioHandler = None
+        def get_playback_controller():
+            return None
 
 
 logger = logging.getLogger(__name__)

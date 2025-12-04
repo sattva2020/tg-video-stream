@@ -29,7 +29,10 @@ except ImportError:
     PyTgCalls = Any  # type: ignore
     AudioVideoPiped = AudioPiped = Any  # type: ignore
 
-from streamer.audio_filters import audio_filters
+try:
+    from streamer.audio_filters import audio_filters
+except ImportError:
+    from audio_filters import audio_filters
 
 
 logger = logging.getLogger(__name__)
