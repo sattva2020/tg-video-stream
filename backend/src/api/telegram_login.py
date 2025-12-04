@@ -113,11 +113,10 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
             user = User(
                 id=uuid.uuid4(),
                 email=f"telegram_{telegram_id}@sattva.local",
-                name=first_name or username or f"User {telegram_id}",
+                full_name=first_name or username or f"User {telegram_id}",
                 telegram_id=telegram_id,
                 telegram_username=username,
-                is_active=True,
-                is_approved=True,  # Автоматическое одобрение для Telegram
+                status="pending",  # Новые пользователи ожидают одобрения
                 role="user"
             )
             db.add(user)
@@ -128,7 +127,7 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
             if username:
                 user.telegram_username = username
             if first_name:
-                user.name = first_name
+                user.full_name = first_name
             db.commit()
         
         # Сохраняем или обновляем TelegramAccount для стриминга
