@@ -121,6 +121,7 @@ async def get_account_dialogs(
         )
         
         async with client:
+            # Получаем диалоги с лимитом 100 для быстрой загрузки
             async for dialog in client.get_dialogs(limit=100):
                 chat = dialog.chat
                 
