@@ -18,14 +18,19 @@ function getAuthHeaders(): HeadersInit {
 
 async function request(path: string, opts?: RequestInit) {
   const url = `${API_BASE}/api/playlist${path}`;
+  const authHeaders = getAuthHeaders();
   const res = await fetch(url, {
     ...opts,
     headers: {
-      ...getAuthHeaders(),
+      ...authHeaders,
       ...opts?.headers,
     },
   });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    console.error(`API error ${res.status}: ${text}`);
+    throw new Error(`API error ${res.status}`);
+  }
   return res.json();
 }
 
