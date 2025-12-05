@@ -4,16 +4,14 @@
   pointer-events: none;
   isolation: isolate;
   overflow: hidden;
-  background: linear-gradient(180deg, #020813 0%, #0a1628 50%, #071020 100%);
+  background: var(--landing-bg-gradient);
 }
 
 /* ===== Градиент неба ===== */
 .skyGradient {
   position: absolute;
   inset: 0;
-  background: 
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(14, 165, 233, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%);
+  background: var(--landing-visual-overlay);
 }
 
 /* ===== Частицы / Звёзды ===== */
@@ -26,7 +24,7 @@
   position: absolute;
   width: 2px;
   height: 2px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--landing-visual-particle);
   border-radius: 50%;
   animation: twinkle 4s ease-in-out infinite;
 }
@@ -34,7 +32,7 @@
 .particle:nth-child(3n) {
   width: 3px;
   height: 3px;
-  background: rgba(14, 165, 233, 0.8);
+  background: var(--landing-visual-particle-accent);
 }
 
 .particle:nth-child(5n) {
@@ -45,11 +43,10 @@
 .minimalOverlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 55%),
-    linear-gradient(180deg, rgba(2, 8, 19, 0.95) 0%, rgba(7, 16, 32, 0.95) 100%);
+  background: var(--landing-bg-noise);
   filter: blur(30px);
   opacity: 0.85;
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-top: 1px solid var(--landing-outline-strong);
 }
 
 /* ===== TV Контейнер ===== */
@@ -67,14 +64,14 @@
   position: relative;
   width: 280px;
   height: 180px;
-  background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1a 100%);
-  border: 4px solid #2a2a4a;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--landing-card-bg) 85%, #000000) 0%, color-mix(in srgb, var(--landing-card-strong-bg) 85%, #000000) 100%);
+  border: 4px solid color-mix(in srgb, var(--landing-card-border-strong) 80%, #000000);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 
-    0 0 60px rgba(14, 165, 233, 0.3),
-    0 0 120px rgba(14, 165, 233, 0.15),
-    inset 0 0 30px rgba(14, 165, 233, 0.1);
+    0 0 60px color-mix(in srgb, var(--landing-accent-glow) 45%, transparent),
+    0 0 120px color-mix(in srgb, var(--landing-accent-glow) 25%, transparent),
+    inset 0 0 30px color-mix(in srgb, var(--landing-accent-glow) 35%, transparent);
 }
 
 .scanlines {
@@ -105,8 +102,8 @@
   transform: translate(-50%, -50%);
   width: 60px;
   height: 60px;
-  color: rgba(14, 165, 233, 0.9);
-  filter: drop-shadow(0 0 20px rgba(14, 165, 233, 0.6));
+  color: color-mix(in srgb, var(--landing-accent-glow) 90%, var(--landing-cta-text));
+  filter: drop-shadow(0 0 20px color-mix(in srgb, var(--landing-accent-glow) 60%, transparent));
   animation: playPulse 2s ease-in-out infinite;
 }
 
@@ -118,7 +115,7 @@
 .tvStand {
   width: 40px;
   height: 30px;
-  background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2e 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--landing-card-border-strong) 80%, transparent) 0%, color-mix(in srgb, var(--landing-card-bg) 60%, #000000) 100%);
   clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
   margin-top: -2px;
 }
@@ -135,7 +132,7 @@
   position: absolute;
   width: 300px;
   height: 300px;
-  border: 2px solid rgba(14, 165, 233, 0.3);
+  border: 2px solid color-mix(in srgb, var(--landing-accent-glow) 45%, transparent);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   animation: waveExpand 3s ease-out infinite;
@@ -149,7 +146,7 @@
   height: 600px;
   right: -100px;
   top: 20%;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.15) 0%, transparent 60%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--landing-accent-glow) 30%, transparent) 0%, transparent 60%);
   filter: blur(60px);
   animation: ambientPulse 8s ease-in-out infinite;
 }

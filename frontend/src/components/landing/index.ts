@@ -7,4 +7,5 @@ export { default as FeatureSection } from './FeatureSection';
 export { default as WorkflowSection } from './WorkflowSection';
 export { default as TrustSection } from './TrustSection';
 export { default as UseCasesSection } from './UseCasesSection';
+export { default as ThemeToggle } from './ThemeToggle';
 export * from './types';

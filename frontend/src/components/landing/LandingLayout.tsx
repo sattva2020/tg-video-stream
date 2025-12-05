@@ -17,7 +17,7 @@ const SectionShell: FC<{ children: ReactNode; className?: string }> = ({ childre
 const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background, className }) => {
   return (
     <div
-      className={clsx('relative min-h-dvh bg-brand-midnight text-white', className)}
+      className={clsx('relative min-h-dvh text-[color:var(--landing-text)]', className)}
       data-landing-surface="hero"
     >
       {background ? (
@@ -28,8 +28,13 @@ const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background,
       {/* Sticky header вынесен на уровень выше, чтобы работал корректно */}
       {nav ? (
         <header
-          className="sticky top-0 z-50 border-b border-white/5 bg-brand-midnight/80 px-4 py-4 backdrop-blur supports-[backdrop-filter]:bg-brand-midnight/60 sm:px-8 sm:py-6"
+          className="sticky top-0 z-50 px-4 py-4 backdrop-blur sm:px-8 sm:py-6"
           data-testid="landing-nav"
+          style={{
+            backgroundColor: 'var(--landing-nav-bg)',
+            borderBottom: '1px solid var(--landing-nav-border)',
+            boxShadow: 'var(--landing-nav-shadow)',
+          }}
         >
           <SectionShell className="px-0">{nav}</SectionShell>
         </header>
@@ -40,7 +45,7 @@ const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background,
         </main>
         {footer ? (
           <footer className="px-4 pb-6 sm:px-8" data-testid="landing-footer">
-            <SectionShell className="px-0 text-sm text-white/70">{footer}</SectionShell>
+            <SectionShell className="px-0 text-sm text-[color:var(--landing-text-muted)]">{footer}</SectionShell>
           </footer>
         ) : null}
       </div>
