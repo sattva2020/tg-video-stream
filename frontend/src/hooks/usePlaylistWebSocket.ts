@@ -23,8 +23,10 @@ interface UsePlaylistWebSocketOptions {
   enabled?: boolean;
 }
 
-const WS_RECONNECT_DELAY = 3000;
+const WS_RECONNECT_DELAY = 5000; // Increased from 3s to 5s
+const WS_MAX_RECONNECT_DELAY = 60000; // Max 1 minute between reconnects
 const WS_PING_INTERVAL = 25000;
+const WS_MAX_RECONNECT_ATTEMPTS = 5; // Stop trying after 5 failures
 
 export function usePlaylistWebSocket({
   channelId,
@@ -40,6 +42,8 @@ export function usePlaylistWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const pingIntervalRef = useRef<NodeJS.Timeout>();
+  const reconnectAttemptRef = useRef(0);
+  const reconnectDelayRef = useRef(WS_RECONNECT_DELAY);
 
   const getWebSocketUrl = useCallback(() => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
@@ -60,6 +64,12 @@ export function usePlaylistWebSocket({
   const connect = useCallback(() => {
     if (!enabled) return;
     
+    // Stop reconnecting after too many attempts
+    if (reconnectAttemptRef.current >= WS_MAX_RECONNECT_ATTEMPTS) {
+      console.warn('[WS] Max reconnect attempts reached, giving up');
+      return;
+    }
+    
     // Cleanup existing connection
     if (wsRef.current) {
       wsRef.current.close();
@@ -71,6 +81,9 @@ export function usePlaylistWebSocket({
     ws.onopen = () => {
       console.log('[WS] Connected to playlist WebSocket');
       setIsConnected(true);
+      // Reset reconnect state on successful connection
+      reconnectAttemptRef.current = 0;
+      reconnectDelayRef.current = WS_RECONNECT_DELAY;
       
       // Setup ping interval
       pingIntervalRef.current = setInterval(() => {
@@ -163,12 +176,20 @@ export function usePlaylistWebSocket({
         clearInterval(pingIntervalRef.current);
       }
       
-      // Reconnect after delay
-      if (enabled) {
+      // Reconnect with exponential backoff
+      if (enabled && reconnectAttemptRef.current < WS_MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttemptRef.current++;
+        console.log(`[WS] Will reconnect in ${reconnectDelayRef.current}ms (attempt ${reconnectAttemptRef.current}/${WS_MAX_RECONNECT_ATTEMPTS})`);
+        
         reconnectTimeoutRef.current = setTimeout(() => {
           console.log('[WS] Attempting to reconnect...');
           connect();
-        }, WS_RECONNECT_DELAY);
+        }, reconnectDelayRef.current);
+        
+        // Exponential backoff: 5s -> 10s -> 20s -> 40s -> 60s max
+        reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, WS_MAX_RECONNECT_DELAY);
+      } else if (reconnectAttemptRef.current >= WS_MAX_RECONNECT_ATTEMPTS) {
+        console.warn('[WS] Max reconnect attempts reached, falling back to polling');
       }
     };
 
