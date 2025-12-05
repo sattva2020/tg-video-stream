@@ -58,15 +58,54 @@ class ChannelService:
             db_session: SQLAlchemy database session (optional, will use get_db if not provided)
         """
         self._db = db_session
+        self._owns_db = db_session is None  # Track if we created the session
         self._redis: Optional[Any] = None
         self.logger = logger
     
     @property
     def db(self) -> Session:
-        """Get database session."""
+        """Get database session. Auto-creates if needed."""
         if self._db is None:
-            self._db = next(get_db())
+            from src.database import SessionLocal
+            self._db = SessionLocal()
+            self._owns_db = True
         return self._db
+    
+    def _ensure_fresh_session(self):
+        """Ensure we have a fresh database session.
+        
+        This is called before database operations to avoid stale connections.
+        """
+        if self._owns_db and self._db is not None:
+            try:
+                # Try to verify connection is still valid
+                self._db.execute("SELECT 1")
+            except Exception:
+                # Connection is stale, close and get a new one
+                try:
+                    self._db.close()
+                except Exception:
+                    pass
+                self._db = None
+    
+    def close(self):
+        """Close database session if we own it."""
+        if self._owns_db and self._db is not None:
+            try:
+                self._db.close()
+            except Exception:
+                pass
+            self._db = None
+            self._owns_db = False
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close session."""
+        self.close()
+        return False
     
     async def _get_redis(self):
         """Get or create Redis connection for status caching."""
