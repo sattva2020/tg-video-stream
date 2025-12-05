@@ -5,7 +5,7 @@ export interface Channel {
   account_id: string;
   chat_id: number;
   name: string;
-  status: 'stopped' | 'running' | 'error';
+  status: 'stopped' | 'running' | 'error' | 'starting' | 'stopping' | 'unknown';
   ffmpeg_args?: string;
   video_quality: string;
 }

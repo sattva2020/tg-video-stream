@@ -165,6 +165,8 @@ const ChannelManager: React.FC = () => {
                           ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                           : channel.status === 'error'
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                          : channel.status === 'starting' || channel.status === 'stopping'
+                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                           : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-muted)]'
                       }`}
                     >
@@ -188,7 +190,7 @@ const ChannelManager: React.FC = () => {
                   </div>
 
                   <div className="flex gap-2 sm:gap-3">
-                    {channel.status !== 'running' ? (
+                    {channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown' ? (
                       <button
                         onClick={() => handleStart(channel.id)}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
@@ -199,7 +201,8 @@ const ChannelManager: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => handleStop(channel.id)}
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
+                        disabled={channel.status === 'starting' || channel.status === 'stopping'}
+                        className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
                         <Square className="w-4 h-4" /> 
                         <span className="hidden xs:inline">{t('channels.stop', 'Stop')}</span>
