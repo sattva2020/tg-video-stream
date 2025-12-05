@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import PrimaryCTA from './PrimaryCTA';
 import type { HeroContent, LocaleKey } from './types';
+import ThemeToggle from './ThemeToggle';
 
 export type HeroSectionProps = {
   content: HeroContent;
@@ -36,7 +37,12 @@ const HeroStatGrid = ({
 
   return (
     <div
-      className="rounded-[32px] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/40 backdrop-blur"
+      className="rounded-[32px] border p-4 backdrop-blur"
+      style={{
+        background: 'var(--landing-section-bg)',
+        borderColor: 'var(--landing-card-border-strong)',
+        boxShadow: 'var(--landing-section-shadow)',
+      }}
       aria-label={t('hero_benefits_label', 'Key benefits')}
       data-testid="hero-benefits"
     >
@@ -44,11 +50,17 @@ const HeroStatGrid = ({
         {stats.map((item) => (
           <article
             key={item.id}
-            className="rounded-2xl border border-white/10 bg-brand-midnight/40 p-4 text-white/90"
+            className="rounded-2xl border p-4"
+            style={{
+              background: 'var(--landing-card-bg)',
+              borderColor: 'var(--landing-card-border)',
+              color: 'var(--landing-text)',
+              boxShadow: 'var(--landing-card-shadow)',
+            }}
           >
             <p
               className={clsx('text-base font-semibold 3xl:text-lg', {
-                'italic text-white/75': item.isFallback,
+                'italic text-[color:var(--landing-text-muted)]': item.isFallback,
               })}
             >
               <span lang={item.isFallback ? 'en' : undefined}>{item.label}</span>
@@ -57,7 +69,10 @@ const HeroStatGrid = ({
               ) : null}
             </p>
             {item.metric ? (
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-brand-glow">
+              <p
+                className="text-sm font-semibold uppercase tracking-[0.3em]"
+                style={{ color: 'var(--landing-accent-glow)' }}
+              >
                 {item.metric}
               </p>
             ) : null}
@@ -82,18 +97,32 @@ const HeroSection = ({ content, locale, onCtaClick, hideCta }: HeroSectionProps)
     >
       <div className="space-y-6">
         <div className="space-y-4">
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.4em] text-brand-glow xs:text-xs">
+          <p
+            className="text-[0.7rem] font-semibold uppercase tracking-[0.4em] xs:text-xs"
+            style={{ color: 'var(--landing-hero-tag-text)' }}
+          >
             {t(content.labelKey)}
           </p>
           <h1
             id={headingId}
-            className="text-[clamp(2.35rem,6vw,3.65rem)] font-bold leading-tight text-white drop-shadow-[0_25px_60px_rgba(15,185,255,0.35)]"
+            className="text-[clamp(2.35rem,6vw,3.65rem)] font-bold leading-tight"
+            style={{
+              color: 'var(--landing-heading)',
+              textShadow: 'var(--landing-heading-shadow)',
+            }}
           >
             {t(content.titleKey)}
           </h1>
-          <p id={subtitleId} className="text-base leading-relaxed text-white/85 sm:text-lg">
+          <p
+            id={subtitleId}
+            className="text-base leading-relaxed sm:text-lg"
+            style={{ color: 'var(--landing-text-muted)' }}
+          >
             {t(content.subtitleKey)}
           </p>
+          <div className="flex flex-wrap gap-3" role="group" aria-label={t('landing_theme_controls')}>
+            <ThemeToggle />
+          </div>
         </div>
         {!hideCta ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -108,15 +137,29 @@ const HeroSection = ({ content, locale, onCtaClick, hideCta }: HeroSectionProps)
               <a
                 href={content.secondaryCta.href}
                 data-tracking-id={content.secondaryCta.trackingId}
-                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-white/30 px-6 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:border-white/60 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand-glow sm:w-auto sm:min-w-[210px] sm:px-8 sm:py-4 sm:text-base"
+                className="inline-flex min-h-[44px] w-full items-center justify-center rounded-full border px-6 py-3 text-sm font-semibold uppercase tracking-wide transition hover:bg-[color:var(--landing-secondary-cta-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--landing-accent-glow)] sm:w-auto sm:min-w-[210px] sm:px-8 sm:py-4 sm:text-base"
+                style={{
+                  backgroundColor: 'var(--landing-secondary-cta-bg)',
+                  borderColor: 'var(--landing-secondary-cta-border)',
+                  color: 'var(--landing-secondary-cta-text)',
+                  boxShadow: 'var(--landing-secondary-cta-shadow)',
+                }}
               >
                 {t(content.secondaryCta.labelKey)}
               </a>
             ) : null}
           </div>
         ) : null}
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/80 shadow-inner shadow-black/20">
-          <p>{t('landing_features_thesis')}</p>
+        <div
+          className="rounded-3xl border p-4 text-sm"
+          style={{
+            background: 'var(--landing-card-alt)',
+            borderColor: 'var(--landing-card-border)',
+            color: 'var(--landing-text-muted)',
+            boxShadow: 'var(--landing-card-shadow)',
+          }}
+        >
+          <p style={{ color: 'var(--landing-text)' }}>{t('landing_features_thesis')}</p>
         </div>
       </div>
       <HeroStatGrid content={content.benefits} locale={locale} />

@@ -23,6 +23,34 @@
   font-weight: 400;
 }
 
+@font-face {
+  font-family: 'MiSans';
+  src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Bold.ttf') format('truetype');
+  font-display: swap;
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Semibold.ttf') format('truetype');
+  font-display: swap;
+  font-weight: 600;
+}
+
+@font-face {
+  font-family: 'MiSans';
+  src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Medium.ttf') format('truetype');
+  font-display: swap;
+  font-weight: 500;
+}
+
+@font-face {
+  font-family: 'AlibabaSans';
+  src: url('https://assets-persist.lovart.ai/agent-static-assets/AlibabaSans-Regular.otf') format('opentype');
+  font-display: swap;
+  font-weight: 400;
+}
+
 @layer base {
   html {
     min-width: 280px;
@@ -46,11 +74,15 @@
   }
 
   [data-landing-surface='hero'] {
-    font-family: var(--font-body);
-    color: #f8fafc;
-    background-color: var(--color-void);
+    font-family: var(--landing-font-body, var(--font-body));
+    color: var(--landing-text);
+    background-color: var(--landing-bg);
+    background-image: var(--landing-bg-gradient), var(--landing-bg-noise);
+    background-size: cover;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    position: relative;
+    isolation: isolate;
   }
 
   [data-landing-surface='hero'] main {
