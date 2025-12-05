@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Redis channels
 STREAM_CONTROL_CHANNEL = "stream:control"
 STREAM_STATUS_KEY = "stream:status:{channel_id}"
-STREAM_STATUS_TTL = 300  # 5 minutes
+STREAM_STATUS_TTL = 3600  # 1 hour (increased from 5 minutes)
 
 
 @dataclass

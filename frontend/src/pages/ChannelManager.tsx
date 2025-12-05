@@ -193,7 +193,8 @@ const ChannelManager: React.FC = () => {
                     {channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown' ? (
                       <button
                         onClick={() => handleStart(channel.id)}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
+                        disabled={startChannel.isPending || stopChannel.isPending}
+                        className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
                         <Play className="w-4 h-4" /> 
                         <span className="hidden xs:inline">{t('channels.start', 'Start')}</span>
@@ -201,7 +202,7 @@ const ChannelManager: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => handleStop(channel.id)}
-                        disabled={channel.status === 'starting' || channel.status === 'stopping'}
+                        disabled={stopChannel.isPending}
                         className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
                         <Square className="w-4 h-4" /> 
