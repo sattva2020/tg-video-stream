@@ -27,9 +27,71 @@
   --transition-theme-easing: ease-in-out;
   --transition-theme: var(--transition-theme-duration) var(--transition-theme-easing);
 
-  /* Legacy aliases to keep existing Tailwind classes working */
-  --landing-font-sans: var(--font-body);
-  --landing-font-serif: var(--font-heading);
+  /* Landing typography aliases */
+  --landing-font-body: 'AlibabaSans', 'LandingSans', 'Inter', 'IBM Plex Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', 'Helvetica Neue', sans-serif;
+  --landing-font-heading: 'MiSans', 'LandingSans', 'Inter', 'Segoe UI', sans-serif;
+  --landing-font-sans: var(--landing-font-body);
+  --landing-font-serif: var(--landing-font-heading);
+
+  /* Landing light theme defaults */
+  --landing-bg: #f8fafc;
+  --landing-bg-gradient: radial-gradient(circle at 15% 20%, rgba(59, 168, 255, 0.08) 0%, transparent 40%), radial-gradient(circle at 85% 60%, rgba(159, 107, 255, 0.08) 0%, transparent 35%), linear-gradient(180deg, #f8fafc 0%, #eef2ff 50%, #e2e8f0 100%);
+  --landing-bg-noise: radial-gradient(circle at 20% 20%, rgba(59, 168, 255, 0.06) 0%, transparent 35%), radial-gradient(circle at 80% 60%, rgba(159, 107, 255, 0.06) 0%, transparent 40%);
+  --landing-text: #171717;
+  --landing-text-muted: #64748b;
+  --landing-heading: #0f172a;
+  --landing-nav-bg: rgba(255, 255, 255, 0.9);
+  --landing-nav-border: rgba(226, 232, 240, 0.9);
+  --landing-card-bg: #ffffff;
+  --landing-card-alt: #f8fafc;
+  --landing-card-strong-bg: rgba(248, 250, 252, 0.95);
+  --landing-card-border: rgba(226, 232, 240, 0.85);
+  --landing-card-border-strong: rgba(148, 163, 184, 0.5);
+  --landing-chip-bg: rgba(59, 168, 255, 0.12);
+  --landing-chip-text: #0f172a;
+  --landing-pill-bg: rgba(15, 23, 42, 0.08);
+  --landing-pill-text: #475569;
+  --landing-section-bg: rgba(255, 255, 255, 0.85);
+  --landing-feature-surface: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.9));
+  --landing-feature-card-bg: linear-gradient(140deg, #ffffff 0%, #f0f9ff 100%);
+  --landing-usecase-surface: #ffffff;
+  --landing-usecase-cyan: linear-gradient(145deg, #ffffff 0%, #f0f9ff 100%);
+  --landing-usecase-violet: linear-gradient(145deg, #ffffff 0%, #f5f3ff 100%);
+  --landing-usecase-amber: linear-gradient(145deg, #ffffff 0%, #fffbeb 100%);
+  --landing-primary: #3ba8ff;
+  --landing-primary-strong: #2994eb;
+  --landing-secondary: #9f6bff;
+  --landing-amber: #ffce6b;
+  --landing-accent-glow: #60baff;
+  --landing-cta-gradient: linear-gradient(120deg, #3ba8ff 0%, #2994eb 100%);
+  --landing-cta-text: #ffffff;
+  --landing-cta-shadow: 0 25px 45px rgba(59, 168, 255, 0.35);
+  --landing-cta-glass-bg: rgba(15, 23, 42, 0.05);
+  --landing-cta-glass-border: rgba(148, 163, 184, 0.35);
+  --landing-cta-glass-text: #0f172a;
+  --landing-visual-particle: rgba(148, 163, 184, 0.55);
+  --landing-visual-particle-accent: rgba(59, 168, 255, 0.4);
+  --landing-visual-overlay: radial-gradient(circle, rgba(255, 255, 255, 0.6) 0%, transparent 70%);
+  --landing-section-shadow: 0 35px 110px rgba(15, 23, 42, 0.18);
+  --landing-card-shadow: 0 20px 70px rgba(15, 23, 42, 0.12);
+  --landing-card-shadow-strong: 0 30px 90px rgba(15, 23, 42, 0.16);
+  --landing-nav-shadow: 0 20px 80px rgba(15, 23, 42, 0.18);
+  --landing-outline-strong: rgba(15, 23, 42, 0.16);
+  --landing-pill-border: rgba(15, 23, 42, 0.12);
+  --landing-metric-text: #0f172a;
+  --landing-metric-muted: rgba(15, 23, 42, 0.5);
+  --landing-secondary-cta-bg: rgba(15, 23, 42, 0.06);
+  --landing-secondary-cta-border: rgba(15, 23, 42, 0.2);
+  --landing-secondary-cta-text: #0f172a;
+  --landing-secondary-cta-hover: rgba(15, 23, 42, 0.12);
+  --landing-hero-tag-text: #0f172a;
+  --landing-hero-tag-bg: rgba(59, 168, 255, 0.1);
+  --landing-chip-outline: rgba(59, 168, 255, 0.35);
+  --landing-gradient-chip: linear-gradient(120deg, rgba(59, 168, 255, 0.18), rgba(159, 107, 255, 0.18));
+  --landing-progress-ring: rgba(59, 168, 255, 0.35);
+  --landing-sparkle-color: rgba(96, 186, 255, 0.9);
+  --landing-heading-shadow: 0 25px 60px rgba(96, 186, 255, 0.35);
+  --landing-secondary-cta-shadow: 0 10px 35px rgba(15, 23, 42, 0.12);
 }
 
 [data-theme='light'] {
@@ -40,6 +102,7 @@
   --color-surface-muted: var(--color-mist);
   --color-outline: rgba(30, 26, 25, 0.18);
   --color-panel: rgba(255, 255, 255, 0.72);
+  /* landing variables already point to light defaults */
 }
 
 [data-theme='dark'] {
@@ -50,6 +113,59 @@
   --color-surface-muted: #1a1410;
   --color-outline: rgba(229, 217, 199, 0.18);
   --color-panel: rgba(33, 27, 22, 0.85);
+  --landing-bg: #050816;
+  --landing-bg-gradient: radial-gradient(circle at 20% 15%, rgba(59, 168, 255, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(159, 107, 255, 0.08) 0%, transparent 50%), linear-gradient(180deg, #050816 0%, #020617 45%, #01030b 100%);
+  --landing-bg-noise: radial-gradient(circle at 15% 20%, rgba(59, 168, 255, 0.09) 0%, transparent 45%), radial-gradient(circle at 80% 60%, rgba(159, 107, 255, 0.08) 0%, transparent 50%);
+  --landing-text: #f8fafc;
+  --landing-text-muted: rgba(226, 232, 240, 0.75);
+  --landing-heading: #ffffff;
+  --landing-nav-bg: rgba(5, 8, 22, 0.85);
+  --landing-nav-border: rgba(148, 163, 184, 0.25);
+  --landing-card-bg: rgba(11, 16, 36, 0.85);
+  --landing-card-alt: rgba(7, 12, 26, 0.75);
+  --landing-card-strong-bg: rgba(4, 7, 18, 0.92);
+  --landing-card-border: rgba(255, 255, 255, 0.08);
+  --landing-card-border-strong: rgba(255, 255, 255, 0.18);
+  --landing-chip-bg: rgba(59, 168, 255, 0.15);
+  --landing-chip-text: #9edbff;
+  --landing-pill-bg: rgba(255, 255, 255, 0.08);
+  --landing-pill-text: rgba(248, 250, 252, 0.7);
+  --landing-section-bg: rgba(5, 8, 20, 0.92);
+  --landing-feature-surface: linear-gradient(145deg, rgba(8, 14, 30, 0.9), rgba(4, 7, 20, 0.92));
+  --landing-feature-card-bg: linear-gradient(135deg, rgba(13, 20, 43, 0.95), rgba(5, 9, 21, 0.85));
+  --landing-usecase-surface: rgba(7, 11, 24, 0.92);
+  --landing-usecase-cyan: linear-gradient(140deg, rgba(16, 34, 58, 0.9), rgba(8, 14, 30, 0.85));
+  --landing-usecase-violet: linear-gradient(140deg, rgba(36, 19, 54, 0.8), rgba(11, 4, 24, 0.85));
+  --landing-usecase-amber: linear-gradient(140deg, rgba(54, 36, 11, 0.85), rgba(23, 12, 4, 0.85));
+  --landing-cta-gradient: linear-gradient(120deg, #60baff 0%, #3ba8ff 45%, #9f6bff 100%);
+  --landing-cta-text: #020617;
+  --landing-cta-shadow: 0 25px 60px rgba(14, 165, 233, 0.45);
+  --landing-cta-glass-bg: rgba(255, 255, 255, 0.08);
+  --landing-cta-glass-border: rgba(255, 255, 255, 0.2);
+  --landing-cta-glass-text: #f8fafc;
+  --landing-visual-particle: rgba(255, 255, 255, 0.55);
+  --landing-visual-particle-accent: rgba(59, 168, 255, 0.7);
+  --landing-visual-overlay: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, transparent 70%);
+  --landing-section-shadow: 0 35px 110px rgba(2, 6, 23, 0.65);
+  --landing-card-shadow: 0 20px 70px rgba(1, 3, 11, 0.6);
+  --landing-card-shadow-strong: 0 30px 90px rgba(1, 3, 11, 0.7);
+  --landing-nav-shadow: 0 25px 90px rgba(1, 3, 11, 0.55);
+  --landing-outline-strong: rgba(248, 250, 252, 0.18);
+  --landing-pill-border: rgba(255, 255, 255, 0.12);
+  --landing-metric-text: #e2e8f0;
+  --landing-metric-muted: rgba(226, 232, 240, 0.6);
+  --landing-secondary-cta-bg: rgba(255, 255, 255, 0.05);
+  --landing-secondary-cta-border: rgba(255, 255, 255, 0.2);
+  --landing-secondary-cta-text: rgba(248, 250, 252, 0.85);
+  --landing-secondary-cta-hover: rgba(255, 255, 255, 0.12);
+  --landing-hero-tag-text: rgba(255, 255, 255, 0.8);
+  --landing-hero-tag-bg: rgba(59, 168, 255, 0.18);
+  --landing-chip-outline: rgba(255, 255, 255, 0.2);
+  --landing-gradient-chip: linear-gradient(135deg, rgba(59, 168, 255, 0.2), rgba(159, 107, 255, 0.2));
+  --landing-progress-ring: rgba(96, 186, 255, 0.45);
+  --landing-sparkle-color: rgba(150, 205, 255, 0.9);
+  --landing-heading-shadow: 0 25px 60px rgba(96, 186, 255, 0.45);
+  --landing-secondary-cta-shadow: 0 15px 45px rgba(2, 6, 23, 0.65);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -61,5 +177,58 @@
     --color-surface-muted: #1a1410;
     --color-outline: rgba(229, 217, 199, 0.18);
     --color-panel: rgba(33, 27, 22, 0.85);
+    --landing-bg: #050816;
+    --landing-bg-gradient: radial-gradient(circle at 20% 15%, rgba(59, 168, 255, 0.08) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(159, 107, 255, 0.08) 0%, transparent 50%), linear-gradient(180deg, #050816 0%, #020617 45%, #01030b 100%);
+    --landing-bg-noise: radial-gradient(circle at 15% 20%, rgba(59, 168, 255, 0.09) 0%, transparent 45%), radial-gradient(circle at 80% 60%, rgba(159, 107, 255, 0.08) 0%, transparent 50%);
+    --landing-text: #f8fafc;
+    --landing-text-muted: rgba(226, 232, 240, 0.75);
+    --landing-heading: #ffffff;
+    --landing-nav-bg: rgba(5, 8, 22, 0.85);
+    --landing-nav-border: rgba(148, 163, 184, 0.25);
+    --landing-card-bg: rgba(11, 16, 36, 0.85);
+    --landing-card-alt: rgba(7, 12, 26, 0.75);
+    --landing-card-strong-bg: rgba(4, 7, 18, 0.92);
+    --landing-card-border: rgba(255, 255, 255, 0.08);
+    --landing-card-border-strong: rgba(255, 255, 255, 0.18);
+    --landing-chip-bg: rgba(59, 168, 255, 0.15);
+    --landing-chip-text: #9edbff;
+    --landing-pill-bg: rgba(255, 255, 255, 0.08);
+    --landing-pill-text: rgba(248, 250, 252, 0.7);
+    --landing-section-bg: rgba(5, 8, 20, 0.92);
+    --landing-feature-surface: linear-gradient(145deg, rgba(8, 14, 30, 0.9), rgba(4, 7, 20, 0.92));
+    --landing-feature-card-bg: linear-gradient(135deg, rgba(13, 20, 43, 0.95), rgba(5, 9, 21, 0.85));
+    --landing-usecase-surface: rgba(7, 11, 24, 0.92);
+    --landing-usecase-cyan: linear-gradient(140deg, rgba(16, 34, 58, 0.9), rgba(8, 14, 30, 0.85));
+    --landing-usecase-violet: linear-gradient(140deg, rgba(36, 19, 54, 0.8), rgba(11, 4, 24, 0.85));
+    --landing-usecase-amber: linear-gradient(140deg, rgba(54, 36, 11, 0.85), rgba(23, 12, 4, 0.85));
+    --landing-cta-gradient: linear-gradient(120deg, #60baff 0%, #3ba8ff 45%, #9f6bff 100%);
+    --landing-cta-text: #020617;
+    --landing-cta-shadow: 0 25px 60px rgba(14, 165, 233, 0.45);
+    --landing-cta-glass-bg: rgba(255, 255, 255, 0.08);
+    --landing-cta-glass-border: rgba(255, 255, 255, 0.2);
+    --landing-cta-glass-text: #f8fafc;
+    --landing-visual-particle: rgba(255, 255, 255, 0.55);
+    --landing-visual-particle-accent: rgba(59, 168, 255, 0.7);
+    --landing-visual-overlay: radial-gradient(circle, rgba(255, 255, 255, 0.35) 0%, transparent 70%);
+    --landing-section-shadow: 0 35px 110px rgba(2, 6, 23, 0.65);
+    --landing-card-shadow: 0 20px 70px rgba(1, 3, 11, 0.6);
+    --landing-card-shadow-strong: 0 30px 90px rgba(1, 3, 11, 0.7);
+    --landing-nav-shadow: 0 25px 90px rgba(1, 3, 11, 0.55);
+    --landing-outline-strong: rgba(248, 250, 252, 0.18);
+    --landing-pill-border: rgba(255, 255, 255, 0.12);
+    --landing-metric-text: #e2e8f0;
+    --landing-metric-muted: rgba(226, 232, 240, 0.6);
+    --landing-secondary-cta-bg: rgba(255, 255, 255, 0.05);
+    --landing-secondary-cta-border: rgba(255, 255, 255, 0.2);
+    --landing-secondary-cta-text: rgba(248, 250, 252, 0.85);
+    --landing-secondary-cta-hover: rgba(255, 255, 255, 0.12);
+    --landing-hero-tag-text: rgba(255, 255, 255, 0.8);
+    --landing-hero-tag-bg: rgba(59, 168, 255, 0.18);
+    --landing-chip-outline: rgba(255, 255, 255, 0.2);
+    --landing-gradient-chip: linear-gradient(135deg, rgba(59, 168, 255, 0.2), rgba(159, 107, 255, 0.2));
+    --landing-progress-ring: rgba(96, 186, 255, 0.45);
+    --landing-sparkle-color: rgba(150, 205, 255, 0.9);
+    --landing-heading-shadow: 0 25px 60px rgba(96, 186, 255, 0.45);
+    --landing-secondary-cta-shadow: 0 15px 45px rgba(2, 6, 23, 0.65);
   }
 }
