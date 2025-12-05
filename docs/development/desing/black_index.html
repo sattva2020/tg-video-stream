@@ -1,0 +1,1005 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1.0">
+    <title>Telegram Streamer - SaaS Landing Page</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet">
+    <style>
+        /* Font Imports */
+        @font-face {
+            font-family: 'MiSans-Regular';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Regular.ttf');
+        }
+        @font-face {
+            font-family: 'MiSans-Medium';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Medium.ttf');
+        }
+        @font-face {
+            font-family: 'MiSans-Bold';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Bold.ttf');
+        }
+        @font-face {
+            font-family: 'MiSans-Demibold';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Demibold.ttf');
+        }
+
+        /* Base Reset & Variables */
+        :root {
+            --bg-base: #050816;
+            --bg-gradient-start: #0B1024;
+            --bg-gradient-end: #020617;
+            --primary: #3BA8FF; /* Cyan */
+            --primary-glow: rgba(59, 168, 255, 0.4);
+            --secondary: #9F6BFF; /* Purple */
+            --secondary-glow: rgba(159, 107, 255, 0.4);
+            --tertiary: #FFCE6B; /* Amber */
+            --tertiary-glow: rgba(255, 206, 107, 0.4);
+            --text-main: #F9FAFB;
+            --text-desc: #D1D5DB;
+            --text-muted: #6B7280;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --glass: rgba(5, 8, 22, 0.7);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: 'MiSans-Regular', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            width: 1920px;
+            margin: 0 auto;
+            overflow-x: hidden;
+            line-height: 1.5;
+            /* Noise texture simulation via repeating gradient */
+            background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Utility Classes */
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 40px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .gap-4 { gap: 16px; }
+        .gap-8 { gap: 32px; }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .neon-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(59, 168, 255, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 14px 28px;
+            border-radius: 100px;
+            font-family: 'MiSans-Demibold';
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #020617;
+            box-shadow: 0 4px 20px var(--primary-glow);
+            border: 1px solid transparent;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--primary-glow);
+            background: #60baff;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            border: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Sticky Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1920px;
+            height: 96px;
+            z-index: 100;
+            background: var(--glass);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+        }
+
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 40px;
+        }
+
+        .logo {
+            font-family: 'MiSans-Bold';
+            font-size: 24px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.02em;
+        }
+
+        .logo i {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .nav {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav-link {
+            color: var(--text-desc);
+            text-decoration: none;
+            font-size: 16px;
+            font-family: 'MiSans-Medium';
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav-link:hover {
+            color: var(--primary);
+        }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+
+        .nav-link:hover::after {
+            width: 100%;
+        }
+
+        .lang-toggle {
+            color: var(--text-desc);
+            font-size: 14px;
+            font-family: 'MiSans-Bold';
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            margin-left: 20px;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding-top: 180px;
+            padding-bottom: 120px;
+            position: relative;
+            min-height: 900px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 1000px;
+            height: 1000px;
+            background: radial-gradient(circle, rgba(59, 168, 255, 0.06) 0%, transparent 60%);
+            z-index: 1;
+        }
+
+        .hero-content {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            font-family: 'MiSans-Bold';
+            font-size: 64px;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            letter-spacing: -0.03em;
+            background: linear-gradient(180deg, #FFFFFF 0%, #A5B4FC 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-text p {
+            font-size: 20px;
+            color: var(--text-desc);
+            margin-bottom: 40px;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 24px;
+            margin-top: 48px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-muted);
+            font-family: 'MiSans-Medium';
+        }
+
+        .stat-item i {
+            color: var(--tertiary);
+        }
+
+        /* Dashboard Visualization */
+        .dashboard-viz {
+            background: rgba(11, 16, 36, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 168, 255, 0.1);
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(20px);
+            transform: perspective(1000px) rotateY(-5deg) rotateX(2deg);
+            transition: transform 0.5s ease;
+        }
+
+        .dashboard-viz:hover {
+            transform: perspective(1000px) rotateY(0) rotateX(0);
+        }
+
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .dash-dots { display: flex; gap: 8px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); }
+        .dot.red { background: #ef4444; }
+        .dot.yellow { background: #f59e0b; }
+        .dot.green { background: #10b981; }
+
+        .dash-body {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 20px;
+            height: 360px;
+        }
+
+        .dash-sidebar {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sidebar-item {
+            height: 40px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .sidebar-item.active {
+            background: rgba(59, 168, 255, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(59, 168, 255, 0.2);
+        }
+
+        .dash-main {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .preview-window {
+            flex: 1;
+            background: #000;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: #ef4444;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .preview-wave {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            height: 40px;
+        }
+
+        .wave-bar {
+            width: 4px;
+            background: var(--primary);
+            animation: wave 1s infinite ease-in-out;
+        }
+        @keyframes wave {
+            0%, 100% { height: 10px; opacity: 0.5; }
+            50% { height: 40px; opacity: 1; }
+        }
+
+        .dash-timeline {
+            height: 80px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .timeline-block {
+            height: 100%;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+        .block-1 { width: 120px; background: rgba(159, 107, 255, 0.2); border: 1px solid rgba(159, 107, 255, 0.3); }
+        .block-2 { width: 180px; background: rgba(59, 168, 255, 0.2); border: 1px solid rgba(59, 168, 255, 0.3); }
+        .block-3 { width: 90px; background: rgba(255, 206, 107, 0.2); border: 1px solid rgba(255, 206, 107, 0.3); }
+
+
+        /* Features Block */
+        .features {
+            padding: 100px 0;
+            position: relative;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .section-title {
+            font-family: 'MiSans-Bold';
+            font-size: 42px;
+            margin-bottom: 16px;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 32px 24px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .feature-card:hover::before { opacity: 1; }
+
+        .f-icon-wrapper {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .f-cyan .f-icon-wrapper { background: rgba(59, 168, 255, 0.1); color: var(--primary); box-shadow: 0 0 20px rgba(59, 168, 255, 0.1); }
+        .f-purple .f-icon-wrapper { background: rgba(159, 107, 255, 0.1); color: var(--secondary); box-shadow: 0 0 20px rgba(159, 107, 255, 0.1); }
+        .f-amber .f-icon-wrapper { background: rgba(255, 206, 107, 0.1); color: var(--tertiary); box-shadow: 0 0 20px rgba(255, 206, 107, 0.1); }
+
+        .feature-card h3 {
+            font-family: 'MiSans-Bold';
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: #fff;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 14px;
+            color: var(--text-desc);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .feature-list li::before {
+            content: '•';
+            color: var(--text-muted);
+        }
+
+        /* Workflow Block */
+        .workflow {
+            padding: 120px 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(15, 23, 42, 0.3) 100%);
+        }
+
+        .steps-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 80px;
+            position: relative;
+        }
+
+        .steps-line {
+            position: absolute;
+            top: 24px;
+            left: 50px;
+            right: 50px;
+            height: 2px;
+            background: linear-gradient(90deg, 
+                var(--primary) 0%, 
+                var(--secondary) 50%, 
+                var(--tertiary) 100%
+            );
+            opacity: 0.2;
+            z-index: 0;
+        }
+
+        .step-item {
+            flex: 1;
+            position: relative;
+            z-index: 1;
+            padding: 0 16px;
+            text-align: left;
+        }
+
+        .step-marker {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-base);
+            border: 2px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'MiSans-Bold';
+            font-size: 18px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        
+        .step-marker::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: -1;
+        }
+
+        .s-cyan .step-marker { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
+        .s-purple .step-marker { border-color: var(--secondary); color: var(--secondary); box-shadow: 0 0 15px var(--secondary-glow); }
+        .s-amber .step-marker { border-color: var(--tertiary); color: var(--tertiary); box-shadow: 0 0 15px var(--tertiary-glow); }
+
+        .step-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'MiSans-Bold';
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .s-cyan .step-badge { background: rgba(59, 168, 255, 0.15); color: var(--primary); }
+        .s-purple .step-badge { background: rgba(159, 107, 255, 0.15); color: var(--secondary); }
+        .s-amber .step-badge { background: rgba(255, 206, 107, 0.15); color: var(--tertiary); }
+
+        .step-content h4 {
+            font-family: 'MiSans-Bold';
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        .step-content p {
+            font-size: 15px;
+            color: var(--text-desc);
+            line-height: 1.6;
+        }
+
+        /* Use Cases */
+        .use-cases {
+            padding: 100px 0 140px;
+        }
+
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .case-card {
+            height: 240px;
+            border-radius: 28px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .case-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .case-bg-1 {
+            background: linear-gradient(180deg, rgba(5, 8, 22, 0.1) 0%, rgba(59, 168, 255, 0.15) 100%), radial-gradient(circle at top right, rgba(59, 168, 255, 0.1), transparent);
+        }
+        .case-bg-2 {
+            background: linear-gradient(180deg, rgba(5, 8, 22, 0.1) 0%, rgba(159, 107, 255, 0.15) 100%), radial-gradient(circle at top right, rgba(159, 107, 255, 0.1), transparent);
+        }
+        .case-bg-3 {
+            background: linear-gradient(180deg, rgba(5, 8, 22, 0.1) 0%, rgba(255, 206, 107, 0.15) 100%), radial-gradient(circle at top right, rgba(255, 206, 107, 0.1), transparent);
+        }
+
+        .case-icon {
+            position: absolute;
+            top: 32px;
+            left: 32px;
+            font-size: 32px;
+            color: #fff;
+            opacity: 0.8;
+        }
+
+        .case-content h3 {
+            font-family: 'MiSans-Bold';
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .case-content p {
+            font-size: 16px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        /* Footer */
+        .footer {
+            height: 120px;
+            background: #020617;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .footer-link:hover { color: var(--text-main); }
+
+        .footer-info {
+            color: var(--text-muted);
+            font-size: 12px;
+            text-align: right;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-container">
+            <div class="logo">
+                <i class="ri-broadcast-fill"></i>
+                Telegram Streamer
+            </div>
+            <nav class="nav">
+                <a href="#" class="nav-link">Возможности</a>
+                <a href="#" class="nav-link">Процесс</a>
+                <a href="#" class="nav-link">Примеры</a>
+                <a href="#" class="nav-link">Войти</a>
+            </nav>
+            <div class="flex items-center">
+                <a href="#" class="btn btn-primary">
+                    Начать работу <i class="ri-arrow-right-line"></i>
+                </a>
+                <div class="lang-toggle">EN | RU</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <!-- Decorative Background Elements -->
+        <div class="neon-glow" style="top: 10%; left: -10%;"></div>
+        <div class="neon-glow" style="bottom: -20%; right: -10%; background: radial-gradient(circle, rgba(159, 107, 255, 0.08) 0%, transparent 70%);"></div>
+
+        <div class="container hero-content">
+            <div class="hero-text">
+                <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:20px; background:rgba(255,255,255,0.05); padding:6px 12px; border-radius:20px; border:1px solid rgba(255,255,255,0.1);">
+                    <div style="width:8px; height:8px; background:var(--primary); border-radius:50%; box-shadow:0 0 8px var(--primary);"></div>
+                    <span style="font-size:13px; color:var(--primary); font-family:'MiSans-Medium';">Стабильный стриминг v2.0</span>
+                </div>
+                <h1>24/7 трансляции в Telegram без OBS и серверов</h1>
+                <p>Плейлисты, фейловеры и расписания управляются одной консолью. Забудьте о прерываниях и сложных настройках.</p>
+                <div class="flex gap-4">
+                    <a href="#" class="btn btn-primary">Начать работу</a>
+                    <a href="#" class="btn btn-secondary">
+                        <i class="ri-play-circle-line"></i> Посмотреть 4 шага
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <i class="ri-checkbox-circle-fill"></i> 365 дней в эфире
+                    </div>
+                    <div class="stat-item">
+                        <i class="ri-speed-up-fill"></i> < 100 мс задержка
+                    </div>
+                    <div class="stat-item">
+                        <i class="ri-shield-check-fill"></i> Fail-safe раннер
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-viz">
+                <div class="dash-header">
+                    <div class="dash-dots">
+                        <div class="dot red"></div>
+                        <div class="dot yellow"></div>
+                        <div class="dot green"></div>
+                    </div>
+                    <div style="font-size:12px; color:var(--text-muted);">stream_dashboard.exe</div>
+                </div>
+                <div class="dash-body">
+                    <div class="dash-sidebar">
+                        <div class="sidebar-item active">
+                            <i class="ri-dashboard-line"></i> Главная
+                        </div>
+                        <div class="sidebar-item">
+                            <i class="ri-calendar-line"></i> Расписание
+                        </div>
+                        <div class="sidebar-item">
+                            <i class="ri-file-list-3-line"></i> Плейлисты
+                        </div>
+                        <div class="sidebar-item">
+                            <i class="ri-settings-3-line"></i> Настройки
+                        </div>
+                        <div style="margin-top:auto; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px;">
+                            <div style="font-size:11px; color:var(--text-muted);">Uptime</div>
+                            <div style="font-size:16px; color:var(--tertiary); font-weight:bold;">99.99%</div>
+                        </div>
+                    </div>
+                    <div class="dash-main">
+                        <div class="preview-window">
+                            <div class="preview-overlay">
+                                <div style="width:8px; height:8px; background:#fff; border-radius:50%;"></div>
+                                LIVE
+                            </div>
+                            <div class="preview-wave">
+                                <div class="wave-bar" style="animation-delay:0s"></div>
+                                <div class="wave-bar" style="animation-delay:0.1s"></div>
+                                <div class="wave-bar" style="animation-delay:0.2s"></div>
+                                <div class="wave-bar" style="animation-delay:0.3s"></div>
+                                <div class="wave-bar" style="animation-delay:0.4s"></div>
+                            </div>
+                        </div>
+                        <div class="dash-timeline">
+                            <div class="timeline-block block-1">
+                                <div style="position:absolute; top:4px; left:8px; font-size:10px; color:rgba(255,255,255,0.6);">Intro.mp4</div>
+                            </div>
+                            <div class="timeline-block block-2">
+                                <div style="position:absolute; top:4px; left:8px; font-size:10px; color:rgba(255,255,255,0.6);">Main_Event_Stream</div>
+                            </div>
+                            <div class="timeline-block block-3">
+                                <div style="position:absolute; top:4px; left:8px; font-size:10px; color:rgba(255,255,255,0.6);">Outro</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Block -->
+    <section class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Комплект телекласса для Telegram</h2>
+                <p class="section-subtitle">Все необходимые инструменты для профессионального вещания</p>
+            </div>
+            <div class="features-grid">
+                <!-- Card 1 -->
+                <div class="feature-card f-cyan">
+                    <div class="f-icon-wrapper">
+                        <i class="ri-video-upload-line"></i>
+                    </div>
+                    <h3>Источники контента</h3>
+                    <ul class="feature-list">
+                        <li>Поддержка YouTube, MP4, RTMP</li>
+                        <li>Бесшовное переключение</li>
+                        <li>Загрузка файлов до 50GB</li>
+                    </ul>
+                </div>
+                <!-- Card 2 -->
+                <div class="feature-card f-purple">
+                    <div class="f-icon-wrapper">
+                        <i class="ri-calendar-check-line"></i>
+                    </div>
+                    <h3>Автоматика расписаний</h3>
+                    <ul class="feature-list">
+                        <li>Визуальный календарь</li>
+                        <li>Шаблоны эфиров</li>
+                        <li>Учет часовых поясов</li>
+                    </ul>
+                </div>
+                <!-- Card 3 -->
+                <div class="feature-card f-amber">
+                    <div class="f-icon-wrapper">
+                        <i class="ri-shield-keyhole-line"></i>
+                    </div>
+                    <h3>Безопасный RBAC</h3>
+                    <ul class="feature-list">
+                        <li>Роли и права доступа</li>
+                        <li>MFA авторизация</li>
+                        <li>Логирование действий</li>
+                    </ul>
+                </div>
+                <!-- Card 4 -->
+                <div class="feature-card f-cyan">
+                    <div class="f-icon-wrapper">
+                        <i class="ri-heart-pulse-line"></i>
+                    </div>
+                    <h3>Отказоустойчивость</h3>
+                    <ul class="feature-list">
+                        <li>Health-check каждые 10с</li>
+                        <li>Автоматический фейловер</li>
+                        <li>Резервные сервера</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Workflow Block -->
+    <section class="workflow">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Выход в эфир за четыре шага</h2>
+                <p class="section-subtitle">Снятие технической неопределённости</p>
+            </div>
+            <div class="steps-container">
+                <div class="steps-line"></div>
+                
+                <div class="step-item s-cyan">
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                        <span class="step-badge">Connect</span>
+                        <h4>Подключите аккаунты</h4>
+                        <p>Свяжите ваш Telegram канал с нашей платформой через безопасный API.</p>
+                    </div>
+                </div>
+
+                <div class="step-item s-purple">
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                        <span class="step-badge">Build</span>
+                        <h4>Соберите плейлист</h4>
+                        <p>Загрузите видео или укажите RTMP источники для формирования потока.</p>
+                    </div>
+                </div>
+
+                <div class="step-item s-amber">
+                    <div class="step-marker">3</div>
+                    <div class="step-content">
+                        <span class="step-badge">Schedule</span>
+                        <h4>Запланируйте эфир</h4>
+                        <p>Расставьте события в календаре на неделю вперед с точностью до секунды.</p>
+                    </div>
+                </div>
+
+                <div class="step-item s-cyan">
+                    <div class="step-marker">4</div>
+                    <div class="step-content">
+                        <span class="step-badge">Launch</span>
+                        <h4>Мониторьте рост</h4>
+                        <p>Следите за статистикой зрителей и качеством потока в реальном времени.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Use Cases -->
+    <section class="use-cases">
+        <div class="container">
+            <div class="section-header">
+                <h2 class="section-title">Где уже работает Telegram Streamer</h2>
+                <p class="section-subtitle">Решения для редакций, радиостанций и медиахабов</p>
+            </div>
+            <div class="cases-grid">
+                <div class="case-card case-bg-1">
+                    <i class="ri-article-line case-icon"></i>
+                    <div class="case-content">
+                        <h3>Новостные каналы</h3>
+                        <p>Круглосуточная ротация новостных сводок и прямые включения с мест событий.</p>
+                    </div>
+                </div>
+                <div class="case-card case-bg-2">
+                    <i class="ri-radio-2-line case-icon"></i>
+                    <div class="case-content">
+                        <h3>24/7 радио и стримы</h3>
+                        <p>Автоматизированное музыкальное вещание с интеграцией визуализаторов.</p>
+                    </div>
+                </div>
+                <div class="case-card case-bg-3">
+                    <i class="ri-movie-2-line case-icon"></i>
+                    <div class="case-content">
+                        <h3>Автотрансляции медиа</h3>
+                        <p>Показ сериалов, образовательного контента и вебинаров по расписанию.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container flex items-center justify-between">
+            <div class="logo" style="font-size: 20px;">
+                <i class="ri-broadcast-fill"></i>
+                Telegram Streamer
+            </div>
+            <div class="footer-links">
+                <a href="#" class="footer-link">Документация</a>
+                <a href="#" class="footer-link">Безопасность</a>
+                <a href="#" class="footer-link">API</a>
+                <a href="#" class="footer-link">Контакты</a>
+            </div>
+            <div class="footer-info">
+                <p>© 2023 Telegram Streamer Inc.</p>
+                <p style="opacity: 0.5; margin-top: 4px;">Automated Streaming Platform</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

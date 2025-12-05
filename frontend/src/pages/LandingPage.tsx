@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import type { LocaleKey } from '../components/landing';
 import ThemeToggle from '../components/landing/ThemeToggle';
 import { useThemePreference } from '../hooks/useThemePreference';
@@ -144,6 +145,7 @@ const LandingPage = () => {
   const { theme } = useThemePreference();
   const { locale, setLocale, supportedLocales } = useLandingLocale();
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const navigate = useNavigate();
 
   const orderedLocales = useMemo(() => {
     const prioritized = preferredLocales.filter((code) => supportedLocales.includes(code));
@@ -223,7 +225,7 @@ const LandingPage = () => {
             ))}
           </div>
           <ThemeToggle />
-          <button className="btn btn-primary" type="button">
+          <button className="btn btn-primary" type="button" onClick={() => navigate('/auth')}>
             {t('landing_ref_hero_cta_primary', 'Начать работу')}
           </button>
         </div>
@@ -239,10 +241,12 @@ const LandingPage = () => {
             {t('landing_ref_hero_subtitle', 'Управляйте плейлистами, настраивайте фейловеры и планируйте эфиры через единую облачную консоль. Стабильность вещания 99.9%.')}
           </p>
           <div className="hero-btns">
-            <button className="btn btn-primary" type="button">
+            <button className="btn btn-primary" type="button" onClick={() => navigate('/auth')}>
               {t('landing_ref_hero_cta_primary', 'Начать работу')} <i className="ri-arrow-right-line" style={{ marginLeft: 8 }} />
             </button>
-            <button className="btn btn-secondary" type="button">{t('landing_ref_hero_cta_secondary', 'Посмотреть демо')}</button>
+            <button className="btn btn-secondary" type="button" onClick={() => navigate('/auth')}>
+              {t('landing_ref_hero_cta_secondary', 'Посмотреть демо')}
+            </button>
           </div>
           <div className="hero-stats">
             {heroStats.map((stat) => (
