@@ -112,6 +112,8 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
             "/docs",
             "/openapi.json",
             "/api/auth/login",
+            "/api/playlist",  # Playlist needs frequent polling
+            "/api/channels",  # Channels status polling
         ]
         return any(path.startswith(p) for p in skip_paths)
     
