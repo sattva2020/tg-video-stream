@@ -9,7 +9,7 @@ export interface PlaylistItem {
   duration?: number | null;
 }
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token');
