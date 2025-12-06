@@ -7,17 +7,12 @@ Manages:
 - Channel access control
 - Channel status monitoring
 
-User Story 11 (Multi-channel Support):
-Администратор может управлять несколькими Telegram каналами
-одновременно с независимыми настройками воспроизведения.
-
-Technical Implementation:
-- Uses TelegramChannel model for persistence
-- Redis for real-time status caching
-- Integrates with SystemdService for per-channel processes
+Uses Channel model from src.models.telegram
+Database fields: id (UUID), account_id, chat_id (bigint), name, status, ffmpeg_args, video_quality
 """
 
 import logging
+import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 
@@ -29,25 +24,26 @@ try:
 except ImportError:
     aioredis = None
 
-from src.models import TelegramChannel, TelegramAccount
+from src.models import Channel, TelegramAccount
 from src.database import get_db
 
 logger = logging.getLogger(__name__)
 
 # Redis keys for channel status caching
 CHANNEL_STATUS_KEY = "channel:status:{channel_id}"
-CHANNEL_STATUS_TTL = 60  # seconds
+CHANNEL_STATUS_TTL = 3600  # 1 hour
 
 
 class ChannelService:
     """
     Service for managing multiple Telegram channels.
     
-    Provides:
-    - Channel CRUD operations
-    - Access control (user -> channel mapping)
-    - Real-time status monitoring
-    - Integration with playback and queue services
+    Uses Channel model with fields:
+    - id: UUID primary key
+    - chat_id: Telegram chat ID (bigint)
+    - name: Channel name
+    - status: stopped/running/error
+    - account_id: linked TelegramAccount
     """
     
     def __init__(self, db_session: Optional[Session] = None):
@@ -58,15 +54,37 @@ class ChannelService:
             db_session: SQLAlchemy database session (optional, will use get_db if not provided)
         """
         self._db = db_session
+        self._owns_db = db_session is None
         self._redis: Optional[Any] = None
         self.logger = logger
     
     @property
     def db(self) -> Session:
-        """Get database session."""
+        """Get database session. Auto-creates if needed."""
         if self._db is None:
-            self._db = next(get_db())
+            from src.database import SessionLocal
+            self._db = SessionLocal()
+            self._owns_db = True
         return self._db
+    
+    def close(self):
+        """Close database session if we own it."""
+        if self._owns_db and self._db is not None:
+            try:
+                self._db.close()
+            except Exception:
+                pass
+            self._db = None
+            self._owns_db = False
+    
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - close session."""
+        self.close()
+        return False
     
     async def _get_redis(self):
         """Get or create Redis connection for status caching."""
@@ -94,39 +112,38 @@ class ChannelService:
         List all channels accessible to user.
         
         Args:
-            user_id: Optional user ID for access filtering
-            active_only: If True, return only active channels
+            user_id: Optional user ID for access filtering (not used yet)
+            active_only: If True, filter by status != 'error'
             
         Returns:
             List of channel dictionaries with status info
         """
         try:
-            query = self.db.query(TelegramChannel)
+            query = self.db.query(Channel)
             
             if active_only:
-                query = query.filter(TelegramChannel.is_active == True)
-            
-            # TODO: Add user access filtering when permission system is implemented
-            # For now, return all active channels
+                query = query.filter(Channel.status != 'error')
             
             channels = query.all()
             
             result = []
             for channel in channels:
                 channel_dict = {
-                    "id": channel.channel_id,
-                    "name": channel.name or f"Channel {channel.channel_id}",
-                    "type": channel.type or "channel",
-                    "is_active": channel.is_active,
-                    "account_id": channel.account_id,
+                    "id": channel.chat_id,  # Use chat_id as the main ID for API
+                    "uuid": str(channel.id),
+                    "name": channel.name or f"Channel {channel.chat_id}",
+                    "type": "channel",
+                    "is_active": channel.status != 'error',
+                    "account_id": str(channel.account_id) if channel.account_id else None,
                     "created_at": channel.created_at.isoformat() if channel.created_at else None,
+                    "db_status": channel.status or "stopped",
                 }
                 
                 # Get real-time status from Redis cache
-                status = await self.get_channel_status(channel.channel_id)
+                status = await self.get_channel_status(channel.chat_id)
                 channel_dict.update({
                     "is_playing": status.get("is_playing", False),
-                    "status": status.get("status", "unknown"),
+                    "status": status.get("status", channel.status or "stopped"),
                     "current_track": status.get("current_track"),
                 })
                 
@@ -141,7 +158,7 @@ class ChannelService:
     
     async def get_channel(self, channel_id: int) -> Optional[Dict[str, Any]]:
         """
-        Get channel by ID.
+        Get channel by chat_id.
         
         Args:
             channel_id: Telegram channel/chat ID
@@ -150,20 +167,22 @@ class ChannelService:
             Channel dictionary or None if not found
         """
         try:
-            channel = self.db.query(TelegramChannel).filter(
-                TelegramChannel.channel_id == channel_id
+            channel = self.db.query(Channel).filter(
+                Channel.chat_id == channel_id
             ).first()
             
             if not channel:
                 return None
             
             return {
-                "id": channel.channel_id,
-                "name": channel.name or f"Channel {channel.channel_id}",
-                "type": channel.type or "channel",
-                "is_active": channel.is_active,
-                "account_id": channel.account_id,
+                "id": channel.chat_id,
+                "uuid": str(channel.id),
+                "name": channel.name or f"Channel {channel.chat_id}",
+                "type": "channel",
+                "is_active": channel.status != 'error',
+                "account_id": str(channel.account_id) if channel.account_id else None,
                 "created_at": channel.created_at.isoformat() if channel.created_at else None,
+                "status": channel.status or "stopped",
             }
             
         except Exception as e:
@@ -181,19 +200,20 @@ class ChannelService:
             Channel dictionary or None if not found
         """
         try:
-            channel = self.db.query(TelegramChannel).filter(
-                TelegramChannel.name.ilike(f"%{name}%")
+            channel = self.db.query(Channel).filter(
+                Channel.name.ilike(f"%{name}%")
             ).first()
             
             if not channel:
                 return None
             
             return {
-                "id": channel.channel_id,
-                "name": channel.name or f"Channel {channel.channel_id}",
-                "type": channel.type or "channel",
-                "is_active": channel.is_active,
-                "account_id": channel.account_id,
+                "id": channel.chat_id,
+                "uuid": str(channel.id),
+                "name": channel.name,
+                "type": "channel",
+                "is_active": channel.status != 'error',
+                "account_id": str(channel.account_id) if channel.account_id else None,
             }
             
         except Exception as e:
@@ -212,12 +232,12 @@ class ChannelService:
             True if user has access, False otherwise
         """
         # TODO: Implement proper permission checking when RBAC is ready
-        # For now, return True for all active channels
+        # For now, return True for all non-error channels
         
         try:
-            channel = self.db.query(TelegramChannel).filter(
-                TelegramChannel.channel_id == channel_id,
-                TelegramChannel.is_active == True
+            channel = self.db.query(Channel).filter(
+                Channel.chat_id == channel_id,
+                Channel.status != 'error'
             ).first()
             
             return channel is not None
@@ -228,10 +248,10 @@ class ChannelService:
     
     async def get_channel_status(self, channel_id: int) -> Dict[str, Any]:
         """
-        Get real-time channel status.
+        Get real-time channel status from Redis.
         
         Args:
-            channel_id: Telegram channel ID
+            channel_id: Telegram channel ID (chat_id)
             
         Returns:
             Status dictionary with playback info
@@ -338,7 +358,7 @@ class ChannelService:
         self,
         channel_id: int,
         name: str,
-        account_id: Optional[int] = None,
+        account_id: Optional[str] = None,
         channel_type: str = "channel"
     ) -> Optional[Dict[str, Any]]:
         """
@@ -347,35 +367,33 @@ class ChannelService:
         Args:
             channel_id: Telegram channel/chat ID
             name: Channel display name
-            account_id: Linked Telegram account ID
-            channel_type: Type of chat (channel, group, supergroup)
+            account_id: Linked Telegram account UUID (string)
+            channel_type: Type of chat (not stored in DB, just for API compat)
             
         Returns:
             Created channel dictionary or None on error
         """
         try:
             # Check if channel exists
-            existing = self.db.query(TelegramChannel).filter(
-                TelegramChannel.channel_id == channel_id
+            existing = self.db.query(Channel).filter(
+                Channel.chat_id == channel_id
             ).first()
             
             if existing:
                 # Update existing channel
                 existing.name = name
-                existing.type = channel_type
                 if account_id:
-                    existing.account_id = account_id
-                existing.is_active = True
+                    existing.account_id = uuid.UUID(account_id)
+                existing.status = "stopped"
                 self.db.commit()
                 channel = existing
             else:
                 # Create new channel
-                channel = TelegramChannel(
-                    channel_id=channel_id,
+                channel = Channel(
+                    chat_id=channel_id,
                     name=name,
-                    type=channel_type,
-                    account_id=account_id,
-                    is_active=True,
+                    account_id=uuid.UUID(account_id) if account_id else None,
+                    status="stopped",
                 )
                 self.db.add(channel)
                 self.db.commit()
@@ -383,11 +401,12 @@ class ChannelService:
             self.logger.info(f"Created/updated channel {channel_id}: {name}")
             
             return {
-                "id": channel.channel_id,
+                "id": channel.chat_id,
+                "uuid": str(channel.id),
                 "name": channel.name,
-                "type": channel.type,
-                "is_active": channel.is_active,
-                "account_id": channel.account_id,
+                "type": channel_type,
+                "is_active": True,
+                "account_id": str(channel.account_id) if channel.account_id else None,
             }
             
         except Exception as e:
@@ -397,7 +416,7 @@ class ChannelService:
     
     async def delete_channel(self, channel_id: int) -> bool:
         """
-        Deactivate channel (soft delete).
+        Deactivate channel (set status to error).
         
         Args:
             channel_id: Telegram channel ID
@@ -406,14 +425,14 @@ class ChannelService:
             True if successful
         """
         try:
-            channel = self.db.query(TelegramChannel).filter(
-                TelegramChannel.channel_id == channel_id
+            channel = self.db.query(Channel).filter(
+                Channel.chat_id == channel_id
             ).first()
             
             if not channel:
                 return False
             
-            channel.is_active = False
+            channel.status = "error"
             self.db.commit()
             
             self.logger.info(f"Deactivated channel {channel_id}")
@@ -428,8 +447,6 @@ class ChannelService:
         """
         Get all settings for a channel.
         
-        Combines channel config with playback settings.
-        
         Args:
             channel_id: Telegram channel ID
             
@@ -442,10 +459,10 @@ class ChannelService:
         if not channel:
             return {}
         
-        # Get playback settings (use channel_id as "user" for channel-level settings)
+        # Get playback settings
         playback_service = PlaybackService(self.db)
         settings = playback_service.get_settings(
-            user_id=channel_id,  # Channel-level settings
+            user_id=channel_id,
             channel_id=channel_id
         )
         
@@ -453,3 +470,4 @@ class ChannelService:
             **channel,
             "playback": settings,
         }
+

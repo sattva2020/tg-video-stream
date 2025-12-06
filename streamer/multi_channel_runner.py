@@ -238,6 +238,9 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
             
             if not playlist:
                 log.info(f"Channel {channel_id}: No items, waiting...")
+                # Heartbeat: refresh running status while waiting
+                if command_handler:
+                    await command_handler.update_status(channel_id, "running")
                 await asyncio.sleep(60)
                 continue
             

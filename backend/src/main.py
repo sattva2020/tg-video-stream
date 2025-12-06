@@ -46,6 +46,19 @@ from database import engine, Base
 @asynccontextmanager
 async def app_lifespan(fastapi_app: FastAPI):
     """FastAPI lifespan hook вместо устаревших on_event."""
+    # Initialize Redis-based rate limiter if REDIS_URL is set
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        try:
+            import redis.asyncio as aioredis
+            from fastapi_limiter import FastAPILimiter
+            
+            redis_connection = await aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+            await FastAPILimiter.init(redis_connection)
+            print(f"FastAPILimiter initialized with Redis: {redis_url}")
+        except Exception as e:
+            print(f"Failed to initialize Redis rate limiter: {e}")
+    
     try:
         from src.admin import setup_admin
         await setup_admin(fastapi_app, engine)

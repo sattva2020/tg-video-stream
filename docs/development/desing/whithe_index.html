@@ -1,0 +1,849 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1.0">
+    <title>Telegram Streamer - Premium SaaS Landing Page</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.6.0/remixicon.min.css" rel="stylesheet">
+    <style>
+        /* Fonts */
+        @font-face {
+            font-family: 'MiSans';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Bold.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'MiSans';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Semibold.ttf') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'MiSans';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/MiSans-Medium.ttf') format('truetype');
+            font-weight: 500;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'AlibabaSans';
+            src: url('https://assets-persist.lovart.ai/agent-static-assets/AlibabaSans-Regular.otf') format('opentype');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        :root {
+            --bg-base: #F8FAFC;
+            --bg-surface: #FFFFFF;
+            --primary-cyan: #3BA8FF;
+            --primary-cyan-hover: #2994EB;
+            --accent-purple: #9F6BFF;
+            --accent-amber: #FFCE6B;
+            --text-primary: #171717;
+            --text-secondary: #64748B;
+            --text-tertiary: #94A3B8;
+            --border-light: #E2E8F0;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
+            --glow-cyan: 0 0 20px rgba(59, 168, 255, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            font-family: 'AlibabaSans', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            background-image: 
+                radial-gradient(circle at 15% 20%, rgba(59, 168, 255, 0.08) 0%, transparent 35%),
+                radial-gradient(circle at 85% 60%, rgba(159, 107, 255, 0.08) 0%, transparent 35%);
+        }
+
+        a { text-decoration: none; color: inherit; }
+        ul { list-style: none; }
+
+        /* Typography Helpers */
+        .font-heading { font-family: 'MiSans', sans-serif; }
+        .text-gradient {
+            background: linear-gradient(135deg, #171717 0%, #475569 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 28px;
+            border-radius: 99px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-family: 'MiSans', sans-serif;
+        }
+        .btn-primary {
+            background-color: var(--primary-cyan);
+            color: white;
+            box-shadow: 0 4px 14px rgba(59, 168, 255, 0.4);
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-cyan-hover);
+            box-shadow: 0 6px 20px rgba(59, 168, 255, 0.6);
+            transform: translateY(-1px);
+        }
+        .btn-secondary {
+            background-color: white;
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .btn-secondary:hover {
+            border-color: var(--primary-cyan);
+            color: var(--primary-cyan);
+            background-color: #F0F9FF;
+        }
+
+        /* Sticky Header */
+        header {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 96px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 80px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+            z-index: 1000;
+        }
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'MiSans', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+        .logo i {
+            font-size: 32px;
+            color: var(--primary-cyan);
+        }
+        .nav-links {
+            display: flex;
+            gap: 40px;
+        }
+        .nav-links a {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--primary-cyan); }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .lang-toggle {
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .lang-toggle span.active { color: var(--primary-cyan); }
+
+        /* Hero Section */
+        .hero {
+            position: relative;
+            min-height: 800px;
+            padding: 80px 80px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .hero-content {
+            max-width: 720px;
+            z-index: 2;
+        }
+        .badge-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            background: rgba(59, 168, 255, 0.1);
+            color: var(--primary-cyan);
+            border-radius: 99px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            border: 1px solid rgba(59, 168, 255, 0.2);
+        }
+        h1 {
+            font-size: 72px;
+            line-height: 1.1;
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+        .hero-subtitle {
+            font-size: 20px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 48px;
+            max-width: 600px;
+        }
+        .hero-btns {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 64px;
+        }
+        .hero-stats {
+            display: flex;
+            gap: 40px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border-light);
+        }
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .stat-value {
+            font-family: 'MiSans', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            color: var(--text-primary);
+        }
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-tertiary);
+        }
+
+        /* Hero Dashboard Visualization */
+        .hero-visual {
+            position: relative;
+            width: 860px;
+            height: 640px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 24px 0 0 24px;
+            box-shadow: -40px 40px 80px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            z-index: 2;
+        }
+        .dash-sidebar {
+            background: #F1F5F9;
+            padding: 24px;
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .dash-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .dash-menu-item.active {
+            background: white;
+            color: var(--primary-cyan);
+            box-shadow: var(--shadow-sm);
+        }
+        .dash-main {
+            padding: 32px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .dash-preview {
+            width: 100%;
+            height: 320px;
+            background: #0F172A;
+            border-radius: 16px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .live-badge {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #EF4444;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+        }
+        .viewer-count {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+        }
+        .playlist-mock {
+            display: flex;
+            gap: 16px;
+            margin-top: auto;
+        }
+        .playlist-item {
+            flex: 1;
+            height: 80px;
+            background: #F8FAFC;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 12px;
+        }
+        .playlist-thumb {
+            width: 48px;
+            height: 48px;
+            background: #CBD5E1;
+            border-radius: 8px;
+        }
+
+        /* Features Block */
+        .features {
+            padding: 120px 80px;
+            max-width: 1360px;
+            margin: 0 auto;
+        }
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+        .section-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        .section-subtitle {
+            font-size: 18px;
+            color: var(--text-secondary);
+        }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 32px;
+        }
+        .feature-card {
+            background: white;
+            border: 1px solid var(--border-light);
+            border-radius: 24px;
+            padding: 32px;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-xl);
+            border-color: rgba(59, 168, 255, 0.3);
+        }
+        .feature-icon-wrapper {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            font-size: 32px;
+        }
+        .bg-cyan-light { background: rgba(59, 168, 255, 0.1); color: var(--primary-cyan); }
+        .bg-purple-light { background: rgba(159, 107, 255, 0.1); color: var(--accent-purple); }
+        .bg-amber-light { background: rgba(255, 206, 107, 0.1); color: #F59E0B; }
+        
+        .feature-card h3 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+            font-family: 'MiSans', sans-serif;
+        }
+        .feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        .feature-list li i {
+            color: var(--primary-cyan);
+            font-size: 16px;
+            margin-top: 2px;
+        }
+
+        /* Workflow */
+        .workflow {
+            padding: 120px 80px;
+            background: white;
+            position: relative;
+            border-top: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border-light);
+        }
+        .workflow-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .steps-wrapper {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-top: 80px;
+        }
+        .steps-connector {
+            position: absolute;
+            top: 24px;
+            left: 60px;
+            right: 60px;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-cyan) 0%, var(--accent-purple) 50%, var(--accent-amber) 100%);
+            opacity: 0.3;
+            z-index: 0;
+            border-top: 2px dashed #CBD5E1;
+            background: none;
+        }
+        .step-card {
+            position: relative;
+            z-index: 1;
+            width: 280px;
+            text-align: left;
+        }
+        .step-number {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid var(--primary-cyan);
+            color: var(--primary-cyan);
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            box-shadow: 0 0 0 8px white;
+        }
+        .step-badge {
+            display: inline-block;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .step-card h4 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            font-family: 'MiSans', sans-serif;
+        }
+        .step-card p {
+            font-size: 15px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Use Cases */
+        .use-cases {
+            padding: 120px 80px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .cases-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 32px;
+        }
+        .case-card {
+            padding: 40px 32px;
+            border-radius: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+        .case-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        .case-cyan {
+            background: linear-gradient(145deg, #FFFFFF 0%, #F0F9FF 100%);
+            border-color: #BAE6FD;
+        }
+        .case-purple {
+            background: linear-gradient(145deg, #FFFFFF 0%, #F5F3FF 100%);
+            border-color: #DDD6FE;
+        }
+        .case-amber {
+            background: linear-gradient(145deg, #FFFFFF 0%, #FFFBEB 100%);
+            border-color: #FDE68A;
+        }
+        .case-icon {
+            font-size: 40px;
+            margin-bottom: 24px;
+            display: inline-block;
+        }
+        .case-card h4 {
+            font-size: 24px;
+            margin-bottom: 12px;
+            font-family: 'MiSans', sans-serif;
+        }
+        .case-card p {
+            color: var(--text-secondary);
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        footer {
+            background: #F8FAFC;
+            border-top: 1px solid var(--border-light);
+            padding: 60px 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .footer-links {
+            display: flex;
+            gap: 32px;
+        }
+        .footer-links a {
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .footer-links a:hover { color: var(--text-primary); }
+        .copyright {
+            color: var(--text-tertiary);
+            font-size: 14px;
+        }
+
+        /* Soft Ray Effect */
+        .ray-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .ray {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 70%);
+            opacity: 0.5;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="ri-telegram-fill"></i>
+            Telegram Streamer
+        </div>
+        <nav class="nav-links">
+            <a href="#">Возможности</a>
+            <a href="#">Воркфлоу</a>
+            <a href="#">Сценарии</a>
+            <a href="#">Войти</a>
+        </nav>
+        <div class="header-actions">
+            <div class="lang-toggle">
+                <span class="active">RU</span> / <span>EN</span>
+            </div>
+            <button class="btn btn-primary">Начать работу</button>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <div class="badge-hero">
+                <i class="ri-broadcast-line"></i> v2.0 Стриминг платформа
+            </div>
+            <h1 class="font-heading">24/7 трансляции в Telegram без OBS и серверов</h1>
+            <p class="hero-subtitle">Управляйте плейлистами, настраивайте фейловеры и планируйте эфиры через единую облачную консоль. Стабильность вещания 99.9%.</p>
+            <div class="hero-btns">
+                <button class="btn btn-primary">Начать работу <i class="ri-arrow-right-line" style="margin-left:8px"></i></button>
+                <button class="btn btn-secondary">Посмотреть демо</button>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--primary-cyan);">365</div>
+                    <div class="stat-label">дней в эфире</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--accent-purple);">&lt;100 мс</div>
+                    <div class="stat-label">задержка</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #F59E0B;">Fail-safe</div>
+                    <div class="stat-label">раннер</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-visual">
+            <div class="dash-sidebar">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:24px; color:#334155; font-weight:700;">
+                    <div style="width:24px; height:24px; background:var(--primary-cyan); border-radius:6px;"></div>
+                    Console
+                </div>
+                <div class="dash-menu-item active">
+                    <i class="ri-dashboard-line"></i> Дашборд
+                </div>
+                <div class="dash-menu-item">
+                    <i class="ri-calendar-event-line"></i> Расписание
+                </div>
+                <div class="dash-menu-item">
+                    <i class="ri-folder-music-line"></i> Медиатека
+                </div>
+                <div class="dash-menu-item">
+                    <i class="ri-settings-3-line"></i> Настройки
+                </div>
+            </div>
+            <div class="dash-main">
+                <div class="dash-header">
+                    <div>
+                        <h3 style="font-family: 'MiSans'; font-size: 18px;">Главный канал</h3>
+                        <span style="font-size: 12px; color: var(--text-tertiary);">rtmp://tg-streamer.io/live/key_...</span>
+                    </div>
+                    <div style="display:flex; gap:12px;">
+                        <div style="padding:8px 16px; background:#F1F5F9; border-radius:8px; font-size:12px; font-weight:600;">1080p 60fps</div>
+                        <div style="padding:8px 16px; background:#DCFCE7; color:#166534; border-radius:8px; font-size:12px; font-weight:600;">Stable</div>
+                    </div>
+                </div>
+                <div class="dash-preview">
+                    <div style="position:absolute; inset:0; background: linear-gradient(45deg, #0f172a, #1e293b);"></div>
+                    <!-- Abstract visualizer lines -->
+                    <div style="display:flex; gap:4px; align-items:flex-end; height: 60px; opacity:0.7;">
+                        <div style="width:8px; height:40px; background:var(--primary-cyan); border-radius:4px;"></div>
+                        <div style="width:8px; height:60px; background:var(--primary-cyan); border-radius:4px;"></div>
+                        <div style="width:8px; height:30px; background:var(--primary-cyan); border-radius:4px;"></div>
+                        <div style="width:8px; height:50px; background:var(--primary-cyan); border-radius:4px;"></div>
+                        <div style="width:8px; height:45px; background:var(--primary-cyan); border-radius:4px;"></div>
+                    </div>
+                    
+                    <div class="live-badge">LIVE</div>
+                    <div class="viewer-count"><i class="ri-user-line"></i> 12,402</div>
+                    
+                    <div style="position:absolute; bottom:20px; left:20px; right:20px; display:flex; justify-content:space-between; color:white; font-size:12px;">
+                        <span>Evening News / Main Block</span>
+                        <span>00:14:23 / 01:00:00</span>
+                    </div>
+                    <div style="position:absolute; bottom:0; left:0; width:35%; height:3px; background:var(--primary-cyan);"></div>
+                </div>
+                <div class="playlist-mock">
+                    <div class="playlist-item" style="border-color:var(--primary-cyan); background:#F0F9FF;">
+                        <div class="playlist-thumb" style="background:url('https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=100&h=100&fit=crop') center/cover;"></div>
+                        <div style="flex:1;">
+                            <div style="font-size:13px; font-weight:600;">Breaking News</div>
+                            <div style="font-size:11px; color:var(--primary-cyan);">Сейчас в эфире</div>
+                        </div>
+                        <i class="ri-bar-chart-fill" style="color:var(--primary-cyan);"></i>
+                    </div>
+                    <div class="playlist-item">
+                        <div class="playlist-thumb" style="background:url('https://images.unsplash.com/photo-1551818255-e6e10975bc17?w=100&h=100&fit=crop') center/cover;"></div>
+                        <div style="flex:1;">
+                            <div style="font-size:13px; font-weight:600; color:var(--text-secondary);">Tech Review</div>
+                            <div style="font-size:11px; color:var(--text-tertiary);">14:30 - 15:15</div>
+                        </div>
+                        <i class="ri-more-2-fill" style="color:#CBD5E1;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="section-header">
+            <h2 class="section-title font-heading">Комплект телекласса для Telegram</h2>
+            <p class="section-subtitle">Инструменты профессионального вещания, адаптированные для мессенджера</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon-wrapper bg-cyan-light">
+                    <i class="ri-video-upload-line"></i>
+                </div>
+                <h3>Источники контента</h3>
+                <ul class="feature-list">
+                    <li><i class="ri-check-line"></i> Потоки с YouTube</li>
+                    <li><i class="ri-check-line"></i> Загрузка MP4/MKV</li>
+                    <li><i class="ri-check-line"></i> RTMP Ingest</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon-wrapper bg-purple-light">
+                    <i class="ri-time-line"></i>
+                </div>
+                <h3>Автоматика расписаний</h3>
+                <ul class="feature-list">
+                    <li><i class="ri-check-line"></i> Визуальный календарь</li>
+                    <li><i class="ri-check-line"></i> Шаблоны эфиров</li>
+                    <li><i class="ri-check-line"></i> Часовые пояса</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon-wrapper bg-amber-light">
+                    <i class="ri-shield-keyhole-line"></i>
+                </div>
+                <h3>Безопасный RBAC</h3>
+                <ul class="feature-list">
+                    <li><i class="ri-check-line"></i> Роли и доступы</li>
+                    <li><i class="ri-check-line"></i> Workflow approvals</li>
+                    <li><i class="ri-check-line"></i> 2FA/MFA защита</li>
+                </ul>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon-wrapper bg-cyan-light">
+                    <i class="ri-pulse-line"></i>
+                </div>
+                <h3>Отказоустойчивость</h3>
+                <ul class="feature-list">
+                    <li><i class="ri-check-line"></i> Health-checks 24/7</li>
+                    <li><i class="ri-check-line"></i> Автофейловеры</li>
+                    <li><i class="ri-check-line"></i> Резервные потоки</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="workflow">
+        <div class="workflow-container">
+            <div class="section-header">
+                <h2 class="section-title font-heading">Выход в эфир за четыре шага</h2>
+                <p class="section-subtitle">Снимаем техническую неопределённость, оставляя только творчество</p>
+            </div>
+            <div class="steps-wrapper">
+                <div class="steps-connector"></div>
+                
+                <div class="step-card">
+                    <div class="step-number" style="border-color: var(--primary-cyan); color: var(--primary-cyan);">1</div>
+                    <span class="step-badge bg-cyan-light">Setup</span>
+                    <h4 class="font-heading">Подключите аккаунты</h4>
+                    <p>Свяжите ваши Telegram-каналы или чаты через безопасный API токен.</p>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number" style="border-color: var(--accent-purple); color: var(--accent-purple);">2</div>
+                    <span class="step-badge bg-purple-light">Build</span>
+                    <h4 class="font-heading">Соберите плейлист</h4>
+                    <p>Загрузите видеофайлы или укажите ссылки на внешние потоки для трансляции.</p>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number" style="border-color: var(--accent-amber); color: #F59E0B;">3</div>
+                    <span class="step-badge bg-amber-light">Plan</span>
+                    <h4 class="font-heading">Запланируйте неделю</h4>
+                    <p>Расставьте контент в сетке вещания, настройте повторы и перерывы.</p>
+                </div>
+                
+                <div class="step-card">
+                    <div class="step-number" style="border-color: var(--primary-cyan); color: var(--primary-cyan);">4</div>
+                    <span class="step-badge bg-cyan-light">Live</span>
+                    <h4 class="font-heading">Мониторьте эфир</h4>
+                    <p>Следите за статусом стрима, качеством сигнала и зрителями в реальном времени.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="use-cases">
+        <div class="section-header">
+            <h2 class="section-title font-heading">Где уже работает Telegram Streamer</h2>
+        </div>
+        <div class="cases-grid">
+            <div class="case-card case-cyan">
+                <i class="ri-newspaper-line case-icon" style="color: var(--primary-cyan);"></i>
+                <h4>Новостные каналы</h4>
+                <p>Автоматическая ротация новостных выпусков с живыми включениями.</p>
+            </div>
+            <div class="case-card case-purple">
+                <i class="ri-radio-2-line case-icon" style="color: var(--accent-purple);"></i>
+                <h4>24/7 Радио и стримы</h4>
+                <p>Круглосуточное музыкальное вещание и подкаст-марафоны без пауз.</p>
+            </div>
+            <div class="case-card case-amber">
+                <i class="ri-live-line case-icon" style="color: #F59E0B;"></i>
+                <h4>Автотрансляции медиа</h4>
+                <p>Ретрансляция эфиров ТВ-каналов в экосистему Telegram.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="logo" style="font-size: 20px;">
+            <i class="ri-telegram-fill" style="font-size: 24px; color: #94A3B8;"></i>
+            <span style="color: #64748B;">Telegram Streamer</span>
+        </div>
+        <div class="footer-links">
+            <a href="#">Документация</a>
+            <a href="#">API</a>
+            <a href="#">Безопасность</a>
+            <a href="#">Контакты</a>
+        </div>
+        <div class="copyright">
+            &copy; 2023 Telegram Streamer Platform. All rights reserved.
+        </div>
+    </footer>
+
+</body>
+</html>

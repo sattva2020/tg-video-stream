@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PlaylistItem } from '../services/playlist'
 import * as playlistService from '../services/playlist'
@@ -6,7 +6,9 @@ import { usePlaylistWebSocket } from '../hooks/usePlaylistWebSocket'
 import { useToast } from '../hooks/useToast'
 import { SkeletonPlaylistQueue } from './ui/Skeleton'
 
-export const POLL_INTERVAL_MS = 3000
+export const POLL_INTERVAL_MS = 5000 // Increased from 3s to 5s
+const MAX_CONSECUTIVE_ERRORS = 3
+const MAX_BACKOFF_MS = 60000 // Max 1 minute between retries
 
 interface PlaylistQueueProps {
   channelId?: string;
@@ -56,28 +58,63 @@ const PlaylistQueue: React.FC<PlaylistQueueProps> = ({ channelId }) => {
 
   // Fallback to polling if WebSocket is not connected
   const [fallbackItems, setFallbackItems] = useState<PlaylistItem[]>([])
+  const errorCountRef = useRef(0)
+  const backoffRef = useRef(POLL_INTERVAL_MS)
   
   const fetch = useCallback(async () => {
-    if (isConnected) return // Skip polling if WebSocket is connected
+    if (isConnected) {
+      // Reset error state when WebSocket reconnects
+      errorCountRef.current = 0
+      backoffRef.current = POLL_INTERVAL_MS
+      return
+    }
+    
+    // Stop polling after too many consecutive errors
+    if (errorCountRef.current >= MAX_CONSECUTIVE_ERRORS) {
+      console.warn('[PlaylistQueue] Polling paused due to consecutive errors')
+      return
+    }
     
     setLoading(true)
     try {
       const data = await playlistService.getPlaylist(channelId)
       setFallbackItems(data)
+      // Reset on success
+      errorCountRef.current = 0
+      backoffRef.current = POLL_INTERVAL_MS
     } catch (e) {
       console.error('Failed to fetch playlist', e)
-      toast.error('Не удалось загрузить плейлист')
+      errorCountRef.current++
+      // Exponential backoff: 5s -> 10s -> 20s -> 40s -> 60s max
+      backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS)
+      if (errorCountRef.current === 1) {
+        toast.error('Не удалось загрузить плейлист')
+      }
     } finally {
       setLoading(false)
     }
   }, [channelId, isConnected, toast])
 
   useEffect(() => {
-    if (!isConnected) {
-      fetch()
-      const id = setInterval(fetch, POLL_INTERVAL_MS)
-      return () => clearInterval(id)
+    if (isConnected) return // Don't poll when WebSocket is connected
+    
+    // Initial fetch
+    fetch()
+    
+    // Setup polling with dynamic interval based on backoff
+    let timeoutId: NodeJS.Timeout
+    const scheduleNext = () => {
+      timeoutId = setTimeout(() => {
+        fetch().finally(() => {
+          if (!isConnected && errorCountRef.current < MAX_CONSECUTIVE_ERRORS) {
+            scheduleNext()
+          }
+        })
+      }, backoffRef.current)
     }
+    scheduleNext()
+    
+    return () => clearTimeout(timeoutId)
   }, [isConnected, fetch])
 
   // Use WebSocket items if connected, otherwise use fallback

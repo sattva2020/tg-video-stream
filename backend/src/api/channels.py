@@ -36,7 +36,29 @@ def list_channels(
 ):
     # Return channels where the associated account belongs to the current user
     channels = db.query(Channel).join(TelegramAccount).filter(TelegramAccount.user_id == current_user.id).all()
-    return channels
+    
+    # Enrich with real-time status from Redis
+    controller = RedisStreamController(db)
+    result = []
+    for channel in channels:
+        channel_dict = {
+            "id": channel.id,
+            "account_id": channel.account_id,
+            "chat_id": channel.chat_id,
+            "name": channel.name,
+            "ffmpeg_args": channel.ffmpeg_args,
+            "video_quality": channel.video_quality,
+            "status": channel.status,  # default from DB
+        }
+        
+        # Get real-time status from Redis
+        redis_status = controller.get_channel_status_sync(str(channel.id))
+        if redis_status.get("status") != "unknown":
+            channel_dict["status"] = redis_status.get("status", channel.status)
+        
+        result.append(ChannelResponse(**channel_dict))
+    
+    return result
 
 @router.post("/", response_model=ChannelResponse)
 def create_channel(
@@ -132,5 +154,12 @@ def get_channel_status(
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+    
+    # Get real-time status from Redis
+    controller = RedisStreamController(db)
+    redis_status = controller.get_channel_status_sync(str(channel_id))
+    
+    if redis_status.get("status") != "unknown":
+        return redis_status
     
     return {"status": channel.status}
