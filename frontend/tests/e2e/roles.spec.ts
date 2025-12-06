@@ -12,11 +12,11 @@ const TEST_PASSWORD = 'TestPass123!';
 
 // Тестовые пользователи для каждой роли
 const TEST_USERS = {
-  SUPERADMIN: 'test_superadmin@sattva.test',
-  ADMIN: 'test_admin@sattva.test',
-  MODERATOR: 'test_moderator@sattva.test',
-  OPERATOR: 'test_operator@sattva.test',
-  USER: 'test_user@sattva.test',
+  SUPERADMIN: 'test_superadmin@test.sattva.dev',
+  ADMIN: 'test_admin@test.sattva.dev',
+  MODERATOR: 'test_moderator@test.sattva.dev',
+  OPERATOR: 'test_operator@test.sattva.dev',
+  USER: 'test_user@test.sattva.dev',
 } as const;
 
 type UserRole = keyof typeof TEST_USERS;
