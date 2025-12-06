@@ -30,12 +30,15 @@ services:
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://sattva-streamer.top}
+        - VITE_API_URL=${VITE_API_URL:-https://sattva-streamer.top}
+        - VITE_ENABLE_BASIC_LOGIN=${VITE_ENABLE_BASIC_LOGIN:-true}
+        - VITE_TELEGRAM_BOT_USERNAME=${VITE_TELEGRAM_BOT_USERNAME:-}
     ports:
       - "3000:80"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - backend
     networks:
