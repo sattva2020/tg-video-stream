@@ -59,7 +59,8 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     Зависимость: требует роль администратора или суперадмина.
     """
     allowed_roles = {"admin", "superadmin"}
-    if current_user.role not in allowed_roles:
+    user_role = current_user.role.lower() if current_user.role else ""
+    if user_role not in allowed_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges",
