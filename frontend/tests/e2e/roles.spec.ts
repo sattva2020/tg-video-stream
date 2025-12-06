@@ -93,15 +93,17 @@ async function loginAs(page: Page, role: UserRole, retries = 2): Promise<void> {
   try {
     await page.waitForURL(/\/(dashboard|channels)/, { timeout: 15000 });
   } catch (error) {
-    // Проверяем на rate limit error
+    // Проверяем на rate limit error или общую ошибку логина
     const errorText = await page.locator('[role="alert"], .text-red-600, .error').textContent().catch(() => '');
-    if (errorText?.includes('Too many') || errorText?.includes('try again')) {
-      if (retries > 0) {
-        console.log(`Rate limited, waiting 60s and retrying... (${retries} retries left)`);
-        await page.waitForTimeout(60000); // Wait for rate limit window
-        loginCount = 0; // Reset counter
-        return loginAs(page, role, retries - 1);
-      }
+    const isRateLimitError = errorText?.includes('Too many') || 
+                             errorText?.includes('try again') ||
+                             errorText?.includes('не удалось') ||
+                             errorText?.includes('Попробуйте');
+    if (isRateLimitError && retries > 0) {
+      console.log(`Login failed (possibly rate limited), waiting 60s and retrying... (${retries} retries left)`);
+      await page.waitForTimeout(60000); // Wait for rate limit window
+      loginCount = 0; // Reset counter
+      return loginAs(page, role, retries - 1);
     }
     throw error;
   }
