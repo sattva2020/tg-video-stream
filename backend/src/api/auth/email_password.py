@@ -172,12 +172,14 @@ async def login_user(
                     'password': form.get('password')
                 }
     except Exception as e:
+        logger.warning(f"Login payload parse error: {e}")
         raise HTTPException(status_code=422, detail='Invalid request payload')
 
     # Валидация через Pydantic
     try:
         login_data = LoginRequest.model_validate(parsed)
     except Exception as e:
+        logger.warning(f"Login validation error: {e}")
         raise HTTPException(status_code=422, detail='Invalid login payload')
 
     user = db.query(User).filter(User.email == login_data.email).first()

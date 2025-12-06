@@ -30,12 +30,15 @@ services:
     command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://sattva-streamer.top}
+        - VITE_API_URL=${VITE_API_URL:-https://sattva-streamer.top}
+        - VITE_ENABLE_BASIC_LOGIN=${VITE_ENABLE_BASIC_LOGIN:-true}
+        - VITE_TELEGRAM_BOT_USERNAME=${VITE_TELEGRAM_BOT_USERNAME:-}
     ports:
       - "3000:80"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - backend
     networks:
@@ -81,28 +84,32 @@ services:
       timeout: 5s
       retries: 5
 
-  streamer:
-    build: ./streamer
-    env_file:
-      - .env
-    volumes:
-      - ./streamer:/app
-      - ./data:/app/data
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - streamer
-      - monitoring
-      - external
-      - internal
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+  # DISABLED: Streamer runs as systemd service on host for easy yt-dlp updates
+  # See: config/systemd/sattva-streamer.service
+  # To enable for local development, uncomment this section
+  #
+  # streamer:
+  #   build: ./streamer
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./streamer:/app
+  #     - ./data:/app/data
+  #   restart: always
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - streamer
+  #     - monitoring
+  #     - external
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
 
   # Monitoring stack
   prometheus:

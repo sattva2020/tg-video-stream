@@ -1,0 +1,94 @@
+name: Production Health Check
+
+on:
+  # Запуск по расписанию каждые 6 часов
+  schedule:
+    - cron: '0 */6 * * *'
+  # Ручной запуск
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: 'URL для тестирования'
+        required: false
+        default: 'https://sattva-streamer.top'
+
+env:
+  TEST_BASE_URL: ${{ github.event.inputs.test_url || 'https://sattva-streamer.top' }}
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Run production health tests
+        working-directory: frontend
+        run: |
+          npx playwright test tests/e2e/api-health.spec.ts --project=chromium --reporter=html
+        env:
+          TEST_BASE_URL: ${{ env.TEST_BASE_URL }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-health-report-${{ github.run_id }}
+          path: frontend/playwright-report/
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Production health check failed! Check the test report for details."
+
+  api-smoke:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Health endpoint check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.TEST_BASE_URL }}/api/health")
+          if [ "$response" != "200" ]; then
+            echo "::error::Health endpoint returned $response"
+            exit 1
+          fi
+          echo "Health endpoint: OK ($response)"
+
+      - name: API docs check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.TEST_BASE_URL }}/api/docs")
+          if [ "$response" != "200" ]; then
+            echo "::warning::API docs returned $response"
+          else
+            echo "API docs: OK ($response)"
+          fi
+
+      - name: Frontend check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.TEST_BASE_URL }}/")
+          if [ "$response" != "200" ]; then
+            echo "::error::Frontend returned $response"
+            exit 1
+          fi
+          echo "Frontend: OK ($response)"
+
+      - name: Login page check
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ env.TEST_BASE_URL }}/login")
+          if [ "$response" != "200" ]; then
+            echo "::error::Login page returned $response"
+            exit 1
+          fi
+          echo "Login page: OK ($response)"

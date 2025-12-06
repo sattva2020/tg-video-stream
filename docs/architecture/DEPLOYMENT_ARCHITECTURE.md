@@ -34,26 +34,25 @@
 │  │              SYSTEMD (на хосте)                      │    │
 │  │                                                      │    │
 │  │  ┌─────────────────┐    ┌─────────────────┐         │    │
-│  │  │ sattva-backend  │    │ sattva-streamer │         │    │
-│  │  │   (FastAPI)     │    │  (PyTgCalls)    │         │    │
-│  │  │   :8000         │    │                 │         │    │
+│  │  │ sattva-streamer │    │ yt-dlp-update   │         │    │
+│  │  │  (PyTgCalls)    │    │   (timer)       │         │    │
+│  │  │  + yt-dlp       │    │  04:00 UTC      │         │    │
 │  │  └─────────────────┘    └─────────────────┘         │    │
 │  │           │                      │                   │    │
-│  │           │  yt-dlp (pip)        │                   │    │
-│  │           │  автообновление      │                   │    │
 │  │           └──────────────────────┘                   │    │
+│  │                 streamer/venv                        │    │
 │  └─────────────────────────────────────────────────────┘    │
 │                          │                                   │
-│                    172.17.0.1 (docker0)                      │
+│                    localhost (Redis :6379)                   │
 │                          │                                   │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │                  DOCKER COMPOSE                      │    │
 │  │                                                      │    │
-│  │  ┌──────────┐  ┌───────┐  ┌──────────┐              │    │
-│  │  │ frontend │  │  db   │  │  redis   │              │    │
-│  │  │ (nginx)  │  │(pg15) │  │ (redis7) │              │    │
-│  │  │  :3000   │  │ :5432 │  │  :6379   │              │    │
-│  │  └──────────┘  └───────┘  └──────────┘              │    │
+│  │  ┌──────────┐  ┌──────────┐  ┌───────┐  ┌───────┐   │    │
+│  │  │ frontend │  │ backend  │  │  db   │  │ redis │   │    │
+│  │  │ (nginx)  │  │ (FastAPI)│  │(pg15) │  │(redis)│   │    │
+│  │  │  :3000   │  │  :8000   │  │ :5432 │  │ :6379 │   │    │
+│  │  └──────────┘  └──────────┘  └───────┘  └───────┘   │    │
 │  │                                                      │    │
 │  │  ┌────────────┐  ┌─────────────┐  ┌──────────────┐  │    │
 │  │  │ prometheus │  │   grafana   │  │ alertmanager │  │    │
@@ -68,8 +67,8 @@
 
 | Сервис | Метод | Порт | Причина выбора |
 |--------|-------|------|----------------|
-| Backend (FastAPI) | `systemd` | 8000 | Требует обновления yt-dlp |
-| Streamer (PyTgCalls) | `systemd` | — | Требует обновления yt-dlp |
+| Backend (FastAPI) | `Docker` | 8000 | Стабильный, не требует yt-dlp |
+| Streamer (PyTgCalls) | `systemd` | — | Требует частых обновлений yt-dlp |
 | Frontend (Nginx) | `Docker` | 3000 | Статика, стабильный |
 | PostgreSQL | `Docker` | 5432 | Стабильный, изолированный |
 | Redis | `Docker` | 6379 | Стабильный |
@@ -79,12 +78,14 @@
 
 ## Автообновление yt-dlp
 
-### Cron задача
+### Systemd Timer (04:00 UTC)
 
 ```bash
-# /etc/cron.d/yt-dlp-update
-# Обновление yt-dlp каждый день в 04:00 UTC
-0 4 * * * root /opt/sattva-streamer/scripts/yt-dlp-update.sh >> /var/log/yt-dlp-update.log 2>&1
+# Включение таймера
+systemctl enable --now yt-dlp-update.timer
+
+# Проверка следующего запуска
+systemctl list-timers yt-dlp-update.timer
 ```
 
 ### Скрипт обновления
@@ -95,11 +96,10 @@
 
 echo "$(date): Starting yt-dlp update..."
 
-# Обновление yt-dlp
-/opt/sattva-streamer/backend/venv/bin/pip install -U yt-dlp
+# Обновление yt-dlp в streamer venv
+/opt/sattva-streamer/streamer/venv/bin/pip install -U yt-dlp
 
-# Перезапуск сервисов
-systemctl restart sattva-backend
+# Перезапуск streamer
 systemctl restart sattva-streamer
 
 echo "$(date): yt-dlp update completed"

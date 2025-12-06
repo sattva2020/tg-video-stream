@@ -8,6 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { ResponsiveHeader } from '../components/layout';
 import { useMonitoringWebSocket } from '../hooks/useMonitoringWebSocket';
 import { StreamCard } from '../components/StreamCard';
 import type { StreamState, AutoEndWarning } from '../hooks/useMonitoringWebSocket';
@@ -122,11 +123,13 @@ export const Monitoring: React.FC = () => {
   }, [lastUpdate]);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Stream Monitoring</h1>
+    <>
+      <ResponsiveHeader />
+      <div className="min-h-screen bg-gray-100 p-6">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Stream Monitoring</h1>
           <p className="text-sm text-gray-500">
             Real-time system metrics and stream status
           </p>
@@ -250,7 +253,8 @@ export const Monitoring: React.FC = () => {
           </details>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

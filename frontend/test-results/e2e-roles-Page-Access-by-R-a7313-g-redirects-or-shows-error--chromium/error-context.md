@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e5]:
+      - link "Sattva Yantra Sattva" [ref=e7] [cursor=pointer]:
+        - /url: /dashboard
+        - img "Sattva Yantra" [ref=e8]
+        - generic [ref=e9]: Sattva
+      - navigation [ref=e11]:
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e13]
+          - generic [ref=e16]: Dashboard
+        - link "Channels" [ref=e17] [cursor=pointer]:
+          - /url: /channels
+          - img [ref=e18]
+          - generic [ref=e21]: Channels
+        - link "Playlist" [ref=e22] [cursor=pointer]:
+          - /url: /playlist
+          - img [ref=e23]
+          - generic [ref=e25]: Playlist
+        - link "Schedule" [ref=e26] [cursor=pointer]:
+          - /url: /schedule
+          - img [ref=e27]
+          - generic [ref=e29]: Schedule
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - img [ref=e32]
+          - generic [ref=e35]: test_user@test.sattva.dev
+        - button "en" [ref=e36] [cursor=pointer]:
+          - img [ref=e37]
+          - generic [ref=e40]: en
+        - button "Switch to dark mode" [ref=e41] [cursor=pointer]:
+          - img [ref=e42]
+        - button "Logout" [ref=e44] [cursor=pointer]:
+          - img [ref=e45]
+          - generic [ref=e48]: Logout
+  - generic [ref=e49]:
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - heading "Stream Monitoring" [level=1] [ref=e52]
+        - paragraph [ref=e53]: Real-time system metrics and stream status
+      - generic [ref=e54]:
+        - generic [ref=e55]: "Last update: 10:22:46 PM"
+        - generic [ref=e56]: Connected
+    - generic [ref=e58]:
+      - heading "System Metrics" [level=2] [ref=e59]
+      - generic [ref=e60]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - paragraph [ref=e64]: Active Streams
+            - paragraph [ref=e65]: "0"
+          - generic [ref=e66]: 📺
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - paragraph [ref=e70]: Total Listeners
+            - paragraph [ref=e71]: "0"
+          - generic [ref=e72]: 👥
+        - generic [ref=e74]:
+          - generic [ref=e75]:
+            - paragraph [ref=e76]: Queue Items
+            - paragraph [ref=e77]: "0"
+          - generic [ref=e78]: 📋
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - paragraph [ref=e82]: WebSocket Connections
+            - paragraph [ref=e83]: "0"
+          - generic [ref=e84]: 🔌
+    - generic [ref=e85]:
+      - heading "Active Streams (0)" [level=2] [ref=e86]
+      - generic [ref=e87]:
+        - generic [ref=e88]: 📺
+        - paragraph [ref=e89]: No active streams
+        - paragraph [ref=e90]: Streams will appear here when they start playing
+  - region "Notifications alt+T"
+```
