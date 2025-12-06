@@ -3,9 +3,18 @@
  * 
  * Тесты для проверки доступа разных ролей пользователей.
  * Пароль для всех тестовых пользователей: TestPass123!
+ * 
+ * ВАЖНО: Тесты запускаются последовательно (serial) чтобы избежать rate limiting.
+ * Rate limit на login: 5 запросов / 60 секунд.
  */
 
 import { test, expect, Page } from '@playwright/test';
+
+// Запускаем тесты последовательно чтобы избежать rate limiting
+test.describe.configure({ mode: 'serial' });
+
+// Увеличенный таймаут для тестов (rate limit может потребовать ожидания до 60с)
+test.setTimeout(120000);
 
 const BASE_URL = process.env.TEST_BASE_URL || 'https://sattva-streamer.top';
 const TEST_PASSWORD = 'TestPass123!';
@@ -34,11 +43,36 @@ const PAGES = {
 // Иерархия ролей (от высшей к низшей)
 const ROLE_HIERARCHY: UserRole[] = ['SUPERADMIN', 'ADMIN', 'MODERATOR', 'OPERATOR', 'USER'];
 
+// Rate limit tracking
+let loginCount = 0;
+let lastLoginWindowStart = 0;
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW = 60000; // 60 секунд в миллисекундах
+
 /**
- * Логин пользователя через email/password форму
+ * Логин пользователя через email/password форму.
+ * Включает retry logic и rate limit awareness.
  */
-async function loginAs(page: Page, role: UserRole): Promise<void> {
+async function loginAs(page: Page, role: UserRole, retries = 2): Promise<void> {
   const email = TEST_USERS[role];
+  const now = Date.now();
+  
+  // Если прошло больше 60 секунд с начала окна, сбрасываем счётчик
+  if (now - lastLoginWindowStart > RATE_LIMIT_WINDOW) {
+    loginCount = 0;
+    lastLoginWindowStart = now;
+  }
+  
+  // Если достигли лимита, ждём оставшееся время окна
+  if (loginCount >= RATE_LIMIT_MAX) {
+    const waitTime = RATE_LIMIT_WINDOW - (now - lastLoginWindowStart) + 2000; // +2s buffer
+    console.log(`Rate limit reached (${loginCount}/${RATE_LIMIT_MAX}), waiting ${Math.ceil(waitTime/1000)}s...`);
+    await page.waitForTimeout(waitTime);
+    loginCount = 0;
+    lastLoginWindowStart = Date.now();
+  }
+  
+  loginCount++;
   
   await page.goto(`${BASE_URL}/login`);
   await page.waitForLoadState('networkidle');
@@ -56,7 +90,21 @@ async function loginAs(page: Page, role: UserRole): Promise<void> {
   await loginButton.click();
   
   // Ждём редирект на dashboard или channels
-  await page.waitForURL(/\/(dashboard|channels)/, { timeout: 15000 });
+  try {
+    await page.waitForURL(/\/(dashboard|channels)/, { timeout: 15000 });
+  } catch (error) {
+    // Проверяем на rate limit error
+    const errorText = await page.locator('[role="alert"], .text-red-600, .error').textContent().catch(() => '');
+    if (errorText?.includes('Too many') || errorText?.includes('try again')) {
+      if (retries > 0) {
+        console.log(`Rate limited, waiting 60s and retrying... (${retries} retries left)`);
+        await page.waitForTimeout(60000); // Wait for rate limit window
+        loginCount = 0; // Reset counter
+        return loginAs(page, role, retries - 1);
+      }
+    }
+    throw error;
+  }
 }
 
 /**

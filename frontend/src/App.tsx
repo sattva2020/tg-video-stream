@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
+import { UserRole } from './types/user';
 
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
@@ -15,6 +16,10 @@ const ChannelManager = lazy(() => import('./pages/ChannelManager'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
+
+// Role groups for RBAC
+const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
+const ADMIN_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN];
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
@@ -33,15 +38,25 @@ const App: React.FC = () => {
             <Route path="/login" element={<AuthPage3D />} />
             <Route path="/pending-approval" element={<PendingApprovalPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            
+            {/* Routes for all authenticated users */}
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/playlist" element={<PlaylistPage />} />
+            </Route>
+            
+            {/* Routes for OPERATOR and above */}
+            <Route element={<ProtectedRoute allowedRoles={OPERATOR_AND_ABOVE} />}>
+              <Route path="/channels" element={<ChannelManager />} />
+              <Route path="/schedule" element={<SchedulePage />} />
+            </Route>
+            
+            {/* Routes for ADMIN and above */}
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
               <Route path="/admin/pending" element={<PendingUsers />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
-              <Route path="/channels" element={<ChannelManager />} />
-              <Route path="/playlist" element={<PlaylistPage />} />
-              <Route path="/schedule" element={<SchedulePage />} />
             </Route>
           </Routes>
         </Suspense>
