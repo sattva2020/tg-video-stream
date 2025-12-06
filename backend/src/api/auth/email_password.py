@@ -155,16 +155,19 @@ async def login_user(
     try:
         if 'application/json' in content_type:
             parsed = await fastapi_request.json()
+            logger.debug(f"Login JSON parsed: {parsed}")
         elif 'application/x-www-form-urlencoded' in content_type or 'multipart/form-data' in content_type:
             form = await fastapi_request.form()
             parsed = {
                 'email': form.get('username') or form.get('email'),
                 'password': form.get('password')
             }
+            logger.debug(f"Login form parsed: email={parsed.get('email')}")
         else:
             # Пробуем JSON, потом form
             try:
                 parsed = await fastapi_request.json()
+                logger.debug(f"Login fallback JSON parsed: {parsed}")
             except Exception:
                 form = await fastapi_request.form()
                 parsed = {
@@ -172,12 +175,14 @@ async def login_user(
                     'password': form.get('password')
                 }
     except Exception as e:
+        logger.error(f"Login payload parse error: {e}")
         raise HTTPException(status_code=422, detail='Invalid request payload')
 
     # Валидация через Pydantic
     try:
         login_data = LoginRequest.model_validate(parsed)
     except Exception as e:
+        logger.error(f"Login validation error: {e}, parsed={parsed}")
         raise HTTPException(status_code=422, detail='Invalid login payload')
 
     user = db.query(User).filter(User.email == login_data.email).first()
