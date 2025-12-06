@@ -81,28 +81,32 @@ services:
       timeout: 5s
       retries: 5
 
-  streamer:
-    build: ./streamer
-    env_file:
-      - .env
-    volumes:
-      - ./streamer:/app
-      - ./data:/app/data
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - streamer
-      - monitoring
-      - external
-      - internal
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+  # DISABLED: Streamer runs as systemd service on host for easy yt-dlp updates
+  # See: config/systemd/sattva-streamer.service
+  # To enable for local development, uncomment this section
+  #
+  # streamer:
+  #   build: ./streamer
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - ./streamer:/app
+  #     - ./data:/app/data
+  #   restart: always
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - streamer
+  #     - monitoring
+  #     - external
+  #     - internal
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:9090/metrics"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 30s
 
   # Monitoring stack
   prometheus:

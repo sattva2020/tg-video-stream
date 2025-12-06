@@ -1,0 +1,42 @@
+[Unit]
+Description=Sattva Telegram Streamer Service
+Documentation=https://github.com/sattva2020/tg-video-stream
+After=network.target redis.service postgresql.service
+Wants=redis.service
+
+[Service]
+Type=simple
+User=sattva
+Group=sattva
+WorkingDirectory=/opt/sattva-streamer/streamer
+Environment=PYTHONUNBUFFERED=1
+Environment=STREAMER_MODE=multi
+EnvironmentFile=/opt/sattva-streamer/.env
+
+# Use system Python with venv
+ExecStart=/opt/sattva-streamer/streamer/venv/bin/python multi_channel_runner.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sattva-streamer
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/sattva-streamer/streamer /opt/sattva-streamer/data /var/log
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
