@@ -10,6 +10,16 @@ from src.schemas.telegram_auth import (
     TelegramAuthError,
     UserResponse,
 )
+from src.schemas.analytics import (
+    ListenerStatsResponse,
+    ListenerHistoryPoint,
+    ListenerHistoryResponse,
+    TopTrackItem,
+    TopTracksResponse,
+    AnalyticsSummaryResponse,
+    TrackPlayRequest,
+    TrackPlayResponse,
+)
 
 __all__ = [
     "TelegramAuthRequest",
@@ -19,4 +29,13 @@ __all__ = [
     "TelegramUnlinkResponse",
     "TelegramAuthError",
     "UserResponse",
+    # Analytics schemas
+    "ListenerStatsResponse",
+    "ListenerHistoryPoint",
+    "ListenerHistoryResponse",
+    "TopTrackItem",
+    "TopTracksResponse",
+    "AnalyticsSummaryResponse",
+    "TrackPlayRequest",
+    "TrackPlayResponse",
 ]

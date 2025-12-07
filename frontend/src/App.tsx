@@ -16,10 +16,12 @@ const ChannelManager = lazy(() => import('./pages/ChannelManager'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
+const Analytics = lazy(() => import('./pages/admin/Analytics'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
 const ADMIN_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN];
+const MODERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR];
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
@@ -57,6 +59,11 @@ const App: React.FC = () => {
               <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
               <Route path="/admin/pending" element={<PendingUsers />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
+            </Route>
+            
+            {/* Routes for MODERATOR and above (analytics) */}
+            <Route element={<ProtectedRoute allowedRoles={MODERATOR_AND_ABOVE} />}>
+              <Route path="/admin/analytics" element={<Analytics />} />
             </Route>
           </Routes>
         </Suspense>

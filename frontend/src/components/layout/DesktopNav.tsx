@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity } from 'lucide-react';
+import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
@@ -48,6 +48,13 @@ export const DesktopNav: React.FC = () => {
       path: '/admin/monitoring', 
       label: t('nav.monitoring', 'Мониторинг'), 
       icon: <Activity className="w-4 h-4" />,
+      adminOnly: true,
+      moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/analytics', 
+      label: t('nav.analytics', 'Аналитика'), 
+      icon: <BarChart3 className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
