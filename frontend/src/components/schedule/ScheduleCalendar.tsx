@@ -217,9 +217,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
+            e.preventDefault();
+            console.log('[Calendar] Add button clicked for date:', day.date);
             onAddClick();
           }}
-          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[color:var(--color-surface-hover)] transition-all"
+          className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-[color:var(--color-surface-hover)] transition-all z-10 relative"
+          type="button"
         >
           <Plus className="w-4 h-4 text-[color:var(--color-text-muted)]" />
         </button>
