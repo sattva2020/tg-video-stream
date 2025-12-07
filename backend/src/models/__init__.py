@@ -11,6 +11,9 @@ from .radio_stream import RadioStream
 from .scheduled_playlist import ScheduledPlaylist
 from .lyrics_cache import LyricsCache
 
+# Analytics (Feature 021)
+from .analytics import TrackPlay, MonthlyAnalytics
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -26,5 +29,8 @@ __all__ = [
     "RadioStream",
     "ScheduledPlaylist",
     "LyricsCache",
+    # Analytics
+    "TrackPlay",
+    "MonthlyAnalytics",
 ]
 

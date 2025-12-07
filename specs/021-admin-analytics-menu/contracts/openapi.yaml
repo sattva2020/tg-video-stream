@@ -1,0 +1,325 @@
+openapi: 3.1.0
+info:
+  title: Sattva Analytics API
+  description: API для раздела "Аналитика" в админ-панели
+  version: 1.0.0
+  contact:
+    name: Sattva Team
+
+servers:
+  - url: /api
+    description: Backend API
+
+tags:
+  - name: Analytics
+    description: Эндпоинты аналитики (требуют роли ADMIN/MODERATOR)
+  - name: Internal
+    description: Внутренние эндпоинты для streamer
+
+paths:
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      summary: Получить сводную статистику
+      description: Возвращает общую статистику за указанный период
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PeriodParam'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsSummaryResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /analytics/listeners:
+    get:
+      operationId: getListenerStats
+      summary: Получить статистику слушателей
+      description: Текущее количество, пиковые и средние значения
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PeriodParam'
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenerStatsResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /analytics/listeners/history:
+    get:
+      operationId: getListenerHistory
+      summary: Получить историю слушателей
+      description: Данные для построения графика истории слушателей
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PeriodParam'
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [hour, day]
+            default: day
+          description: Интервал агрегации данных
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListenerHistoryResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /analytics/top-tracks:
+    get:
+      operationId: getTopTracks
+      summary: Получить топ треков
+      description: Самые популярные треки за период
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PeriodParam'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+          description: Количество треков в топе
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopTracksResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /internal/track-play:
+    post:
+      operationId: logTrackPlay
+      summary: Записать воспроизведение трека
+      description: Внутренний эндпоинт для streamer
+      tags: [Internal]
+      security:
+        - InternalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackPlayRequest'
+      responses:
+        '201':
+          description: Запись создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrackPlayResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен пользователя
+    InternalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: Внутренний токен для сервис-сервис коммуникации
+
+  parameters:
+    PeriodParam:
+      name: period
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: ['7d', '30d', '90d', 'all']
+        default: '7d'
+      description: Период для агрегации данных
+
+  responses:
+    Unauthorized:
+      description: Требуется аутентификация
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Authentication required"
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: "Access denied. Required roles: ADMIN, MODERATOR"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Описание ошибки
+
+    AnalyticsSummaryResponse:
+      type: object
+      required: [period, total_plays, total_duration_hours, unique_tracks, listeners, cached_at]
+      properties:
+        period:
+          type: string
+          enum: ['7d', '30d', '90d', 'all']
+        total_plays:
+          type: integer
+          description: Общее количество воспроизведений
+        total_duration_hours:
+          type: number
+          format: float
+          description: Общее время вещания в часах
+        unique_tracks:
+          type: integer
+          description: Количество уникальных треков
+        listeners:
+          $ref: '#/components/schemas/ListenerStatsResponse'
+        cached_at:
+          type: string
+          format: date-time
+          description: Время кеширования данных
+
+    ListenerStatsResponse:
+      type: object
+      required: [current, peak_today, peak_week, average_week]
+      properties:
+        current:
+          type: integer
+          description: Текущее количество слушателей
+        peak_today:
+          type: integer
+          description: Пиковое количество за сегодня
+        peak_week:
+          type: integer
+          description: Пиковое количество за неделю
+        average_week:
+          type: number
+          format: float
+          description: Среднее количество за неделю
+
+    ListenerHistoryResponse:
+      type: object
+      required: [period, data]
+      properties:
+        period:
+          type: string
+          enum: ['7d', '30d', '90d', 'all']
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListenerHistoryPoint'
+
+    ListenerHistoryPoint:
+      type: object
+      required: [timestamp, count]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        count:
+          type: integer
+          description: Количество слушателей
+
+    TopTracksResponse:
+      type: object
+      required: [period, tracks]
+      properties:
+        period:
+          type: string
+          enum: ['7d', '30d', '90d', 'all']
+        tracks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopTrackItem'
+
+    TopTrackItem:
+      type: object
+      required: [track_id, title, play_count, total_duration_seconds]
+      properties:
+        track_id:
+          type: integer
+        title:
+          type: string
+        artist:
+          type: string
+          nullable: true
+        play_count:
+          type: integer
+          description: Количество воспроизведений
+        total_duration_seconds:
+          type: integer
+          description: Суммарная длительность в секундах
+
+    TrackPlayRequest:
+      type: object
+      required: [track_id, listeners_count]
+      properties:
+        track_id:
+          type: integer
+          description: ID трека
+        listeners_count:
+          type: integer
+          minimum: 0
+          description: Количество слушателей
+        duration_seconds:
+          type: integer
+          minimum: 0
+          nullable: true
+          description: Длительность воспроизведения
+        timestamp:
+          type: string
+          format: date-time
+          description: Время воспроизведения (default: now)
+
+    TrackPlayResponse:
+      type: object
+      required: [id, track_id, played_at, listeners_count]
+      properties:
+        id:
+          type: integer
+        track_id:
+          type: integer
+        played_at:
+          type: string
+          format: date-time
+        duration_seconds:
+          type: integer
+          nullable: true
+        listeners_count:
+          type: integer

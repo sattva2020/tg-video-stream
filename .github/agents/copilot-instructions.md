@@ -29,6 +29,8 @@ Auto-generated from all feature plans. Last updated: 2025-11-22
 - N/A (frontend-only changes) (018-role-ui-fixes)
 - Rust 1.75+ (microservice), Python 3.11 (orchestrator/API) (020-ffmpeg-wrapper-rust-python-api)
 - Redis (queue state), PostgreSQL (playlist metadata) (020-ffmpeg-wrapper-rust-python-api)
+- Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.x, React 18.x, Recharts (021-admin-analytics-menu)
+- PostgreSQL (таблица `track_plays`), Redis (кеширование 5 мин) (021-admin-analytics-menu)
 
 - TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS) + Tailwind CSS, React Three Fiber + Drei, i18next, Framer Motion (existing), Vite build system (001-modern-home-design)
 
@@ -49,9 +51,9 @@ npm test; npm run lint
 TypeScript 5.x + React 18 (Vite toolchain, Node 18 LTS): Follow standard conventions
 
 ## Recent Changes
+- 021-admin-analytics-menu: Added Python 3.11+ (backend), TypeScript 5.x (frontend) + FastAPI, SQLAlchemy 2.x, React 18.x, Recharts
 - 020-ffmpeg-wrapper-rust-python-api: Added Rust 1.75+ (microservice), Python 3.11 (orchestrator/API)
 - 018-role-ui-fixes: Added TypeScript 5.x, React 18.x + @heroui/react, framer-motion, react-router-dom, i18next
-- 017-audio-streaming-enhancements: Added Python 3.11+, TypeScript 5.x + FastAPI 0.104+, SQLAlchemy 2.0, PyTgCalls, GStreamer, React 18, react-i18next
 
 
 <!-- MANUAL ADDITIONS START -->
