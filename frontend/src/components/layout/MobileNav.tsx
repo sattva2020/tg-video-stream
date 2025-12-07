@@ -13,6 +13,7 @@ import {
   LogOut,
   CalendarDays,
   Activity,
+  BarChart3,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
@@ -62,6 +63,13 @@ export const MobileNav: React.FC = () => {
       path: '/admin/monitoring', 
       label: t('nav.monitoring', 'Мониторинг'), 
       icon: <Activity className="w-5 h-5" />,
+      adminOnly: true,
+      moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/analytics', 
+      label: t('nav.analytics', 'Аналитика'), 
+      icon: <BarChart3 className="w-5 h-5" />,
       adminOnly: true,
       moderatorAllowed: true,
     },

@@ -7,6 +7,7 @@ export interface RolePermissions {
   canControlStream: boolean;
   canViewMonitoring: boolean;
   canAccessSqlAdmin: boolean;
+  canViewAnalytics: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
@@ -17,6 +18,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canControlStream: true,
     canViewMonitoring: true,
     canAccessSqlAdmin: true,
+    canViewAnalytics: true,
   },
   [UserRole.ADMIN]: {
     canViewAdminDashboard: true,
@@ -25,6 +27,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canControlStream: true,
     canViewMonitoring: true,
     canAccessSqlAdmin: false,
+    canViewAnalytics: true,
   },
   [UserRole.MODERATOR]: {
     canViewAdminDashboard: true,
@@ -33,6 +36,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canControlStream: true,
     canViewMonitoring: true,
     canAccessSqlAdmin: false,
+    canViewAnalytics: true,
   },
   [UserRole.OPERATOR]: {
     canViewAdminDashboard: false,
@@ -41,6 +45,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canControlStream: true,
     canViewMonitoring: true,
     canAccessSqlAdmin: false,
+    canViewAnalytics: false,
   },
   [UserRole.USER]: {
     canViewAdminDashboard: false,
@@ -49,5 +54,6 @@ export const ROLE_PERMISSIONS: Record<UserRole, RolePermissions> = {
     canControlStream: false,
     canViewMonitoring: false,
     canAccessSqlAdmin: false,
+    canViewAnalytics: false,
   },
 };

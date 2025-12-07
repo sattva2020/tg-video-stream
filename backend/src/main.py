@@ -40,6 +40,7 @@ from api.system import router as system_router  # noqa: E402
 from api.telegram_login import router as telegram_login_router  # noqa: E402
 from api.queue import router as queue_router  # noqa: E402
 from api.metrics import router as metrics_router  # noqa: E402
+from src.api.analytics import router as analytics_router, internal_router as analytics_internal_router  # noqa: E402
 from database import engine, Base
 
 
@@ -144,6 +145,8 @@ app.include_router(system_router, prefix="/api/system", tags=["System Monitoring
 app.include_router(queue_router, prefix="/api/v1", tags=["Queue"])
 app.include_router(metrics_router, tags=["Metrics"])  # /metrics и /api/v1/metrics/*
 app.include_router(playback_routes.router)
+app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
+app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
 
 
 # Setup Prometheus middleware
