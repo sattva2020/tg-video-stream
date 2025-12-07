@@ -3,8 +3,57 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import { scheduleApi, ScheduleSlotCreate, ScheduleSlotUpdate, ScheduleTemplateCreate, PlaylistCreate, PlaylistUpdate, BulkCopyRequest, ApplyTemplateRequest } from '../api/schedule';
 import { useToast } from './useToast';
+
+// ==================== Error Handling ====================
+
+interface ApiErrorResponse {
+  detail?: string;
+}
+
+/**
+ * Преобразует ошибку API в понятное сообщение на русском
+ * @param error - Ошибка от API или JavaScript
+ * @param prefix - Опциональный префикс для сообщения (например, "Ошибка копирования")
+ */
+function getErrorMessage(error: unknown, prefix?: string): string {
+  let message = 'Произошла неизвестная ошибка';
+  
+  if (error instanceof AxiosError) {
+    const status = error.response?.status;
+    const detail = (error.response?.data as ApiErrorResponse)?.detail;
+    
+    // Специфичные ошибки по статус-кодам
+    if (status === 409) {
+      if (detail?.includes('overlaps')) {
+        message = 'Слот на это время уже существует. Выберите другое время.';
+      } else if (detail?.includes('in use')) {
+        message = 'Плейлист используется и не может быть удалён.';
+      } else {
+        message = 'Конфликт данных. Попробуйте обновить страницу.';
+      }
+    } else if (status === 404) {
+      message = 'Элемент не найден. Возможно, он был удалён.';
+    } else if (status === 400) {
+      message = detail || 'Неверные данные. Проверьте заполненные поля.';
+    } else if (status === 401) {
+      message = 'Сессия истекла. Пожалуйста, войдите снова.';
+    } else if (status === 403) {
+      message = 'У вас нет прав для этого действия.';
+    } else if (status === 500) {
+      message = 'Ошибка сервера. Попробуйте позже.';
+    } else if (detail) {
+      // Если есть detail от сервера
+      message = detail;
+    }
+  } else if (error instanceof Error) {
+    message = error.message;
+  }
+  
+  return prefix ? `${prefix}: ${message}` : message;
+}
 
 // ==================== Query Keys ====================
 
@@ -59,8 +108,8 @@ export function useCreateSlot() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success('Слот добавлен в расписание');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -79,8 +128,8 @@ export function useUpdateSlot() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success('Слот обновлён');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -98,8 +147,8 @@ export function useDeleteSlot() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success('Слот удалён');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -117,8 +166,8 @@ export function useCopySchedule() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success(`Скопировано ${result.created} слотов${result.skipped > 0 ? `, пропущено ${result.skipped} (конфликты)` : ''}`);
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка копирования: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Ошибка копирования'));
     },
   });
 }
@@ -149,8 +198,8 @@ export function useCreateTemplate() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates() });
       toast.success('Шаблон создан');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -168,8 +217,8 @@ export function useApplyTemplate() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all });
       toast.success(`Шаблон применён: создано ${result.created} слотов`);
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -187,8 +236,8 @@ export function useDeleteTemplate() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.templates() });
       toast.success('Шаблон удалён');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -219,8 +268,8 @@ export function useCreatePlaylist() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
       toast.success('Плейлист создан');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -239,8 +288,8 @@ export function useUpdatePlaylist() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
       toast.success('Плейлист обновлён');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
@@ -258,8 +307,8 @@ export function useDeletePlaylist() {
       queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
       toast.success('Плейлист удалён');
     },
-    onError: (error: Error) => {
-      toast.error(`Ошибка: ${error.message}`);
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
     },
   });
 }
