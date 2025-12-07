@@ -47,7 +47,61 @@ async function setupAdminAuth(page: Page) {
     });
   });
   
+  await page.route('**/api/channels**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'Test Channel',
+        telegram_id: '-1001234567890',
+        is_active: true,
+      }]),
+    });
+  });
+  
   await page.route('**/api/playlist/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    });
+  });
+  
+  await page.route('**/api/schedule/calendar**', async (route) => {
+    // Generate calendar data for current month
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    
+    const data = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      data.push({
+        date: dateStr,
+        slots_count: 0,
+        has_conflicts: false,
+        slots: [],
+      });
+    }
+    
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(data),
+    });
+  });
+  
+  await page.route('**/api/schedule/playlists**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    });
+  });
+  
+  await page.route('**/api/schedule/templates**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -93,9 +147,41 @@ test.describe('Admin Pages Screenshots', () => {
   
   test('2. Schedule page screenshot', async ({ page }) => {
     await setupAdminAuth(page);
+    
+    const startTime = Date.now();
     await page.goto(`${BASE_URL}/schedule`);
+    const navigationTime = Date.now() - startTime;
+    
     await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(3000);
+    const domLoadTime = Date.now() - startTime;
+    
+    // Wait for calendar grid to appear - use more specific selector
+    const gridStart = Date.now();
+    try {
+      // Try multiple selectors
+      const gridSelector = page.locator('.grid.grid-cols-7').first();
+      await gridSelector.waitFor({ state: 'visible', timeout: 10000 });
+      const gridTime = Date.now() - gridStart;
+      console.log(`[PERF] Calendar grid visible: ${gridTime}ms`);
+      
+      // Count how many day cells are visible
+      const dayCells = await page.locator('.grid.grid-cols-7 > div').count();
+      console.log(`[PERF] Day cells rendered: ${dayCells}`);
+    } catch {
+      console.log('[PERF] Calendar grid not found in 10s, checking page content...');
+      
+      // Debug: check what's on the page
+      const hasCalendar = await page.locator('text="Расписание"').count();
+      const hasLoading = await page.locator('[class*="animate-pulse"], [class*="skeleton"]').count();
+      const hasError = await page.locator('text="Ошибка"').count();
+      console.log(`[DEBUG] Has "Расписание": ${hasCalendar}, Loading elements: ${hasLoading}, Errors: ${hasError}`);
+    }
+    
+    await page.waitForTimeout(2000); // Extra wait for animations
+    const totalTime = Date.now() - startTime;
+    
+    console.log(`[PERF] Navigation: ${navigationTime}ms, DOM: ${domLoadTime}ms, Total: ${totalTime}ms`);
+    
     await page.screenshot({ path: 'test-results/screenshot-2-schedule.png', fullPage: true });
     console.log('Screenshot saved: screenshot-2-schedule.png');
   });
