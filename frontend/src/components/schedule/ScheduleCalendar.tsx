@@ -499,7 +499,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             {/* Day slots list */}
             {(() => {
               const dayData = calendarData.find(d => d.date === selectedDate);
-              if (!dayData || dayData.slots.length === 0) {
+              const daySlots = dayData?.slots || [];
+              if (!dayData || daySlots.length === 0) {
                 return (
                   <div className="py-8 text-center text-[color:var(--color-text-muted)]">
                     <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -513,7 +514,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
               return (
                 <div className="space-y-2">
-                  {dayData.slots.map((slot) => (
+                  {daySlots.map((slot) => (
                     <div
                       key={slot.id}
                       className="flex items-center justify-between p-3 rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]"
