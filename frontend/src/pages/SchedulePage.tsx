@@ -7,15 +7,16 @@
  * - Шаблоны расписания
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button, Card, Tabs, Tab, Tooltip, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
+import { Button, Card, Tabs, Tab, Tooltip, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Select, SelectItem, Skeleton } from '@heroui/react';
 import { CalendarDays, List, Copy, ChevronDown, Plus, RefreshCw } from 'lucide-react';
 
 import { ResponsiveHeader } from '@/components/layout';
 import { ScheduleCalendar, PlaylistManager, SlotEditorModal, CopyScheduleModal } from '@/components/schedule';
 import { useScheduleTemplates, useApplyTemplate, usePlaylists } from '@/hooks/useScheduleQuery';
+import { useChannels } from '@/hooks/useChannelsQuery';
 import type { ScheduleSlot, ScheduleTemplate } from '@/api/schedule';
 import { toast } from 'sonner';
 
@@ -24,17 +25,24 @@ type TabKey = 'calendar' | 'playlists' | 'templates';
 export default function SchedulePage() {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabKey>('calendar');
-  // TODO: Добавить выбор канала из списка доступных каналов
-  const [selectedChannelId, _setSelectedChannelId] = useState<string>('default-channel');
+  const [selectedChannelId, setSelectedChannelId] = useState<string>('');
   const [selectedSlot, setSelectedSlot] = useState<ScheduleSlot | null>(null);
   const [isSlotModalOpen, setIsSlotModalOpen] = useState(false);
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   // React Query hooks
+  const { data: channels = [], isLoading: channelsLoading } = useChannels();
   const { data: templates = [], isLoading: templatesLoading } = useScheduleTemplates();
   const { data: playlists = [] } = usePlaylists();
   const applyTemplateMutation = useApplyTemplate();
+  
+  // Auto-select first channel
+  useEffect(() => {
+    if (channels.length > 0 && !selectedChannelId) {
+      setSelectedChannelId(channels[0].id);
+    }
+  }, [channels, selectedChannelId]);
 
   // Handlers
   const handleSlotClick = (slot: ScheduleSlot) => {
@@ -103,6 +111,26 @@ export default function SchedulePage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Channel Selector */}
+              {channelsLoading ? (
+                <Skeleton className="w-48 h-10 rounded-lg" />
+              ) : channels.length > 0 ? (
+                <Select
+                  size="sm"
+                  label={t('schedule.channel', 'Канал')}
+                  placeholder={t('schedule.selectChannel', 'Выберите канал')}
+                  selectedKeys={selectedChannelId ? [selectedChannelId] : []}
+                  onChange={(e) => setSelectedChannelId(e.target.value)}
+                  className="w-48"
+                >
+                  {channels.map((channel) => (
+                    <SelectItem key={channel.id} textValue={channel.name}>
+                      {channel.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              ) : null}
+              
               {/* Quick Template Apply */}
               {templates.length > 0 && activeTab === 'calendar' && (
                 <Dropdown>
@@ -285,16 +313,30 @@ export default function SchedulePage() {
               className="mt-6"
             >
               {activeTab === 'calendar' && (
-                <ScheduleCalendar
-                  channelId={selectedChannelId}
-                  onCreateSlot={handleDateClick}
-                  onEditSlot={handleSlotClick}
-                  onCopyDay={(date) => {
-                    setSelectedDate(date);
-                    setIsCopyModalOpen(true);
-                  }}
-                  onApplyTemplate={() => {}}
-                />
+                channelsLoading ? (
+                  <div className="p-8 text-center">
+                    <Skeleton className="w-full h-[500px] rounded-xl" />
+                  </div>
+                ) : !selectedChannelId ? (
+                  <Card className="p-8 text-center">
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {channels.length === 0 
+                        ? t('schedule.noChannels', 'Нет доступных каналов. Добавьте канал для управления расписанием.')
+                        : t('schedule.selectChannelPrompt', 'Выберите канал для просмотра расписания')}
+                    </p>
+                  </Card>
+                ) : (
+                  <ScheduleCalendar
+                    channelId={selectedChannelId}
+                    onCreateSlot={handleDateClick}
+                    onEditSlot={handleSlotClick}
+                    onCopyDay={(date) => {
+                      setSelectedDate(date);
+                      setIsCopyModalOpen(true);
+                    }}
+                    onApplyTemplate={() => {}}
+                  />
+                )
               )}
 
               {activeTab === 'playlists' && (
