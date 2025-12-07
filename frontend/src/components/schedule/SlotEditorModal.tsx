@@ -256,6 +256,14 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
       onClose={onClose}
       size="2xl"
       scrollBehavior="inside"
+      backdrop="blur"
+      classNames={{
+        backdrop: "bg-black/50 backdrop-blur-sm",
+        base: "bg-white dark:bg-gray-900 shadow-xl",
+        header: "border-b border-gray-200 dark:border-gray-700",
+        body: "py-6",
+        footer: "border-t border-gray-200 dark:border-gray-700",
+      }}
     >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3">
