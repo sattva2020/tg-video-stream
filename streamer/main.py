@@ -35,6 +35,14 @@ from metrics import MetricsCollector
 from queue_manager import StreamQueue, QueueManager
 from radio_handler import get_radio_handler, RadioStreamHandler
 
+# Rust transcoder client (optional - for health checks and future streaming)
+try:
+    from transcode_client import TranscodeClient
+    RUST_TRANSCODER_AVAILABLE = True
+except ImportError:
+    RUST_TRANSCODER_AVAILABLE = False
+    logging.getLogger("tg_video_streamer").info("transcode_client not available — using direct ffmpeg")
+
 # Global queue manager instance
 queue_manager: QueueManager = None
 
@@ -127,6 +135,18 @@ if PROMETHEUS_AVAILABLE:
         log.warning("Failed to start Prometheus server: %s", e)
 else:
     log.info("Prometheus not available — skipping metrics initialization")
+
+# Initialize Rust transcoder client (optional)
+transcode_client = None
+if RUST_TRANSCODER_AVAILABLE:
+    try:
+        transcode_client = TranscodeClient()
+        log.info("Rust transcoder client initialized (url: %s)", transcode_client.base_url)
+    except Exception as e:
+        log.warning("Failed to initialize Rust transcoder client: %s — using direct ffmpeg", e)
+        transcode_client = None
+else:
+    log.info("Rust transcoder not configured — using direct ffmpeg for transcoding")
 
 RUN_APP = True
 INTERACTIVE_AUTH = False
@@ -244,6 +264,15 @@ async def play_sequence(items: List[dict]):
                     
                     if profile:
                         log.info("Transcoding required (%s): %s", profile.get('description'), direct)
+                        
+                        # Log Rust transcoder status (future: use for actual transcoding)
+                        if transcode_client is not None:
+                            is_healthy = await transcode_client.health_check()
+                            if is_healthy:
+                                log.info("Rust transcoder available — will use for transcoding")
+                            else:
+                                log.warning("Rust transcoder unavailable — using direct ffmpeg fallback")
+                        
                         add_args = ['-re', *profile.get('ffmpeg_args', [])]
                         try:
                             stream = AudioPiped(

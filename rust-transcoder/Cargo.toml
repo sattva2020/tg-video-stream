@@ -1,0 +1,56 @@
+[package]
+name = "rust-transcoder"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sattva DevOps"]
+description = "Audio transcoding microservice using FFmpeg"
+license = "MIT"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1.35", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.6", features = ["v4", "serde"] }
+url = { version = "2.5", features = ["serde"] }
+regex = "1.10"
+
+# Logging & Tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Async utilities
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["io"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Metrics
+prometheus = "0.13"
+
+[dev-dependencies]
+reqwest = { version = "0.11", features = ["json", "stream"] }
+tokio-test = "0.4"
+
+[lib]
+name = "rust_transcoder"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rust-transcoder"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

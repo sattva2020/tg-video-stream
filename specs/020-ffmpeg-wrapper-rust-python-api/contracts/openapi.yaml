@@ -1,0 +1,296 @@
+openapi: 3.1.0
+info:
+  title: Rust FFmpeg Transcoder API
+  version: 0.1.0
+  description: |
+    Audio transcoding microservice API.
+    Accepts audio sources and returns transcoded streaming output.
+  contact:
+    name: Sattva DevOps
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8090
+    description: Local development
+  - url: http://rust-transcoder:8090
+    description: Docker internal network
+
+paths:
+  /transcode:
+    post:
+      summary: Transcode audio
+      description: |
+        Accepts an audio source URL and returns transcoded audio as a streaming response.
+        Uses chunked transfer encoding for real-time output.
+      operationId: transcode
+      tags:
+        - Transcoding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranscodeRequest'
+            examples:
+              basic:
+                summary: Basic MP3 to Opus
+                value:
+                  source_url: "https://example.com/audio.mp3"
+                  output_format: "opus"
+              with_filters:
+                summary: With speed and EQ
+                value:
+                  source_url: "https://example.com/audio.mp3"
+                  output_format: "opus"
+                  filters:
+                    speed: 1.25
+                    eq_preset: "bass_boost"
+      responses:
+        '200':
+          description: Streaming audio response
+          headers:
+            Transfer-Encoding:
+              schema:
+                type: string
+                enum: [chunked]
+            X-Transcode-Id:
+              schema:
+                type: string
+                format: uuid
+            X-Source-Format:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscodeError'
+              examples:
+                invalid_url:
+                  value:
+                    code: "INVALID_URL"
+                    message: "Source URL is not valid"
+                    recoverable: false
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscodeError'
+              examples:
+                invalid_speed:
+                  value:
+                    code: "FILTER_INVALID"
+                    message: "Speed must be between 0.5 and 2.0"
+                    details:
+                      field: "filters.speed"
+                      value: 10.0
+                    recoverable: false
+        '502':
+          description: FFmpeg error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscodeError'
+              examples:
+                ffmpeg_failed:
+                  value:
+                    code: "FFMPEG_ERROR"
+                    message: "FFmpeg process failed"
+                    details:
+                      exit_code: 1
+                      stderr: "Invalid data found when processing input"
+                    recoverable: true
+        '503':
+          description: Service overloaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscodeError'
+
+  /health:
+    get:
+      summary: Health check
+      description: Returns service health status
+      operationId: health
+      tags:
+        - Operations
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceHealth'
+              examples:
+                healthy:
+                  value:
+                    status: "healthy"
+                    version: "0.1.0"
+                    uptime_seconds: 3600
+                    active_streams: 5
+                    ffmpeg_version: "6.0"
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceHealth'
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus text format
+      operationId: metrics
+      tags:
+        - Operations
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP transcode_requests_total Total transcoding requests
+                # TYPE transcode_requests_total counter
+                transcode_requests_total{status="success"} 1234
+                transcode_requests_total{status="error"} 12
+                
+                # HELP active_streams Current active streams
+                # TYPE active_streams gauge
+                active_streams 5
+
+components:
+  schemas:
+    TranscodeRequest:
+      type: object
+      required:
+        - source_url
+        - output_format
+      properties:
+        source_url:
+          type: string
+          format: uri
+          description: URL of the audio source
+          example: "https://example.com/audio.mp3"
+        output_format:
+          type: string
+          enum: [opus, pcm, aac]
+          description: Output audio format
+          example: "opus"
+        sample_rate:
+          type: integer
+          enum: [8000, 16000, 22050, 44100, 48000]
+          default: 48000
+          description: Output sample rate in Hz
+        bitrate:
+          type: string
+          pattern: '^\d+k$'
+          default: "96k"
+          description: Output bitrate
+          example: "128k"
+        channels:
+          type: integer
+          enum: [1, 2]
+          default: 2
+          description: Number of audio channels
+        filters:
+          $ref: '#/components/schemas/AudioFilters'
+        low_latency:
+          type: boolean
+          default: true
+          description: Enable low-latency mode
+
+    AudioFilters:
+      type: object
+      properties:
+        speed:
+          type: number
+          minimum: 0.5
+          maximum: 2.0
+          default: 1.0
+          description: Playback speed multiplier
+          example: 1.25
+        eq_preset:
+          type: string
+          enum: [flat, bass_boost, voice, treble]
+          default: "flat"
+          description: Equalizer preset
+        volume:
+          type: number
+          minimum: 0.0
+          maximum: 2.0
+          default: 1.0
+          description: Volume multiplier
+        custom_filter:
+          type: string
+          description: Custom FFmpeg filter graph
+          example: "lowpass=f=3000"
+
+    TranscodeError:
+      type: object
+      required:
+        - code
+        - message
+        - recoverable
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_URL
+            - UNSUPPORTED_FORMAT
+            - FFMPEG_ERROR
+            - DOWNLOAD_FAILED
+            - TIMEOUT
+            - INTERNAL_ERROR
+            - RATE_LIMITED
+            - FILTER_INVALID
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error details
+        recoverable:
+          type: boolean
+          description: Whether the request can be retried
+
+    ServiceHealth:
+      type: object
+      required:
+        - status
+        - version
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Service health status
+        version:
+          type: string
+          description: Service version
+          example: "0.1.0"
+        uptime_seconds:
+          type: integer
+          description: Service uptime in seconds
+        active_streams:
+          type: integer
+          description: Number of active transcoding streams
+        ffmpeg_version:
+          type: string
+          description: FFmpeg version
+
+tags:
+  - name: Transcoding
+    description: Audio transcoding operations
+  - name: Operations
+    description: Health and metrics endpoints
