@@ -101,16 +101,12 @@ const SlotBadge: React.FC<{
   const duration = getSlotDuration(slot.start_time, slot.end_time);
   
   return (
-    <motion.button
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+    <button
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
-      className="w-full text-left group"
+      className="w-full text-left group transition-transform duration-150 hover:scale-[1.02] active:scale-[0.98]"
     >
       <div 
         className={`
@@ -164,7 +160,7 @@ const SlotBadge: React.FC<{
           )}
         </div>
       </div>
-    </motion.button>
+    </button>
   );
 };
 
@@ -182,12 +178,11 @@ const CalendarDayCell: React.FC<DayProps> = ({
   const hiddenCount = Math.max(0, day.slots.length - maxVisibleSlots);
 
   return (
-    <motion.div
-      whileHover={{ scale: 1.01 }}
+    <div
       onClick={onClick}
       className={`
         relative min-h-[120px] p-2 border rounded-xl cursor-pointer
-        transition-all duration-200 group
+        transition-all duration-150 group hover:scale-[1.01]
         ${isToday 
           ? 'border-violet-500 bg-violet-500/5' 
           : 'border-[color:var(--color-border)] hover:border-[color:var(--color-border-hover)]'}
@@ -255,7 +250,7 @@ const CalendarDayCell: React.FC<DayProps> = ({
           </span>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
