@@ -173,9 +173,10 @@ const CalendarDayCell: React.FC<DayProps> = ({
   onAddClick,
 }) => {
   const dayNum = new Date(day.date).getDate();
-  const hasSlots = day.slots.length > 0;
+  const slots = day.slots || [];
+  const hasSlots = slots.length > 0;
   const maxVisibleSlots = 2;
-  const hiddenCount = Math.max(0, day.slots.length - maxVisibleSlots);
+  const hiddenCount = Math.max(0, slots.length - maxVisibleSlots);
 
   return (
     <div
@@ -226,12 +227,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
 
       {/* Slots */}
       <div className="space-y-1">
-        {day.slots.slice(0, maxVisibleSlots).map((slot) => (
+        {slots.slice(0, maxVisibleSlots).map((slot) => (
           <SlotBadge 
             key={slot.id} 
             slot={slot} 
             onClick={() => onSlotClick(slot)}
-            compact={day.slots.length > 1}
+            compact={slots.length > 1}
           />
         ))}
         
