@@ -5,10 +5,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Clock,
-  Calendar,
   Music,
   Palette,
-  Repeat,
   Save,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -290,30 +288,32 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             <Input
               type="date"
               label={t('schedule.date', 'Дата')}
-              placeholder="Выберите дату"
+              labelPlacement="outside"
+              placeholder=" "
               value={formData.start_date}
               onChange={(e) => handleChange('start_date', e.target.value)}
               isInvalid={!!errors.start_date}
               errorMessage={errors.start_date}
-              startContent={<Calendar className="w-4 h-4 text-default-400" />}
             />
             <Input
               type="time"
               label={t('schedule.startTime', 'Начало')}
+              labelPlacement="outside"
+              placeholder=" "
               value={formData.start_time}
               onChange={(e) => handleChange('start_time', e.target.value)}
               isInvalid={!!errors.start_time}
               errorMessage={errors.start_time}
-              startContent={<Clock className="w-4 h-4 text-default-400" />}
             />
             <Input
               type="time"
               label={t('schedule.endTime', 'Окончание')}
+              labelPlacement="outside"
+              placeholder=" "
               value={formData.end_time}
               onChange={(e) => handleChange('end_time', e.target.value)}
               isInvalid={!!errors.end_time}
               errorMessage={errors.end_time}
-              startContent={<Clock className="w-4 h-4 text-default-400" />}
             />
           </div>
 
@@ -321,13 +321,13 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           <div>
             <Select
               label={t('schedule.playlist', 'Плейлист')}
+              labelPlacement="outside"
               placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
               selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as string;
                 handleChange('playlist_id', selected || '');
               }}
-              startContent={<Music className="w-4 h-4 text-default-400" />}
             >
               {playlists.map((playlist) => (
                 <SelectItem key={playlist.id} textValue={playlist.name}>
@@ -363,12 +363,14 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           <div className="grid grid-cols-1 gap-4">
             <Input
               label={t('schedule.title', 'Название (опционально)')}
+              labelPlacement="outside"
               placeholder={t('schedule.titlePlaceholder', 'Например: Утренний эфир')}
               value={formData.title}
               onChange={(e) => handleChange('title', e.target.value)}
             />
             <Textarea
               label={t('schedule.description', 'Описание')}
+              labelPlacement="outside"
               placeholder={t('schedule.descriptionPlaceholder', 'Дополнительная информация...')}
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
@@ -403,13 +405,13 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           <div>
             <Select
               label={t('schedule.repeat', 'Повторение')}
+              labelPlacement="outside"
               placeholder={t('schedule.selectRepeat', 'Выберите режим повторения')}
               selectedKeys={new Set([formData.repeat_type])}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as RepeatType;
                 handleChange('repeat_type', selected);
               }}
-              startContent={<Repeat className="w-4 h-4 text-default-400" />}
             >
               {REPEAT_OPTIONS.map((option) => (
                 <SelectItem key={option.value}>
