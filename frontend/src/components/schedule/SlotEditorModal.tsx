@@ -320,29 +320,40 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           {/* Playlist Selection */}
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-default-700">{t('schedule.playlist', 'Плейлист')}</label>
-            <Select
-              placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
-              selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
-              onSelectionChange={(keys) => {
-                const selected = Array.from(keys)[0] as string;
-                handleChange('playlist_id', selected || '');
-              }}
-            >
-              {playlists.map((playlist) => (
-                <SelectItem key={playlist.id} textValue={playlist.name}>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: playlist.color }}
-                    />
-                    <span>{playlist.name}</span>
-                    <span className="text-xs text-default-400">
-                      ({playlist.items_count} треков)
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </Select>
+            {playlists.length === 0 ? (
+              <div className="p-4 rounded-lg bg-warning-50 border border-warning-200">
+                <p className="text-sm text-warning-700 font-medium">
+                  {t('schedule.noPlaylists', 'Нет доступных плейлистов')}
+                </p>
+                <p className="text-xs text-warning-600 mt-1">
+                  {t('schedule.createPlaylistHint', 'Сначала создайте плейлист для расписания в настройках канала')}
+                </p>
+              </div>
+            ) : (
+              <Select
+                placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
+                selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
+                onSelectionChange={(keys) => {
+                  const selected = Array.from(keys)[0] as string;
+                  handleChange('playlist_id', selected || '');
+                }}
+              >
+                {playlists.map((playlist) => (
+                  <SelectItem key={playlist.id} textValue={playlist.name}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: playlist.color }}
+                      />
+                      <span>{playlist.name}</span>
+                      <span className="text-xs text-default-400">
+                        ({playlist.items_count} треков)
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </Select>
+            )}
             
             {selectedPlaylist && (
               <div className="mt-2 p-3 rounded-lg bg-default-100">
