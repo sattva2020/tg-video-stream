@@ -285,43 +285,42 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
         <ModalBody className="gap-6">
           {/* Date & Time Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              type="date"
-              label={t('schedule.date', 'Дата')}
-              labelPlacement="outside"
-              placeholder=" "
-              value={formData.start_date}
-              onChange={(e) => handleChange('start_date', e.target.value)}
-              isInvalid={!!errors.start_date}
-              errorMessage={errors.start_date}
-            />
-            <Input
-              type="time"
-              label={t('schedule.startTime', 'Начало')}
-              labelPlacement="outside"
-              placeholder=" "
-              value={formData.start_time}
-              onChange={(e) => handleChange('start_time', e.target.value)}
-              isInvalid={!!errors.start_time}
-              errorMessage={errors.start_time}
-            />
-            <Input
-              type="time"
-              label={t('schedule.endTime', 'Окончание')}
-              labelPlacement="outside"
-              placeholder=" "
-              value={formData.end_time}
-              onChange={(e) => handleChange('end_time', e.target.value)}
-              isInvalid={!!errors.end_time}
-              errorMessage={errors.end_time}
-            />
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-default-700">{t('schedule.date', 'Дата')}</label>
+              <Input
+                type="date"
+                value={formData.start_date}
+                onChange={(e) => handleChange('start_date', e.target.value)}
+                isInvalid={!!errors.start_date}
+                errorMessage={errors.start_date}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-default-700">{t('schedule.startTime', 'Начало')}</label>
+              <Input
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => handleChange('start_time', e.target.value)}
+                isInvalid={!!errors.start_time}
+                errorMessage={errors.start_time}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-default-700">{t('schedule.endTime', 'Конец')}</label>
+              <Input
+                type="time"
+                value={formData.end_time}
+                onChange={(e) => handleChange('end_time', e.target.value)}
+                isInvalid={!!errors.end_time}
+                errorMessage={errors.end_time}
+              />
+            </div>
           </div>
 
           {/* Playlist Selection */}
-          <div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-default-700">{t('schedule.playlist', 'Плейлист')}</label>
             <Select
-              label={t('schedule.playlist', 'Плейлист')}
-              labelPlacement="outside"
               placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
               selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
               onSelectionChange={(keys) => {
@@ -361,21 +360,23 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
 
           {/* Title & Description */}
           <div className="grid grid-cols-1 gap-4">
-            <Input
-              label={t('schedule.title', 'Название (опционально)')}
-              labelPlacement="outside"
-              placeholder={t('schedule.titlePlaceholder', 'Например: Утренний эфир')}
-              value={formData.title}
-              onChange={(e) => handleChange('title', e.target.value)}
-            />
-            <Textarea
-              label={t('schedule.description', 'Описание')}
-              labelPlacement="outside"
-              placeholder={t('schedule.descriptionPlaceholder', 'Дополнительная информация...')}
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              minRows={2}
-            />
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-default-700">{t('schedule.title', 'Название (опционально)')}</label>
+              <Input
+                placeholder={t('schedule.titlePlaceholder', 'Например: Утренний эфир')}
+                value={formData.title}
+                onChange={(e) => handleChange('title', e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-default-700">{t('schedule.description', 'Описание')}</label>
+              <Textarea
+                placeholder={t('schedule.descriptionPlaceholder', 'Дополнительная информация...')}
+                value={formData.description}
+                onChange={(e) => handleChange('description', e.target.value)}
+                minRows={2}
+              />
+            </div>
           </div>
 
           {/* Color Picker */}
@@ -402,10 +403,9 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           </div>
 
           {/* Repeat Options */}
-          <div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-default-700">{t('schedule.repeat', 'Повторение')}</label>
             <Select
-              label={t('schedule.repeat', 'Повторение')}
-              labelPlacement="outside"
               placeholder={t('schedule.selectRepeat', 'Выберите режим повторения')}
               selectedKeys={new Set([formData.repeat_type])}
               onSelectionChange={(keys) => {
@@ -450,10 +450,10 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
 
             {/* Repeat until date */}
             {formData.repeat_type !== 'none' && (
-              <div className="mt-3">
+              <div className="mt-3 flex flex-col gap-1">
+                <label className="text-sm font-medium text-default-700">{t('schedule.repeatUntil', 'Повторять до (опционально)')}</label>
                 <Input
                   type="date"
-                  label={t('schedule.repeatUntil', 'Повторять до (опционально)')}
                   value={formData.repeat_until}
                   onChange={(e) => handleChange('repeat_until', e.target.value)}
                 />
