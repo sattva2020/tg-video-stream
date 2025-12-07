@@ -51,6 +51,7 @@ export default function SchedulePage() {
   };
 
   const handleDateClick = (date: Date) => {
+    console.log('[Schedule] handleDateClick called with date:', date, 'channelId:', selectedChannelId);
     setSelectedDate(date);
     setSelectedSlot(null);
     setIsSlotModalOpen(true);
