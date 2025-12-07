@@ -8,6 +8,9 @@ import {
   Music,
   Palette,
   Save,
+  Plus,
+  Check,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,7 +25,7 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
-import { useCreateSlot, useUpdateSlot, usePlaylists } from '../../hooks/useScheduleQuery';
+import { useCreateSlot, useUpdateSlot, usePlaylists, useCreatePlaylist } from '../../hooks/useScheduleQuery';
 import type { ScheduleSlot, ScheduleSlotCreate, ScheduleSlotUpdate, RepeatType } from '../../api/schedule';
 
 // ==================== Types ====================
@@ -111,10 +114,16 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
   // Mutations
   const createMutation = useCreateSlot();
   const updateMutation = useUpdateSlot();
+  const createPlaylistMutation = useCreatePlaylist();
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   // Playlists data
-  const { data: playlists = [] } = usePlaylists(channelId);
+  const { data: playlists = [], refetch: refetchPlaylists } = usePlaylists(channelId);
+
+  // Quick playlist creation state
+  const [showPlaylistForm, setShowPlaylistForm] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [newPlaylistColor, setNewPlaylistColor] = useState(PRESET_COLORS[0]);
 
   // Initialize form data based on slot (for edit mode) or defaults (for create mode)
   const getInitialFormData = useCallback((): FormData => {
@@ -174,6 +183,28 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
         ? prev.repeat_days.filter(d => d !== day)
         : [...prev.repeat_days, day].sort()
     }));
+  };
+
+  // Quick playlist creation
+  const handleCreatePlaylist = async () => {
+    if (!newPlaylistName.trim()) return;
+    
+    try {
+      const created = await createPlaylistMutation.mutateAsync({
+        name: newPlaylistName.trim(),
+        channel_id: channelId,
+        color: newPlaylistColor,
+      });
+      // Select newly created playlist
+      handleChange('playlist_id', created.id);
+      // Reset form
+      setShowPlaylistForm(false);
+      setNewPlaylistName('');
+      // Refetch playlists
+      refetchPlaylists();
+    } catch (error) {
+      // Error handled by mutation
+    }
   };
 
   // Validation
@@ -318,41 +349,112 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           </div>
 
           {/* Playlist Selection */}
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-default-700">{t('schedule.playlist', 'Плейлист')}</label>
-            {playlists.length === 0 ? (
-              <div className="p-4 rounded-lg bg-warning-50 border border-warning-200">
-                <p className="text-sm text-warning-700 font-medium">
-                  {t('schedule.noPlaylists', 'Нет доступных плейлистов')}
-                </p>
-                <p className="text-xs text-warning-600 mt-1">
-                  {t('schedule.createPlaylistHint', 'Сначала создайте плейлист для расписания в настройках канала')}
-                </p>
-              </div>
-            ) : (
-              <Select
-                placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
-                selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  handleChange('playlist_id', selected || '');
-                }}
-              >
-                {playlists.map((playlist) => (
-                  <SelectItem key={playlist.id} textValue={playlist.name}>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: playlist.color }}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-default-700">{t('schedule.playlist', 'Плейлист')}</label>
+              {!showPlaylistForm && (
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="primary"
+                  startContent={<Plus className="w-3 h-3" />}
+                  onPress={() => setShowPlaylistForm(true)}
+                >
+                  {t('schedule.createPlaylist', 'Создать')}
+                </Button>
+              )}
+            </div>
+
+            {/* Quick Playlist Creation Form */}
+            {showPlaylistForm && (
+              <div className="p-3 rounded-lg bg-primary-50 border border-primary-200 space-y-3">
+                <div className="flex flex-col gap-1">
+                  <Input
+                    size="sm"
+                    placeholder={t('schedule.playlistName', 'Название плейлиста')}
+                    value={newPlaylistName}
+                    onChange={(e) => setNewPlaylistName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-default-500">{t('schedule.color', 'Цвет')}:</span>
+                  <div className="flex gap-1">
+                    {PRESET_COLORS.slice(0, 6).map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => setNewPlaylistColor(color)}
+                        className={`w-5 h-5 rounded-full transition-all ${
+                          newPlaylistColor === color ? 'ring-2 ring-offset-1 ring-primary' : ''
+                        }`}
+                        style={{ backgroundColor: color }}
                       />
-                      <span>{playlist.name}</span>
-                      <span className="text-xs text-default-400">
-                        ({playlist.items_count} треков)
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </Select>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    color="primary"
+                    isLoading={createPlaylistMutation.isPending}
+                    isDisabled={!newPlaylistName.trim()}
+                    startContent={!createPlaylistMutation.isPending && <Check className="w-3 h-3" />}
+                    onPress={handleCreatePlaylist}
+                  >
+                    {t('common.create', 'Создать')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    startContent={<X className="w-3 h-3" />}
+                    onPress={() => {
+                      setShowPlaylistForm(false);
+                      setNewPlaylistName('');
+                    }}
+                  >
+                    {t('common.cancel', 'Отмена')}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Playlist Select or Empty State */}
+            {!showPlaylistForm && (
+              playlists.length === 0 ? (
+                <div className="p-4 rounded-lg bg-default-100 border border-default-200 text-center">
+                  <Music className="w-8 h-8 mx-auto text-default-400 mb-2" />
+                  <p className="text-sm text-default-600">
+                    {t('schedule.noPlaylistsYet', 'Пока нет плейлистов')}
+                  </p>
+                  <p className="text-xs text-default-400 mt-1">
+                    {t('schedule.clickCreateAbove', 'Нажмите "Создать" выше')}
+                  </p>
+                </div>
+              ) : (
+                <Select
+                  placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
+                  selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string;
+                    handleChange('playlist_id', selected || '');
+                  }}
+                >
+                  {playlists.map((playlist) => (
+                    <SelectItem key={playlist.id} textValue={playlist.name}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: playlist.color }}
+                        />
+                        <span>{playlist.name}</span>
+                        <span className="text-xs text-default-400">
+                          ({playlist.items_count} треков)
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </Select>
+              )
             )}
             
             {selectedPlaylist && (
