@@ -116,20 +116,24 @@ export default function SchedulePage() {
               {channelsLoading ? (
                 <Skeleton className="w-48 h-10 rounded-lg" />
               ) : channels.length > 0 ? (
-                <Select
-                  size="sm"
-                  label={t('schedule.channel', 'Канал')}
-                  placeholder={t('schedule.selectChannel', 'Выберите канал')}
-                  selectedKeys={selectedChannelId ? [selectedChannelId] : []}
-                  onChange={(e) => setSelectedChannelId(e.target.value)}
-                  className="w-48"
-                >
-                  {channels.map((channel) => (
-                    <SelectItem key={channel.id} textValue={channel.name}>
-                      {channel.name}
-                    </SelectItem>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-default-600 whitespace-nowrap">
+                    {t('schedule.channel', 'Канал')}:
+                  </span>
+                  <Select
+                    size="sm"
+                    aria-label={t('schedule.selectChannel', 'Выберите канал')}
+                    selectedKeys={selectedChannelId ? [selectedChannelId] : []}
+                    onChange={(e) => setSelectedChannelId(e.target.value)}
+                    className="w-40"
+                  >
+                    {channels.map((channel) => (
+                      <SelectItem key={channel.id} textValue={channel.name}>
+                        {channel.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
               ) : null}
               
               {/* Quick Template Apply */}
