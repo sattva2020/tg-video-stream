@@ -331,8 +331,14 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                         await asyncio.sleep(5)
                         elapsed += 5
                         
-                        # Check if still in call
-                        if chat_id not in pytg.calls:
+                        # Check if still in call (handle both sync and async calls property)
+                        try:
+                            calls = pytg.calls
+                            if asyncio.iscoroutine(calls):
+                                calls = await calls
+                            if chat_id not in calls:
+                                break
+                        except Exception:
                             break
                     
                     # Leave call before next track
