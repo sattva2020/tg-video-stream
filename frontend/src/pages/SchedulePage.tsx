@@ -331,16 +331,50 @@ export default function SchedulePage() {
                     </p>
                   </Card>
                 ) : (
-                  <ScheduleCalendar
-                    channelId={selectedChannelId}
-                    onCreateSlot={handleDateClick}
-                    onEditSlot={handleSlotClick}
-                    onCopyDay={(date) => {
-                      setSelectedDate(date);
-                      setIsCopyModalOpen(true);
-                    }}
-                    onApplyTemplate={() => {}}
-                  />
+                  <>
+                    <ScheduleCalendar
+                      channelId={selectedChannelId}
+                      onCreateSlot={handleDateClick}
+                      onEditSlot={handleSlotClick}
+                      onCopyDay={(date) => {
+                        setSelectedDate(date);
+                        setIsCopyModalOpen(true);
+                      }}
+                      onApplyTemplate={() => {}}
+                    />
+                    
+                    {/* Информационная секция под календарём */}
+                    <Card className="mt-6 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        {/* Легенда */}
+                        <div className="flex flex-wrap items-center gap-4 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded border-2 border-violet-500 bg-violet-500/20" />
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {t('schedule.legend.today', 'Сегодня')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded ring-2 ring-violet-500 ring-opacity-50" />
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {t('schedule.legend.selected', 'Выбранный день')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded border border-amber-500/50 bg-amber-50 dark:bg-amber-900/20" />
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {t('schedule.legend.conflict', 'Есть пересечения')}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Подсказка */}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {t('schedule.hint', 'Нажмите на день для просмотра деталей. Используйте + для добавления слота.')}
+                        </p>
+                      </div>
+                    </Card>
+                  </>
                 )
               )}
 
