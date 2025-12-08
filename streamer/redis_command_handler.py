@@ -42,6 +42,7 @@ class ChannelConfig:
     api_hash: str
     video_quality: str = "720p"
     ffmpeg_args: Optional[str] = None
+    chat_username: Optional[str] = None  # For peer resolution
 
 
 class RedisCommandHandler:
@@ -190,6 +191,7 @@ class RedisCommandHandler:
                 api_hash=config_data.get("api_hash", ""),
                 video_quality=config_data.get("video_quality", "720p"),
                 ffmpeg_args=config_data.get("ffmpeg_args"),
+                chat_username=config_data.get("chat_username"),
             )
             
             await self.update_status(channel_id, "starting")
