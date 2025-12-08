@@ -180,8 +180,16 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="2xl">
-      <ModalContent>
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      size="2xl"
+      backdrop="blur"
+      classNames={{
+        backdrop: "bg-black/50",
+      }}
+    >
+      <ModalContent className="bg-white dark:bg-gray-900 shadow-xl">
         <ModalHeader className="flex items-center gap-3">
           <div 
             className="p-2 rounded-lg"
@@ -190,7 +198,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
             <Music className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {isEditMode ? t('playlist.edit', 'Редактирование') : t('playlist.create', 'Новый плейлист')}
             </h2>
           </div>
