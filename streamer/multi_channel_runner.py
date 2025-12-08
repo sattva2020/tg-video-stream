@@ -273,7 +273,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                     if not expanded:
                         continue
                     
-                    stream_url = best_stream_url(expanded[0])
+                    stream_url = await best_stream_url(expanded[0])
                     log.info(f"Channel {channel_id}: Playing {stream_url[:50]}...")
                     
                     # Update status
