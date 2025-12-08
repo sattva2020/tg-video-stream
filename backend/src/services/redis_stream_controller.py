@@ -123,6 +123,7 @@ class RedisStreamController:
         return {
             "channel_id": str(channel.id),
             "chat_id": channel.chat_id,
+            "chat_username": getattr(channel, 'chat_username', None),  # For peer resolution
             "name": channel.name,
             "session_string": session_string,
             "api_id": settings.API_ID,

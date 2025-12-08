@@ -110,12 +110,27 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         log.info(f"Channel {channel_id}: Logged in as {me.id}")
         
         # Resolve chat to get proper peer (required by PyTgCalls)
+        # Try username first (more reliable for peer resolution), then fallback to chat_id
+        resolved_chat_id = None
+        chat_target = f"@{config.chat_username}" if config.chat_username else config.chat_id
+        
         try:
-            chat = await client.get_chat(config.chat_id)
+            chat = await client.get_chat(chat_target)
             resolved_chat_id = chat.id
             log.info(f"Channel {channel_id}: Resolved chat '{chat.title}' (id: {resolved_chat_id})")
         except Exception as e:
-            log.error(f"Channel {channel_id}: Failed to resolve chat {config.chat_id}: {e}")
+            log.warning(f"Channel {channel_id}: Failed to resolve chat {chat_target}: {e}")
+            # If username failed and we have a different chat_id, try that
+            if config.chat_username and config.chat_id:
+                try:
+                    chat = await client.get_chat(config.chat_id)
+                    resolved_chat_id = chat.id
+                    log.info(f"Channel {channel_id}: Resolved chat by ID '{chat.title}' (id: {resolved_chat_id})")
+                except Exception as e2:
+                    log.error(f"Channel {channel_id}: Failed to resolve chat by ID {config.chat_id}: {e2}")
+        
+        if not resolved_chat_id:
+            log.error(f"Channel {channel_id}: Could not resolve chat, aborting")
             await client.stop()
             return False
         
