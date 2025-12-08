@@ -185,7 +185,7 @@ const CalendarDayCell: React.FC<DayProps> = ({
         relative min-h-[120px] p-2 border rounded-xl cursor-pointer
         transition-all duration-150 group hover:scale-[1.01]
         ${isToday 
-          ? 'border-violet-500 bg-violet-500/5' 
+          ? 'border-2 border-violet-500 bg-violet-500/20 shadow-lg shadow-violet-500/20' 
           : 'border-[color:var(--color-border)] hover:border-[color:var(--color-border-hover)]'}
         ${isSelected 
           ? 'ring-2 ring-violet-500 ring-opacity-50' 

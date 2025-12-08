@@ -33,12 +33,6 @@ export const DesktopNav: React.FC = () => {
       icon: <CalendarDays className="w-4 h-4" /> 
     },
     { 
-      path: '/admin', 
-      label: t('nav.admin', 'Админ'), 
-      icon: <Settings className="w-4 h-4" />,
-      adminOnly: true 
-    },
-    { 
       path: '/admin/pending', 
       label: t('nav.pendingUsers', 'Ожидающие'), 
       icon: <Users className="w-4 h-4" />,
@@ -57,6 +51,12 @@ export const DesktopNav: React.FC = () => {
       icon: <BarChart3 className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
+    },
+    { 
+      path: '/admin', 
+      label: t('nav.admin', 'Админ'), 
+      icon: <Settings className="w-4 h-4" />,
+      adminOnly: true 
     },
   ];
 
