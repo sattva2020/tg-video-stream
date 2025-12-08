@@ -188,3 +188,74 @@ async def delete_playlist(
     db.commit()
 
     return Response(status_code=204)
+
+
+@router.get("/playlists/channel/{channel_id}/active")
+async def get_channel_active_playlist(
+    channel_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Получить активный плейлист для канала (для стримера).
+    
+    Логика приоритетов:
+    1. Активный слот расписания на текущее время
+    2. Плейлист, привязанный к каналу
+    3. Пустой список если ничего не найдено
+    
+    Не требует авторизации (внутренний API для стримера).
+    """
+    from datetime import datetime, timezone, time as time_type
+    
+    channel_uuid = uuid.UUID(channel_id)
+    now = datetime.now(timezone.utc)
+    current_date = now.date()
+    current_time = now.time()
+    
+    # 1. Ищем активный слот расписания на текущее время
+    active_slot = db.query(ScheduleSlot).filter(
+        ScheduleSlot.channel_id == channel_uuid,
+        ScheduleSlot.is_active == True,
+        ScheduleSlot.start_date <= current_date,
+        ScheduleSlot.start_time <= current_time,
+        ScheduleSlot.end_time > current_time,
+        ScheduleSlot.playlist_id != None
+    ).first()
+    
+    if active_slot and active_slot.playlist_id:
+        playlist = db.query(Playlist).filter(
+            Playlist.id == active_slot.playlist_id,
+            Playlist.is_active == True
+        ).first()
+        if playlist and playlist.items:
+            return {
+                "source": "schedule",
+                "playlist_id": str(playlist.id),
+                "playlist_name": playlist.name,
+                "is_shuffled": playlist.is_shuffled,
+                "items": playlist.items
+            }
+    
+    # 2. Ищем плейлист, привязанный к каналу
+    channel_playlist = db.query(Playlist).filter(
+        Playlist.channel_id == channel_uuid,
+        Playlist.is_active == True
+    ).order_by(Playlist.created_at.desc()).first()
+    
+    if channel_playlist and channel_playlist.items:
+        return {
+            "source": "channel",
+            "playlist_id": str(channel_playlist.id),
+            "playlist_name": channel_playlist.name,
+            "is_shuffled": channel_playlist.is_shuffled,
+            "items": channel_playlist.items
+        }
+    
+    # 3. Ничего не найдено
+    return {
+        "source": "none",
+        "playlist_id": None,
+        "playlist_name": None,
+        "is_shuffled": False,
+        "items": []
+    }
