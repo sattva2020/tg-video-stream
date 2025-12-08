@@ -7,9 +7,13 @@ from api.auth import get_current_user
 from src.services.redis_stream_controller import RedisStreamController
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
+from datetime import datetime, timezone, timedelta
 import uuid
 
 router = APIRouter()
+
+# Timeout for transitional states (stopping/starting)
+TRANSITIONAL_STATE_TIMEOUT = timedelta(seconds=30)
 
 class ChannelCreate(BaseModel):
     account_id: uuid.UUID
@@ -40,7 +44,26 @@ def list_channels(
     # Enrich with real-time status from Redis
     controller = RedisStreamController(db)
     result = []
+    now = datetime.now(timezone.utc)
+    
     for channel in channels:
+        current_status = channel.status
+        
+        # Check for transitional state timeout
+        # If stopping/starting for too long, reset to stopped
+        if current_status in ("stopping", "starting"):
+            if channel.updated_at:
+                # Make updated_at timezone-aware if it's naive
+                updated_at = channel.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                
+                if now - updated_at > TRANSITIONAL_STATE_TIMEOUT:
+                    # Timeout exceeded - reset to stopped
+                    channel.status = "stopped"
+                    db.commit()
+                    current_status = "stopped"
+        
         channel_dict = {
             "id": channel.id,
             "account_id": channel.account_id,
@@ -48,13 +71,13 @@ def list_channels(
             "name": channel.name,
             "ffmpeg_args": channel.ffmpeg_args,
             "video_quality": channel.video_quality,
-            "status": channel.status,  # default from DB
+            "status": current_status,
         }
         
         # Get real-time status from Redis
         redis_status = controller.get_channel_status_sync(str(channel.id))
         if redis_status.get("status") != "unknown":
-            channel_dict["status"] = redis_status.get("status", channel.status)
+            channel_dict["status"] = redis_status.get("status", current_status)
         
         result.append(ChannelResponse(**channel_dict))
     
