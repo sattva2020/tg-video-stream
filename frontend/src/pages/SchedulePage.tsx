@@ -128,7 +128,7 @@ export default function SchedulePage() {
                     className="w-40"
                   >
                     {channels.map((channel) => (
-                      <SelectItem key={channel.id} textValue={channel.name}>
+                      <SelectItem key={channel.id}>
                         {channel.name}
                       </SelectItem>
                     ))}
