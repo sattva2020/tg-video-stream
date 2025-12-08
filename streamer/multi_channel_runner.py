@@ -109,16 +109,26 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         me = await client.get_me()
         log.info(f"Channel {channel_id}: Logged in as {me.id}")
         
+        # Resolve chat to get proper peer (required by PyTgCalls)
+        try:
+            chat = await client.get_chat(config.chat_id)
+            resolved_chat_id = chat.id
+            log.info(f"Channel {channel_id}: Resolved chat '{chat.title}' (id: {resolved_chat_id})")
+        except Exception as e:
+            log.error(f"Channel {channel_id}: Failed to resolve chat {config.chat_id}: {e}")
+            await client.stop()
+            return False
+        
         # Create PyTgCalls instance
         pytg = PyTgCalls(client)
         await pytg.start()
         
-        # Store channel state
+        # Store channel state with resolved chat_id
         running_channels[channel_id] = {
             "client": client,
             "pytg": pytg,
             "config": config,
-            "chat_id": config.chat_id
+            "chat_id": resolved_chat_id
         }
         
         # Start playback loop in background
@@ -213,7 +223,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
         return
     
     pytg = channel_data["pytg"]
-    chat_id = config.chat_id
+    chat_id = channel_data["chat_id"]  # Use resolved chat_id from start_channel_stream
     
     v_args, a_args = build_ffmpeg_av_args(config.video_quality)
     
