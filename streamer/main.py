@@ -34,6 +34,7 @@ import audio_utils
 from metrics import MetricsCollector
 from queue_manager import StreamQueue, QueueManager
 from radio_handler import get_radio_handler, RadioStreamHandler
+from redis_command_handler import RedisCommandHandler, ChannelConfig
 
 # Rust transcoder client (optional - for health checks and future streaming)
 try:
@@ -45,6 +46,12 @@ except ImportError:
 
 # Global queue manager instance
 queue_manager: QueueManager = None
+
+# Global Redis command handler instance
+redis_command_handler: RedisCommandHandler = None
+
+# Active channel streams (channel_id -> asyncio.Task)
+active_streams: dict = {}
 
 # Auto-End imports
 try:
@@ -335,12 +342,178 @@ async def play_sequence(items: List[dict]):
         # Close Redis connection
         await queue.close_redis()
 
+
+# ============================================================================
+# Redis Command Callbacks for multi-channel control
+# ============================================================================
+
+async def handle_channel_start(config: ChannelConfig) -> bool:
+    """
+    Handle start command from backend.
+    Creates a new streaming task for the specified channel.
+    """
+    global active_streams
+    
+    channel_id = config.channel_id
+    log.info(f"Starting stream for channel {channel_id} ({config.name})")
+    
+    # Check if already running
+    if channel_id in active_streams and not active_streams[channel_id].done():
+        log.warning(f"Channel {channel_id} already has an active stream")
+        return True
+    
+    # For now, we use the global pytg instance
+    # In a full multi-channel setup, each channel would have its own Client
+    if not pytg:
+        log.error("pytgcalls not available - cannot start stream")
+        return False
+    
+    try:
+        # Use the chat_id from config
+        chat_id = config.chat_id
+        if not chat_id:
+            log.error(f"No chat_id in config for channel {channel_id}")
+            return False
+        
+        # Create streaming task
+        async def stream_channel():
+            try:
+                # Get playlist from backend
+                playlist = []
+                try:
+                    resp = requests.get(
+                        f"{_get_backend_url()}/api/playlist/stream?channel_id={channel_id}",
+                        timeout=10
+                    )
+                    if resp.status_code == 200:
+                        playlist = resp.json()
+                except Exception as e:
+                    log.error(f"Failed to get playlist for channel {channel_id}: {e}")
+                    return
+                
+                if not playlist:
+                    log.warning(f"No playlist items for channel {channel_id}")
+                    return
+                
+                # Start playing
+                for item in playlist:
+                    if channel_id not in active_streams:
+                        log.info(f"Stream cancelled for channel {channel_id}")
+                        break
+                    
+                    url = item.get("url")
+                    if not url:
+                        continue
+                    
+                    try:
+                        stream_url = best_stream_url(url, config.video_quality or "720p")
+                        if not stream_url:
+                            continue
+                        
+                        v_args, a_args = build_ffmpeg_av_args(config.video_quality or "720p")
+                        stream = AudioVideoPiped(stream_url, HighQualityVideo(), HighQualityAudio())
+                        
+                        await pytg.join_group_call(chat_id, stream)
+                        
+                        # Monitor playback
+                        for _ in range(1440):
+                            await asyncio.sleep(5)
+                            if pytg.get_call(chat_id) is None:
+                                break
+                            if channel_id not in active_streams:
+                                break
+                        
+                        await pytg.leave_group_call(chat_id)
+                        
+                    except Exception as e:
+                        log.exception(f"Error playing item for channel {channel_id}: {e}")
+                        try:
+                            await pytg.leave_group_call(chat_id)
+                        except:
+                            pass
+                        await asyncio.sleep(5)
+                        
+            except Exception as e:
+                log.exception(f"Stream error for channel {channel_id}: {e}")
+            finally:
+                # Clean up
+                if channel_id in active_streams:
+                    del active_streams[channel_id]
+                log.info(f"Stream ended for channel {channel_id}")
+        
+        # Start the streaming task
+        task = asyncio.create_task(stream_channel())
+        active_streams[channel_id] = task
+        
+        return True
+        
+    except Exception as e:
+        log.exception(f"Failed to start channel {channel_id}: {e}")
+        return False
+
+
+async def handle_channel_stop(channel_id: str) -> bool:
+    """
+    Handle stop command from backend.
+    Cancels the streaming task for the specified channel.
+    """
+    global active_streams
+    
+    log.info(f"Stopping stream for channel {channel_id}")
+    
+    if channel_id not in active_streams:
+        log.warning(f"Channel {channel_id} not in active streams")
+        return True  # Already stopped
+    
+    task = active_streams.pop(channel_id, None)
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    
+    # Try to leave group call
+    if pytg:
+        try:
+            # We need to know which chat_id to leave
+            # For now, assume CHAT_ID (legacy single-channel mode)
+            await pytg.leave_group_call(CHAT_ID)
+        except Exception:
+            pass
+    
+    log.info(f"Stream stopped for channel {channel_id}")
+    return True
+
+
+async def handle_playlist_update(channel_id: str):
+    """Handle playlist update notification."""
+    log.info(f"Playlist update notification for channel {channel_id}")
+    # The stream will automatically pick up new items on next iteration
+    # For immediate update, we could restart the stream
+
+
 async def main():
+    global redis_command_handler
+    
     if not RUN_APP:
         log.info("Starting in degraded idle mode (no Telegram client).")
+        
+        # Still start Redis command handler to respond to commands
+        redis_command_handler = RedisCommandHandler()
+        redis_command_handler.on_start = handle_channel_start
+        redis_command_handler.on_stop = handle_channel_stop
+        redis_command_handler.on_update_playlist = handle_playlist_update
+        await redis_command_handler.start()
+        log.info("Redis command handler started in degraded mode")
+        
         # degraded loop: don't attempt to connect to Telegram or start pytgcalls
-        while True:
-            await asyncio.sleep(60)
+        try:
+            while True:
+                await asyncio.sleep(60)
+        finally:
+            if redis_command_handler:
+                await redis_command_handler.stop()
 
     # Try to start the Client and detect invalid/expired sessions early.
     try:
@@ -366,6 +539,15 @@ async def main():
 
             log.info("Logged in as: %s", me.id)
             await ensure_join(CHAT_ID)
+            
+            # Start Redis command handler for receiving backend commands
+            global redis_command_handler
+            redis_command_handler = RedisCommandHandler()
+            redis_command_handler.on_start = handle_channel_start
+            redis_command_handler.on_stop = handle_channel_stop
+            redis_command_handler.on_update_playlist = handle_playlist_update
+            await redis_command_handler.start()
+            log.info("Redis command handler started")
             
             # Initialize auto-end handler if available
             global auto_end_handler
@@ -425,6 +607,14 @@ async def main():
                 except Exception as e:
                     log.warning("Error stopping auto-end handler: %s", e)
             
+            # Stop Redis command handler
+            if redis_command_handler:
+                try:
+                    await redis_command_handler.stop()
+                    log.info("Redis command handler stopped")
+                except Exception as e:
+                    log.warning("Error stopping Redis command handler: %s", e)
+            
             # Close queue manager
             if queue_manager:
                 try:
@@ -436,11 +626,23 @@ async def main():
     except RPCError as e:
         log.exception("Telegram RPC error during startup: %s", e)
         log.error("Entering degraded mode. Check your API_ID/API_HASH/SESSION_STRING or network connectivity.")
+        # Start Redis handler even in degraded mode
+        if not redis_command_handler:
+            redis_command_handler = RedisCommandHandler()
+            redis_command_handler.on_start = handle_channel_start
+            redis_command_handler.on_stop = handle_channel_stop
+            await redis_command_handler.start()
         while True:
             await asyncio.sleep(60)
     except Exception as e:
         log.exception("Unhandled error during startup: %s", e)
         # If something unexpected happened, enter degraded mode to keep service alive
+        # Start Redis handler even in degraded mode
+        if not redis_command_handler:
+            redis_command_handler = RedisCommandHandler()
+            redis_command_handler.on_start = handle_channel_start
+            redis_command_handler.on_stop = handle_channel_stop
+            await redis_command_handler.start()
         while True:
             await asyncio.sleep(60)
 
