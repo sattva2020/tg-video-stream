@@ -272,7 +272,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // State
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  // По умолчанию выбираем текущий день
+  const [selectedDate, setSelectedDate] = useState<string | null>(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
 
   // Data
   const { data: calendarData, isLoading, isFetching } = useScheduleCalendar(
