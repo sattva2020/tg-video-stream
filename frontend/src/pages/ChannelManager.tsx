@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CreateChannelData } from '../api/channels';
 import { TelegramDialog } from '../api/telegram';
 import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List } from 'lucide-react';
@@ -27,6 +27,21 @@ const ChannelManager: React.FC = () => {
   const createChannel = useCreateChannel();
   const startChannel = useStartChannel();
   const stopChannel = useStopChannel();
+
+  // Auto-refresh when channels are in transitional states (starting/stopping)
+  useEffect(() => {
+    const hasTransitionalStatus = channels.some(
+      ch => ch.status === 'starting' || ch.status === 'stopping'
+    );
+    
+    if (hasTransitionalStatus) {
+      const interval = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+      }, 2000); // Poll every 2 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [channels, queryClient]);
   
   const loading = channelsLoading || accountsLoading;
   
@@ -197,7 +212,23 @@ const ChannelManager: React.FC = () => {
                         className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
                         <Play className="w-4 h-4" /> 
-                        <span className="hidden xs:inline">{t('channels.start', 'Start')}</span>
+                        <span className="hidden xs:inline">{t('channels.start', 'Старт')}</span>
+                      </button>
+                    ) : channel.status === 'stopping' ? (
+                      <button
+                        disabled
+                        className="flex-1 bg-yellow-600 disabled:opacity-70 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
+                      >
+                        <RefreshCw className="w-4 h-4 animate-spin" /> 
+                        <span className="hidden xs:inline">{t('channels.stopping', 'Остановка...')}</span>
+                      </button>
+                    ) : channel.status === 'starting' ? (
+                      <button
+                        disabled
+                        className="flex-1 bg-yellow-600 disabled:opacity-70 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
+                      >
+                        <RefreshCw className="w-4 h-4 animate-spin" /> 
+                        <span className="hidden xs:inline">{t('channels.starting', 'Запуск...')}</span>
                       </button>
                     ) : (
                       <button
@@ -206,7 +237,7 @@ const ChannelManager: React.FC = () => {
                         className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
                         <Square className="w-4 h-4" /> 
-                        <span className="hidden xs:inline">{t('channels.stop', 'Stop')}</span>
+                        <span className="hidden xs:inline">{t('channels.stop', 'Стоп')}</span>
                       </button>
                     )}
                     <button
