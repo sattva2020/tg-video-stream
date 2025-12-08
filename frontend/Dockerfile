@@ -6,7 +6,7 @@ WORKDIR /app
 # Build arguments for Vite environment variables
 ARG VITE_API_BASE_URL
 ARG VITE_API_URL
-ARG VITE_ENABLE_BASIC_LOGIN=true
+ARG VITE_ENABLE_BASIC_LOGIN=false
 ARG VITE_TELEGRAM_BOT_USERNAME
 
 # Set environment variables for Vite build
