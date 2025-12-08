@@ -14,47 +14,47 @@ export const DesktopNav: React.FC = () => {
   const navItems: NavItem[] = [
     { 
       path: '/dashboard', 
-      label: '🏠 ' + t('nav.dashboard', 'Дашборд'), 
+      label: t('nav.dashboard', 'Дашборд'), 
       icon: <Home className="w-4 h-4" /> 
     },
     { 
       path: '/channels', 
-      label: '📺 ' + t('nav.channels', 'Каналы'), 
+      label: t('nav.channels', 'Каналы'), 
       icon: <Tv className="w-4 h-4" /> 
     },
     { 
       path: '/playlist', 
-      label: '🎵 ' + t('nav.playlist', 'Плейлист'), 
+      label: t('nav.playlist', 'Плейлист'), 
       icon: <ListMusic className="w-4 h-4" /> 
     },
     { 
       path: '/schedule', 
-      label: '📅 ' + t('nav.schedule', 'Расписание'), 
+      label: t('nav.schedule', 'Расписание'), 
       icon: <CalendarDays className="w-4 h-4" /> 
     },
     { 
       path: '/admin/pending', 
-      label: '👥 ' + t('nav.pendingUsers', 'Ожидающие'), 
+      label: t('nav.pendingUsers', 'Ожидающие'), 
       icon: <Users className="w-4 h-4" />,
       adminOnly: true 
     },
     { 
       path: '/admin/monitoring', 
-      label: '📊 ' + t('nav.monitoring', 'Мониторинг'), 
+      label: t('nav.monitoring', 'Мониторинг'), 
       icon: <Activity className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
     { 
       path: '/admin/analytics', 
-      label: '📈 ' + t('nav.analytics', 'Аналитика'), 
+      label: t('nav.analytics', 'Аналитика'), 
       icon: <BarChart3 className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
     { 
       path: '/admin', 
-      label: '⚙️ ' + t('nav.admin', 'Админ'), 
+      label: t('nav.admin', 'Админ'), 
       icon: <Settings className="w-4 h-4" />,
       adminOnly: true 
     },
