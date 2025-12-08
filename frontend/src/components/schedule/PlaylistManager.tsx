@@ -205,21 +205,28 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
         </ModalHeader>
 
         <ModalBody className="gap-4">
-          <Input
-            label={t('playlist.name', 'Название')}
-            placeholder={t('playlist.namePlaceholder', 'Мой плейлист')}
-            value={formData.name}
-            onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-            isRequired
-          />
+          <div>
+            <label className="text-sm font-medium text-default-700 mb-2 block">
+              {t('playlist.name', 'Название')} <span className="text-danger">*</span>
+            </label>
+            <Input
+              placeholder={t('playlist.namePlaceholder', 'Мой плейлист')}
+              value={formData.name}
+              onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
+            />
+          </div>
 
-          <Textarea
-            label={t('playlist.description', 'Описание')}
-            placeholder={t('playlist.descriptionPlaceholder', 'Описание плейлиста...')}
-            value={formData.description}
-            onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
-            minRows={2}
-          />
+          <div>
+            <label className="text-sm font-medium text-default-700 mb-2 block">
+              {t('playlist.description', 'Описание')}
+            </label>
+            <Textarea
+              placeholder={t('playlist.descriptionPlaceholder', 'Описание плейлиста...')}
+              value={formData.description}
+              onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
+              minRows={2}
+            />
+          </div>
 
           {/* Color picker */}
           <div>
@@ -270,29 +277,37 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
           {/* Source URL (for youtube/m3u) */}
           {formData.source_type !== 'manual' && (
-            <Input
-              label={formData.source_type === 'youtube' 
-                ? t('playlist.youtubeUrl', 'URL плейлиста YouTube')
-                : t('playlist.m3uUrl', 'URL m3u файла')}
-              placeholder={formData.source_type === 'youtube'
-                ? 'https://youtube.com/playlist?list=...'
-                : 'https://example.com/playlist.m3u'}
-              value={formData.source_url}
-              onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
-              startContent={<ExternalLink className="w-4 h-4 text-default-400" />}
-            />
+            <div>
+              <label className="text-sm font-medium text-default-700 mb-2 block">
+                {formData.source_type === 'youtube' 
+                  ? t('playlist.youtubeUrl', 'URL плейлиста YouTube')
+                  : t('playlist.m3uUrl', 'URL m3u файла')}
+              </label>
+              <Input
+                placeholder={formData.source_type === 'youtube'
+                  ? 'https://youtube.com/playlist?list=...'
+                  : 'https://example.com/playlist.m3u'}
+                value={formData.source_url}
+                onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
+                startContent={<ExternalLink className="w-4 h-4 text-default-400" />}
+              />
+            </div>
           )}
 
           {/* Manual items entry */}
           {formData.source_type === 'manual' && (
-            <Textarea
-              label={t('playlist.items', 'Треки (по одному на строку)')}
-              placeholder={`https://youtube.com/watch?v=... | Название трека
+            <div>
+              <label className="text-sm font-medium text-default-700 mb-2 block">
+                {t('playlist.items', 'Треки (по одному на строку)')}
+              </label>
+              <Textarea
+                placeholder={`https://youtube.com/watch?v=... | Название трека
 https://youtube.com/watch?v=... | Другой трек`}
-              value={formData.items_text}
-              onChange={(e) => setFormData(f => ({ ...f, items_text: e.target.value }))}
-              minRows={5}
-            />
+                value={formData.items_text}
+                onChange={(e) => setFormData(f => ({ ...f, items_text: e.target.value }))}
+                minRows={5}
+              />
+            </div>
           )}
 
           {/* Shuffle option */}
