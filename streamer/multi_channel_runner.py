@@ -219,22 +219,29 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     
     try:
         while channel_id in running_channels:
-            # Fetch playlist from backend
+            # Fetch playlist from backend (new unified playlist API)
+            playlist = []
+            playlist_name = None
+            is_shuffled = False
+            
             try:
+                # Try new unified playlist API first
                 resp = requests.get(
-                    f"{backend_url}/api/playlist/",
-                    params={"channel_id": channel_id},
+                    f"{backend_url}/api/schedule/playlists/channel/{channel_id}/active",
                     timeout=10
                 )
                 if resp.status_code == 200:
-                    playlist = resp.json()
-                    log.info(f"Channel {channel_id}: Fetched {len(playlist)} items")
+                    data = resp.json()
+                    playlist = data.get("items", [])
+                    playlist_name = data.get("playlist_name")
+                    is_shuffled = data.get("is_shuffled", False)
+                    source = data.get("source", "unknown")
+                    log.info(f"Channel {channel_id}: Fetched {len(playlist)} items from {source}" + 
+                             (f" ({playlist_name})" if playlist_name else ""))
                 else:
                     log.warning(f"Channel {channel_id}: Playlist fetch failed: {resp.status_code}")
-                    playlist = []
             except Exception as e:
                 log.error(f"Channel {channel_id}: Error fetching playlist: {e}")
-                playlist = []
             
             if not playlist:
                 log.info(f"Channel {channel_id}: No items, waiting...")
@@ -243,6 +250,13 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                     await command_handler.update_status(channel_id, "running")
                 await asyncio.sleep(60)
                 continue
+            
+            # Shuffle if enabled
+            if is_shuffled:
+                import random
+                playlist = playlist.copy()
+                random.shuffle(playlist)
+                log.info(f"Channel {channel_id}: Shuffled playlist")
             
             # Play each item
             for item in playlist:
