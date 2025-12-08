@@ -35,7 +35,7 @@ export const ResponsiveHeader: React.FC = () => {
               <img 
                 src="/img/yantra.png" 
                 alt="Sattva" 
-                className="w-10 h-10 rounded-lg"
+                className="w-9 h-9"
               />
             </a>
           </div>
