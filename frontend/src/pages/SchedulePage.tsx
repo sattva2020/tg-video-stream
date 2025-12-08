@@ -126,9 +126,16 @@ export default function SchedulePage() {
                     selectedKeys={selectedChannelId ? [selectedChannelId] : []}
                     onChange={(e) => setSelectedChannelId(e.target.value)}
                     className="w-40"
+                    classNames={{
+                      value: "text-foreground",
+                    }}
+                    disableSelectorIconRotation
                   >
                     {channels.map((channel) => (
-                      <SelectItem key={channel.id}>
+                      <SelectItem 
+                        key={channel.id}
+                        hideSelectedIcon
+                      >
                         {channel.name}
                       </SelectItem>
                     ))}
