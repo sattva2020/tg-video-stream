@@ -33,7 +33,7 @@ export const ResponsiveHeader: React.FC = () => {
               className="flex items-center gap-2 text-lg font-semibold text-[color:var(--color-text)]"
             >
               <img 
-                src="/img/yantra.png" 
+                src="/img/yantra.png?v=2" 
                 alt="Sattva" 
                 className="w-9 h-9"
               />
