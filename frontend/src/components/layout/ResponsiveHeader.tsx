@@ -33,9 +33,9 @@ export const ResponsiveHeader: React.FC = () => {
               className="flex items-center gap-2 text-lg font-semibold text-[color:var(--color-text)]"
             >
               <img 
-                src="/img/sattva-tetrey.png" 
+                src="/img/yantra.png" 
                 alt="Sattva" 
-                className="h-10 w-auto"
+                className="w-10 h-10 rounded-lg"
               />
             </a>
           </div>
