@@ -269,7 +269,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                 
                 try:
                     # Expand playlists and get stream URL
-                    expanded = await expand_playlist(link)
+                    expanded = await expand_playlist([link])
                     if not expanded:
                         continue
                     
