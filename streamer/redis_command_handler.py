@@ -43,6 +43,12 @@ class ChannelConfig:
     video_quality: str = "720p"
     ffmpeg_args: Optional[str] = None
     chat_username: Optional[str] = None  # For peer resolution
+    # Advanced MediaStream options
+    ytdlp_parameters: Optional[str] = None  # Extra yt-dlp arguments
+    stream_headers: Optional[Dict[str, str]] = None  # HTTP headers for stream
+    audio_quality: str = "studio"  # low, medium, high, studio
+    stream_type: str = "video"  # video, audio
+    placeholder_image: Optional[str] = None # Path to custom placeholder image
 
 
 class RedisCommandHandler:
@@ -68,6 +74,14 @@ class RedisCommandHandler:
         self.on_stop: Optional[Callable[[str], Awaitable[bool]]] = None
         self.on_restart: Optional[Callable[[ChannelConfig], Awaitable[bool]]] = None
         self.on_update_playlist: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_pause: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_resume: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_skip: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_mute: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_unmute: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_volume: Optional[Callable[[str, int], Awaitable[bool]]] = None
+        self.on_get_time: Optional[Callable[[str], Awaitable[Optional[int]]]] = None
+        self.on_get_participants: Optional[Callable[[str], Awaitable[Optional[list]]]] = None
     
     @staticmethod
     def _get_redis_url() -> str:
@@ -159,6 +173,22 @@ class RedisCommandHandler:
                 await self._handle_restart(command)
             elif action == "update_playlist":
                 await self._handle_update_playlist(command)
+            elif action == "pause":
+                await self._handle_pause(command)
+            elif action == "resume":
+                await self._handle_resume(command)
+            elif action == "skip":
+                await self._handle_skip(command)
+            elif action == "mute":
+                await self._handle_mute(command)
+            elif action == "unmute":
+                await self._handle_unmute(command)
+            elif action == "volume":
+                await self._handle_volume(command)
+            elif action == "get_time":
+                await self._handle_get_time(command)
+            elif action == "get_participants":
+                await self._handle_get_participants(command)
             else:
                 logger.warning(f"Unknown command action: {action}")
                 
@@ -166,6 +196,24 @@ class RedisCommandHandler:
             logger.error(f"Invalid JSON in command: {e}")
         except Exception as e:
             logger.exception(f"Error handling command: {e}")
+    
+    async def _fetch_channel_config(self, channel_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch channel configuration from backend API."""
+        import requests
+        backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        try:
+            resp = requests.get(
+                f"{backend_url}/api/internal/streamer/channels/{channel_id}/config",
+                timeout=10
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            else:
+                logger.error(f"Failed to fetch config for channel {channel_id}: {resp.status_code} - {resp.text}")
+                return None
+        except Exception as e:
+            logger.exception(f"Error fetching config for channel {channel_id}: {e}")
+            return None
     
     async def _handle_start(self, command: Dict[str, Any]):
         """Handle start command."""
@@ -182,6 +230,15 @@ class RedisCommandHandler:
             return
         
         try:
+            # If config not provided in command, fetch from API
+            if not config_data or not config_data.get("session_string"):
+                logger.info(f"Fetching config for channel {channel_id} from API...")
+                config_data = await self._fetch_channel_config(channel_id)
+                if not config_data:
+                    logger.error(f"Failed to fetch config for channel {channel_id}")
+                    await self.update_status(channel_id, "error", error="Failed to fetch channel config")
+                    return
+            
             config = ChannelConfig(
                 channel_id=config_data.get("channel_id", channel_id),
                 chat_id=config_data.get("chat_id"),
@@ -192,6 +249,11 @@ class RedisCommandHandler:
                 video_quality=config_data.get("video_quality", "720p"),
                 ffmpeg_args=config_data.get("ffmpeg_args"),
                 chat_username=config_data.get("chat_username"),
+                ytdlp_parameters=config_data.get("ytdlp_parameters"),
+                stream_headers=config_data.get("stream_headers"),
+                audio_quality=config_data.get("audio_quality", "studio"),
+                stream_type=config_data.get("stream_type", "video"),
+                placeholder_image=config_data.get("placeholder_image")
             )
             
             await self.update_status(channel_id, "starting")
@@ -258,6 +320,12 @@ class RedisCommandHandler:
                 api_hash=config_data.get("api_hash", ""),
                 video_quality=config_data.get("video_quality", "720p"),
                 ffmpeg_args=config_data.get("ffmpeg_args"),
+                chat_username=config_data.get("chat_username"),
+                ytdlp_parameters=config_data.get("ytdlp_parameters"),
+                stream_headers=config_data.get("stream_headers"),
+                audio_quality=config_data.get("audio_quality", "studio"),
+                stream_type=config_data.get("stream_type", "video"),
+                placeholder_image=config_data.get("placeholder_image")
             )
             
             await self.update_status(channel_id, "restarting")
@@ -290,6 +358,181 @@ class RedisCommandHandler:
         except Exception as e:
             logger.exception(f"Error updating playlist for {channel_id}: {e}")
     
+    async def _handle_pause(self, command: Dict[str, Any]):
+        """Handle pause command."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Pause command missing channel_id")
+            return
+            
+        if not self.on_pause:
+            logger.warning("No on_pause callback registered")
+            return
+        
+        try:
+            success = await self.on_pause(channel_id)
+            if success:
+                await self.update_status(channel_id, "paused")
+                logger.info(f"Channel {channel_id} paused")
+            else:
+                logger.warning(f"Failed to pause channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error pausing channel {channel_id}: {e}")
+    
+    async def _handle_resume(self, command: Dict[str, Any]):
+        """Handle resume command."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Resume command missing channel_id")
+            return
+            
+        if not self.on_resume:
+            logger.warning("No on_resume callback registered")
+            return
+        
+        try:
+            success = await self.on_resume(channel_id)
+            if success:
+                await self.update_status(channel_id, "playing")
+                logger.info(f"Channel {channel_id} resumed")
+            else:
+                logger.warning(f"Failed to resume channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error resuming channel {channel_id}: {e}")
+    
+    async def _handle_skip(self, command: Dict[str, Any]):
+        """Handle skip command - skip to next track."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Skip command missing channel_id")
+            return
+            
+        if not self.on_skip:
+            logger.warning("No on_skip callback registered")
+            return
+        
+        try:
+            success = await self.on_skip(channel_id)
+            if success:
+                logger.info(f"Channel {channel_id} skipping to next track")
+            else:
+                logger.warning(f"Failed to skip on channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error skipping on channel {channel_id}: {e}")
+    
+    async def _handle_mute(self, command: Dict[str, Any]):
+        """Handle mute command."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Mute command missing channel_id")
+            return
+            
+        if not self.on_mute:
+            logger.warning("No on_mute callback registered")
+            return
+        
+        try:
+            success = await self.on_mute(channel_id)
+            if success:
+                await self.update_status(channel_id, "muted")
+                logger.info(f"Channel {channel_id} muted")
+            else:
+                logger.warning(f"Failed to mute channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error muting channel {channel_id}: {e}")
+    
+    async def _handle_unmute(self, command: Dict[str, Any]):
+        """Handle unmute command."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Unmute command missing channel_id")
+            return
+            
+        if not self.on_unmute:
+            logger.warning("No on_unmute callback registered")
+            return
+        
+        try:
+            success = await self.on_unmute(channel_id)
+            if success:
+                await self.update_status(channel_id, "playing")
+                logger.info(f"Channel {channel_id} unmuted")
+            else:
+                logger.warning(f"Failed to unmute channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error unmuting channel {channel_id}: {e}")
+    
+    async def _handle_volume(self, command: Dict[str, Any]):
+        """Handle volume change command."""
+        channel_id = command.get("channel_id")
+        volume = command.get("volume", 100)
+        
+        if not channel_id:
+            logger.error("Volume command missing channel_id")
+            return
+            
+        if not self.on_volume:
+            logger.warning("No on_volume callback registered")
+            return
+        
+        try:
+            success = await self.on_volume(channel_id, int(volume))
+            if success:
+                await self.update_status(channel_id, "playing", extra={"volume": volume})
+                logger.info(f"Channel {channel_id} volume set to {volume}%")
+            else:
+                logger.warning(f"Failed to change volume on channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error changing volume on channel {channel_id}: {e}")
+    
+    async def _handle_get_time(self, command: Dict[str, Any]):
+        """Handle get_time command - returns current playback position."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Get time command missing channel_id")
+            return
+            
+        if not self.on_get_time:
+            logger.warning("No on_get_time callback registered")
+            return
+        
+        try:
+            position = await self.on_get_time(channel_id)
+            if position is not None:
+                await self.update_status(channel_id, "playing", extra={"position": position})
+                logger.debug(f"Channel {channel_id} position: {position}s")
+        except Exception as e:
+            logger.exception(f"Error getting time for channel {channel_id}: {e}")
+    
+    async def _handle_get_participants(self, command: Dict[str, Any]):
+        """Handle get_participants command - returns list of listeners."""
+        channel_id = command.get("channel_id")
+        
+        if not channel_id:
+            logger.error("Get participants command missing channel_id")
+            return
+            
+        if not self.on_get_participants:
+            logger.warning("No on_get_participants callback registered")
+            return
+        
+        try:
+            participants = await self.on_get_participants(channel_id)
+            if participants is not None:
+                await self.update_status(
+                    channel_id, "playing",
+                    extra={"participants": participants, "listener_count": len(participants)}
+                )
+                logger.info(f"Channel {channel_id} has {len(participants)} listeners")
+        except Exception as e:
+            logger.exception(f"Error getting participants for channel {channel_id}: {e}")
+
     async def _listen_loop(self):
         """Main loop for listening to Redis commands."""
         while self._running:

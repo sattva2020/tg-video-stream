@@ -88,6 +88,9 @@ export interface Playlist {
   name: string;
   description: string | null;
   channel_id: string | null;
+  group_id: string | null;
+  group_name?: string | null;
+  position: number;
   color: string;
   source_type: string;
   source_url: string | null;
@@ -110,6 +113,7 @@ export interface PlaylistCreate {
   name: string;
   description?: string;
   channel_id?: string;
+  group_id?: string;
   color?: string;
   source_type?: string;
   source_url?: string;
@@ -121,9 +125,49 @@ export interface PlaylistUpdate {
   name?: string;
   description?: string;
   color?: string;
+  group_id?: string;
+  position?: number;
   items?: PlaylistItem[];
   is_active?: boolean;
   is_shuffled?: boolean;
+}
+
+// ==================== Playlist Groups ====================
+
+export interface PlaylistGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  channel_id: string | null;
+  color: string;
+  icon: string;
+  position: number;
+  is_expanded: boolean;
+  is_active: boolean;
+  playlists_count: number;
+  created_at: string;
+}
+
+export interface PlaylistGroupWithPlaylists extends PlaylistGroup {
+  playlists: Playlist[];
+}
+
+export interface PlaylistGroupCreate {
+  name: string;
+  description?: string;
+  channel_id?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface PlaylistGroupUpdate {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  position?: number;
+  is_expanded?: boolean;
+  is_active?: boolean;
 }
 
 export interface CalendarDay {
@@ -223,6 +267,42 @@ export const scheduleApi = {
 
   deletePlaylist: async (playlistId: string): Promise<void> => {
     await client.delete(`/api/schedule/playlists/${playlistId}`);
+  },
+
+  movePlaylistToGroup: async (playlistId: string, groupId?: string, position?: number): Promise<Playlist> => {
+    const response = await client.post(`/api/schedule/playlists/${playlistId}/move-to-group`, null, {
+      params: { group_id: groupId, position }
+    });
+    return response.data;
+  },
+
+  // Playlist Groups
+  getGroups: async (channelId?: string): Promise<PlaylistGroup[]> => {
+    const response = await client.get('/api/schedule/groups', {
+      params: channelId ? { channel_id: channelId } : {}
+    });
+    return response.data;
+  },
+
+  getGroupsWithPlaylists: async (channelId?: string): Promise<PlaylistGroupWithPlaylists[]> => {
+    const response = await client.get('/api/schedule/groups/with-playlists', {
+      params: channelId ? { channel_id: channelId } : {}
+    });
+    return response.data;
+  },
+
+  createGroup: async (data: PlaylistGroupCreate): Promise<PlaylistGroup> => {
+    const response = await client.post('/api/schedule/groups', data);
+    return response.data;
+  },
+
+  updateGroup: async (groupId: string, data: PlaylistGroupUpdate): Promise<PlaylistGroup> => {
+    const response = await client.put(`/api/schedule/groups/${groupId}`, data);
+    return response.data;
+  },
+
+  deleteGroup: async (groupId: string): Promise<void> => {
+    await client.delete(`/api/schedule/groups/${groupId}`);
   },
 };
 

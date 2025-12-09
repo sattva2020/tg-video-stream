@@ -8,6 +8,8 @@ export interface Channel {
   status: 'stopped' | 'running' | 'error' | 'starting' | 'stopping' | 'unknown';
   ffmpeg_args?: string;
   video_quality: string;
+  stream_type?: 'video' | 'audio';
+  placeholder_image?: string;
 }
 
 export interface CreateChannelData {
@@ -16,6 +18,7 @@ export interface CreateChannelData {
   name: string;
   ffmpeg_args?: string;
   video_quality?: string;
+  stream_type?: 'video' | 'audio';
 }
 
 export const channelsApi = {
@@ -41,6 +44,27 @@ export const channelsApi = {
 
   getStatus: async (channelId: string) => {
     const response = await client.get<{ status: string }>(`/api/channels/${channelId}/status`);
+    return response.data;
+  },
+
+  delete: async (channelId: string) => {
+    const response = await client.delete<{ status: string }>(`/api/channels/${channelId}`);
+    return response.data;
+  },
+
+  update: async (channelId: string, data: CreateChannelData) => {
+    const response = await client.put<Channel>(`/api/channels/${channelId}`, data);
+    return response.data;
+  },
+
+  uploadPlaceholder: async (channelId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await client.post<{ status: string, path: string }>(`/api/channels/${channelId}/placeholder`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response.data;
   },
 };

@@ -22,6 +22,7 @@ import signal
 from typing import Dict, Any, Optional
 
 from dotenv import load_dotenv
+from pyrogram.errors import FloodWait
 
 load_dotenv()
 
@@ -43,7 +44,11 @@ except ImportError:
 
 try:
     from pytgcalls import PyTgCalls
-    from pytgcalls.types import MediaStream, AudioQuality, VideoQuality
+    from pytgcalls import filters as fl
+    from pytgcalls.types import (
+        MediaStream, AudioQuality, VideoQuality, StreamEnded,
+        ChatUpdate, GroupCallParticipant, UpdatedGroupCallParticipant
+    )
     PYTGCALLS_AVAILABLE = True
 except ImportError:
     PYTGCALLS_AVAILABLE = False
@@ -55,8 +60,69 @@ from multi_channel import MultiChannelManager
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
+stream_ended_events: Dict[int, asyncio.Event] = {}  # chat_id -> Event (signals stream ended)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+
+
+async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
+    """
+    Global handler for StreamEnded event.
+    
+    Called by PyTgCalls when a stream finishes playing.
+    Sets the event to signal playback loop to move to next track.
+    """
+    chat_id = update.chat_id
+    log.info(f"StreamEnded event for chat {chat_id}")
+    
+    if chat_id in stream_ended_events:
+        stream_ended_events[chat_id].set()
+    else:
+        log.warning(f"StreamEnded for unknown chat {chat_id}")
+
+
+async def on_chat_update(pytg: PyTgCalls, update: ChatUpdate):
+    """
+    Handler for chat status updates (kicked, left group, etc.).
+    
+    Automatically stops the stream if we get kicked or leave the group.
+    """
+    chat_id = update.chat_id
+    status = update.status
+    
+    log.warning(f"ChatUpdate for chat {chat_id}: {status}")
+    
+    # Find channel_id by chat_id
+    channel_id = None
+    for cid, data in running_channels.items():
+        if data.get("chat_id") == chat_id:
+            channel_id = cid
+            break
+    
+    if channel_id:
+        log.warning(f"Stopping channel {channel_id} due to chat update: {status}")
+        await stop_channel_stream(channel_id)
+        if command_handler:
+            await command_handler.update_status(
+                channel_id, "stopped",
+                error=f"Stopped: {status}"
+            )
+
+
+async def on_participant_joined(pytg: PyTgCalls, update: UpdatedGroupCallParticipant):
+    """
+    Handler for participant join events.
+    
+    Logs when someone joins the voice chat.
+    """
+    chat_id = update.chat_id
+    participant = update.participant
+    action = update.action
+    
+    if action == GroupCallParticipant.Action.JOINED:
+        log.info(f"Participant {participant.user_id} joined voice chat in {chat_id}")
+    elif action == GroupCallParticipant.Action.LEFT:
+        log.info(f"Participant {participant.user_id} left voice chat in {chat_id}")
 
 
 def get_redis_url() -> str:
@@ -136,7 +202,28 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         
         # Create PyTgCalls instance
         pytg = PyTgCalls(client)
+        
+        # Register StreamEnded handler for automatic track switching
+        @pytg.on_update(fl.stream_end())
+        async def stream_end_handler(_: PyTgCalls, update: StreamEnded):
+            await on_stream_ended(_, update)
+        
+        # Register ChatUpdate handler for kicked/left detection
+        @pytg.on_update(fl.chat_update(
+            ChatUpdate.Status.KICKED | ChatUpdate.Status.LEFT_GROUP | ChatUpdate.Status.CLOSED_VOICE_CHAT
+        ))
+        async def chat_update_handler(_: PyTgCalls, update: ChatUpdate):
+            await on_chat_update(_, update)
+        
+        # Register participant join/leave handler for logging
+        @pytg.on_update(fl.call_participant())
+        async def participant_handler(_: PyTgCalls, update: UpdatedGroupCallParticipant):
+            await on_participant_joined(_, update)
+        
         await pytg.start()
+        
+        # Create stream ended event for this chat
+        stream_ended_events[resolved_chat_id] = asyncio.Event()
         
         # Store channel state with resolved chat_id
         running_channels[channel_id] = {
@@ -158,6 +245,12 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
     except (SessionExpired, AuthKeyInvalid) as e:
         log.error(f"Invalid session for channel {channel_id}: {e}")
         return False
+    except FloodWait as e:
+        # Handle FloodWait by waiting and retrying
+        wait_time = e.value
+        log.warning(f"Channel {channel_id}: FloodWait, waiting {wait_time} seconds...")
+        await asyncio.sleep(wait_time + 1)
+        return await start_channel_stream(config)  # Retry
     except Exception as e:
         log.exception(f"Failed to start channel {channel_id}: {e}")
         return False
@@ -192,6 +285,10 @@ async def stop_channel_stream(channel_id: str) -> bool:
                 await pytg.leave_call(chat_id)
             except Exception as e:
                 log.debug(f"Leave call error (ok): {e}")
+            
+            # Remove stream ended event for this chat
+            if chat_id in stream_ended_events:
+                del stream_ended_events[chat_id]
         
         # Stop PyTgCalls
         if pytg:
@@ -298,54 +395,178 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                     if not expanded:
                         continue
                     
-                    stream_url = await best_stream_url(expanded[0])
-                    log.info(f"Channel {channel_id}: Playing {stream_url[:50]}...")
-                    
-                    # Update status
-                    if command_handler:
-                        await command_handler.update_status(
-                            channel_id,
-                            "playing",
-                            current_item=item.get("title", stream_url[:50])
-                        )
-                    
-                    # Join group call and stream
-                    try:
-                        await pytg.play(
-                            chat_id,
-                            MediaStream(
-                                stream_url,
-                                audio_parameters=AudioQuality.STUDIO,
-                                video_parameters=VideoQuality.FHD_1080p
-                            )
-                        )
-                    except Exception as e:
-                        log.error(f"Channel {channel_id}: Join call failed: {e}")
-                        await asyncio.sleep(5)
-                        continue
-                    
-                    # Wait for playback (with periodic checks)
-                    duration = item.get("duration", 300)  # default 5 min
-                    elapsed = 0
-                    while elapsed < duration and channel_id in running_channels:
-                        await asyncio.sleep(5)
-                        elapsed += 5
-                        
-                        # Check if still in call (handle both sync and async calls property)
-                        try:
-                            calls = pytg.calls
-                            if asyncio.iscoroutine(calls):
-                                calls = await calls
-                            if chat_id not in calls:
-                                break
-                        except Exception:
+                    for video_link in expanded:
+                        if channel_id not in running_channels:
                             break
-                    
-                    # Leave call before next track
-                    try:
-                        await pytg.leave_call(chat_id)
-                    except Exception:
-                        pass
+
+                        stream_url = await best_stream_url(video_link)
+                        log.info(f"Channel {channel_id}: Playing {stream_url[:50]}...")
+                        
+                        # Update status
+                        if command_handler:
+                            await command_handler.update_status(
+                                channel_id,
+                                "playing",
+                                current_item=item.get("title", stream_url[:50])
+                            )
+                        
+                        # Join group call and stream
+                        try:
+                            # Clear any previous stream ended event
+                            if chat_id in stream_ended_events:
+                                stream_ended_events[chat_id].clear()
+                            
+                            # Determine audio quality from config
+                            audio_quality_map = {
+                                "low": AudioQuality.LOW,
+                                "medium": AudioQuality.MEDIUM,
+                                "high": AudioQuality.HIGH,
+                                "studio": AudioQuality.STUDIO,
+                            }
+                            audio_quality = audio_quality_map.get(
+                                config.audio_quality.lower() if config.audio_quality else "studio",
+                                AudioQuality.STUDIO
+                            )
+                            
+                            # Determine video quality from config
+                            # Supports: SD_480p, HD_720p, FHD_1080p, QHD_2K, UHD_4K
+                            video_quality_map = {
+                                "480p": VideoQuality.SD_480p,
+                                "sd": VideoQuality.SD_480p,
+                                "720p": VideoQuality.HD_720p,
+                                "hd": VideoQuality.HD_720p,
+                                "1080p": VideoQuality.FHD_1080p,
+                                "fhd": VideoQuality.FHD_1080p,
+                                "2k": VideoQuality.QHD_2K,
+                                "qhd": VideoQuality.QHD_2K,
+                                "1440p": VideoQuality.QHD_2K,
+                                "4k": VideoQuality.UHD_4K,
+                                "uhd": VideoQuality.UHD_4K,
+                                "2160p": VideoQuality.UHD_4K,
+                            }
+                            video_quality = video_quality_map.get(
+                                config.video_quality.lower() if config.video_quality else "480p",
+                                VideoQuality.SD_480p
+                            )
+                            
+                            # Build MediaStream parameters
+                            media_kwargs = {
+                                "audio_parameters": audio_quality,
+                            }
+                            
+                            # Prepare FFmpeg parameters
+                            # We use build_ffmpeg_av_args to get optimized parameters for the target quality
+                            v_args, a_args = build_ffmpeg_av_args(config.video_quality or "480p")
+                            ffmpeg_params_list = v_args + a_args
+                            ffmpeg_params_str = " ".join(ffmpeg_params_list)
+                            
+                            # Add ffmpeg_parameters if configured
+                            if config.ffmpeg_args:
+                                media_kwargs["ffmpeg_parameters"] = f"{ffmpeg_params_str} {config.ffmpeg_args}"
+                            else:
+                                media_kwargs["ffmpeg_parameters"] = ffmpeg_params_str
+                            
+                            log.info(f"Channel {channel_id}: Using FFmpeg params: {media_kwargs['ffmpeg_parameters']}")
+                            
+                            # Add ytdlp_parameters if configured
+                            
+                            # Add ytdlp_parameters if configured
+                            if config.ytdlp_parameters:
+                                media_kwargs["ytdlp_parameters"] = config.ytdlp_parameters
+                            
+                            # Add headers if configured
+                            if config.stream_headers:
+                                media_kwargs["headers"] = config.stream_headers
+                            
+                            # Determine stream type based on configuration
+                            # If stream_type is 'audio', force audio-only mode
+                            # If stream_type is 'video' (default), try to stream video
+                            stream_type = getattr(config, 'stream_type', 'video')
+                            
+                            # Check if content is audio-only
+                            is_audio_only = stream_url.lower().endswith(('.flac', '.mp3', '.wav', '.ogg', '.m4a', '.aac'))
+                            
+                            if stream_type == 'audio':
+                                media_kwargs["video_flags"] = MediaStream.Flags.IGNORE
+                                media = MediaStream(stream_url, **media_kwargs)
+                            else:
+                                # Video mode
+                                if is_audio_only:
+                                    # Audio content in Video mode -> Try to use placeholder
+                                    placeholder_path = None
+                                    
+                                    # 1. Try custom placeholder
+                                    custom_placeholder = getattr(config, 'placeholder_image', None)
+                                    if custom_placeholder:
+                                        # Backend stores as "data/placeholders/..."
+                                        # We need to map it to local path
+                                        # Assuming streamer is in /opt/sattva-streamer/streamer and data is in /opt/sattva-streamer/data
+                                        
+                                        # If path starts with data/, replace with ../data/
+                                        if custom_placeholder.startswith("data/"):
+                                            custom_placeholder = os.path.join("..", custom_placeholder)
+                                        
+                                        custom_path = os.path.abspath(custom_placeholder)
+                                        if os.path.exists(custom_path):
+                                            placeholder_path = custom_path
+                                            log.info(f"Using custom placeholder: {placeholder_path}")
+                                    
+                                    # 2. Fallback to default
+                                    if not placeholder_path:
+                                        placeholder_path = os.path.abspath("assets/placeholder.png")
+                                    
+                                    if os.path.exists(placeholder_path):
+                                        log.info(f"Using placeholder for audio content: {placeholder_path}")
+                                        
+                                        # Add loop and shortest flags to loop image until audio ends
+                                        extra_flags = "-loop 1 -shortest"
+                                        if "ffmpeg_parameters" in media_kwargs:
+                                            media_kwargs["ffmpeg_parameters"] += f" {extra_flags}"
+                                        else:
+                                            media_kwargs["ffmpeg_parameters"] = extra_flags
+                                        
+                                        media_kwargs["video_parameters"] = video_quality
+                                        
+                                        # Use placeholder as video source, stream_url as audio source
+                                        media = MediaStream(placeholder_path, audio_path=stream_url, **media_kwargs)
+                                    else:
+                                        log.warning(f"Placeholder not found at {placeholder_path}, streaming audio only")
+                                        media_kwargs["video_flags"] = MediaStream.Flags.IGNORE
+                                        media = MediaStream(stream_url, **media_kwargs)
+                                else:
+                                    media_kwargs["video_parameters"] = video_quality
+                                    media = MediaStream(stream_url, **media_kwargs)
+                            
+                            await pytg.play(chat_id, media)
+                        except Exception as e:
+                            log.error(f"Channel {channel_id}: Join call failed: {e}")
+                            await asyncio.sleep(5)
+                            continue
+                        
+                        # Wait for StreamEnded event (with timeout fallback)
+                        # Use 7200s (2 hours) as max timeout for very long FLAC albums
+                        max_duration = item.get("duration") or 7200
+                        log.info(f"Channel {channel_id}: Waiting for StreamEnded (max {max_duration}s)")
+                        
+                        try:
+                            event = stream_ended_events.get(chat_id)
+                            if event:
+                                # Wait for StreamEnded event with timeout
+                                await asyncio.wait_for(event.wait(), timeout=max_duration)
+                                log.info(f"Channel {channel_id}: StreamEnded received, moving to next track")
+                            else:
+                                # Fallback: no event registered, use old polling method
+                                log.warning(f"Channel {channel_id}: No stream event, using duration wait")
+                                await asyncio.sleep(min(max_duration, 600))
+                        except asyncio.TimeoutError:
+                            log.warning(f"Channel {channel_id}: Timeout waiting for StreamEnded, forcing next track")
+                        except asyncio.CancelledError:
+                            log.info(f"Channel {channel_id}: Cancelled while waiting for stream end")
+                            raise
+                        
+                        # Check if channel still running
+                        if channel_id not in running_channels:
+                            break
                     
                 except Exception as e:
                     log.exception(f"Channel {channel_id}: Stream error: {e}")
@@ -364,6 +585,183 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
             await command_handler.update_status(channel_id, "stopped")
 
 
+async def pause_channel_stream(channel_id: str) -> bool:
+    """Pause streaming for a channel."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            await pytg.pause(chat_id)
+            log.info(f"Channel {channel_id} paused")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error pausing channel {channel_id}: {e}")
+        return False
+
+
+async def resume_channel_stream(channel_id: str) -> bool:
+    """Resume streaming for a channel."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            await pytg.resume(chat_id)
+            log.info(f"Channel {channel_id} resumed")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error resuming channel {channel_id}: {e}")
+        return False
+
+
+async def skip_channel_track(channel_id: str) -> bool:
+    """Skip to next track by triggering stream_ended event."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        chat_id = channel_data.get("chat_id")
+        
+        # Trigger stream ended event to move to next track
+        if chat_id and chat_id in stream_ended_events:
+            stream_ended_events[chat_id].set()
+            log.info(f"Channel {channel_id} skipping to next track")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error skipping track on channel {channel_id}: {e}")
+        return False
+
+
+async def get_channel_time(channel_id: str) -> Optional[int]:
+    """Get current playback position in seconds."""
+    if channel_id not in running_channels:
+        return None
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            position = await pytg.time(chat_id)
+            log.debug(f"Channel {channel_id} position: {position}s")
+            return position
+        return None
+    except Exception as e:
+        log.exception(f"Error getting time for channel {channel_id}: {e}")
+        return None
+
+
+async def change_channel_volume(channel_id: str, volume: int) -> bool:
+    """Change volume for a channel (0-200)."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            # Clamp volume to valid range
+            volume = max(0, min(200, volume))
+            await pytg.change_volume_call(chat_id, volume)
+            log.info(f"Channel {channel_id} volume changed to {volume}%")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error changing volume for channel {channel_id}: {e}")
+        return False
+
+
+async def mute_channel_stream(channel_id: str) -> bool:
+    """Mute streaming for a channel (audio continues but is muted)."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            await pytg.mute(chat_id)
+            log.info(f"Channel {channel_id} muted")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error muting channel {channel_id}: {e}")
+        return False
+
+
+async def unmute_channel_stream(channel_id: str) -> bool:
+    """Unmute streaming for a channel."""
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running")
+        return False
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            await pytg.unmute(chat_id)
+            log.info(f"Channel {channel_id} unmuted")
+            return True
+        return False
+    except Exception as e:
+        log.exception(f"Error unmuting channel {channel_id}: {e}")
+        return False
+
+
+async def get_channel_participants(channel_id: str) -> Optional[list]:
+    """Get list of participants in the voice chat."""
+    if channel_id not in running_channels:
+        return None
+    
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+        
+        if pytg and chat_id:
+            participants = await pytg.get_participants(chat_id)
+            log.info(f"Channel {channel_id} has {len(participants) if participants else 0} participants")
+            return [
+                {
+                    "user_id": p.user_id,
+                    "muted": p.muted,
+                    "volume": p.volume,
+                    "video": p.video,
+                    "raised_hand": p.raised_hand,
+                }
+                for p in (participants or [])
+            ]
+        return None
+    except Exception as e:
+        log.exception(f"Error getting participants for channel {channel_id}: {e}")
+        return None
+
+
 async def main():
     """Main entry point."""
     global manager, command_handler
@@ -377,6 +775,14 @@ async def main():
     # Register callbacks
     command_handler.on_start = start_channel_stream
     command_handler.on_stop = stop_channel_stream
+    command_handler.on_pause = pause_channel_stream
+    command_handler.on_resume = resume_channel_stream
+    command_handler.on_skip = skip_channel_track
+    command_handler.on_volume = change_channel_volume
+    command_handler.on_mute = mute_channel_stream
+    command_handler.on_unmute = unmute_channel_stream
+    command_handler.on_get_time = get_channel_time
+    command_handler.on_get_participants = get_channel_participants
     
     # Start command handler
     await command_handler.start()

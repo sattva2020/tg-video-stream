@@ -69,4 +69,5 @@ export type LandingSectionProps = {
   footer?: ReactNode;
   background?: ReactNode;
   className?: string;
+  children?: ReactNode;
 };

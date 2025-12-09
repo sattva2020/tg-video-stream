@@ -42,10 +42,14 @@ async def expand_playlist(urls: List[str]) -> List[str]:
                 for e in data["entries"]:
                     # склеиваем полноценный URL видео
                     if e.get("url"):
+                        url_val = e['url']
                         if "youtube" in (data.get("extractor", "")).lower():
-                            out.append(f"https://www.youtube.com/watch?v={e['url']}")
+                            if url_val.startswith("http"):
+                                out.append(url_val)
+                            else:
+                                out.append(f"https://www.youtube.com/watch?v={url_val}")
                         else:
-                            out.append(e["url"])
+                            out.append(url_val)
             else:
                 out.append(u)
         except Exception:

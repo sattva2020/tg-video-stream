@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { CreateChannelData } from '../api/channels';
+import { CreateChannelData, Channel } from '../api/channels';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2 } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
@@ -12,7 +12,10 @@ import {
   useTelegramAccounts, 
   useCreateChannel, 
   useStartChannel, 
-  useStopChannel 
+  useStopChannel,
+  useDeleteChannel,
+  useUpdateChannel,
+  useUploadPlaceholder
 } from '../hooks/useChannelsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
@@ -27,6 +30,10 @@ const ChannelManager: React.FC = () => {
   const createChannel = useCreateChannel();
   const startChannel = useStartChannel();
   const stopChannel = useStopChannel();
+  const deleteChannel = useDeleteChannel();
+  const updateChannel = useUpdateChannel();
+  const uploadPlaceholder = useUploadPlaceholder();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Auto-refresh when channels are in transitional states (starting/stopping)
   useEffect(() => {
@@ -48,11 +55,13 @@ const ChannelManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [showDialogPicker, setShowDialogPicker] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [formData, setFormData] = useState<CreateChannelData>({
     account_id: '',
     chat_id: 0,
     name: '',
     video_quality: 'best',
+    stream_type: 'video',
   });
 
   const handleDialogSelect = (dialog: TelegramDialog) => {
@@ -64,11 +73,51 @@ const ChannelManager: React.FC = () => {
     setShowDialogPicker(false);
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createChannel.mutateAsync(formData);
+    let channelId = editingChannel?.id;
+    
+    if (editingChannel) {
+      await updateChannel.mutateAsync({ id: editingChannel.id, data: formData });
+    } else {
+      const newChannel = await createChannel.mutateAsync(formData);
+      channelId = newChannel.id;
+    }
+    
+    if (selectedFile && channelId) {
+      await uploadPlaceholder.mutateAsync({ channelId, file: selectedFile });
+    }
+    
     setIsModalOpen(false);
-    setFormData({ account_id: '', chat_id: 0, name: '', video_quality: 'best' });
+    setEditingChannel(null);
+    setSelectedFile(null);
+    setFormData({ account_id: '', chat_id: 0, name: '', video_quality: 'best', stream_type: 'video' });
+  };
+
+  const handleEdit = (channel: Channel) => {
+    setEditingChannel(channel);
+    setSelectedFile(null);
+    setFormData({
+      account_id: channel.account_id,
+      chat_id: channel.chat_id,
+      name: channel.name,
+      video_quality: channel.video_quality,
+      ffmpeg_args: channel.ffmpeg_args,
+      stream_type: channel.stream_type as 'video' | 'audio' || 'video',
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm(t('channels.deleteConfirm', 'Are you sure you want to delete this channel?'))) {
+      await deleteChannel.mutateAsync(id);
+    }
   };
 
   const handleStart = (id: string) => {
@@ -81,6 +130,12 @@ const ChannelManager: React.FC = () => {
   
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+  };
+
+  const openCreateModal = () => {
+    setEditingChannel(null);
+    setFormData({ account_id: '', chat_id: 0, name: '', video_quality: 'best', stream_type: 'video' });
+    setIsModalOpen(true);
   };
 
   if (loading) {
@@ -126,7 +181,7 @@ const ChannelManager: React.FC = () => {
               {t('channels.connectAccount', 'Connect Account')}
             </button>
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={openCreateModal}
               className="bg-[color:var(--color-accent)] hover:opacity-90 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-opacity text-sm sm:text-base"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -150,7 +205,7 @@ const ChannelManager: React.FC = () => {
               </button>
             ) : (
               <button
-                onClick={() => setIsModalOpen(true)}
+                onClick={openCreateModal}
                 className="mt-4 text-[color:var(--color-accent)] hover:underline text-sm sm:text-base"
               >
                 {t('channels.createFirst', 'Create your first channel')}
@@ -174,19 +229,37 @@ const ChannelManager: React.FC = () => {
                         ID: {channel.chat_id}
                       </p>
                     </div>
-                    <span
-                      className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                        channel.status === 'running'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          : channel.status === 'error'
-                          ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                          : channel.status === 'starting' || channel.status === 'stopping'
-                          ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-muted)]'
-                      }`}
-                    >
-                      {channel.status.toUpperCase()}
-                    </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span
+                        className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                          channel.status === 'running'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : channel.status === 'error'
+                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                            : channel.status === 'starting' || channel.status === 'stopping'
+                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-muted)]'
+                        }`}
+                      >
+                        {channel.status.toUpperCase()}
+                      </span>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => handleEdit(channel)}
+                          className="p-1.5 text-[color:var(--color-text-muted)] hover:text-[color:var(--color-accent)] hover:bg-[color:var(--color-surface-muted)] rounded transition-colors"
+                          title={t('common.edit', 'Edit')}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(channel.id)}
+                          className="p-1.5 text-[color:var(--color-text-muted)] hover:text-red-500 hover:bg-[color:var(--color-surface-muted)] rounded transition-colors"
+                          title={t('common.delete', 'Delete')}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-[color:var(--color-text-muted)] mb-4 sm:mb-6">
@@ -287,7 +360,7 @@ const ChannelManager: React.FC = () => {
                   onCancel={() => setShowDialogPicker(false)}
                 />
               ) : (
-              <form onSubmit={handleCreate}>
+              <form onSubmit={handleCreateOrUpdate}>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
@@ -299,6 +372,7 @@ const ChannelManager: React.FC = () => {
                       className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
                       value={formData.account_id}
                       onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
+                      disabled={!!editingChannel}
                     >
                       <option value="">{t('channels.selectAccount', 'Select Account')}</option>
                       {accounts.map((acc) => (
@@ -340,8 +414,9 @@ const ChannelManager: React.FC = () => {
                         value={formData.chat_id || ''}
                         onChange={(e) => setFormData({ ...formData, chat_id: Number(e.target.value) })}
                         placeholder="-1001234567890"
+                        disabled={!!editingChannel}
                       />
-                      {formData.account_id && (
+                      {formData.account_id && !editingChannel && (
                         <button
                           type="button"
                           onClick={() => setShowDialogPicker(true)}
@@ -376,12 +451,47 @@ const ChannelManager: React.FC = () => {
                       <option value="480p">480p</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                      {t('channels.streamType', 'Stream Type')}
+                    </label>
+                    <select
+                      title={t('channels.selectStreamType', 'Select Stream Type')}
+                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                      value={formData.stream_type || 'video'}
+                      onChange={(e) => setFormData({ ...formData, stream_type: e.target.value as 'video' | 'audio' })}
+                    >
+                      <option value="video">{t('channels.typeVideo', 'Video Chat')}</option>
+                      <option value="audio">{t('channels.typeAudio', 'Voice Chat')}</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                      {t('channels.placeholder', 'Placeholder Image (for Audio Mode)')}
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                    />
+                    {editingChannel?.placeholder_image && (
+                      <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
+                        {t('channels.currentPlaceholder', 'Current: ')} {editingChannel.placeholder_image.split('/').pop()}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
+                    onClick={() => {
+                      setIsModalOpen(false);
+                      setEditingChannel(null);
+                    }}
                     className="w-full sm:w-auto px-4 py-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors"
                   >
                     {t('common.cancel', 'Cancel')}
@@ -390,7 +500,7 @@ const ChannelManager: React.FC = () => {
                     type="submit"
                     className="w-full sm:w-auto px-4 py-2.5 bg-[color:var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
                   >
-                    {t('channels.create', 'Create Channel')}
+                    {editingChannel ? t('common.save', 'Save Changes') : t('channels.create', 'Create Channel')}
                   </button>
                 </div>
               </form>

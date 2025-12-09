@@ -14,7 +14,7 @@ const SectionShell: FC<{ children: ReactNode; className?: string }> = ({ childre
   </section>
 );
 
-const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background, className }) => {
+const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background, className, children }) => {
   return (
     <div
       className={clsx('relative min-h-dvh text-[color:var(--landing-text)]', className)}
@@ -40,8 +40,9 @@ const LandingLayout: FC<LandingSectionProps> = ({ hero, nav, footer, background,
         </header>
       ) : null}
       <div className="relative z-10 flex min-h-[calc(100dvh-80px)] flex-col">
-        <main className="flex flex-1 flex-col justify-start pb-10 pt-4 xs:pb-12 xs:pt-6" role="main">
+        <main className="flex flex-1 flex-col justify-start pb-10 pt-4 xs:pb-12 xs:pt-6 gap-24 sm:gap-32" role="main">
           <SectionShell>{hero}</SectionShell>
+          {children ? <SectionShell className="space-y-24 sm:space-y-32">{children}</SectionShell> : null}
         </main>
         {footer ? (
           <footer className="px-4 pb-6 sm:px-8" data-testid="landing-footer">

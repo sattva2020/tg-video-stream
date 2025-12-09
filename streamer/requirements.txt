@@ -3,7 +3,7 @@ pyrogram==2.0.106
 telethon==1.38.1
 tgcrypto==1.2.5
 # pytgcalls requires tgcalls C++ library
-py-tgcalls==2.1.0
+py-tgcalls==2.2.1
 yt-dlp==2025.1.12
 ffmpeg-python==0.2.0
 pydantic==2.9.2

@@ -4,7 +4,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
-import { scheduleApi, ScheduleSlotCreate, ScheduleSlotUpdate, ScheduleTemplateCreate, PlaylistCreate, PlaylistUpdate, BulkCopyRequest, ApplyTemplateRequest } from '../api/schedule';
+import { scheduleApi, ScheduleSlotCreate, ScheduleSlotUpdate, ScheduleTemplateCreate, PlaylistCreate, PlaylistUpdate, PlaylistGroupCreate, PlaylistGroupUpdate, BulkCopyRequest, ApplyTemplateRequest } from '../api/schedule';
 import { useToast } from './useToast';
 
 // ==================== Error Handling ====================
@@ -67,6 +67,10 @@ export const scheduleQueryKeys = {
     [...scheduleQueryKeys.all, 'templates', channelId] as const,
   playlists: (channelId?: string) => 
     [...scheduleQueryKeys.all, 'playlists', channelId] as const,
+  groups: (channelId?: string) => 
+    [...scheduleQueryKeys.all, 'groups', channelId] as const,
+  groupsWithPlaylists: (channelId?: string) => 
+    [...scheduleQueryKeys.all, 'groupsWithPlaylists', channelId] as const,
 };
 
 // ==================== Schedule Slots Hooks ====================
@@ -265,7 +269,7 @@ export function useCreatePlaylist() {
   return useMutation({
     mutationFn: (data: PlaylistCreate) => scheduleApi.createPlaylist(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'playlists'] });
       toast.success('Плейлист создан');
     },
     onError: (error: unknown) => {
@@ -285,7 +289,7 @@ export function useUpdatePlaylist() {
     mutationFn: ({ playlistId, data }: { playlistId: string; data: PlaylistUpdate }) => 
       scheduleApi.updatePlaylist(playlistId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'playlists'] });
       toast.success('Плейлист обновлён');
     },
     onError: (error: unknown) => {
@@ -304,8 +308,113 @@ export function useDeletePlaylist() {
   return useMutation({
     mutationFn: (playlistId: string) => scheduleApi.deletePlaylist(playlistId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.playlists() });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'playlists'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'groups'] });
       toast.success('Плейлист удалён');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+/**
+ * Переместить плейлист в группу
+ */
+export function useMovePlaylistToGroup() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ playlistId, groupId, position }: { playlistId: string; groupId?: string; position?: number }) => 
+      scheduleApi.movePlaylistToGroup(playlistId, groupId, position),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'playlists'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'groups'] });
+      toast.success('Плейлист перемещён');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+// ==================== Playlist Groups Hooks ====================
+
+/**
+ * Получить список групп плейлистов
+ */
+export function usePlaylistGroups(channelId?: string) {
+  return useQuery({
+    queryKey: scheduleQueryKeys.groups(channelId),
+    queryFn: () => scheduleApi.getGroups(channelId),
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Получить группы с вложенными плейлистами
+ */
+export function usePlaylistGroupsWithPlaylists(channelId?: string) {
+  return useQuery({
+    queryKey: scheduleQueryKeys.groupsWithPlaylists(channelId),
+    queryFn: () => scheduleApi.getGroupsWithPlaylists(channelId),
+    staleTime: 60 * 1000,
+  });
+}
+
+/**
+ * Создать группу плейлистов
+ */
+export function useCreatePlaylistGroup() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (data: PlaylistGroupCreate) => scheduleApi.createGroup(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'groups'] });
+      toast.success('Группа создана');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+/**
+ * Обновить группу плейлистов
+ */
+export function useUpdatePlaylistGroup() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ groupId, data }: { groupId: string; data: PlaylistGroupUpdate }) => 
+      scheduleApi.updateGroup(groupId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'groups'] });
+      toast.success('Группа обновлена');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+/**
+ * Удалить группу плейлистов
+ */
+export function useDeletePlaylistGroup() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (groupId: string) => scheduleApi.deleteGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'groups'] });
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'playlists'] });
+      toast.success('Группа удалена');
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error));

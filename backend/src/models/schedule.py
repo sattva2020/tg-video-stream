@@ -43,7 +43,7 @@ class ScheduleSlot(Base):
     channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Привязка к плейлисту (опционально - можно указать позже)
-    playlist_id = Column(GUID(), ForeignKey("playlist_items.id", ondelete="SET NULL"), nullable=True)
+    playlist_id = Column(GUID(), ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True)
     
     # Временные параметры слота
     start_date = Column(Date, nullable=False, index=True)
@@ -122,6 +122,51 @@ class ScheduleTemplate(Base):
         return f"<ScheduleTemplate {self.id}: {self.name}>"
 
 
+class PlaylistGroup(Base):
+    """
+    Группа плейлистов — для логической организации плейлистов.
+    
+    Примеры:
+    - "Музыка для медитации"
+    - "Karunesh Discography"
+    - "Утренние эфиры"
+    """
+    __tablename__ = "playlist_groups"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    
+    # Владелец группы
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # Привязка к каналу (опционально — группа может быть общей)
+    channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
+    
+    # Метаданные
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    color = Column(String(7), default="#6366F1")  # Индиго по умолчанию
+    icon = Column(String(50), default="folder")   # Иконка группы
+    
+    # Порядок сортировки
+    position = Column(Integer, default=0)
+    
+    # Флаги
+    is_expanded = Column(Boolean, default=True)   # Развёрнута ли группа в UI
+    is_active = Column(Boolean, default=True)
+    
+    # Аудит
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="playlist_groups")
+    channel = relationship("Channel", backref="playlist_groups")
+    playlists = relationship("Playlist", back_populates="group", order_by="Playlist.position")
+
+    def __repr__(self):
+        return f"<PlaylistGroup {self.id}: {self.name}>"
+
+
 class Playlist(Base):
     """
     Плейлист — коллекция треков/видео для трансляции.
@@ -138,6 +183,12 @@ class Playlist(Base):
     
     # Привязка к каналу (опционально)
     channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
+    
+    # Привязка к группе (опционально)
+    group_id = Column(GUID(), ForeignKey("playlist_groups.id", ondelete="SET NULL"), nullable=True, index=True)
+    
+    # Порядок сортировки внутри группы
+    position = Column(Integer, default=0)
     
     # Метаданные
     name = Column(String(255), nullable=False)
@@ -170,6 +221,7 @@ class Playlist(Base):
     # Relationships
     user = relationship("User", backref="playlists")
     channel = relationship("Channel", backref="playlists")
+    group = relationship("PlaylistGroup", back_populates="playlists")
 
     def __repr__(self):
         return f"<Playlist {self.id}: {self.name} ({self.items_count} items)>"

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -22,6 +22,8 @@ const PendingUsers: React.FC = () => {
   const [users, setUsers] = useState<PendingUser[]>([]);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -29,11 +31,11 @@ const PendingUsers: React.FC = () => {
       const data = await adminApi.listUsers({ status: 'pending' });
       setUsers(data?.items || []);
     } catch (err) {
-      toast.error('Не удалось загрузить список пользователей');
+      toastRef.current.error('Не удалось загрузить список пользователей');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     load();
