@@ -13,6 +13,7 @@ from datetime import date, time, datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
+import logging
 from sqlalchemy import and_, or_
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -22,6 +23,7 @@ from src.models.telegram import Channel
 from src.api.auth import get_current_user, require_admin
 from src.models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 
 
@@ -356,7 +358,7 @@ async def get_calendar_view(
         ScheduleSlot.is_active == True
     ).order_by(ScheduleSlot.start_time).all()
     
-    print(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
+    logger.info(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
     
     # Формируем ответ для всех дней месяца
     result = []
@@ -447,7 +449,7 @@ async def get_calendar_view(
         ))
         current_day += timedelta(days=1)
     
-    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}")
+    logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}")
     return result
 
 
