@@ -227,29 +227,40 @@ async def get_channel_active_playlist(
             Playlist.id == active_slot.playlist_id,
             Playlist.is_active == True
         ).first()
-        if playlist and playlist.items:
-            return {
-                "source": "schedule",
-                "playlist_id": str(playlist.id),
-                "playlist_name": playlist.name,
-                "is_shuffled": playlist.is_shuffled,
-                "items": playlist.items
-            }
+        
+        if playlist:
+            items = playlist.items or []
+            if not items and playlist.source_url:
+                items = [{"url": playlist.source_url, "title": playlist.name}]
+                
+            if items:
+                return {
+                    "source": "schedule",
+                    "playlist_id": str(playlist.id),
+                    "playlist_name": playlist.name,
+                    "is_shuffled": playlist.is_shuffled,
+                    "items": items
+                }
     
-    # 2. Ищем плейлист, привязанный к каналу
-    channel_playlist = db.query(Playlist).filter(
+    # 2. Ищем плейлист, привязанный к каналу (берем первый с элементами)
+    channel_playlists = db.query(Playlist).filter(
         Playlist.channel_id == channel_uuid,
         Playlist.is_active == True
-    ).order_by(Playlist.created_at.desc()).first()
+    ).order_by(Playlist.created_at.desc()).limit(10).all()
     
-    if channel_playlist and channel_playlist.items:
-        return {
-            "source": "channel",
-            "playlist_id": str(channel_playlist.id),
-            "playlist_name": channel_playlist.name,
-            "is_shuffled": channel_playlist.is_shuffled,
-            "items": channel_playlist.items
-        }
+    for pl in channel_playlists:
+        items = pl.items or []
+        if not items and pl.source_url:
+            items = [{"url": pl.source_url, "title": pl.name}]
+            
+        if items:
+            return {
+                "source": "channel",
+                "playlist_id": str(pl.id),
+                "playlist_name": pl.name,
+                "is_shuffled": pl.is_shuffled,
+                "items": items
+            }
     
     # 3. Ничего не найдено
     return {

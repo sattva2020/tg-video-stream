@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta
 import uuid
+import shutil
+import os
 
 router = APIRouter()
 
@@ -21,6 +23,7 @@ class ChannelCreate(BaseModel):
     name: str
     ffmpeg_args: Optional[str] = None
     video_quality: Optional[str] = "best"
+    stream_type: Optional[str] = "video"
 
 class ChannelResponse(BaseModel):
     id: uuid.UUID
@@ -30,6 +33,8 @@ class ChannelResponse(BaseModel):
     status: str
     ffmpeg_args: Optional[str]
     video_quality: str
+    stream_type: str
+    placeholder_image: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +76,8 @@ def list_channels(
             "name": channel.name,
             "ffmpeg_args": channel.ffmpeg_args,
             "video_quality": channel.video_quality,
+            "stream_type": channel.stream_type or "video",
+            "placeholder_image": channel.placeholder_image,
             "status": current_status,
         }
         
@@ -113,6 +120,7 @@ def create_channel(
         name=channel_in.name,
         ffmpeg_args=channel_in.ffmpeg_args,
         video_quality=channel_in.video_quality,
+        stream_type=channel_in.stream_type,
         status="stopped"
     )
     
@@ -186,3 +194,99 @@ def get_channel_status(
         return redis_status
     
     return {"status": channel.status}
+
+@router.delete("/{channel_id}")
+def delete_channel(
+    channel_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify ownership
+    channel = db.query(Channel).join(TelegramAccount).filter(
+        Channel.id == channel_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+    
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    # Stop channel if running
+    if channel.status in ["running", "starting"]:
+        controller = RedisStreamController(db)
+        try:
+            controller.stop_channel(str(channel_id))
+        except Exception:
+            # Ignore errors when stopping during deletion
+            pass
+            
+    db.delete(channel)
+    db.commit()
+    
+    return {"status": "success", "message": "Channel deleted"}
+
+@router.put("/{channel_id}", response_model=ChannelResponse)
+def update_channel(
+    channel_id: uuid.UUID,
+    channel_in: ChannelCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify ownership
+    channel = db.query(Channel).join(TelegramAccount).filter(
+        Channel.id == channel_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+    
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    # Update fields
+    channel.name = channel_in.name
+    channel.ffmpeg_args = channel_in.ffmpeg_args
+    channel.video_quality = channel_in.video_quality
+    channel.stream_type = channel_in.stream_type
+    
+    # Note: We don't update account_id or chat_id usually, but if needed:
+    # channel.chat_id = channel_in.chat_id
+    
+    db.commit()
+    db.refresh(channel)
+    
+    return channel
+
+@router.post("/{channel_id}/placeholder")
+async def upload_placeholder(
+    channel_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify ownership
+    channel = db.query(Channel).join(TelegramAccount).filter(
+        Channel.id == channel_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+    
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+        
+    # Ensure directory exists
+    upload_dir = "data/placeholders"
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate filename
+    ext = os.path.splitext(file.filename)[1]
+    if not ext:
+        ext = ".png"
+    filename = f"{channel_id}{ext}"
+    file_path = os.path.join(upload_dir, filename)
+    
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # Update DB
+    channel.placeholder_image = file_path
+    db.commit()
+    
+    return {"status": "success", "path": file_path}

@@ -130,6 +130,7 @@ class RedisStreamController:
             "api_hash": settings.API_HASH,
             "video_quality": channel.video_quality or "720p",
             "ffmpeg_args": channel.ffmpeg_args,
+            "stream_type": getattr(channel, 'stream_type', 'video'),
         }
     
     def start_channel(self, channel_id: str) -> bool:

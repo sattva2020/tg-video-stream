@@ -143,6 +143,71 @@ export function useStopChannel() {
 }
 
 /**
+ * Hook для удаления канала
+ */
+export function useDeleteChannel() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (channelId: string) => channelsApi.delete(channelId),
+    
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+      toast.success('Канал удален');
+    },
+    
+    onError: (error: Error) => {
+      toast.error(`Не удалось удалить канал: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook для обновления канала
+ */
+export function useUpdateChannel() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: CreateChannelData }) => 
+      channelsApi.update(id, data),
+    
+    onSuccess: (updatedChannel) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+      toast.success(`Канал "${updatedChannel.name}" обновлен`);
+    },
+    
+    onError: (error: Error) => {
+      toast.error(`Не удалось обновить канал: ${error.message}`);
+    },
+  });
+}
+
+/**
+ * Hook для загрузки заглушки
+ */
+export function useUploadPlaceholder() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ channelId, file }: { channelId: string; file: File }) => 
+      channelsApi.uploadPlaceholder(channelId, file),
+    
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+      toast.success('Заглушка обновлена');
+    },
+    
+    onError: (error: Error) => {
+      toast.error(`Не удалось загрузить заглушку: ${error.message}`);
+    },
+  });
+}
+
+/**
  * Hook для статуса стрима
  */
 export function useStreamStatus() {

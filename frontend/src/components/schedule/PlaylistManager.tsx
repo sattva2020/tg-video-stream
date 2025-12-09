@@ -22,6 +22,16 @@ import {
   ListMusic,
   Youtube,
   FileText,
+  FolderPlus,
+  Folder,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  MoveRight,
+  ArrowUpDown,
+  HardDrive,
+  Globe,
+  GripVertical,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -42,13 +52,30 @@ import {
   ModalFooter,
   Textarea,
 } from '@heroui/react';
-import { 
-  usePlaylists, 
-  useCreatePlaylist, 
-  useUpdatePlaylist, 
-  useDeletePlaylist 
+import {
+  usePlaylists,
+  useCreatePlaylist,
+  useUpdatePlaylist,
+  useDeletePlaylist,
+  usePlaylistGroups,
+  useCreatePlaylistGroup,
+  useDeletePlaylistGroup,
+  useMovePlaylistToGroup,
 } from '../../hooks/useScheduleQuery';
-import type { Playlist, PlaylistItem } from '../../api/schedule';
+import type { Playlist, PlaylistItem, PlaylistGroup } from '../../api/schedule';
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+} from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ==================== Types ====================
 
@@ -77,6 +104,202 @@ const PRESET_COLORS = [
   '#8B5CF6', '#EC4899', '#EF4444', '#F97316', '#EAB308',
   '#22C55E', '#14B8A6', '#06B6D4', '#3B82F6', '#6366F1',
 ];
+
+// Get icon component by source type
+function getSourceIcon(sourceType: string) {
+  switch (sourceType) {
+    case 'youtube':
+      return Youtube;
+    case 'm3u':
+      return FileText;
+    case 'folder':
+    case 'local':
+      return HardDrive;
+    case 'url':
+      return Globe;
+    case 'manual':
+    default:
+      return ListMusic;
+  }
+}
+
+// ==================== Draggable Playlist Card ====================
+
+interface DraggablePlaylistCardProps {
+  playlist: Playlist;
+  groups: PlaylistGroup[];
+  isSelected: boolean;
+  onSelect?: (playlist: Playlist) => void;
+  onEdit: (playlist: Playlist) => void;
+  onDelete: (playlist: Playlist) => void;
+  onMoveToGroup: (playlistId: string, groupId: string | undefined) => void;
+  t: any;
+}
+
+const DraggablePlaylistCard: React.FC<DraggablePlaylistCardProps> = ({
+  playlist,
+  groups,
+  isSelected,
+  onSelect,
+  onEdit,
+  onDelete,
+  onMoveToGroup,
+  t,
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: playlist.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const SourceIcon = getSourceIcon(playlist.source_type);
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card
+        isPressable={!!onSelect}
+        isHoverable
+        className={`
+          overflow-hidden
+          ${isSelected ? 'ring-2 ring-violet-500' : ''}
+          ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}
+        `}
+        onPress={() => onSelect?.(playlist)}
+      >
+        <CardBody className="p-4">
+          {/* Color bar */}
+          <div
+            className="absolute top-0 left-0 right-0 h-1"
+            style={{ backgroundColor: playlist.color }}
+          />
+
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              {/* Drag handle */}
+              <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-default-400 hover:text-default-600 touch-none"
+              >
+                <GripVertical className="w-4 h-4" />
+              </div>
+              <div
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: `${playlist.color}20` }}
+              >
+                <SourceIcon className="w-5 h-5" style={{ color: playlist.color }} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-[color:var(--color-text)]">
+                  {playlist.name}
+                </h3>
+                <div className="flex items-center gap-2 mt-1 text-xs text-default-500">
+                  <span>{playlist.items_count} треков</span>
+                  <span>•</span>
+                  <span>{formatDuration(playlist.total_duration)}</span>
+                </div>
+              </div>
+            </div>
+
+            <Dropdown>
+              <DropdownTrigger>
+                <Button isIconOnly size="sm" variant="light">
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="Действия">
+                <DropdownItem key="edit" startContent={<Edit className="w-4 h-4" />} onPress={() => onEdit(playlist)}>
+                  {t('common.edit', 'Редактировать')}
+                </DropdownItem>
+                <DropdownItem key="move" startContent={<MoveRight className="w-4 h-4" />}>
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <span>{t('playlist.moveToGroup', 'Переместить в группу')}</span>
+                    </DropdownTrigger>
+                    <DropdownMenu 
+                      aria-label="Выбрать группу"
+                      items={[
+                        { id: 'ungrouped', name: 'Без группы' },
+                        ...groups
+                      ]}
+                    >
+                      {(item: any) => (
+                        <DropdownItem 
+                          key={item.id} 
+                          onPress={() => onMoveToGroup(playlist.id, item.id === 'ungrouped' ? undefined : item.id)}
+                        >
+                          {item.name}
+                        </DropdownItem>
+                      )}
+                    </DropdownMenu>
+                  </Dropdown>
+                </DropdownItem>
+                <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="w-4 h-4" />} onPress={() => onDelete(playlist)}>
+                  {t('common.delete', 'Удалить')}
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          </div>
+
+          {playlist.description && (
+            <p className="mt-2 text-xs text-default-500 line-clamp-2">
+              {playlist.description}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2 mt-3">
+            {playlist.is_shuffled && (
+              <Chip size="sm" variant="flat" startContent={<Shuffle className="w-3 h-3" />}>
+                Shuffle
+              </Chip>
+            )}
+            {playlist.group_name && (
+              <Chip size="sm" variant="flat" color="secondary" startContent={<Folder className="w-3 h-3" />}>
+                {playlist.group_name}
+              </Chip>
+            )}
+          </div>
+        </CardBody>
+      </Card>
+    </div>
+  );
+};
+
+// ==================== Droppable Group ====================
+
+interface DroppableGroupProps {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+const DroppableGroup: React.FC<DroppableGroupProps> = ({ id, children, className }) => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `group-${id}`,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`
+        ${className || ''}
+        ${isOver ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''}
+        transition-all duration-200
+      `}
+    >
+      {children}
+    </div>
+  );
+};
 
 // ==================== Helper Functions ====================
 
@@ -180,9 +403,9 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
   };
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={onClose} 
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
       size="2xl"
       backdrop="blur"
       classNames={{
@@ -191,7 +414,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
     >
       <ModalContent className="bg-white dark:bg-gray-900 shadow-xl">
         <ModalHeader className="flex items-center gap-3">
-          <div 
+          <div
             className="p-2 rounded-lg"
             style={{ backgroundColor: formData.color }}
           >
@@ -279,7 +502,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
           {formData.source_type !== 'manual' && (
             <div>
               <label className="text-sm font-medium text-default-700 mb-2 block">
-                {formData.source_type === 'youtube' 
+                {formData.source_type === 'youtube'
                   ? t('playlist.youtubeUrl', 'URL плейлиста YouTube')
                   : t('playlist.m3uUrl', 'URL m3u файла')}
               </label>
@@ -359,19 +582,69 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'duration'>('name');
 
   const { data: playlists = [], isLoading } = usePlaylists(channelId);
+  const { data: groups = [] } = usePlaylistGroups(channelId);
   const deleteMutation = useDeletePlaylist();
+  const createGroupMutation = useCreatePlaylistGroup();
+  const deleteGroupMutation = useDeletePlaylistGroup();
+  const moveToGroupMutation = useMovePlaylistToGroup();
 
-  // Filtered playlists
+  // Toggle group expand/collapse
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  };
+
+  // Sort function
+  const sortPlaylists = (items: Playlist[]) => {
+    return [...items].sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'date') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === 'duration') return b.total_duration - a.total_duration;
+      return 0;
+    });
+  };
+
+  // Group playlists by group_id
+  const groupedPlaylists = useMemo(() => {
+    const grouped: Record<string, Playlist[]> = { ungrouped: [] };
+    groups.forEach(g => { grouped[g.id] = []; });
+
+    playlists.forEach(p => {
+      if (p.group_id && grouped[p.group_id]) {
+        grouped[p.group_id].push(p);
+      } else {
+        grouped.ungrouped.push(p);
+      }
+    });
+
+    // Sort each group
+    Object.keys(grouped).forEach(key => {
+      grouped[key] = sortPlaylists(grouped[key]);
+    });
+
+    return grouped;
+  }, [playlists, groups, sortBy]);
+
+  // Filtered playlists (for search)
   const filteredPlaylists = useMemo(() => {
-    if (!search.trim()) return playlists;
+    if (!search.trim()) return null; // Use grouped view
     const query = search.toLowerCase();
-    return playlists.filter(p => 
+    return sortPlaylists(playlists.filter(p =>
       p.name.toLowerCase().includes(query) ||
       p.description?.toLowerCase().includes(query)
-    );
-  }, [playlists, search]);
+    ));
+  }, [playlists, search, sortBy]);
 
   const handleEdit = (playlist: Playlist) => {
     setEditingPlaylist(playlist);
@@ -389,172 +662,314 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
     }
   };
 
+  const handleCreateGroup = async () => {
+    const name = prompt(t('playlist.groupName', 'Название группы:'));
+    if (name) {
+      await createGroupMutation.mutateAsync({ name, channel_id: channelId });
+    }
+  };
+
+  const handleDeleteGroup = async (group: PlaylistGroup) => {
+    if (confirm(t('playlist.confirmDeleteGroup', `Удалить группу "${group.name}"? Плейлисты будут перемещены в "Без группы".`))) {
+      await deleteGroupMutation.mutateAsync(group.id);
+    }
+  };
+
+  const handleMoveToGroup = async (playlistId: string, groupId: string | undefined) => {
+    await moveToGroupMutation.mutateAsync({ playlistId, groupId });
+  };
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  // DnD state
+  const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const playlist = playlists.find(p => p.id === active.id);
+    setActivePlaylist(playlist || null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePlaylist(null);
+
+    if (!over) return;
+
+    const playlistId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if dropped over a group
+    if (overId.startsWith('group-')) {
+      const groupId = overId.replace('group-', '');
+      await handleMoveToGroup(playlistId, groupId === 'ungrouped' ? undefined : groupId);
+    }
+  };
+
+  // Render playlist card using DraggablePlaylistCard
+  const renderPlaylistCard = (playlist: Playlist) => (
+    <DraggablePlaylistCard
+      key={playlist.id}
+      playlist={playlist}
+      groups={groups}
+      isSelected={selectedPlaylistId === playlist.id}
+      onSelect={onSelectPlaylist}
+      onEdit={handleEdit}
+      onDelete={handleDelete}
+      onMoveToGroup={handleMoveToGroup}
+      t={t}
+    />
+  );
+
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
-            <ListMusic className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-[color:var(--color-text)]">
-              {t('playlist.title', 'Плейлисты')}
-            </h2>
-            <p className="text-sm text-[color:var(--color-text-muted)]">
-              {playlists.length} {t('playlist.count', 'плейлистов')}
-            </p>
-          </div>
-        </div>
-
-        <Button
-          color="primary"
-          onPress={handleCreate}
-          startContent={<Plus className="w-4 h-4" />}
-        >
-          {t('playlist.create', 'Создать')}
-        </Button>
-      </div>
-
-      {/* Search */}
-      <Input
-        placeholder={t('playlist.search', 'Поиск плейлистов...')}
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        startContent={<Search className="w-4 h-4 text-default-400" />}
-        isClearable
-        onClear={() => setSearch('')}
-      />
-
-      {/* Playlist Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          // Skeleton
-          Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
-          ))
-        ) : filteredPlaylists.length === 0 ? (
-          // Empty state
-          <div className="col-span-full py-12 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-default-100 flex items-center justify-center">
-              <Music className="w-8 h-8 text-default-400" />
+    <div className="h-full">
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+                <ListMusic className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-[color:var(--color-text)]">
+                  {t('playlist.title', 'Плейлисты')}
+                </h2>
+                <p className="text-sm text-[color:var(--color-text-muted)]">
+                  {playlists.length} {t('playlist.count', 'плейлистов')} • {groups.length} {t('playlist.groupsCount', 'групп')}
+                </p>
+              </div>
             </div>
-            <h3 className="text-lg font-semibold">
-              {search ? t('playlist.notFound', 'Ничего не найдено') : t('playlist.empty', 'Нет плейлистов')}
-            </h3>
-            <p className="text-sm text-default-500 mt-1">
-              {search 
-                ? t('playlist.tryDifferentSearch', 'Попробуйте другой запрос')
-                : t('playlist.createFirst', 'Создайте первый плейлист')}
-            </p>
-          </div>
-        ) : (
-          // Playlist cards
-          <AnimatePresence mode="popLayout">
-            {filteredPlaylists.map((playlist) => (
-              <motion.div
-                key={playlist.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                layout
+
+            <div className="flex gap-2">
+              <Button
+                variant="flat"
+                onPress={handleCreateGroup}
+                startContent={<FolderPlus className="w-4 h-4" />}
               >
-                <Card
-                  isPressable={!!onSelectPlaylist}
-                  isHoverable
-                  className={`
-                    overflow-hidden
-                    ${selectedPlaylistId === playlist.id ? 'ring-2 ring-violet-500' : ''}
-                  `}
-                  onPress={() => onSelectPlaylist?.(playlist)}
-                >
-                  <CardBody className="p-4">
-                    {/* Color bar */}
-                    <div 
-                      className="absolute top-0 left-0 right-0 h-1"
-                      style={{ backgroundColor: playlist.color }}
-                    />
+                {t('playlist.createGroup', 'Группа')}
+              </Button>
+              <Button
+                color="primary"
+                onPress={handleCreate}
+                startContent={<Plus className="w-4 h-4" />}
+              >
+                {t('playlist.create', 'Создать')}
+              </Button>
+            </div>
+          </div>
 
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="p-2 rounded-lg"
-                          style={{ backgroundColor: `${playlist.color}20` }}
-                        >
-                          <Music className="w-5 h-5" style={{ color: playlist.color }} />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-[color:var(--color-text)]">
-                            {playlist.name}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-default-500">
-                            <span>{playlist.items_count} треков</span>
-                            <span>•</span>
-                            <span>{formatDuration(playlist.total_duration)}</span>
-                          </div>
-                        </div>
-                      </div>
+          {/* Search and Sort */}
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder={t('playlist.search', 'Поиск плейлистов...')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              startContent={<Search className="w-4 h-4 text-default-400" />}
+              isClearable
+              onClear={() => setSearch('')}
+            />
+            <Dropdown>
+              <DropdownTrigger>
+                <Button variant="flat" startContent={<ArrowUpDown className="w-4 h-4" />}>
+                  {t('playlist.sort', 'Сортировка')}
+                </Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="Сортировка" selectedKeys={[sortBy]} onAction={(key) => setSortBy(key as typeof sortBy)}>
+                <DropdownItem key="name">{t('playlist.sortByName', 'По имени')}</DropdownItem>
+                <DropdownItem key="date">{t('playlist.sortByDate', 'По дате')}</DropdownItem>
+                <DropdownItem key="duration">{t('playlist.sortByDuration', 'По длительности')}</DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          </div>
 
-                      <Dropdown>
-                        <DropdownTrigger>
-                          <Button isIconOnly size="sm" variant="light">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu aria-label="Playlist actions">
-                          <DropdownItem
-                            key="edit"
-                            startContent={<Edit className="w-4 h-4" />}
-                            onPress={() => handleEdit(playlist)}
-                          >
-                            {t('common.edit', 'Редактировать')}
-                          </DropdownItem>
-                          <DropdownItem
-                            key="delete"
-                            color="danger"
-                            startContent={<Trash2 className="w-4 h-4" />}
-                            onPress={() => handleDelete(playlist)}
-                          >
-                            {t('common.delete', 'Удалить')}
-                          </DropdownItem>
-                        </DropdownMenu>
-                      </Dropdown>
+          {/* Content */}
+          {isLoading ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-32 rounded-xl" />
+              ))}
+            </div>
+          ) : filteredPlaylists ? (
+            // Search results (flat list)
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <AnimatePresence mode="popLayout">
+                {filteredPlaylists.length === 0 ? (
+                  <div className="col-span-full py-12 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-default-100 flex items-center justify-center">
+                      <Music className="w-8 h-8 text-default-400" />
                     </div>
+                    <h3 className="text-lg font-semibold">{t('playlist.notFound', 'Ничего не найдено')}</h3>
+                    <p className="text-sm text-default-500 mt-1">{t('playlist.tryDifferentSearch', 'Попробуйте другой запрос')}</p>
+                  </div>
+                ) : (
+                  filteredPlaylists.map(renderPlaylistCard)
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            // Grouped view
+            <div className="space-y-4">
+              {/* Groups */}
+              {groups.map(group => (
+                <DroppableGroup key={group.id} id={group.id} className="border rounded-xl overflow-hidden dark:border-gray-700">
+                  <button
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-default-100 transition-colors"
+                    title={t('playlist.toggleGroup', 'Свернуть/развернуть группу')}
+                  >
+                    <div className="flex items-center gap-3">
+                      {expandedGroups.has(group.id) ? (
+                        <FolderOpen className="w-5 h-5" style={{ color: group.color }} />
+                      ) : (
+                        <Folder className="w-5 h-5" style={{ color: group.color }} />
+                      )}
+                      <span className="font-medium">{group.name}</span>
+                      <Chip size="sm" variant="flat">{groupedPlaylists[group.id]?.length || 0}</Chip>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group); }}
+                        title={t('common.delete', 'Удалить')}
+                      >
+                        <Trash2 className="w-4 h-4 text-danger" />
+                      </Button>
+                      {expandedGroups.has(group.id) ? (
+                        <ChevronDown className="w-5 h-5 text-default-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-default-400" />
+                      )}
+                    </div>
+                  </button>
 
-                    {playlist.description && (
-                      <p className="mt-2 text-sm text-default-500 line-clamp-2">
-                        {playlist.description}
-                      </p>
+                  <AnimatePresence>
+                    {expandedGroups.has(group.id) && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t dark:border-gray-700"
+                      >
+                        <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {groupedPlaylists[group.id]?.length === 0 ? (
+                            <p className="col-span-full text-sm text-default-500 py-4 text-center">
+                              {t('playlist.emptyGroup', 'Перетащите плейлист сюда')}
+                            </p>
+                          ) : (
+                            groupedPlaylists[group.id]?.map(renderPlaylistCard)
+                          )}
+                        </div>
+                      </motion.div>
                     )}
+                  </AnimatePresence>
+                </DroppableGroup>
+              ))}
 
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {playlist.is_shuffled && (
-                        <Chip size="sm" variant="flat" startContent={<Shuffle className="w-3 h-3" />}>
-                          Shuffle
-                        </Chip>
-                      )}
-                      {playlist.source_type !== 'manual' && (
-                        <Chip size="sm" variant="flat" color="secondary">
-                          {playlist.source_type}
-                        </Chip>
-                      )}
-                    </div>
-                  </CardBody>
-                </Card>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        )}
-      </div>
+              {/* Ungrouped playlists */}
+              <DroppableGroup id="ungrouped" className="border rounded-xl overflow-hidden dark:border-gray-700">
+                <button
+                  onClick={() => toggleGroup('ungrouped')}
+                  className="w-full flex items-center justify-between p-3 hover:bg-default-100 transition-colors"
+                  title={t('playlist.toggleGroup', 'Свернуть/развернуть группу')}
+                >
+                  <div className="flex items-center gap-3">
+                    {expandedGroups.has('ungrouped') ? (
+                      <FolderOpen className="w-5 h-5 text-default-400" />
+                    ) : (
+                      <Folder className="w-5 h-5 text-default-400" />
+                    )}
+                    <span className="font-medium">{t('playlist.ungrouped', 'Без группы')}</span>
+                    <Chip size="sm" variant="flat">{groupedPlaylists.ungrouped.length}</Chip>
+                  </div>
+                  {expandedGroups.has('ungrouped') ? (
+                    <ChevronDown className="w-5 h-5 text-default-400" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5 text-default-400" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {expandedGroups.has('ungrouped') && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t dark:border-gray-700"
+                    >
+                      <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {groupedPlaylists.ungrouped.length === 0 ? (
+                          <p className="col-span-full text-sm text-default-500 py-4 text-center">
+                            {t('playlist.emptyGroup', 'Перетащите плейлист сюда')}
+                          </p>
+                        ) : (
+                          groupedPlaylists.ungrouped.map(renderPlaylistCard)
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </DroppableGroup>
+
+
+              {/* Empty state */}
+              {playlists.length === 0 && (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-default-100 flex items-center justify-center">
+                    <Music className="w-8 h-8 text-default-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold">{t('playlist.empty', 'Плейлист пуст')}</h3>
+                  <p className="text-sm text-default-500 mt-1">{t('playlist.createFirst', 'Создайте первый плейлист')}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+        </div>
+        <DragOverlay>
+          {activePlaylist ? (
+            <div className="opacity-80 rotate-3 scale-105 cursor-grabbing">
+              <Card className="w-64 shadow-xl ring-2 ring-primary">
+                <CardBody className="p-3 flex items-center gap-3">
+                  <div
+                    className="p-2 rounded-lg"
+                    style={{ backgroundColor: `${activePlaylist.color}20` }}
+                  >
+                    {(() => {
+                      const SourceIcon = getSourceIcon(activePlaylist.source_type);
+                      return <SourceIcon className="w-5 h-5" style={{ color: activePlaylist.color }} />;
+                    })()}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-sm line-clamp-1">{activePlaylist.name}</h3>
+                    <p className="text-xs text-default-500">{activePlaylist.items_count} треков</p>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Editor Modal */}
       <PlaylistEditorModal
         isOpen={editorOpen}
-        onClose={() => {
-          setEditorOpen(false);
-          setEditingPlaylist(null);
-        }}
+        onClose={() => setEditorOpen(false)}
         playlist={editingPlaylist}
         channelId={channelId}
       />

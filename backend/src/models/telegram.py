@@ -33,6 +33,8 @@ class Channel(Base):
     # Configuration specific to this channel
     ffmpeg_args = Column(String, nullable=True)
     video_quality = Column(String, default="best")
+    stream_type = Column(String, default="video") # video, audio
+    placeholder_image = Column(String, nullable=True) # Path to custom placeholder image
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
