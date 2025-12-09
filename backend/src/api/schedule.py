@@ -358,6 +358,7 @@ async def get_calendar_view(
         ScheduleSlot.is_active == True
     ).order_by(ScheduleSlot.start_time).all()
     
+    print(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots", flush=True)
     logger.info(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
     
     # Формируем ответ для всех дней месяца
@@ -449,6 +450,7 @@ async def get_calendar_view(
         ))
         current_day += timedelta(days=1)
     
+    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}", flush=True)
     logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}")
     return result
 
