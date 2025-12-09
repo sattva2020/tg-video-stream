@@ -291,6 +291,11 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
                                     trigger: 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-outline)]',
                                     value: 'text-[color:var(--color-text)]',
                                 }}
+                                popoverProps={{
+                                    classNames: {
+                                        content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                                    },
+                                }}
                                 className="flex-1"
                                 aria-label={t('playlist.selectFile', 'Выберите файл')}
                             >

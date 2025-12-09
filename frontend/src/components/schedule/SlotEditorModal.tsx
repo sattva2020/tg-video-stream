@@ -438,6 +438,11 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                     const selected = Array.from(keys)[0] as string;
                     handleChange('playlist_id', selected || '');
                   }}
+                  popoverProps={{
+                    classNames: {
+                      content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                    },
+                  }}
                 >
                   {playlists.map((playlist) => (
                     <SelectItem key={playlist.id} textValue={playlist.name}>
@@ -524,6 +529,11 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as RepeatType;
                 handleChange('repeat_type', selected);
+              }}
+              popoverProps={{
+                classNames: {
+                  content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                },
               }}
             >
               {REPEAT_OPTIONS.map((option) => (
