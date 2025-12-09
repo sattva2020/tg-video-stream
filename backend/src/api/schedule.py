@@ -455,6 +455,74 @@ async def get_calendar_view(
     return result
 
 
+@router.get("/debug/calendar")
+async def debug_calendar_view(
+    channel_id: str,
+    year: int = Query(2025),
+    month: int = Query(12),
+    db: Session = Depends(get_db)
+):
+    """Temporary debug endpoint without auth to test calendar logic."""
+    import sys
+    from calendar import monthrange
+    
+    first_day = date(year, month, 1)
+    last_day = date(year, month, monthrange(year, month)[1])
+    
+    slots = db.query(ScheduleSlot).filter(
+        ScheduleSlot.channel_id == uuid.UUID(channel_id),
+        ScheduleSlot.is_active == True
+    ).order_by(ScheduleSlot.start_time).all()
+    
+    debug_info = {
+        "channel_id": channel_id,
+        "year": year,
+        "month": month,
+        "first_day": str(first_day),
+        "last_day": str(last_day),
+        "total_active_slots": len(slots),
+        "slots_detail": []
+    }
+    
+    for slot in slots:
+        debug_info["slots_detail"].append({
+            "id": str(slot.id),
+            "start_date": str(slot.start_date),
+            "start_time": str(slot.start_time),
+            "end_time": str(slot.end_time),
+            "repeat_type": str(slot.repeat_type),
+            "repeat_until": str(slot.repeat_until) if slot.repeat_until else None
+        })
+    
+    # Test matching logic for December 11 and 12
+    test_dates = [date(2025, 12, 11), date(2025, 12, 12)]
+    matching_results = {}
+    
+    for test_day in test_dates:
+        matching_slots = []
+        for slot in slots:
+            is_match = False
+            
+            if slot.repeat_type != RepeatType.NONE:
+                if slot.start_date > test_day:
+                    continue
+                if slot.repeat_until and slot.repeat_until < test_day:
+                    continue
+            
+            if slot.repeat_type == RepeatType.NONE:
+                is_match = (slot.start_date == test_day)
+            elif slot.repeat_type == RepeatType.DAILY:
+                is_match = True
+            
+            if is_match:
+                matching_slots.append(str(slot.id))
+        
+        matching_results[str(test_day)] = matching_slots
+    
+    debug_info["matching_test"] = matching_results
+    
+    return debug_info
+
 
 @router.get("/expand", response_model=List[ScheduleSlotResponse])
 async def expand_schedule(
