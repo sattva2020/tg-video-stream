@@ -447,6 +447,7 @@ async def get_calendar_view(
         ))
         current_day += timedelta(days=1)
     
+    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}")
     return result
 
 
