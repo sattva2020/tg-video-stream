@@ -350,19 +350,13 @@ async def get_calendar_view(
     first_day = date(year, month, 1)
     last_day = date(year, month, monthrange(year, month)[1])
     
-    # --- DEBUG LOGGING ---
-    import logging
-    logging.basicConfig(filename='schedule_debug.log', level=logging.INFO)
-    logger = logging.getLogger(__name__)
-    logger.info(f"Fetching calendar for channel {channel_id}, {year}-{month}")
-    
     # Получаем ВСЕ активные слоты канала (фильтрацию по датам сделаем в Python для надежности)
     slots = db.query(ScheduleSlot).filter(
         ScheduleSlot.channel_id == uuid.UUID(channel_id),
         ScheduleSlot.is_active == True
     ).order_by(ScheduleSlot.start_time).all()
     
-    logger.info(f"Found {len(slots)} total active slots for channel")
+    print(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
     
     # Формируем ответ для всех дней месяца
     result = []
@@ -405,7 +399,6 @@ async def get_calendar_view(
                         is_match = (current_day.weekday() in r_days)
             
             if is_match:
-                # logger.info(f"Slot {slot.id} matches {current_day}")
                 playlist_name = None
                 if slot.playlist_id:
                      p = db.query(Playlist).filter(Playlist.id == slot.playlist_id).first()
