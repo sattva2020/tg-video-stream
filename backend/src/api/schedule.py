@@ -17,7 +17,7 @@ from sqlalchemy import and_, or_
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.database import get_db
-from src.models.schedule import ScheduleSlot, ScheduleTemplate, Playlist, RepeatType
+from src.models.schedule import ScheduleSlot, ScheduleTemplate, Playlist, PlaylistGroup, RepeatType
 from src.models.telegram import Channel
 from src.api.auth import get_current_user, require_admin
 from src.models.user import User
@@ -117,6 +117,7 @@ class PlaylistCreate(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
     channel_id: Optional[str] = None
+    group_id: Optional[str] = None
     color: str = "#8B5CF6"
     source_type: str = "manual"
     source_url: Optional[str] = None
@@ -129,6 +130,8 @@ class PlaylistUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     color: Optional[str] = None
+    group_id: Optional[str] = None
+    position: Optional[int] = None
     items: Optional[List[dict]] = None
     is_active: Optional[bool] = None
     is_shuffled: Optional[bool] = None
@@ -140,6 +143,8 @@ class PlaylistResponse(BaseModel):
     name: str
     description: Optional[str]
     channel_id: Optional[str]
+    group_id: Optional[str] = None
+    position: int = 0
     color: str
     source_type: str
     source_url: Optional[str]
@@ -151,6 +156,50 @@ class PlaylistResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==================== Playlist Group Schemas ====================
+
+class PlaylistGroupCreate(BaseModel):
+    """Создание группы плейлистов."""
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    channel_id: Optional[str] = None
+    color: str = "#6366F1"
+    icon: str = "folder"
+
+
+class PlaylistGroupUpdate(BaseModel):
+    """Обновление группы плейлистов."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    position: Optional[int] = None
+    is_expanded: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class PlaylistGroupResponse(BaseModel):
+    """Ответ с данными группы плейлистов."""
+    id: str
+    name: str
+    description: Optional[str]
+    channel_id: Optional[str]
+    color: str
+    icon: str
+    position: int
+    is_expanded: bool
+    is_active: bool
+    playlists_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PlaylistGroupWithPlaylistsResponse(PlaylistGroupResponse):
+    """Группа с вложенными плейлистами."""
+    playlists: List[PlaylistResponse] = []
 
 
 class BulkCopyRequest(BaseModel):
@@ -301,51 +350,89 @@ async def get_calendar_view(
     first_day = date(year, month, 1)
     last_day = date(year, month, monthrange(year, month)[1])
     
-    # Получаем все слоты за месяц
+    # --- DEBUG LOGGING ---
+    import logging
+    logging.basicConfig(filename='schedule_debug.log', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info(f"Fetching calendar for channel {channel_id}, {year}-{month}")
+    
+    # Получаем ВСЕ активные слоты канала (фильтрацию по датам сделаем в Python для надежности)
     slots = db.query(ScheduleSlot).filter(
         ScheduleSlot.channel_id == uuid.UUID(channel_id),
-        ScheduleSlot.start_date >= first_day,
-        ScheduleSlot.start_date <= last_day,
         ScheduleSlot.is_active == True
-    ).order_by(ScheduleSlot.start_date, ScheduleSlot.start_time).all()
+    ).order_by(ScheduleSlot.start_time).all()
     
-    # Группируем по дням
-    days_map = {}
-    for slot in slots:
-        day_key = slot.start_date
-        if day_key not in days_map:
-            days_map[day_key] = []
-        
-        playlist_name = None
-        if slot.playlist_id:
-            playlist = db.query(Playlist).filter(Playlist.id == slot.playlist_id).first()
-            playlist_name = playlist.name if playlist else None
-        
-        days_map[day_key].append(ScheduleSlotResponse(
-            id=str(slot.id),
-            channel_id=str(slot.channel_id),
-            playlist_id=str(slot.playlist_id) if slot.playlist_id else None,
-            playlist_name=playlist_name,
-            start_date=slot.start_date,
-            start_time=format_time(slot.start_time),
-            end_time=format_time(slot.end_time),
-            repeat_type=slot.repeat_type,
-            repeat_days=slot.repeat_days,
-            repeat_until=slot.repeat_until,
-            title=slot.title,
-            description=slot.description,
-            color=slot.color,
-            is_active=slot.is_active,
-            priority=slot.priority,
-            created_at=slot.created_at
-        ))
+    logger.info(f"Found {len(slots)} total active slots for channel")
     
     # Формируем ответ для всех дней месяца
     result = []
     current_day = first_day
+    
     while current_day <= last_day:
-        day_slots = days_map.get(current_day, [])
+        day_slots = []
         
+        for slot in slots:
+            # Проверяем, попадает ли слот на этот день
+            is_match = False
+            
+            # Базовая проверка диапазона дат для повторяющихся
+            if slot.repeat_type != RepeatType.NONE:
+                if slot.start_date > current_day:
+                    continue
+                if slot.repeat_until and slot.repeat_until < current_day:
+                    continue
+            
+            if slot.repeat_type == RepeatType.NONE:
+                is_match = (slot.start_date == current_day)
+                
+            elif slot.repeat_type == RepeatType.DAILY:
+                is_match = True
+                
+            elif slot.repeat_type == RepeatType.WEEKLY:
+                is_match = (slot.start_date.weekday() == current_day.weekday())
+                
+            elif slot.repeat_type == RepeatType.WEEKDAYS:
+                is_match = (current_day.weekday() < 5) # 0-4 are Mon-Fri
+                
+            elif slot.repeat_type == RepeatType.WEEKENDS:
+                is_match = (current_day.weekday() >= 5) # 5-6 are Sat-Sun
+                
+            elif slot.repeat_type == RepeatType.CUSTOM:
+                if slot.repeat_days:
+                    # Ensure repeat_days is a list of integers
+                    r_days = slot.repeat_days
+                    if isinstance(r_days, list):
+                        is_match = (current_day.weekday() in r_days)
+            
+            if is_match:
+                # logger.info(f"Slot {slot.id} matches {current_day}")
+                playlist_name = None
+                if slot.playlist_id:
+                     p = db.query(Playlist).filter(Playlist.id == slot.playlist_id).first()
+                     playlist_name = p.name if p else None
+
+                day_slots.append(ScheduleSlotResponse(
+                    id=str(slot.id),
+                    channel_id=str(slot.channel_id),
+                    playlist_id=str(slot.playlist_id) if slot.playlist_id else None,
+                    playlist_name=playlist_name,
+                    start_date=current_day, # Use current day for display
+                    start_time=format_time(slot.start_time),
+                    end_time=format_time(slot.end_time),
+                    repeat_type=slot.repeat_type,
+                    repeat_days=slot.repeat_days,
+                    repeat_until=slot.repeat_until,
+                    title=slot.title,
+                    description=slot.description,
+                    color=slot.color,
+                    is_active=slot.is_active,
+                    priority=slot.priority,
+                    created_at=slot.created_at
+                ))
+        
+        # Сортировка слотов дня по времени
+        day_slots.sort(key=lambda x: x.start_time)
+
         # Проверяем конфликты (пересечения)
         has_conflicts = False
         for i, s1 in enumerate(day_slots):
@@ -841,7 +928,11 @@ async def get_playlists(
     current_user: User = Depends(get_current_user)
 ):
     """Получить список плейлистов."""
-    query = db.query(Playlist).filter(Playlist.user_id == current_user.id)
+    # SuperAdmin и Admin видят все плейлисты
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        query = db.query(Playlist)
+    else:
+        query = db.query(Playlist).filter(Playlist.user_id == current_user.id)
     
     if channel_id:
         query = query.filter(
@@ -851,7 +942,7 @@ async def get_playlists(
             )
         )
     
-    playlists = query.filter(Playlist.is_active == True).order_by(Playlist.name).all()
+    playlists = query.filter(Playlist.is_active == True).order_by(Playlist.position, Playlist.name).all()
     
     return [
         PlaylistResponse(
@@ -859,6 +950,8 @@ async def get_playlists(
             name=p.name,
             description=p.description,
             channel_id=str(p.channel_id) if p.channel_id else None,
+            group_id=str(p.group_id) if p.group_id else None,
+            position=p.position or 0,
             color=p.color,
             source_type=p.source_type,
             source_url=p.source_url,
@@ -992,3 +1085,272 @@ async def delete_playlist(
 
     # Soft delete: return 204 No Content
     return Response(status_code=204)
+
+
+# ==================== Playlist Groups API ====================
+
+@router.get("/groups", response_model=List[PlaylistGroupResponse])
+async def get_playlist_groups(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить список групп плейлистов."""
+    # SuperAdmin и Admin видят все группы
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        query = db.query(PlaylistGroup)
+    else:
+        query = db.query(PlaylistGroup).filter(PlaylistGroup.user_id == current_user.id)
+    
+    if channel_id:
+        query = query.filter(
+            or_(
+                PlaylistGroup.channel_id == uuid.UUID(channel_id),
+                PlaylistGroup.channel_id == None
+            )
+        )
+    
+    groups = query.filter(PlaylistGroup.is_active == True).order_by(PlaylistGroup.position, PlaylistGroup.name).all()
+    
+    return [
+        PlaylistGroupResponse(
+            id=str(g.id),
+            name=g.name,
+            description=g.description,
+            channel_id=str(g.channel_id) if g.channel_id else None,
+            color=g.color,
+            icon=g.icon or "folder",
+            position=g.position or 0,
+            is_expanded=g.is_expanded if g.is_expanded is not None else True,
+            is_active=g.is_active,
+            playlists_count=len([p for p in g.playlists if p.is_active]),
+            created_at=g.created_at
+        )
+        for g in groups
+    ]
+
+
+@router.get("/groups/with-playlists", response_model=List[PlaylistGroupWithPlaylistsResponse])
+async def get_playlist_groups_with_playlists(
+    channel_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Получить группы с вложенными плейлистами (для UI)."""
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        query = db.query(PlaylistGroup)
+    else:
+        query = db.query(PlaylistGroup).filter(PlaylistGroup.user_id == current_user.id)
+    
+    if channel_id:
+        query = query.filter(
+            or_(
+                PlaylistGroup.channel_id == uuid.UUID(channel_id),
+                PlaylistGroup.channel_id == None
+            )
+        )
+    
+    groups = query.filter(PlaylistGroup.is_active == True).order_by(PlaylistGroup.position, PlaylistGroup.name).all()
+    
+    result = []
+    for g in groups:
+        active_playlists = [p for p in g.playlists if p.is_active]
+        result.append(PlaylistGroupWithPlaylistsResponse(
+            id=str(g.id),
+            name=g.name,
+            description=g.description,
+            channel_id=str(g.channel_id) if g.channel_id else None,
+            color=g.color,
+            icon=g.icon or "folder",
+            position=g.position or 0,
+            is_expanded=g.is_expanded if g.is_expanded is not None else True,
+            is_active=g.is_active,
+            playlists_count=len(active_playlists),
+            created_at=g.created_at,
+            playlists=[
+                PlaylistResponse(
+                    id=str(p.id),
+                    name=p.name,
+                    description=p.description,
+                    channel_id=str(p.channel_id) if p.channel_id else None,
+                    group_id=str(p.group_id) if p.group_id else None,
+                    position=p.position or 0,
+                    color=p.color,
+                    source_type=p.source_type,
+                    source_url=p.source_url,
+                    items=p.items or [],
+                    items_count=p.items_count,
+                    total_duration=p.total_duration,
+                    is_active=p.is_active,
+                    is_shuffled=p.is_shuffled,
+                    created_at=p.created_at
+                )
+                for p in sorted(active_playlists, key=lambda x: (x.position or 0, x.name))
+            ]
+        ))
+    
+    return result
+
+
+@router.post("/groups", response_model=PlaylistGroupResponse, status_code=201)
+async def create_playlist_group(
+    group_data: PlaylistGroupCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Создать группу плейлистов."""
+    max_pos = db.query(PlaylistGroup).filter(
+        PlaylistGroup.user_id == current_user.id,
+        PlaylistGroup.is_active == True
+    ).count()
+    
+    group = PlaylistGroup(
+        user_id=current_user.id,
+        channel_id=uuid.UUID(group_data.channel_id) if group_data.channel_id else None,
+        name=group_data.name,
+        description=group_data.description,
+        color=group_data.color,
+        icon=group_data.icon,
+        position=max_pos
+    )
+    
+    db.add(group)
+    db.commit()
+    db.refresh(group)
+    
+    return PlaylistGroupResponse(
+        id=str(group.id),
+        name=group.name,
+        description=group.description,
+        channel_id=str(group.channel_id) if group.channel_id else None,
+        color=group.color,
+        icon=group.icon or "folder",
+        position=group.position or 0,
+        is_expanded=True,
+        is_active=True,
+        playlists_count=0,
+        created_at=group.created_at
+    )
+
+
+@router.put("/groups/{group_id}", response_model=PlaylistGroupResponse)
+async def update_playlist_group(
+    group_id: str,
+    group_data: PlaylistGroupUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Обновить группу плейлистов."""
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        group = db.query(PlaylistGroup).filter(PlaylistGroup.id == uuid.UUID(group_id)).first()
+    else:
+        group = db.query(PlaylistGroup).filter(
+            PlaylistGroup.id == uuid.UUID(group_id),
+            PlaylistGroup.user_id == current_user.id
+        ).first()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    update_data = group_data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(group, key, value)
+    
+    db.commit()
+    db.refresh(group)
+    
+    return PlaylistGroupResponse(
+        id=str(group.id),
+        name=group.name,
+        description=group.description,
+        channel_id=str(group.channel_id) if group.channel_id else None,
+        color=group.color,
+        icon=group.icon or "folder",
+        position=group.position or 0,
+        is_expanded=group.is_expanded if group.is_expanded is not None else True,
+        is_active=group.is_active,
+        playlists_count=len([p for p in group.playlists if p.is_active]),
+        created_at=group.created_at
+    )
+
+
+@router.delete("/groups/{group_id}", status_code=204)
+async def delete_playlist_group(
+    group_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Удалить группу (soft delete). Плейлисты переносятся в ungrouped."""
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        group = db.query(PlaylistGroup).filter(PlaylistGroup.id == uuid.UUID(group_id)).first()
+    else:
+        group = db.query(PlaylistGroup).filter(
+            PlaylistGroup.id == uuid.UUID(group_id),
+            PlaylistGroup.user_id == current_user.id
+        ).first()
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    db.query(Playlist).filter(Playlist.group_id == group.id).update({Playlist.group_id: None})
+    group.is_active = False
+    db.commit()
+    
+    return Response(status_code=204)
+
+
+@router.post("/playlists/{playlist_id}/move-to-group", response_model=PlaylistResponse)
+async def move_playlist_to_group(
+    playlist_id: str,
+    group_id: Optional[str] = None,
+    position: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Переместить плейлист в группу."""
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        playlist = db.query(Playlist).filter(Playlist.id == uuid.UUID(playlist_id)).first()
+    else:
+        playlist = db.query(Playlist).filter(
+            Playlist.id == uuid.UUID(playlist_id),
+            Playlist.user_id == current_user.id
+        ).first()
+    
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    if group_id:
+        group = db.query(PlaylistGroup).filter(
+            PlaylistGroup.id == uuid.UUID(group_id),
+            PlaylistGroup.is_active == True
+        ).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        playlist.group_id = uuid.UUID(group_id)
+    else:
+        playlist.group_id = None
+    
+    if position is not None:
+        playlist.position = position
+    
+    db.commit()
+    db.refresh(playlist)
+    
+    return PlaylistResponse(
+        id=str(playlist.id),
+        name=playlist.name,
+        description=playlist.description,
+        channel_id=str(playlist.channel_id) if playlist.channel_id else None,
+        group_id=str(playlist.group_id) if playlist.group_id else None,
+        position=playlist.position or 0,
+        color=playlist.color,
+        source_type=playlist.source_type,
+        source_url=playlist.source_url,
+        items=playlist.items or [],
+        items_count=playlist.items_count,
+        total_duration=playlist.total_duration,
+        is_active=playlist.is_active,
+        is_shuffled=playlist.is_shuffled,
+        created_at=playlist.created_at
+    )
+

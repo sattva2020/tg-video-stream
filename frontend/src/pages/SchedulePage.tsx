@@ -129,6 +129,11 @@ export default function SchedulePage() {
                     classNames={{
                       value: "text-foreground",
                     }}
+                    popoverProps={{
+                      classNames: {
+                        content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                      },
+                    }}
                     disableSelectorIconRotation
                   >
                     {channels.map((channel) => (

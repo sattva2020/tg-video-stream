@@ -40,6 +40,11 @@ const PlaylistPage: React.FC = () => {
                 onChange={(e) => setSelectedChannelId(e.target.value)}
                 className="w-48"
                 isLoading={channelsLoading}
+                popoverProps={{
+                  classNames: {
+                    content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                  },
+                }}
               >
                 {channels.map((channel) => (
                   <SelectItem key={channel.id}>
