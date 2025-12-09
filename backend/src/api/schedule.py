@@ -358,6 +358,9 @@ async def get_calendar_view(
         ScheduleSlot.is_active == True
     ).order_by(ScheduleSlot.start_time).all()
     
+    import sys
+    sys.stderr.write(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots\n")
+    sys.stderr.flush()
     print(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots", flush=True)
     logger.info(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
     
@@ -450,8 +453,12 @@ async def get_calendar_view(
         ))
         current_day += timedelta(days=1)
     
-    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}", flush=True)
-    logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {sum(len(d.slots) for d in result)}")
+    import sys
+    total_slots_count = sum(len(d.slots) for d in result)
+    sys.stderr.write(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots: {total_slots_count}\n")
+    sys.stderr.flush()
+    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}", flush=True)
+    logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}")
     return result
 
 
