@@ -459,6 +459,12 @@ async def get_calendar_view(
     sys.stderr.flush()
     print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}", flush=True)
     logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}")
+    
+    # TEMPORARY DEBUG: Force error to see values
+    if channel_id == "75b8dcc5-efac-45f7-8395-7961f204c2e6":
+        debug_msg = f"DEBUG: Found {len(slots)} total slots, returning {len(result)} days with {total_slots_count} total slots across all days"
+        raise HTTPException(status_code=500, detail=debug_msg)
+    
     return result
 
 
