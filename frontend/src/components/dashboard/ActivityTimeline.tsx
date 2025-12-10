@@ -233,15 +233,20 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             {t('admin.recentActivity', 'Последняя активность')}
           </h3>
         </div>
-        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center space-y-3">
-          <Clock className="w-12 h-12 mx-auto text-[color:var(--color-text-muted)]" />
-          <div className="space-y-1">
+        <div className="p-6 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] space-y-4">
+          <div className="text-center space-y-2">
+            <Clock className="w-10 h-10 mx-auto text-[color:var(--color-text-muted)]" />
             <p className="text-[color:var(--color-text)] font-medium">
               {t('admin.noActivity', 'Нет недавней активности')}
             </p>
             <p className="text-sm text-[color:var(--color-text-muted)]">
               {t('admin.noActivityHint', 'Подключите авторизацию Google/Telegram или создайте пользователя вручную')}
             </p>
+          </div>
+          <div className="space-y-2 opacity-70">
+            {[1, 2, 3].map((i) => (
+              <SkeletonEvent key={i} />
+            ))}
           </div>
           <div className="flex flex-wrap justify-center gap-2">
             <a
@@ -263,7 +268,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-violet-500" />
@@ -304,7 +309,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex-1 min-w-0 space-y-1 max-w-3xl">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <p className="text-sm text-[color:var(--color-text)] leading-snug">
                       {event.message}
@@ -324,20 +329,20 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
 
                   <div className="flex flex-wrap items-center gap-2">
                     {meta.methodLabel && (
-                      <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-300">
-                        {meta.methodLabel}
+                      <span className="px-2 py-1 text-[10px] font-medium rounded-full border border-slate-200 bg-slate-500/8 text-slate-600 dark:text-slate-300 dark:border-slate-600/40">
+                        {i18n.language === 'ru' ? 'Метод: ' : 'Method: '}{meta.methodLabel}
                       </span>
                     )}
                     {meta.statusLabel && (
                       <span
                         className={`px-2 py-1 text-[10px] font-semibold rounded-full border 
-                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
-                          ${meta.statusTone === 'amber' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-200' : ''}
-                          ${meta.statusTone === 'rose' ? 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
+                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/12 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
+                          ${meta.statusTone === 'amber' ? 'bg-amber-500/12 text-amber-600 border-amber-500/35 dark:text-amber-200' : ''}
+                          ${meta.statusTone === 'rose' ? 'bg-rose-500/12 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
                           ${meta.statusTone === 'slate' ? 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-200' : ''}
                         `}
                       >
-                        {meta.statusLabel}
+                        {i18n.language === 'ru' ? 'Статус: ' : 'Status: '}{meta.statusLabel}
                       </span>
                     )}
                   </div>
@@ -504,7 +509,7 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Activity className="w-5 h-5 text-violet-500" />
@@ -621,7 +626,7 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 min-w-0 space-y-1">
+                <div className="flex-1 min-w-0 space-y-1 max-w-3xl">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <p className="text-sm text-[color:var(--color-text)] leading-snug">
                       {event.message}
@@ -641,20 +646,20 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
 
                   <div className="flex flex-wrap items-center gap-2">
                     {meta.methodLabel && (
-                      <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-300">
-                        {meta.methodLabel}
+                      <span className="px-2 py-1 text-[10px] font-medium rounded-full border border-slate-200 bg-slate-500/8 text-slate-600 dark:text-slate-300 dark:border-slate-600/40">
+                        {i18n.language === 'ru' ? 'Метод: ' : 'Method: '}{meta.methodLabel}
                       </span>
                     )}
                     {meta.statusLabel && (
                       <span
                         className={`px-2 py-1 text-[10px] font-semibold rounded-full border 
-                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
-                          ${meta.statusTone === 'amber' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-200' : ''}
-                          ${meta.statusTone === 'rose' ? 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
+                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/12 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
+                          ${meta.statusTone === 'amber' ? 'bg-amber-500/12 text-amber-600 border-amber-500/35 dark:text-amber-200' : ''}
+                          ${meta.statusTone === 'rose' ? 'bg-rose-500/12 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
                           ${meta.statusTone === 'slate' ? 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-200' : ''}
                         `}
                       >
-                        {meta.statusLabel}
+                        {i18n.language === 'ru' ? 'Статус: ' : 'Status: '}{meta.statusLabel}
                       </span>
                     )}
                   </div>

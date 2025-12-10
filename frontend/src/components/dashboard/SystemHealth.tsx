@@ -163,6 +163,8 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
       ? 'critical' 
       : 'warning';
 
+  const attentionMetric = metrics.find(m => m.status !== 'healthy');
+
   const OverallIcon = getStatusIcon(overallHealth);
 
   if (loading) {
@@ -195,10 +197,10 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
           </h3>
         </div>
         <div className={`
-          flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
-          ${overallHealth === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-            overallHealth === 'warning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-            'bg-rose-500/10 text-rose-600 dark:text-rose-400'}
+          flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border
+          ${overallHealth === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-500/40' :
+            overallHealth === 'warning' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-500/40' :
+            'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-500/40'}
         `}>
           <OverallIcon className="w-3.5 h-3.5" />
           {overallHealth === 'healthy' ? t('admin.allSystemsGo', 'Всё в норме') :
@@ -206,6 +208,11 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
            t('admin.critical', 'Критично')}
         </div>
       </div>
+      {attentionMetric && (
+        <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-snug">
+          {attentionMetric.name}: {attentionMetric.value}{attentionMetric.unit} — {t('admin.needsAttention', 'Требует внимания')}
+        </p>
+      )}
       
       <div className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -343,6 +350,12 @@ export const SystemHealthLive: React.FC = () => {
 
   // Нормальное состояние с данными
   // Примечание: networkLatency не доступен через psutil, используем 0
+  const attentionMetric = [
+    { label: t('dashboard.health.cpu', 'CPU'), status: cpuStatus, value: metrics.cpu_percent, unit: '%' },
+    { label: t('dashboard.health.ram', 'RAM'), status: ramStatus, value: metrics.ram_percent, unit: '%' },
+    { label: t('dashboard.health.disk', 'Диск'), status: diskStatus, value: metrics.disk_percent, unit: '%' },
+  ].find(m => m.status !== 'healthy');
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -359,10 +372,10 @@ export const SystemHealthLive: React.FC = () => {
           </span>
           {/* Overall status badge */}
           <div className={`
-            flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
-            ${overallStatus === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-              overallStatus === 'warning' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' :
-              'bg-rose-500/10 text-rose-600 dark:text-rose-400'}
+            flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border
+            ${overallStatus === 'healthy' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-500/40' :
+              overallStatus === 'warning' ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-500/40' :
+              'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-500/40'}
           `}>
             {overallStatus === 'healthy' && <CheckCircle className="w-3.5 h-3.5" />}
             {overallStatus === 'warning' && <AlertTriangle className="w-3.5 h-3.5" />}
@@ -373,6 +386,11 @@ export const SystemHealthLive: React.FC = () => {
           </div>
         </div>
       </div>
+      {attentionMetric && (
+        <p className="text-xs text-amber-700 dark:text-amber-300 leading-snug">
+          {attentionMetric.label}: {attentionMetric.value}{attentionMetric.unit} — {t('dashboard.health.needsAttention', 'Требует внимания')}
+        </p>
+      )}
       
       <div className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

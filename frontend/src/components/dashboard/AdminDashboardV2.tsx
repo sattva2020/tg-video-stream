@@ -205,7 +205,7 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
       />
 
       {/* Main Content Tabs - custom compact pills */}
-      <div className="bg-[color:var(--color-panel)] border border-[color:var(--color-border)] rounded-2xl p-3 sm:p-4">
+      <div className="mt-3 sm:mt-4 mb-5">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {tabItems.map((item) => {
             const isActive = activeTab === item.key;
@@ -213,9 +213,9 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
               <button
                 key={item.key}
                 onClick={() => setActiveTab(item.key)}
-                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-xl transition-all border
+                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-full transition-all border
                   ${isActive
-                    ? 'bg-[color:var(--color-accent)]/10 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm'
+                    ? 'bg-[color:var(--color-accent)]/15 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm shadow-[color:var(--color-accent)]/30'
                     : 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-border)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)]'}
                 `}
               >
@@ -225,7 +225,7 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
           })}
         </div>
 
-        <div className="mt-4 sm:mt-6">
+        <div className="mt-3 sm:mt-4">
           {activeTab === 'overview' && (
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="space-y-6">
