@@ -8,7 +8,6 @@ import {
   LayoutDashboard
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Tabs, Tab } from '@heroui/react';
 import { useNavigate } from 'react-router-dom';
 
 // Components
@@ -135,6 +134,12 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
     },
   ], [stats, isStreamOnline, streamData, t]);
 
+  const tabItems = useMemo(() => ([
+    { key: 'overview', label: t('admin.overview', 'Обзор') },
+    ...(canManageUsers ? [{ key: 'users', label: t('admin.users', 'Пользователи') }] : []),
+    { key: 'stream', label: t('admin.stream', 'Трансляция') },
+  ]), [t, canManageUsers]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -199,109 +204,112 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
         role={resolvedRole}
       />
 
-      {/* Main Content Tabs */}
-      <Tabs
-        aria-label="Admin sections"
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key as string)}
-        classNames={{
-          tabList: "gap-2 flex-wrap",
-          tab: "text-sm",
-        }}
-      >
-        <Tab key="overview" title={t('admin.overview', 'Обзор')}>
-          <div className="grid lg:grid-cols-2 gap-6 mt-4">
-            {/* Left Column */}
-            <div className="space-y-6">
-              <StreamStatusCard refreshInterval={10000} useWebSocket={true} />
-              <SystemHealthLive />
-            </div>
-            
-            {/* Right Column */}
-            <div>
-              <ActivityTimelineLive />
-            </div>
-          </div>
-        </Tab>
+      {/* Main Content Tabs - custom compact pills */}
+      <div className="bg-[color:var(--color-panel)] border border-[color:var(--color-border)] rounded-2xl p-3 sm:p-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {tabItems.map((item) => {
+            const isActive = activeTab === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setActiveTab(item.key)}
+                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-xl transition-all border
+                  ${isActive
+                    ? 'bg-[color:var(--color-accent)]/10 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm'
+                    : 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-border)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)]'}
+                `}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
 
-        {canManageUsers && (
-          <Tab key="users" title={t('admin.users', 'Пользователи')}>
-            <div className="mt-4">
+        <div className="mt-4 sm:mt-6">
+          {activeTab === 'overview' && (
+            <div className="grid lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <StreamStatusCard refreshInterval={10000} useWebSocket={true} />
+                <SystemHealthLive />
+              </div>
+              <div>
+                <ActivityTimelineLive />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'users' && canManageUsers && (
+            <div>
               <UserManagementPanel />
             </div>
-          </Tab>
-        )}
+          )}
 
-        <Tab key="stream" title={t('admin.stream', 'Трансляция')}>
-          <div className="grid lg:grid-cols-2 gap-6 mt-4">
-            <StreamStatusCard refreshInterval={5000} useWebSocket={true} />
-            
-            {/* Stream Controls Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-6 rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]"
-            >
-              <h3 className="text-lg font-semibold text-[color:var(--color-text)] mb-6">
-                {t('admin.streamControls', 'Управление трансляцией')}
-              </h3>
-              
-              <div className="space-y-4">
-                {/* Start/Stop Toggle */}
-                <div className="p-4 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-[color:var(--color-text)]">
-                        {isStreamOnline ? t('admin.stopBroadcast', 'Остановить вещание') : t('admin.startBroadcast', 'Начать вещание')}
-                      </h4>
-                      <p className="text-sm text-[color:var(--color-text-muted)]">
-                        {isStreamOnline 
-                          ? t('admin.stopBroadcastDesc', 'Немедленно прекратить трансляцию')
-                          : t('admin.startBroadcastDesc', 'Запустить видеотрансляцию')}
-                      </p>
+          {activeTab === 'stream' && (
+            <div className="grid lg:grid-cols-2 gap-6">
+              <StreamStatusCard refreshInterval={5000} useWebSocket={true} />
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-6 rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]"
+              >
+                <h3 className="text-lg font-semibold text-[color:var(--color-text)] mb-6">
+                  {t('admin.streamControls', 'Управление трансляцией')}
+                </h3>
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-[color:var(--color-text)]">
+                          {isStreamOnline ? t('admin.stopBroadcast', 'Остановить вещание') : t('admin.startBroadcast', 'Начать вещание')}
+                        </h4>
+                        <p className="text-sm text-[color:var(--color-text-muted)]">
+                          {isStreamOnline 
+                            ? t('admin.stopBroadcastDesc', 'Немедленно прекратить трансляцию')
+                            : t('admin.startBroadcastDesc', 'Запустить видеотрансляцию')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={isStreamOnline ? handleStopStream : handleStartStream}
+                        disabled={isStreamLoading}
+                        className={`
+                          px-6 py-2.5 rounded-xl font-medium text-white
+                          transition-all duration-200
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                          ${isStreamOnline 
+                            ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:shadow-lg hover:shadow-rose-500/25' 
+                            : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/25'}
+                        `}
+                      >
+                        {isStreamLoading ? '...' : (isStreamOnline ? t('admin.stop', 'Стоп') : t('admin.start', 'Старт'))}
+                      </button>
                     </div>
-                    <button
-                      onClick={isStreamOnline ? handleStopStream : handleStartStream}
-                      disabled={isStreamLoading}
-                      className={`
-                        px-6 py-2.5 rounded-xl font-medium text-white
-                        transition-all duration-200
-                        disabled:opacity-50 disabled:cursor-not-allowed
-                        ${isStreamOnline 
-                          ? 'bg-gradient-to-r from-rose-500 to-red-600 hover:shadow-lg hover:shadow-rose-500/25' 
-                          : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/25'}
-                      `}
-                    >
-                      {isStreamLoading ? '...' : (isStreamOnline ? t('admin.stop', 'Стоп') : t('admin.start', 'Старт'))}
-                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-[color:var(--color-text)]">
+                          {t('admin.restartStream', 'Перезапуск трансляции')}
+                        </h4>
+                        <p className="text-sm text-[color:var(--color-text-muted)]">
+                          {t('admin.restartStreamDesc', 'Перезапустить сервис вещания')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleRestartStream}
+                        disabled={!isStreamOnline || isStreamLoading}
+                        className="px-6 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {t('admin.restart', 'Перезапуск')}
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Restart */}
-                <div className="p-4 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-[color:var(--color-text)]">
-                        {t('admin.restartStream', 'Перезапуск трансляции')}
-                      </h4>
-                      <p className="text-sm text-[color:var(--color-text-muted)]">
-                        {t('admin.restartStreamDesc', 'Перезапустить сервис вещания')}
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleRestartStream}
-                      disabled={!isStreamOnline || isStreamLoading}
-                      className="px-6 py-2.5 rounded-xl font-medium text-white bg-gradient-to-r from-blue-500 to-indigo-600 hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t('admin.restart', 'Перезапуск')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </Tab>
-      </Tabs>
+              </motion.div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
