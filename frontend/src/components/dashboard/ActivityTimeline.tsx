@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { ru, enUS } from 'date-fns/locale';
 import { useActivityEvents } from '../../hooks/useActivityEvents';
 import type { ActivityEvent as ApiActivityEvent } from '../../types/system';
@@ -122,69 +122,65 @@ const SkeletonEvent: React.FC = () => (
  * Форматирует детали события в читаемый вид
  * Вместо сырого JSON показывает понятные метки
  */
-const formatEventDetails = (details: unknown, language: string): string | null => {
-  if (!details) return null;
-  
-  if (typeof details === 'string') {
-    return details;
+const normalizeEventDetails = (details: unknown, language: string): {
+  methodLabel: string | null;
+  statusLabel: string | null;
+  statusTone: 'emerald' | 'amber' | 'rose' | 'slate';
+  extraText: string | null;
+} => {
+  if (!details) {
+    return { methodLabel: null, statusLabel: null, statusTone: 'slate', extraText: null };
   }
-  
+
+  if (typeof details === 'string') {
+    return { methodLabel: null, statusLabel: null, statusTone: 'slate', extraText: details };
+  }
+
   if (typeof details === 'object' && details !== null) {
     const d = details as Record<string, unknown>;
+
+    const methodLabels: Record<string, { ru: string; en: string }> = {
+      google_oauth: { ru: 'Google OAuth', en: 'Google OAuth' },
+      telegram_widget: { ru: 'Telegram виджет', en: 'Telegram Widget' },
+      telegram_login: { ru: 'Telegram вход', en: 'Telegram Login' },
+      email_password: { ru: 'Email/Пароль', en: 'Email/Password' },
+    };
+
+    const statusLabels: Record<string, { ru: string; en: string; tone: 'emerald' | 'amber' | 'rose' | 'slate' }> = {
+      pending: { ru: 'Ожидает одобрения', en: 'Pending approval', tone: 'amber' },
+      approved: { ru: 'Одобрен', en: 'Approved', tone: 'emerald' },
+      active: { ru: 'Активен', en: 'Active', tone: 'emerald' },
+      rejected: { ru: 'Отклонён', en: 'Rejected', tone: 'rose' },
+    };
+
+    const methodLabel = d.method
+      ? (methodLabels[String(d.method)] || { ru: String(d.method), en: String(d.method) })
+      : null;
+
+    const statusLabel = d.status
+      ? (statusLabels[String(d.status)] || { ru: String(d.status), en: String(d.status), tone: 'slate' })
+      : null;
+
     const parts: string[] = [];
-    
-    // Метод авторизации
-    if (d.method) {
-      const methodLabels: Record<string, { ru: string; en: string }> = {
-        google_oauth: { ru: 'Google OAuth', en: 'Google OAuth' },
-        telegram_widget: { ru: 'Telegram виджет', en: 'Telegram Widget' },
-        telegram_login: { ru: 'Telegram вход', en: 'Telegram Login' },
-        email_password: { ru: 'Email/Пароль', en: 'Email/Password' },
-      };
-      const label = methodLabels[String(d.method)] || { ru: String(d.method), en: String(d.method) };
-      parts.push(language === 'ru' ? `Метод: ${label.ru}` : `Method: ${label.en}`);
-    }
-    
-    // Статус
-    if (d.status) {
-      const statusLabels: Record<string, { ru: string; en: string }> = {
-        pending: { ru: '⏳ Ожидает одобрения', en: '⏳ Pending approval' },
-        approved: { ru: '✅ Одобрен', en: '✅ Approved' },
-        active: { ru: '✅ Активен', en: '✅ Active' },
-        rejected: { ru: '❌ Отклонён', en: '❌ Rejected' },
-      };
-      const label = statusLabels[String(d.status)] || { ru: String(d.status), en: String(d.status) };
-      parts.push(language === 'ru' ? label.ru : label.en);
-    }
-    
-    // Причина (для ошибок)
-    if (d.reason) {
-      parts.push(language === 'ru' ? `Причина: ${d.reason}` : `Reason: ${d.reason}`);
-    }
-    
-    // Канал
-    if (d.channel) {
-      parts.push(language === 'ru' ? `Канал: ${d.channel}` : `Channel: ${d.channel}`);
-    }
-    
-    // Трек
-    if (d.track) {
-      parts.push(language === 'ru' ? `Трек: ${d.track}` : `Track: ${d.track}`);
-    }
-    
-    if (parts.length > 0) {
-      return parts.join(' • ');
-    }
-    
-    // Fallback: показать только известные ключи
+    if (d.reason) parts.push(language === 'ru' ? `Причина: ${d.reason}` : `Reason: ${d.reason}`);
+    if (d.channel) parts.push(language === 'ru' ? `Канал: ${d.channel}` : `Channel: ${d.channel}`);
+    if (d.track) parts.push(language === 'ru' ? `Трек: ${d.track}` : `Track: ${d.track}`);
+
     const knownKeys = ['method', 'status', 'reason', 'channel', 'track', 'error', 'message'];
     const unknownKeys = Object.keys(d).filter(k => !knownKeys.includes(k));
-    if (unknownKeys.length > 0) {
-      return unknownKeys.map(k => `${k}: ${d[k]}`).join(', ');
-    }
+    unknownKeys.forEach((key) => {
+      parts.push(`${key}: ${d[key]}`);
+    });
+
+    return {
+      methodLabel: methodLabel ? (language === 'ru' ? methodLabel.ru : methodLabel.en) : null,
+      statusLabel: statusLabel ? (language === 'ru' ? statusLabel.ru : statusLabel.en) : null,
+      statusTone: statusLabel ? statusLabel.tone : 'slate',
+      extraText: parts.length ? parts.join(' • ') : null,
+    };
   }
-  
-  return null;
+
+  return { methodLabel: null, statusLabel: null, statusTone: 'slate', extraText: null };
 };
 
 /** Типы событий для фильтра */
@@ -237,11 +233,30 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             {t('admin.recentActivity', 'Последняя активность')}
           </h3>
         </div>
-        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center">
-          <Clock className="w-12 h-12 mx-auto mb-3 text-[color:var(--color-text-muted)]" />
-          <p className="text-[color:var(--color-text-muted)]">
-            {t('admin.noActivity', 'Нет недавней активности')}
-          </p>
+        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center space-y-3">
+          <Clock className="w-12 h-12 mx-auto text-[color:var(--color-text-muted)]" />
+          <div className="space-y-1">
+            <p className="text-[color:var(--color-text)] font-medium">
+              {t('admin.noActivity', 'Нет недавней активности')}
+            </p>
+            <p className="text-sm text-[color:var(--color-text-muted)]">
+              {t('admin.noActivityHint', 'Подключите авторизацию Google/Telegram или создайте пользователя вручную')}
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <a
+              href="/users"
+              className="px-3 py-2 text-sm font-medium rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-colors"
+            >
+              {t('admin.openUsers', 'Открыть пользователей')}
+            </a>
+            <a
+              href="/settings"
+              className="px-3 py-2 text-sm font-medium rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:border-violet-300/80 transition-colors"
+            >
+              {t('admin.configureAuth', 'Настроить авторизацию')}
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -268,6 +283,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         <div className="divide-y divide-[color:var(--color-border)]">
           {displayEvents.map((event, index) => {
             const config = eventConfig[event.type] || eventConfig.success;
+            const meta = normalizeEventDetails(event.details, i18n.language);
             const Icon = config.icon;
             
             return (
@@ -288,21 +304,49 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[color:var(--color-text)]">
-                    {event.message}
-                    {event.user && (
-                      <span className="font-medium"> — {event.user}</span>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <p className="text-sm text-[color:var(--color-text)] leading-snug">
+                      {event.message}
+                      {event.user && (
+                        <span className="font-medium"> — {event.user}</span>
+                      )}
+                    </p>
+                    <div className="flex items-center gap-2 text-[10px] text-[color:var(--color-text-muted)] uppercase tracking-wide">
+                      <span className="px-2 py-1 rounded-full bg-[color:var(--color-surface-muted)]">
+                        {format(event.timestamp, 'dd.MM HH:mm')}
+                      </span>
+                      <span className="text-[color:var(--color-text-muted)]">
+                        {formatDistanceToNow(event.timestamp, { addSuffix: true, locale })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {meta.methodLabel && (
+                      <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-300">
+                        {meta.methodLabel}
+                      </span>
                     )}
-                  </p>
-                  {event.details && (
-                    <p className="text-xs text-[color:var(--color-text-muted)] mt-0.5 truncate">
-                      {event.details}
+                    {meta.statusLabel && (
+                      <span
+                        className={`px-2 py-1 text-[10px] font-semibold rounded-full border 
+                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
+                          ${meta.statusTone === 'amber' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-200' : ''}
+                          ${meta.statusTone === 'rose' ? 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
+                          ${meta.statusTone === 'slate' ? 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-200' : ''}
+                        `}
+                      >
+                        {meta.statusLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {meta.extraText && (
+                    <p className="text-xs text-[color:var(--color-text-muted)] leading-snug">
+                      {meta.extraText}
                     </p>
                   )}
-                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                    {formatDistanceToNow(event.timestamp, { addSuffix: true, locale })}
-                  </p>
                 </div>
               </motion.div>
             );
@@ -430,11 +474,30 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
             {t('dashboard.activity.title', 'Последняя активность')}
           </h3>
         </div>
-        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center">
-          <Clock className="w-12 h-12 mx-auto mb-3 text-[color:var(--color-text-muted)]" />
-          <p className="text-[color:var(--color-text-muted)]">
-            {t('dashboard.activity.noActivity', 'Нет недавней активности')}
-          </p>
+        <div className="p-8 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] text-center space-y-3">
+          <Clock className="w-12 h-12 mx-auto text-[color:var(--color-text-muted)]" />
+          <div className="space-y-1">
+            <p className="text-[color:var(--color-text)] font-medium">
+              {t('dashboard.activity.noActivity', 'Нет недавней активности')}
+            </p>
+            <p className="text-sm text-[color:var(--color-text-muted)]">
+              {t('dashboard.activity.noActivityHint', 'Подключите Google/Telegram или добавьте пользователя вручную')}
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <a
+              href="/users"
+              className="px-3 py-2 text-sm font-medium rounded-lg bg-violet-500 text-white hover:bg-violet-600 transition-colors"
+            >
+              {t('dashboard.activity.openUsers', 'Открыть пользователей')}
+            </a>
+            <a
+              href="/settings"
+              className="px-3 py-2 text-sm font-medium rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:border-violet-300/80 transition-colors"
+            >
+              {t('dashboard.activity.configureAuth', 'Настроить авторизацию')}
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -536,6 +599,7 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
         <div className="divide-y divide-[color:var(--color-border)]">
           {events.map((event: ApiActivityEvent, index: number) => {
             const config = eventConfig[event.type] || eventConfig.success;
+            const meta = normalizeEventDetails(event.details, i18n.language);
             const Icon = config.icon;
             const timestamp = parseISO(event.created_at);
             
@@ -557,21 +621,49 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
                 </div>
                 
                 {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[color:var(--color-text)]">
-                    {event.message}
-                    {event.user_email && (
-                      <span className="font-medium"> — {event.user_email}</span>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <p className="text-sm text-[color:var(--color-text)] leading-snug">
+                      {event.message}
+                      {event.user_email && (
+                        <span className="font-medium"> — {event.user_email}</span>
+                      )}
+                    </p>
+                    <div className="flex items-center gap-2 text-[10px] text-[color:var(--color-text-muted)] uppercase tracking-wide">
+                      <span className="px-2 py-1 rounded-full bg-[color:var(--color-surface-muted)]">
+                        {format(timestamp, 'dd.MM HH:mm')}
+                      </span>
+                      <span className="text-[color:var(--color-text-muted)]">
+                        {formatDistanceToNow(timestamp, { addSuffix: true, locale })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {meta.methodLabel && (
+                      <span className="px-2 py-1 text-[10px] font-medium rounded-full bg-slate-500/10 text-slate-600 dark:text-slate-300">
+                        {meta.methodLabel}
+                      </span>
                     )}
-                  </p>
-                  {event.details && formatEventDetails(event.details, i18n.language) && (
-                    <p className="text-xs text-[color:var(--color-text-muted)] mt-0.5">
-                      {formatEventDetails(event.details, i18n.language)}
+                    {meta.statusLabel && (
+                      <span
+                        className={`px-2 py-1 text-[10px] font-semibold rounded-full border 
+                          ${meta.statusTone === 'emerald' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-300' : ''}
+                          ${meta.statusTone === 'amber' ? 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-200' : ''}
+                          ${meta.statusTone === 'rose' ? 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-200' : ''}
+                          ${meta.statusTone === 'slate' ? 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-200' : ''}
+                        `}
+                      >
+                        {meta.statusLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {meta.extraText && (
+                    <p className="text-xs text-[color:var(--color-text-muted)] leading-snug">
+                      {meta.extraText}
                     </p>
                   )}
-                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                    {formatDistanceToNow(timestamp, { addSuffix: true, locale })}
-                  </p>
                 </div>
               </motion.div>
             );
