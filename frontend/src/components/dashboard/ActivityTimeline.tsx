@@ -118,6 +118,75 @@ const SkeletonEvent: React.FC = () => (
   </div>
 );
 
+/**
+ * Форматирует детали события в читаемый вид
+ * Вместо сырого JSON показывает понятные метки
+ */
+const formatEventDetails = (details: unknown, language: string): string | null => {
+  if (!details) return null;
+  
+  if (typeof details === 'string') {
+    return details;
+  }
+  
+  if (typeof details === 'object' && details !== null) {
+    const d = details as Record<string, unknown>;
+    const parts: string[] = [];
+    
+    // Метод авторизации
+    if (d.method) {
+      const methodLabels: Record<string, { ru: string; en: string }> = {
+        google_oauth: { ru: 'Google OAuth', en: 'Google OAuth' },
+        telegram_widget: { ru: 'Telegram виджет', en: 'Telegram Widget' },
+        telegram_login: { ru: 'Telegram вход', en: 'Telegram Login' },
+        email_password: { ru: 'Email/Пароль', en: 'Email/Password' },
+      };
+      const label = methodLabels[String(d.method)] || { ru: String(d.method), en: String(d.method) };
+      parts.push(language === 'ru' ? `Метод: ${label.ru}` : `Method: ${label.en}`);
+    }
+    
+    // Статус
+    if (d.status) {
+      const statusLabels: Record<string, { ru: string; en: string }> = {
+        pending: { ru: '⏳ Ожидает одобрения', en: '⏳ Pending approval' },
+        approved: { ru: '✅ Одобрен', en: '✅ Approved' },
+        active: { ru: '✅ Активен', en: '✅ Active' },
+        rejected: { ru: '❌ Отклонён', en: '❌ Rejected' },
+      };
+      const label = statusLabels[String(d.status)] || { ru: String(d.status), en: String(d.status) };
+      parts.push(language === 'ru' ? label.ru : label.en);
+    }
+    
+    // Причина (для ошибок)
+    if (d.reason) {
+      parts.push(language === 'ru' ? `Причина: ${d.reason}` : `Reason: ${d.reason}`);
+    }
+    
+    // Канал
+    if (d.channel) {
+      parts.push(language === 'ru' ? `Канал: ${d.channel}` : `Channel: ${d.channel}`);
+    }
+    
+    // Трек
+    if (d.track) {
+      parts.push(language === 'ru' ? `Трек: ${d.track}` : `Track: ${d.track}`);
+    }
+    
+    if (parts.length > 0) {
+      return parts.join(' • ');
+    }
+    
+    // Fallback: показать только известные ключи
+    const knownKeys = ['method', 'status', 'reason', 'channel', 'track', 'error', 'message'];
+    const unknownKeys = Object.keys(d).filter(k => !knownKeys.includes(k));
+    if (unknownKeys.length > 0) {
+      return unknownKeys.map(k => `${k}: ${d[k]}`).join(', ');
+    }
+  }
+  
+  return null;
+};
+
 /** Типы событий для фильтра */
 const eventTypeOptions: { value: string; label: string; labelRu: string }[] = [
   { value: '', label: 'All events', labelRu: 'Все события' },
@@ -495,11 +564,9 @@ export const ActivityTimelineLive: React.FC<{ maxItems?: number }> = ({ maxItems
                       <span className="font-medium"> — {event.user_email}</span>
                     )}
                   </p>
-                  {event.details && (
-                    <p className="text-xs text-[color:var(--color-text-muted)] mt-0.5 truncate">
-                      {typeof event.details === 'object' 
-                        ? JSON.stringify(event.details) 
-                        : String(event.details)}
+                  {event.details && formatEventDetails(event.details, i18n.language) && (
+                    <p className="text-xs text-[color:var(--color-text-muted)] mt-0.5">
+                      {formatEventDetails(event.details, i18n.language)}
                     </p>
                   )}
                   <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
