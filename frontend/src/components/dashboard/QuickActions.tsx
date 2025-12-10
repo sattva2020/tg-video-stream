@@ -137,8 +137,8 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
             disabled={action.disabled || action.loading}
             className={`
               relative overflow-hidden rounded-xl p-4 text-left
-              bg-[color:var(--color-panel)] border border-[color:var(--color-border)]
-              hover:shadow-lg transition-shadow duration-200
+              bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-sm
+              hover:shadow-[0_16px_40px_-20px_rgba(0,0,0,0.25)] hover:-translate-y-1 transition-all duration-200
               disabled:opacity-50 disabled:cursor-not-allowed
               group
             `}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardBody, Progress, Chip } from '@heroui/react';
-import { Play, Pause, Radio, Clock, Music, AlertCircle, RefreshCw } from 'lucide-react';
+import { Play, Pause, Radio, Clock, Music, AlertCircle, RefreshCw, HelpCircle } from 'lucide-react';
 import { adminApi, StreamStatus } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { usePlaylistWebSocket } from '../../hooks/usePlaylistWebSocket';
@@ -143,11 +143,11 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
     }
     
     return {
-      color: 'warning' as const,
-      icon: AlertCircle,
+      color: 'default' as const,
+      icon: HelpCircle,
       label: 'Неизвестно',
-      bgClass: 'bg-yellow-500/10',
-      textClass: 'text-yellow-500',
+      bgClass: 'bg-slate-500/10',
+      textClass: 'text-slate-500',
       pulseClass: '',
     };
   };

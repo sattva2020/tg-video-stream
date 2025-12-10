@@ -90,7 +90,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] p-4 sm:p-5"
+        className="relative overflow-hidden rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] p-4 sm:p-5 shadow-md shadow-[color:var(--color-border)]/60"
       >
         <div className="animate-pulse space-y-3">
           <div className="flex items-center justify-between">
@@ -109,7 +109,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
-      className={`relative overflow-hidden rounded-2xl bg-[color:var(--color-panel)] border ${colors.border} p-4 sm:p-5 group cursor-default`}
+      className={`relative overflow-hidden rounded-3xl bg-[color:var(--color-panel)] border ${colors.border} p-5 sm:p-6 group cursor-default shadow-lg shadow-[color:var(--color-border)]/50`}
     >
       {/* Gradient glow on hover */}
       <div className={`absolute inset-0 bg-gradient-to-br ${colors.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
