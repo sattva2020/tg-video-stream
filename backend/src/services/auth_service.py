@@ -121,7 +121,9 @@ class AuthService:
         """
         Creates a JWT for a given user object.
         """
-        access_token_data = {"sub": str(user.id), "role": user.role}
+        # Properly serialize role enum to string value
+        role_value = user.role.value if hasattr(user.role, 'value') else str(user.role) if user.role else None
+        access_token_data = {"sub": str(user.id), "role": role_value}
         access_token = jwt.create_access_token(data=access_token_data)
         return access_token
 
