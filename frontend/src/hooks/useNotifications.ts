@@ -13,12 +13,12 @@ import {
   ChannelTestRequest,
   DeliveryLogFilters,
 } from '../api/notifications';
-import { queryKeys } from '../lib/queryClient';
+import { notificationQueryKeys } from '../lib/queryClient';
 import { useToast } from './useToast';
 
 export const useNotificationChannels = () =>
   useQuery({
-    queryKey: queryKeys.notifications.channels(),
+    queryKey: notificationQueryKeys.channels(),
     queryFn: notificationsApi.listChannels,
   });
 
@@ -29,7 +29,7 @@ export const useCreateNotificationChannel = () => {
     mutationFn: (data: NotificationChannelCreate) => notificationsApi.createChannel(data),
     onSuccess: () => {
       toast.success('Канал создан');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.channels() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.channels() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось создать канал');
@@ -45,7 +45,7 @@ export const useUpdateNotificationChannel = () => {
       notificationsApi.updateChannel(id, data),
     onSuccess: () => {
       toast.success('Канал обновлен');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.channels() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.channels() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось обновить канал');
@@ -60,7 +60,7 @@ export const useDeleteNotificationChannel = () => {
     mutationFn: (id: string) => notificationsApi.deleteChannel(id),
     onSuccess: () => {
       toast.success('Канал удален');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.channels() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.channels() });
     },
     onError: () => {
       toast.error('Не удалось удалить канал');
@@ -84,7 +84,7 @@ export const useTestNotificationChannel = () => {
 
 export const useNotificationTemplates = () =>
   useQuery({
-    queryKey: queryKeys.notifications.templates(),
+    queryKey: notificationQueryKeys.templates(),
     queryFn: notificationsApi.listTemplates,
   });
 
@@ -95,7 +95,7 @@ export const useCreateNotificationTemplate = () => {
     mutationFn: (data: NotificationTemplateCreate) => notificationsApi.createTemplate(data),
     onSuccess: () => {
       toast.success('Шаблон создан');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.templates() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.templates() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось создать шаблон');
@@ -111,7 +111,7 @@ export const useUpdateNotificationTemplate = () => {
       notificationsApi.updateTemplate(id, data),
     onSuccess: () => {
       toast.success('Шаблон обновлен');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.templates() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.templates() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось обновить шаблон');
@@ -126,7 +126,7 @@ export const useDeleteNotificationTemplate = () => {
     mutationFn: (id: string) => notificationsApi.deleteTemplate(id),
     onSuccess: () => {
       toast.success('Шаблон удален');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.templates() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.templates() });
     },
     onError: () => {
       toast.error('Не удалось удалить шаблон');
@@ -136,7 +136,7 @@ export const useDeleteNotificationTemplate = () => {
 
 export const useNotificationRecipients = () =>
   useQuery({
-    queryKey: queryKeys.notifications.recipients(),
+    queryKey: notificationQueryKeys.recipients(),
     queryFn: notificationsApi.listRecipients,
   });
 
@@ -147,7 +147,7 @@ export const useCreateNotificationRecipient = () => {
     mutationFn: (data: NotificationRecipientCreate) => notificationsApi.createRecipient(data),
     onSuccess: () => {
       toast.success('Получатель создан');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.recipients() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.recipients() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось создать получателя');
@@ -163,7 +163,7 @@ export const useUpdateNotificationRecipient = () => {
       notificationsApi.updateRecipient(id, data),
     onSuccess: () => {
       toast.success('Получатель обновлен');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.recipients() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.recipients() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось обновить получателя');
@@ -178,7 +178,7 @@ export const useDeleteNotificationRecipient = () => {
     mutationFn: (id: string) => notificationsApi.deleteRecipient(id),
     onSuccess: () => {
       toast.success('Получатель удален');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.recipients() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.recipients() });
     },
     onError: () => {
       toast.error('Не удалось удалить получателя');
@@ -188,7 +188,7 @@ export const useDeleteNotificationRecipient = () => {
 
 export const useNotificationRules = () =>
   useQuery({
-    queryKey: queryKeys.notifications.rules(),
+    queryKey: notificationQueryKeys.rules(),
     queryFn: notificationsApi.listRules,
   });
 
@@ -199,7 +199,7 @@ export const useCreateNotificationRule = () => {
     mutationFn: (data: NotificationRuleCreate) => notificationsApi.createRule(data),
     onSuccess: () => {
       toast.success('Правило создано');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.rules() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.rules() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось создать правило');
@@ -215,7 +215,7 @@ export const useUpdateNotificationRule = () => {
       notificationsApi.updateRule(id, data),
     onSuccess: () => {
       toast.success('Правило обновлено');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.rules() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.rules() });
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.detail || 'Не удалось обновить правило');
@@ -230,7 +230,7 @@ export const useDeleteNotificationRule = () => {
     mutationFn: (id: string) => notificationsApi.deleteRule(id),
     onSuccess: () => {
       toast.success('Правило удалено');
-      queryClient.invalidateQueries({ queryKey: queryKeys.notifications.rules() });
+      queryClient.invalidateQueries({ queryKey: notificationQueryKeys.rules() });
     },
     onError: () => {
       toast.error('Не удалось удалить правило');
@@ -254,6 +254,6 @@ export const useTestNotificationRule = () => {
 
 export const useNotificationLogs = (filters?: DeliveryLogFilters) =>
   useQuery({
-    queryKey: queryKeys.notifications.logs(filters),
+    queryKey: notificationQueryKeys.logs(filters),
     queryFn: () => notificationsApi.listLogs(filters),
   });

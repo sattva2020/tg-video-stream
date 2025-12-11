@@ -90,7 +90,24 @@ export const queryKeys = {
     all: ['telegram'] as const,
     accounts: () => [...queryKeys.telegram.all, 'accounts'] as const,
   },
+};
+
+// Notifications query keys - определяем отдельно для избежания циклических ссылок
+export const notificationQueryKeys = {
+  all: ['notifications'] as const,
+  channels: () => ['notifications', 'channels'] as const,
+  channel: (id: string) => ['notifications', 'channels', id] as const,
+  templates: () => ['notifications', 'templates'] as const,
+  template: (id: string) => ['notifications', 'templates', id] as const,
+  recipients: () => ['notifications', 'recipients'] as const,
+  recipient: (id: string) => ['notifications', 'recipients', id] as const,
+  rules: () => ['notifications', 'rules'] as const,
+  rule: (id: string) => ['notifications', 'rules', id] as const,
+  logs: (filters?: any) => ['notifications', 'logs', filters] as const,
 } as const;
+
+// Добавляем notifications в основной объект
+(queryKeys as any).notifications = notificationQueryKeys;
 
 /**
  * Утилиты для инвалидации кэша
@@ -100,5 +117,6 @@ export const invalidateQueries = {
   users: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),
   channels: () => queryClient.invalidateQueries({ queryKey: queryKeys.channels.all }),
   stream: () => queryClient.invalidateQueries({ queryKey: queryKeys.stream.all }),
+  notifications: () => queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all }),
   all: () => queryClient.invalidateQueries(),
 };
