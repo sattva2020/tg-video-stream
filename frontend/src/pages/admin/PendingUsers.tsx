@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { ResponsiveHeader } from '../../components/ResponsiveHeader';
+import { ResponsiveHeader } from '../../components/layout/ResponsiveHeader';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, UserCheck, UserX, Clock, Mail, RefreshCw } from 'lucide-react';
 
