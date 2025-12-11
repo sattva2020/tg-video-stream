@@ -62,6 +62,7 @@ import {
   useDeletePlaylistGroup,
   useMovePlaylistToGroup,
 } from '../../hooks/useScheduleQuery';
+import { useMediaFolders, useScanFolder } from '../../hooks/useMediaQuery';
 import type { Playlist, PlaylistItem, PlaylistGroup } from '../../api/schedule';
 import {
   DndContext,
@@ -338,6 +339,16 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
     items_text: '', // For manual entry
   });
 
+  // Для работы с папками
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [autoScan, setAutoScan] = useState(false);
+  const { data: folders, isLoading: foldersLoading } = useMediaFolders();
+  const { data: scanResult, isLoading: scanLoading } = useScanFolder(
+    selectedFolder,
+    true, // recursive
+    autoScan && formData.source_type === 'folder'
+  );
+
   React.useEffect(() => {
     if (playlist) {
       setFormData({
@@ -359,22 +370,36 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
         is_shuffled: false,
         items_text: '',
       });
+      setSelectedFolder('');
+      setAutoScan(false);
     }
   }, [playlist, isOpen]);
 
   const handleSubmit = async () => {
-    // Parse items from text
-    const items: PlaylistItem[] = formData.items_text
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => {
-        const parts = line.split('|').map(p => p.trim());
-        return {
-          url: parts[0] || '',
-          title: parts[1] || parts[0] || 'Untitled',
-          type: parts[0]?.includes('youtube') ? 'youtube' : 'unknown',
-        };
-      });
+    let items: PlaylistItem[] = [];
+
+    // Для folder - берём из результата сканирования
+    if (formData.source_type === 'folder' && scanResult) {
+      items = scanResult.files.map(file => ({
+        url: `file://${file.file_path}`,
+        title: file.title || file.file_path.split('/').pop() || 'Untitled',
+        duration: file.duration,
+        type: 'local' as const,
+      }));
+    } else if (formData.source_type === 'manual') {
+      // Для manual - парсим из текста
+      items = formData.items_text
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          const parts = line.split('|').map(p => p.trim());
+          return {
+            url: parts[0] || '',
+            title: parts[1] || parts[0] || 'Untitled',
+            type: parts[0]?.includes('youtube') ? 'youtube' : 'unknown',
+          };
+        });
+    }
 
     if (isEditMode && playlist) {
       await updateMutation.mutateAsync({
@@ -520,17 +545,87 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
           {/* Folder path (for local files) */}
           {formData.source_type === 'folder' && (
-            <div>
+            <div className="space-y-3">
               <label className="text-sm font-medium text-default-700 mb-2 block">
-                {t('playlist.folderPath', 'Путь к папке на сервере')}
+                {t('playlist.folderPath', 'Выберите папку с музыкой')}
               </label>
-              <Input
-                placeholder="/music/Karunesh"
-                value={formData.source_url}
-                onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
-                startContent={<HardDrive className="w-4 h-4 text-default-400" />}
-                description={t('playlist.folderHint', 'Относительный путь от MUSIC_ROOT (например: Karunesh/2010-Heart-Chakra-Meditation)')}
-              />
+              
+              {/* Список папок */}
+              {foldersLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 rounded-lg" />
+                  ))}
+                </div>
+              ) : folders && folders.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto space-y-2 border border-default-200 rounded-lg p-3">
+                  {folders.map((folder) => (
+                    <button
+                      key={folder.path}
+                      onClick={() => {
+                        setSelectedFolder(folder.path);
+                        setFormData(f => ({ ...f, source_url: folder.path }));
+                        setAutoScan(true);
+                      }}
+                      className={`
+                        w-full flex items-center gap-3 p-3 rounded-lg transition-all
+                        ${formData.source_url === folder.path
+                          ? 'bg-violet-500 text-white'
+                          : 'bg-default-100 hover:bg-default-200'
+                        }
+                      `}
+                    >
+                      <Folder className="w-5 h-5 shrink-0" />
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">{folder.path}</p>
+                        <p className={`text-xs ${formData.source_url === folder.path ? 'text-white/70' : 'text-default-500'}`}>
+                          {folder.audio_count} файлов
+                          {folder.has_subdirs && ' • Содержит подпапки'}
+                        </p>
+                      </div>
+                      {formData.source_url === folder.path && (
+                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full bg-white" />
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center border border-dashed border-default-300 rounded-lg">
+                  <FolderOpen className="w-12 h-12 mx-auto mb-3 text-default-400" />
+                  <p className="text-sm text-default-500">
+                    {t('playlist.noFolders', 'Папки с музыкой не найдены')}
+                  </p>
+                  <p className="text-xs text-default-400 mt-1">
+                    {t('playlist.checkMusicRoot', 'Проверьте настройку MUSIC_ROOT')}
+                  </p>
+                </div>
+              )}
+
+              {/* Статус сканирования */}
+              {scanLoading && (
+                <div className="flex items-center gap-2 p-3 bg-violet-50 dark:bg-violet-900/20 rounded-lg">
+                  <div className="animate-spin">
+                    <Music className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <p className="text-sm text-violet-600">
+                    {t('playlist.scanning', 'Сканирование папки...')}
+                  </p>
+                </div>
+              )}
+
+              {/* Результат сканирования */}
+              {scanResult && !scanLoading && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">
+                    ✓ Найдено треков: {scanResult.total}
+                  </p>
+                  <p className="text-xs text-green-600/70 mt-1">
+                    {t('playlist.autoAdded', 'Треки будут добавлены автоматически при создании')}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
