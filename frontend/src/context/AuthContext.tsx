@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (decoded.exp < currentTime) {
           logout();
+          setIsLoading(false);
           return;
         }
 
