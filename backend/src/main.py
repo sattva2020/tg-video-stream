@@ -35,6 +35,7 @@ except ImportError:
 from api.auth import router as auth_router  # noqa: E402
 from api import users, playlist, admin, telegram_auth, channels, files, websocket, schedule  # noqa: E402
 from src.api.routes import playback as playback_routes  # noqa: E402
+from src.api.routes import notifications_channels, notifications_templates, notifications_recipients, notifications_rules, notifications_events, notifications_logs  # noqa: E402
 from api.health import router as health_router  # noqa: E402
 from api.system import router as system_router  # noqa: E402
 from api.telegram_login import router as telegram_login_router  # noqa: E402
@@ -146,6 +147,12 @@ app.include_router(system_router, prefix="/api/system", tags=["System Monitoring
 app.include_router(queue_router, prefix="/api/v1", tags=["Queue"])
 app.include_router(metrics_router, tags=["Metrics"])  # /metrics и /api/v1/metrics/*
 app.include_router(playback_routes.router)
+app.include_router(notifications_channels.router)
+app.include_router(notifications_templates.router)
+app.include_router(notifications_recipients.router)
+app.include_router(notifications_rules.router)
+app.include_router(notifications_events.router)
+app.include_router(notifications_logs.router)
 app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
 app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
 app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])

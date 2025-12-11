@@ -11,6 +11,10 @@ is installed, the app will be configured and can be used to run background worke
 import os
 import logging
 
+from kombu import Queue
+
+from src.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -38,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'src.services.notifications.worker',
         ]
     )
     
@@ -55,8 +60,8 @@ def make_celery():
         task_reject_on_worker_lost=True,
         
         # Worker settings
-        worker_prefetch_multiplier=1,  # Fetch one task at a time
-        worker_concurrency=4,  # Number of concurrent workers
+        worker_prefetch_multiplier=int(os.getenv('NOTIFICATIONS_PREFETCH', '1')),
+        worker_concurrency=int(os.getenv('NOTIFICATIONS_WORKER_CONCURRENCY', '5')),
         
         # Result backend
         result_expires=3600,  # Results expire after 1 hour
@@ -66,7 +71,15 @@ def make_celery():
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
+            'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
+            'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
         },
+
+        task_default_queue=settings.NOTIFICATIONS_QUEUE,
+        task_queues=[
+            Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
+            Queue('media', routing_key='media'),
+        ],
         
         # Rate limits
         task_annotations={

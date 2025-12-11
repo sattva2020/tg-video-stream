@@ -4,6 +4,15 @@ from .telegram import TelegramAccount, Channel
 from .schedule import ScheduleSlot, ScheduleTemplate, Playlist, RepeatType
 from .activity_event import ActivityEvent
 from .audit_log import AdminAuditLog
+from .notifications import (
+    NotificationChannel,
+    NotificationTemplate,
+    NotificationRecipient,
+    NotificationRule,
+    DeliveryLog,
+    notification_rule_recipients,
+    notification_rule_channels,
+)
 
 # Audio streaming enhancements (Feature 017)
 from .playback_settings import PlaybackSettings
@@ -25,6 +34,13 @@ __all__ = [
     "RepeatType",
     "ActivityEvent",
     "AdminAuditLog",
+    "NotificationChannel",
+    "NotificationTemplate",
+    "NotificationRecipient",
+    "NotificationRule",
+    "DeliveryLog",
+    "notification_rule_recipients",
+    "notification_rule_channels",
     "PlaybackSettings",
     "RadioStream",
     "ScheduledPlaylist",

@@ -20,6 +20,25 @@ from src.schemas.analytics import (
     TrackPlayRequest,
     TrackPlayResponse,
 )
+from src.schemas.notifications import (
+    NotificationChannelBase,
+    NotificationChannelCreate,
+    NotificationChannelUpdate,
+    NotificationChannelResponse,
+    NotificationTemplateBase,
+    NotificationTemplateCreate,
+    NotificationTemplateUpdate,
+    NotificationTemplateResponse,
+    NotificationRecipientBase,
+    NotificationRecipientCreate,
+    NotificationRecipientUpdate,
+    NotificationRecipientResponse,
+    NotificationRuleBase,
+    NotificationRuleCreate,
+    NotificationRuleUpdate,
+    NotificationRuleResponse,
+    DeliveryLogResponse,
+)
 
 __all__ = [
     "TelegramAuthRequest",
@@ -38,4 +57,22 @@ __all__ = [
     "AnalyticsSummaryResponse",
     "TrackPlayRequest",
     "TrackPlayResponse",
+    # Notifications schemas
+    "NotificationChannelBase",
+    "NotificationChannelCreate",
+    "NotificationChannelUpdate",
+    "NotificationChannelResponse",
+    "NotificationTemplateBase",
+    "NotificationTemplateCreate",
+    "NotificationTemplateUpdate",
+    "NotificationTemplateResponse",
+    "NotificationRecipientBase",
+    "NotificationRecipientCreate",
+    "NotificationRecipientUpdate",
+    "NotificationRecipientResponse",
+    "NotificationRuleBase",
+    "NotificationRuleCreate",
+    "NotificationRuleUpdate",
+    "NotificationRuleResponse",
+    "DeliveryLogResponse",
 ]
