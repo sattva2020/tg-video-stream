@@ -34,7 +34,7 @@ redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379")
 def list_users(
     status: str | None = None,
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    page_size: int = Query(10, ge=1, le=1000, description="Items per page"),
     search: str | None = Query(None, description="Search by email"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
