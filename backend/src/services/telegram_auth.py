@@ -220,6 +220,12 @@ class TelegramAuthService:
         should_disconnect = True  # Flag to control client disconnection
         
         try:
+            # Ensure client is connected before sign_in
+            if not client.is_connected:
+                print("[sign_in_public] Client disconnected, reconnecting...", flush=True)
+                await client.connect()
+                print("[sign_in_public] Reconnected!", flush=True)
+            
             try:
                 print("[sign_in_public] Calling sign_in...", flush=True)
                 user = await client.sign_in(phone, phone_code_hash, code)
