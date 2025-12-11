@@ -342,7 +342,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
   // Для работы с папками
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [autoScan, setAutoScan] = useState(false);
-  const { data: folders, isLoading: foldersLoading } = useMediaFolders();
+  const { data: folders = [], isLoading: foldersLoading } = useMediaFolders();
   const { data: scanResult, isLoading: scanLoading } = useScanFolder(
     selectedFolder,
     true, // recursive
