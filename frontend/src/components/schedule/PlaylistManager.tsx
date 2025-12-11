@@ -98,6 +98,7 @@ const SOURCE_TYPES = [
   { value: 'manual', label: 'Вручную', icon: ListMusic },
   { value: 'youtube', label: 'YouTube Playlist', icon: Youtube },
   { value: 'm3u', label: 'M3U файл', icon: FileText },
+  { value: 'folder', label: 'Локальная папка', icon: HardDrive },
 ];
 
 const PRESET_COLORS = [
@@ -499,7 +500,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
           </div>
 
           {/* Source URL (for youtube/m3u) */}
-          {formData.source_type !== 'manual' && (
+          {formData.source_type !== 'manual' && formData.source_type !== 'folder' && (
             <div>
               <label className="text-sm font-medium text-default-700 mb-2 block">
                 {formData.source_type === 'youtube'
@@ -513,6 +514,22 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                 value={formData.source_url}
                 onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
                 startContent={<ExternalLink className="w-4 h-4 text-default-400" />}
+              />
+            </div>
+          )}
+
+          {/* Folder path (for local files) */}
+          {formData.source_type === 'folder' && (
+            <div>
+              <label className="text-sm font-medium text-default-700 mb-2 block">
+                {t('playlist.folderPath', 'Путь к папке на сервере')}
+              </label>
+              <Input
+                placeholder="/music/Karunesh"
+                value={formData.source_url}
+                onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
+                startContent={<HardDrive className="w-4 h-4 text-default-400" />}
+                description={t('playlist.folderHint', 'Относительный путь от MUSIC_ROOT (например: Karunesh/2010-Heart-Chakra-Meditation)')}
               />
             </div>
           )}

@@ -213,6 +213,8 @@ class Playlist(Base):
     # Флаги
     is_active = Column(Boolean, default=True)
     is_shuffled = Column(Boolean, default=False)  # Перемешивать при воспроизведении
+    is_public = Column(Boolean, default=False)     # Доступен другим пользователям
+    share_code = Column(String(32), unique=True, nullable=True, index=True)  # Код для шаринга
     
     # Аудит
     created_at = Column(DateTime(timezone=True), server_default=func.now())
