@@ -54,7 +54,7 @@ export const DesktopNav: React.FC = () => {
     },
     { 
       path: '/admin', 
-      label: t('nav.admin', 'Админ'), 
+      label: t('nav.settings', 'Настройки'), 
       icon: <Settings className="w-4 h-4" />,
       adminOnly: true 
     },
