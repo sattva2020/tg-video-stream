@@ -211,13 +211,14 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
       )}
 
       {step === 'phone' && (
-        <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-4">
+        <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} action="" autoComplete="on" className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-300">Номер телефона</label>
+            <label htmlFor="phone" className="block text-sm font-medium mb-1 text-gray-300">Номер телефона</label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 {...phoneForm.register('phone')}
+                id="phone"
                 type="tel"
                 name="phone"
                 autoComplete="tel"
@@ -240,15 +241,20 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
       )}
 
       {step === 'code' && (
-        <form onSubmit={codeForm.handleSubmit(onCodeSubmit)} className="space-y-4">
+        <form onSubmit={codeForm.handleSubmit(onCodeSubmit)} action="" autoComplete="off" className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-300">Код подтверждения</label>
+            <label htmlFor="code" className="block text-sm font-medium mb-1 text-gray-300">Код подтверждения</label>
             <div className="relative">
               <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 {...codeForm.register('code')}
+                id="code"
+                type="text"
+                name="code"
+                autoComplete="one-time-code"
                 placeholder="12345"
                 maxLength={5}
+                inputMode="numeric"
                 className="w-full pl-10 pr-3 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg tracking-widest"
               />
             </div>
@@ -280,14 +286,17 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
       )}
 
       {step === 'password' && (
-        <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+        <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} action="" autoComplete="on" className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-300 flex items-center gap-2">
+            <label htmlFor="password" className="block text-sm font-medium mb-1 text-gray-300 flex items-center gap-2">
               <Lock className="h-4 w-4 text-gray-400" />
               Пароль 2FA
             </label>
             <PasswordInput
               {...passwordForm.register('password')}
+              id="password"
+              name="password"
+              autoComplete="current-password"
               placeholder="Введите пароль 2FA"
               className="w-full px-4 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               buttonClassName="text-gray-400 hover:text-gray-200"
