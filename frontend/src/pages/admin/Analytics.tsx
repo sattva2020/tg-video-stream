@@ -13,6 +13,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Play, Clock, Music, RefreshCw, Calendar } from 'lucide-react';
 import { MetricCard, ListenersChart, TopTracksTable } from '../../components/analytics';
+import { ResponsiveHeader } from '../../components/layout';
 import * as analyticsApi from '../../api/analytics';
 import type {
   AnalyticsPeriod,
@@ -75,14 +76,16 @@ const Analytics: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-        >
+    <>
+      <ResponsiveHeader />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+          >
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Аналитика
@@ -197,6 +200,7 @@ const Analytics: React.FC = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 
