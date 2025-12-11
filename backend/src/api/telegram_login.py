@@ -163,9 +163,10 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
             
             db.commit()
         
-        # Создаём JWT токен
+        # Создаём JWT токен с ролью пользователя
+        role_value = user.role.value if hasattr(user.role, 'value') else str(user.role) if user.role else None
         access_token = create_access_token(
-            data={"sub": str(user.id)},
+            data={"sub": str(user.id), "role": role_value},
             expires_delta=timedelta(minutes=30)
         )
         
