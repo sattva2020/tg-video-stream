@@ -69,7 +69,7 @@ export const MobileNav: React.FC = () => {
     },
     { 
       path: '/admin', 
-      label: t('nav.admin', 'Админ'), 
+      label: t('nav.settings', 'Настройки'), 
       icon: <Settings className="w-5 h-5" />,
       adminOnly: true 
     },
