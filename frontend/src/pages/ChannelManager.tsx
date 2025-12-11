@@ -519,10 +519,13 @@ const ChannelManager: React.FC = () => {
               >
                 <X className="w-5 h-5" />
               </button>
-              <TelegramLogin onSuccess={() => {
-                setIsAuthModalOpen(false);
-                queryClient.invalidateQueries({ queryKey: queryKeys.telegram.all });
-              }} />
+              <TelegramLogin 
+                apiPrefix="/api/auth/telegram"
+                onSuccess={() => {
+                  setIsAuthModalOpen(false);
+                  queryClient.invalidateQueries({ queryKey: queryKeys.telegram.all });
+                }} 
+              />
             </div>
           </div>
         )}
