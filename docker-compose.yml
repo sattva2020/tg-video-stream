@@ -17,6 +17,7 @@ services:
     volumes:
       - ./backend:/app
       - ./data:/app/data
+      - ./data/music:/app/music:ro
     networks:
       - external
       - internal
