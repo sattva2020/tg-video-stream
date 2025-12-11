@@ -30,6 +30,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const logout = useCallback(() => {
+    console.log('[Auth] logout() called');
+    console.trace('[Auth] logout trace');
     localStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
@@ -37,6 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuth = useCallback(async () => {
     const token = localStorage.getItem('token');
+    console.log('[Auth] checkAuth() - token exists:', !!token);
     if (token) {
       try {
         const decoded = jwtDecode<JwtPayload>(token);
