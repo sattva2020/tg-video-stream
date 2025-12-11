@@ -1,50 +1,39 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# tg-video-stream Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Чистая структура
+- Корень только для критически важных файлов; код и артефакты размещаются по каталогам (backend, frontend, streamer, specs, docs, scripts, config, tests).
+- Временные/отладочные файлы — в `.internal/` или `_dev/`, добавлены в .gitignore.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Документация и язык
+- Все инструкции и спецификации в `docs/` и `ai-instructions/` ведутся на русском, формат Markdown.
+- Перед коммитом документации запускать `npm run docs:validate`; после правок — `npm run docs:report` при необходимости.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Test-first для изменений
+- Новая логика сопровождается тестами в `backend/tests` или `frontend/tests`; smoke/пробы — в `tests/`.
+- Для контрактов API добавлять тесты на схемы/валидаторы и happy/edge cases.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Конфиги и секреты
+- Секреты (.env, .session) не коммитятся; используется template-based подход (`template.env` → `.env`).
+- Любые изменения конфигураций на сервере синхронизируются в репозиторий (config/, шаблоны, docs).
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Простота и надёжность
+- Предпочтение готовым библиотекам и минимальным зависимостям; избегаем преждевременной сложности.
+- Наблюдаемость: журналирование ключевых операций, метрики для фич с SLA.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## Технологические стандарты
+- Backend: Python 3.12, FastAPI, SQLAlchemy 2.x (async), Celery + Redis, PostgreSQL 15, httpx.
+- Frontend: React 18 + Vite + TypeScript; Playwright/Vitest для тестов.
+- Контейнеризация: Docker/Compose; CI/CD — GitHub Actions.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
-
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
-
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Workflow и гейты
+- Спецификации фич в `specs/<id>-<name>/`; планирование через `/speckit.plan`, задачи через `/speckit.tasks`.
+- Перед слиянием: структура соблюдена, секреты вне git, тесты проходят, документация обновлена при затронутых требованиях.
+- API/контракты документируются в `specs/.../contracts/` и проверяются тестами.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+- Конституция имеет приоритет над частными стилевыми предпочтениями. Любые отступления документируются и обосновываются в PR/plan (раздел Complexity Tracking).
+- Обновления Конституции фиксируются в этом файле с указанием версии и даты; требуют явного одобрения ответственного по проекту.
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-12-10 | **Last Amended**: 2025-12-10

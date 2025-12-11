@@ -4,6 +4,7 @@ export interface Channel {
   id: string;
   account_id: string;
   chat_id: number;
+  chat_username?: string;
   name: string;
   status: 'stopped' | 'running' | 'error' | 'starting' | 'stopping' | 'unknown';
   ffmpeg_args?: string;
@@ -15,6 +16,7 @@ export interface Channel {
 export interface CreateChannelData {
   account_id: string;
   chat_id: number;
+  chat_username?: string;
   name: string;
   ffmpeg_args?: string;
   video_quality?: string;

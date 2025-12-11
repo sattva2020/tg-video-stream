@@ -59,6 +59,7 @@ const ChannelManager: React.FC = () => {
   const [formData, setFormData] = useState<CreateChannelData>({
     account_id: '',
     chat_id: 0,
+    chat_username: '',
     name: '',
     video_quality: 'best',
     stream_type: 'video',
@@ -68,6 +69,7 @@ const ChannelManager: React.FC = () => {
     setFormData({
       ...formData,
       chat_id: dialog.id,
+      chat_username: dialog.username || '',
       name: dialog.title,
     });
     setShowDialogPicker(false);
@@ -97,7 +99,7 @@ const ChannelManager: React.FC = () => {
     setIsModalOpen(false);
     setEditingChannel(null);
     setSelectedFile(null);
-    setFormData({ account_id: '', chat_id: 0, name: '', video_quality: 'best', stream_type: 'video' });
+    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video' });
   };
 
   const handleEdit = (channel: Channel) => {
@@ -106,6 +108,7 @@ const ChannelManager: React.FC = () => {
     setFormData({
       account_id: channel.account_id,
       chat_id: channel.chat_id,
+      chat_username: channel.chat_username || '',
       name: channel.name,
       video_quality: channel.video_quality,
       ffmpeg_args: channel.ffmpeg_args,
@@ -134,7 +137,7 @@ const ChannelManager: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingChannel(null);
-    setFormData({ account_id: '', chat_id: 0, name: '', video_quality: 'best', stream_type: 'video' });
+    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video' });
     setIsModalOpen(true);
   };
 
