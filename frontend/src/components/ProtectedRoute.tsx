@@ -10,16 +10,6 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) => {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Debug logging
-  console.log('[ProtectedRoute] isLoading:', isLoading);
-  console.log('[ProtectedRoute] isAuthenticated:', isAuthenticated);
-  console.log('[ProtectedRoute] user:', user);
-  console.log('[ProtectedRoute] user?.role:', user?.role);
-  console.log('[ProtectedRoute] allowedRoles:', allowedRoles);
-  if (allowedRoles && user) {
-    console.log('[ProtectedRoute] role check:', allowedRoles.includes(user.role));
-  }
-
   if (isLoading) {
     return <div>Loading...</div>;
   }
