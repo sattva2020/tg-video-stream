@@ -1,7 +1,7 @@
 """Add playlist sharing fields
 
-Revision ID: add_playlist_sharing
-Revises: 
+Revision ID: l1m2n3o4p5q6
+Revises: k0l1m2n3o4p5
 Create Date: 2025-12-11
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_playlist_sharing'
-down_revision = None  # Update this to your latest migration
+revision = 'l1m2n3o4p5q6'
+down_revision = 'k0l1m2n3o4p5'
 branch_labels = None
 depends_on = None
 
