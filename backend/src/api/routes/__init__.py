@@ -7,4 +7,10 @@ __all__ = [
     "recognition",
     "scheduler",
     "backup",
+    "notifications_channels",
+    "notifications_templates",
+    "notifications_recipients",
+    "notifications_rules",
+    "notifications_events",
+    "notifications_logs",
 ]

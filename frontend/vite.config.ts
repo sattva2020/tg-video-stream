@@ -50,6 +50,12 @@ export default defineConfig({
           });
         },
       },
+      // Проксируем /health, чтобы e2e health-checks ходили в backend
+      '/health': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
   build: {
