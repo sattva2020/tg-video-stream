@@ -127,6 +127,12 @@ class TelegramAuthService:
         print(f"[sign_in] Found client, hash={phone_code_hash[:10]}...", flush=True)
 
         try:
+            # Ensure client is connected before sign_in
+            if not client.is_connected:
+                print("[sign_in] Client disconnected, reconnecting...", flush=True)
+                await client.connect()
+                print("[sign_in] Reconnected!", flush=True)
+            
             try:
                 print("[sign_in] Calling sign_in...", flush=True)
                 user = await client.sign_in(phone, phone_code_hash, code)
