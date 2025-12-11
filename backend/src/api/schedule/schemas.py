@@ -122,6 +122,8 @@ class PlaylistResponse(BaseModel):
     name: str
     description: Optional[str]
     channel_id: Optional[str]
+    group_id: Optional[str] = None
+    position: int = 0
     color: str
     source_type: str
     source_url: Optional[str]
@@ -133,6 +135,48 @@ class PlaylistResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlaylistGroupCreate(BaseModel):
+    """Создание группы плейлистов."""
+    name: str = Field(..., min_length=1)
+    description: Optional[str] = None
+    channel_id: Optional[str] = None
+    color: str = "#6366F1"
+    icon: str = "folder"
+
+
+class PlaylistGroupUpdate(BaseModel):
+    """Обновление группы плейлистов."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    position: Optional[int] = None
+    is_expanded: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
+class PlaylistGroupResponse(BaseModel):
+    """Ответ с данными группы плейлистов."""
+    id: str
+    name: str
+    description: Optional[str]
+    channel_id: Optional[str]
+    color: str
+    icon: str
+    position: int
+    is_expanded: bool
+    is_active: bool
+    playlists_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PlaylistGroupWithPlaylistsResponse(PlaylistGroupResponse):
+    """Группа с вложенными плейлистами."""
+    playlists: List[PlaylistResponse] = []
 
 
 class BulkCopyRequest(BaseModel):
