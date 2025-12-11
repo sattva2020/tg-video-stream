@@ -11,6 +11,9 @@ from typing import Callable, List, Optional, Union
 
 from fastapi import HTTPException, Request
 
+# Import JWT decode function
+from auth.jwt import decode_access_token
+
 
 class UserRole(str, Enum):
     """User role enumeration for type safety."""
@@ -19,6 +22,41 @@ class UserRole(str, Enum):
     MODERATOR = "MODERATOR"
     OPERATOR = "OPERATOR"
     USER = "USER"
+
+
+def _extract_token_from_request(request: Request) -> Optional[str]:
+    """Extract JWT token from Authorization header or cookies."""
+    # Try Authorization header first
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:]
+    
+    # Try cookies
+    token = request.cookies.get("access_token")
+    if token:
+        # Remove "Bearer " prefix if present in cookie
+        if token.startswith("Bearer "):
+            return token[7:]
+        return token
+    
+    return None
+
+
+def _get_role_from_token(request: Request) -> Optional[str]:
+    """Extract user role from JWT token."""
+    token = _extract_token_from_request(request)
+    if not token:
+        return None
+    
+    payload = decode_access_token(token)
+    if not payload:
+        return None
+    
+    role = payload.get("role")
+    if role:
+        # Normalize role to uppercase for comparison
+        return str(role).upper()
+    return None
 
 
 def require_role(required_roles: Union[str, List[str], List[UserRole]]):
@@ -82,19 +120,13 @@ def require_role(required_roles: Union[str, List[str], List[UserRole]]):
                     detail="Request object not found in function arguments"
                 )
 
-            # Check authentication
-            if not getattr(request.state, 'is_authenticated', False):
+            # Extract role from JWT token directly (no middleware dependency)
+            user_role = _get_role_from_token(request)
+            
+            if not user_role:
                 raise HTTPException(
                     status_code=401,
                     detail="Authentication required"
-                )
-
-            # Check role
-            user_role = getattr(request.state, 'user_role', None)
-            if not user_role:
-                raise HTTPException(
-                    status_code=403,
-                    detail="User role not found in token"
                 )
 
             if user_role not in required_roles:
