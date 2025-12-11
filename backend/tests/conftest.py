@@ -35,6 +35,17 @@ warnings.filterwarnings(
     category=DeprecationWarning,
 )
 
+# Pydantic v2: игнорируем предупреждения Config класс/orm_mode для совместимости.
+try:
+    import pydantic.warnings as pyd_warnings
+
+    warnings.filterwarnings(
+        "ignore",
+        category=pyd_warnings.PydanticDeprecatedSince20,
+    )
+except Exception:
+    pass
+
 # Test Redis factory ---------------------------------------------------------
 
 

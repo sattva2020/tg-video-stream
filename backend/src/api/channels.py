@@ -21,6 +21,7 @@ class ChannelCreate(BaseModel):
     account_id: uuid.UUID
     chat_id: int
     name: str
+    chat_username: Optional[str] = None  # Telegram username for reliable peer resolution
     ffmpeg_args: Optional[str] = None
     video_quality: Optional[str] = "best"
     stream_type: Optional[str] = "video"
@@ -29,6 +30,7 @@ class ChannelResponse(BaseModel):
     id: uuid.UUID
     account_id: uuid.UUID
     chat_id: int
+    chat_username: Optional[str] = None
     name: str
     status: str
     ffmpeg_args: Optional[str]
@@ -73,6 +75,7 @@ def list_channels(
             "id": channel.id,
             "account_id": channel.account_id,
             "chat_id": channel.chat_id,
+            "chat_username": channel.chat_username,
             "name": channel.name,
             "ffmpeg_args": channel.ffmpeg_args,
             "video_quality": channel.video_quality,
@@ -117,6 +120,7 @@ def create_channel(
     new_channel = Channel(
         account_id=channel_in.account_id,
         chat_id=channel_in.chat_id,
+        chat_username=channel_in.chat_username,
         name=channel_in.name,
         ffmpeg_args=channel_in.ffmpeg_args,
         video_quality=channel_in.video_quality,
