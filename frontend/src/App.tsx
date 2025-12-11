@@ -1,9 +1,10 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import { UserRole } from './types/user';
+import { LoadingBar } from './components/ui/LoadingBar';
 
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
@@ -28,21 +29,44 @@ const MODERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODER
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-    Loading...
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"></div>
+      <span className="text-sm text-gray-400">Загрузка...</span>
+    </div>
   </div>
 );
+
+// Компонент для отслеживания навигации и показа LoadingBar
+const NavigationProgress: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  useEffect(() => {
+    setIsNavigating(true);
+    const timeout = setTimeout(() => setIsNavigating(false), 500);
+    return () => clearTimeout(timeout);
+  }, [location.pathname]);
+
+  return (
+    <>
+      <LoadingBar isLoading={isNavigating} />
+      {children}
+    </>
+  );
+};
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/auth" element={<AuthPage3D />} />
-            <Route path="/login" element={<AuthPage3D />} />
-            <Route path="/pending-approval" element={<PendingApprovalPage />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
+        <NavigationProgress>
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/auth" element={<AuthPage3D />} />
+              <Route path="/login" element={<AuthPage3D />} />
+              <Route path="/pending-approval" element={<PendingApprovalPage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
             
             {/* Routes for all authenticated users */}
             <Route element={<ProtectedRoute />}>
@@ -73,6 +97,7 @@ const App: React.FC = () => {
             </Route>
           </Routes>
         </Suspense>
+        </NavigationProgress>
       </Router>
     </AuthProvider>
   );
