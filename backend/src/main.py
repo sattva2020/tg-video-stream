@@ -34,6 +34,7 @@ except ImportError:
 # Import routers (loaded after .env so environment variables are available to modules)
 from api.auth import router as auth_router  # noqa: E402
 from api import users, playlist, admin, telegram_auth, channels, files, websocket, schedule  # noqa: E402
+from src.api import media  # noqa: E402
 from src.api.routes import playback as playback_routes  # noqa: E402
 from src.api.routes import notifications_channels, notifications_templates, notifications_recipients, notifications_rules, notifications_events, notifications_logs  # noqa: E402
 from api.health import router as health_router  # noqa: E402
@@ -141,6 +142,7 @@ app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Tel
 app.include_router(telegram_login_router, prefix="/api/auth/telegram-login", tags=["Telegram Login"])
 app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
 app.include_router(files.router, prefix="/api/files", tags=["Files"])
+app.include_router(media.router, prefix="/api", tags=["Media"])
 app.include_router(websocket.router, prefix="/api/ws", tags=["WebSocket"])
 app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
 app.include_router(system_router, prefix="/api/system", tags=["System Monitoring"])
