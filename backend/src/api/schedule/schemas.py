@@ -114,6 +114,7 @@ class PlaylistUpdate(BaseModel):
     items: Optional[List[dict]] = None
     is_active: Optional[bool] = None
     is_shuffled: Optional[bool] = None
+    is_public: Optional[bool] = None
 
 
 class PlaylistResponse(BaseModel):
@@ -132,6 +133,8 @@ class PlaylistResponse(BaseModel):
     total_duration: int
     is_active: bool
     is_shuffled: bool
+    is_public: bool = False
+    share_code: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

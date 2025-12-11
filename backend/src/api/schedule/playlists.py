@@ -53,6 +53,8 @@ async def get_playlists(
             name=p.name,
             description=p.description,
             channel_id=str(p.channel_id) if p.channel_id else None,
+            group_id=str(p.group_id) if p.group_id else None,
+            position=p.position or 0,
             color=p.color,
             source_type=p.source_type,
             source_url=p.source_url,
@@ -61,6 +63,8 @@ async def get_playlists(
             total_duration=p.total_duration,
             is_active=p.is_active,
             is_shuffled=p.is_shuffled,
+            is_public=p.is_public if hasattr(p, 'is_public') else False,
+            share_code=p.share_code if hasattr(p, 'share_code') else None,
             created_at=p.created_at
         )
         for p in playlists
@@ -101,6 +105,8 @@ async def create_playlist(
         name=playlist.name,
         description=playlist.description,
         channel_id=str(playlist.channel_id) if playlist.channel_id else None,
+        group_id=str(playlist.group_id) if playlist.group_id else None,
+        position=playlist.position or 0,
         color=playlist.color,
         source_type=playlist.source_type,
         source_url=playlist.source_url,
@@ -109,6 +115,8 @@ async def create_playlist(
         total_duration=playlist.total_duration,
         is_active=playlist.is_active,
         is_shuffled=playlist.is_shuffled,
+        is_public=getattr(playlist, 'is_public', False),
+        share_code=getattr(playlist, 'share_code', None),
         created_at=playlist.created_at
     )
 
@@ -148,6 +156,8 @@ async def update_playlist(
         name=playlist.name,
         description=playlist.description,
         channel_id=str(playlist.channel_id) if playlist.channel_id else None,
+        group_id=str(playlist.group_id) if playlist.group_id else None,
+        position=playlist.position or 0,
         color=playlist.color,
         source_type=playlist.source_type,
         source_url=playlist.source_url,
@@ -156,6 +166,8 @@ async def update_playlist(
         total_duration=playlist.total_duration,
         is_active=playlist.is_active,
         is_shuffled=playlist.is_shuffled,
+        is_public=getattr(playlist, 'is_public', False),
+        share_code=getattr(playlist, 'share_code', None),
         created_at=playlist.created_at
     )
 
