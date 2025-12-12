@@ -275,13 +275,36 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
               Код отправлен в ваш Telegram от пользователя <strong>&quot;Telegram&quot;</strong> (ID: 777000).
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setStep('phone')}
-            className="w-full text-sm text-gray-400 hover:text-gray-200 transition-colors"
-          >
-            ← Назад к номеру телефона
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                setLoading(true);
+                setError('');
+                setRateLimit(null);
+                try {
+                  await client.post(`${apiPrefix}/resend-code`, { phone });
+                  setError('');
+                  // Можно показать success toast
+                } catch (err: any) {
+                  handleError(err);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading || !!rateLimit}
+              className="flex-1 py-2 px-3 text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-md disabled:opacity-50 transition-colors"
+            >
+              {loading ? <Loader2 className="animate-spin h-4 w-4 mx-auto" /> : '🔄 Запросить новый код'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep('phone')}
+              className="py-2 px-3 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              ← Назад
+            </button>
+          </div>
         </form>
       )}
 
