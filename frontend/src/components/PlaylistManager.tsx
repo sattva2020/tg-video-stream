@@ -117,10 +117,14 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
         setLoading(true);
         try {
             const response = await client.get('/api/playlist/');
-            setItems(response.data);
+            // Защита от невалидных данных: всегда устанавливаем массив
+            const data = Array.isArray(response.data) ? response.data : [];
+            setItems(data);
         } catch (err) {
             console.error('Failed to fetch playlist', err);
             toast.error(t('playlist.loadError', 'Не удалось загрузить плейлист'));
+            // При ошибке устанавливаем пустой массив
+            setItems([]);
         } finally {
             setLoading(false);
         }
@@ -150,12 +154,20 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
     }, [sourceType, fetchLocalFiles]);
 
     const handleReorder = (newItems: PlaylistItem[]) => {
-        setItems(newItems);
+        // Защита от невалидных данных при reorder
+        const validItems = Array.isArray(newItems) ? newItems : [];
+        setItems(validItems);
     };
 
     const saveOrder = async () => {
         setSaving(true);
         try {
+            // Защита: если items не массив, пропускаем сохранение
+            if (!Array.isArray(items) || items.length === 0) {
+                toast.warning(t('playlist.emptyPlaylist', 'Плейлист пуст'));
+                return;
+            }
+            
             // Update positions based on new order
             const updates = items.map((item, index) => ({
                 id: item.id,
@@ -220,7 +232,7 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
                     <h2 className="text-xl font-bold text-[color:var(--color-text)]">
                         {t('playlist.management', 'Управление плейлистом')}
                     </h2>
-                    {items.length > 1 && (
+                    {Array.isArray(items) && items.length > 1 && (
                         <span className="text-xs text-[color:var(--color-text-muted)] bg-[color:var(--color-surface-muted)] px-2 py-1 rounded-full">
                             {t('playlist.dragHint', '⇅ Перетащите для сортировки')}
                         </span>
@@ -318,7 +330,7 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
                     </div>
                 </form>
 
-                {items.length === 0 ? (
+                {!Array.isArray(items) || items.length === 0 ? (
                     <p className="text-[color:var(--color-text-muted)] text-center py-6">
                         {t('playlist.emptyPlaylist', 'Плейлист пуст. Добавьте видео!')}
                     </p>
@@ -330,7 +342,8 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
                         className="space-y-2"
                         layoutScroll
                     >
-                        {items.map((item, index) => (
+                        {/* Дополнительная защита: проверяем, что items - массив перед map */}
+                        {(Array.isArray(items) ? items : []).map((item, index) => (
                             <DraggablePlaylistItem
                                 key={item.id}
                                 item={item}
@@ -342,7 +355,7 @@ const PlaylistManager: React.FC<PlaylistManagerProps> = ({ token }) => {
                     </Reorder.Group>
                 )}
                 
-                {items.length > 1 && (
+                {Array.isArray(items) && items.length > 1 && (
                     <div className="flex justify-end">
                         <Button
                             onPress={saveOrder}
