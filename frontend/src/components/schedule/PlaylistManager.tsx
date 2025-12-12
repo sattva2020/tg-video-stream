@@ -557,7 +557,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                     <Skeleton key={i} className="h-12 rounded-lg" />
                   ))}
                 </div>
-              ) : folders && folders.length > 0 ? (
+              ) : Array.isArray(folders) && folders.length > 0 ? (
                 <div className="max-h-64 overflow-y-auto space-y-2 border border-default-200 rounded-lg p-3">
                   {folders.map((folder) => (
                     <button
