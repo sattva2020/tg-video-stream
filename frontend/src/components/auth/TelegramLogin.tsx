@@ -158,7 +158,13 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
         onSuccess(res.data.access_token);
       }
     } catch (err: any) {
-      handleError(err);
+      const errorMsg = err.response?.data?.detail;
+      // Специальная обработка истёкшего кода с подсказкой
+      if (typeof errorMsg === 'string' && errorMsg.includes('Code expired')) {
+        setError('⏱️ Код истёк. Нажмите кнопку "🔄 Запросить новый код" ниже.');
+      } else {
+        handleError(err);
+      }
     } finally {
       setLoading(false);
     }
