@@ -180,9 +180,16 @@ export const UserDashboard: React.FC = () => {
       <Card>
         <CardHeader className="flex flex-col items-start px-6 pt-6 pb-0">
           <h2 className="text-xl font-semibold">
-            {t('user.dashboard.welcomeTitle', { name: user?.full_name || user?.email })}
+            {t('user.dashboard.welcomeTitle', {
+              name: user?.full_name || user?.email,
+              defaultValue: 'Добро пожаловать, {{name}}',
+            })}
           </h2>
-          <p className="text-default-500 mt-1">{t('user.dashboard.welcomeSubtitle')}</p>
+          <p className="text-default-500 mt-1">
+            {t('user.dashboard.welcomeSubtitle', {
+              defaultValue: 'Краткая сводка по вашему аккаунту и трансляции',
+            })}
+          </p>
         </CardHeader>
         <CardBody className="px-6 pb-6">
           <WelcomeCardContent user={user || null} />

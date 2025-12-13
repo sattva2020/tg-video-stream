@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import GoogleLoginButton from '../GoogleLoginButton';
 import { TelegramLogin } from './TelegramLogin';
+import { PendingApproval } from './PendingApproval';
 import ErrorToast from './ErrorToast';
 import { Send } from 'lucide-react';
 import { authApi } from '../../api/auth';
@@ -26,7 +27,7 @@ interface AuthCardProps {
 const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { login: authLogin } = useAuth();
+  const { login: authLogin, isPendingApproval } = useAuth();
   const [banner, setBanner] = useState<AuthBanner | null>(initialBanner);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -88,6 +89,18 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
       setIsSubmitting(false);
     }
   };
+
+  // If user is pending approval, show pending screen instead of login
+  if (isPendingApproval) {
+    return (
+      <div 
+        data-testid="auth-card" 
+        className={`flex items-center justify-center min-h-screen transition-all duration-700 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+      >
+        <PendingApproval />
+      </div>
+    );
+  }
 
   return (
     <div 

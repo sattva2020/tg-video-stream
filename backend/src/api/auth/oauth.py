@@ -203,6 +203,15 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
                 logger.exception('Failed to notify admins for new OAuth user')
             return RedirectResponse(url=f"{frontend_url}/login?status=pending")
 
+        # Обновляем время последнего входа для одобренного пользователя
+        try:
+            if hasattr(user, 'update_last_login'):
+                user.update_last_login()
+                db.add(user)
+                db.commit()
+        except Exception:
+            logger.exception('Failed to update last_login for OAuth user')
+
         jwt_token = auth_service.create_jwt_for_user(user)
         logger.info(f"Successfully processed user and generated JWT for user ID: {user.id}")
     except Exception as e:

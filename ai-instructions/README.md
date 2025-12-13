@@ -20,6 +20,10 @@ telegram/
 │   └── tests/        # Vitest + Playwright тесты
 ├── streamer/         # Telegram streaming service
 ├── docs/             # Документация
+│   ├── bugfixes/     # КРИТИЧНО: Все документы об исправлении багов ТОЛЬКО сюда!
+│   ├── api/          # API документация
+│   ├── architecture/ # Архитектурные решения
+│   └── development/  # Процессы разработки
 ├── specs/            # Спецификации и планы
 └── scripts/          # Утилиты и скрипты
 ```
@@ -111,6 +115,12 @@ telegram/
    - Fixtures в conftest.py
    - Изолированные (без внешних зависимостей)
 
+5. **Документация багфиксов**:
+   - ⚠️ **КРИТИЧНО**: Все документы об исправлении багов сохранять в `docs/bugfixes/`
+   - Формат имени: `COMPONENT_BUG_DESCRIPTION.md` (например, `TELEGRAM_2FA_FIX.md`)
+   - Включать: описание проблемы, причину, решение, тестирование
+   - Обновлять ссылки в README.md и ai-instructions/
+
 ---
 
 ## 🔄 Рабочий процесс
@@ -148,9 +158,11 @@ telegram/
 ## 🔗 Ссылки
 
 - [docs/README.md](../docs/README.md) — документация
+- [docs/bugfixes/](../docs/bugfixes/) — история исправлений багов
+- [ai-instructions/BUGFIX_DOCUMENTATION_RULES.md](BUGFIX_DOCUMENTATION_RULES.md) — **ПРАВИЛА документирования багфиксов**
 - [OUTSTANDING_TASKS_REPORT.md](../OUTSTANDING_TASKS_REPORT.md) — текущие задачи
 - [specs/012-project-improvements/](../specs/012-project-improvements/) — план улучшений
 
 ---
 
-*Последнее обновление: 2025-01-20*
+*Последнее обновление: 2025-12-13*

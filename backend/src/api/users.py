@@ -28,6 +28,7 @@ def read_users_me(request: Request, current_user: src.models.user.User = Depends
     return {
         "id": current_user.id,
         "email": current_user.email,
+        "email_verified": getattr(current_user, 'email_verified', False),
         "full_name": current_user.full_name,
         "profile_picture_url": current_user.profile_picture_url,
         "role": current_user.role,
@@ -36,4 +37,5 @@ def read_users_me(request: Request, current_user: src.models.user.User = Depends
         "telegram_id": current_user.telegram_id,
         "telegram_username": current_user.telegram_username,
         "created_at": current_user.created_at,
+        "last_login": getattr(current_user, 'last_login', None),
     }

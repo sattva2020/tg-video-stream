@@ -13,7 +13,9 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'i8j9k0l1m2n3'
-down_revision: Union[str, None] = ('h7i8j9k0l1m2', '015_add_activity_events', 'b7c8d9e0f1g')
+# NOTE: '015_add_activity_events' отсутствует как файл ревизии в репозитории.
+# Для корректной карты миграций ссылаемся только на существующие ревизии.
+down_revision: Union[str, None] = ('h7i8j9k0l1m2', 'b7c8d9e0f1g')
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

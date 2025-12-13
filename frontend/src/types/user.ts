@@ -13,6 +13,8 @@ export interface User {
   profile_picture_url?: string;
   role: UserRole;
   status?: string;
+  last_login?: string;
+  email_verified?: boolean;
   google_id?: string;
   telegram_id?: number;
   telegram_username?: string;

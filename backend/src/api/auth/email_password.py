@@ -209,6 +209,15 @@ async def login_user(
     if not auth_service.verify_password(login_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    # Обновляем время последнего входа
+    try:
+        if hasattr(user, 'update_last_login'):
+            user.update_last_login()
+            db.add(user)
+            db.commit()
+    except Exception:
+        logger.exception('Failed to update last_login')
+
     token = auth_service.create_jwt_for_user(user)
     return {"access_token": token, "token_type": "bearer"}
 
