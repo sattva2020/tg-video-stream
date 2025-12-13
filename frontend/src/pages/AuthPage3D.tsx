@@ -15,16 +15,16 @@ const AuthPage3D: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [banner, setBanner] = useState<AuthBanner | null>(null);
   const [scrollY, setScrollY] = useState(0);
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, isPendingApproval } = useAuth();
 
   const forceStatic = searchParams.get('forceStatic') === '1';
 
-  // Redirect to dashboard if already authenticated
+  // Redirect to dashboard if already authenticated (but not if pending approval)
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    if (!isLoading && isAuthenticated && !isPendingApproval) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, isPendingApproval, navigate]);
 
   useEffect(() => {
     const status = searchParams.get('status');

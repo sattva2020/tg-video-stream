@@ -1,5 +1,7 @@
 import logging
 import uuid
+import tempfile
+import os
 from pyrogram import Client
 from pyrogram.errors import (
     SessionPasswordNeeded, 
@@ -64,9 +66,18 @@ class TelegramAuthService:
             except Exception:
                 pass
         
-        # Create new client
+        # Create new client with temp workdir to persist session between calls
         session_name = f"auth_{uuid.uuid4()}"
-        client = Client(name=session_name, api_id=self.api_id, api_hash=self.api_hash, in_memory=True)
+        temp_workdir = tempfile.mkdtemp(prefix="pyrogram_auth_")
+        # no_updates=True prevents client from disconnecting due to inactivity
+        client = Client(
+            name=session_name, 
+            api_id=self.api_id, 
+            api_hash=self.api_hash, 
+            workdir=temp_workdir,  # Временная директория для сессии
+            no_updates=True  # Отключаем updates чтобы клиент не отключался
+        )
+        print(f"[send_code] Created client with temp workdir: {temp_workdir}", flush=True)
         
         try:
             print("[send_code] Connecting to Telegram...", flush=True)
@@ -80,14 +91,16 @@ class TelegramAuthService:
             await rate_limiter.clear_limit(phone)
             
             print(f"[send_code] Code sent! type={sent_code.type}, hash={phone_code_hash[:10]}...", flush=True)
+            print(f"[send_code] Client connection status: is_connected={client.is_connected}", flush=True)
             
             # Store client in memory (DO NOT export session - it fails before auth)
+            # Client MUST stay connected until sign_in is called
             _pending_clients[phone] = (client, phone_code_hash)
-            print(f"[send_code] Client stored in memory for {phone}", flush=True)
+            print(f"[send_code] Client stored in memory for {phone}. Keep this connection alive!", flush=True)
             
-            # Also store hash in Redis for timeout tracking
+            # Also store hash in Redis for timeout tracking (увеличиваем с 300 до 600 секунд - 10 минут)
             r = await self._get_redis()
-            await r.setex(f"auth:{phone}:hash", 300, phone_code_hash)
+            await r.setex(f"auth:{phone}:hash", 600, phone_code_hash)
             await r.close()
             
             return {"status": "code_sent", "phone_code_hash": phone_code_hash}
@@ -121,28 +134,58 @@ class TelegramAuthService:
         # Get client from memory
         if phone not in _pending_clients:
             print(f"[sign_in] No pending client for {phone}", flush=True)
-            raise ValueError("Session expired. Please request a new code.")
+            raise ValueError("Сессия истекла. Пожалуйста, запросите новый код.")
         
         client, phone_code_hash = _pending_clients[phone]
-        print(f"[sign_in] Found client, hash={phone_code_hash[:10]}...", flush=True)
+        print(f"[sign_in] Found client, hash={phone_code_hash[:10]}..., is_connected={client.is_connected}", flush=True)
+
+        keep_client_connected = False  # Flag: don't disconnect if 2FA required
 
         try:
-            # Ensure client is connected before sign_in
+            # CRITICAL: Do NOT reconnect if client disconnected for INITIAL code validation
+            # Telegram требует, чтобы клиент оставался подключенным между всеми вызовами
+            # Reconnect НЕ РАБОТАЕТ для 2FA - auth_key становится невалидным
             if not client.is_connected:
-                print("[sign_in] Client disconnected, reconnecting...", flush=True)
-                await client.connect()
-                print("[sign_in] Reconnected!", flush=True)
+                print(f"[sign_in] ERROR: Client disconnected! (password={'provided' if password else 'not provided'})", flush=True)
+                print("[sign_in] Reconnect does NOT work - auth_key invalidated", flush=True)
+                # Cleanup invalid client
+                del _pending_clients[phone]
+                raise ValueError("Сессия истекла. Клиент отключился. Пожалуйста, запросите новый код.")
             
-            try:
-                print("[sign_in] Calling sign_in...", flush=True)
-                user = await client.sign_in(phone, phone_code_hash, code)
-                print(f"[sign_in] Success! user_id={user.id}", flush=True)
-            except SessionPasswordNeeded:
-                print("[sign_in] 2FA required", flush=True)
-                if not password:
+            # КРИТИЧНО: Если password предоставлен, код УЖЕ использован - пропускаем sign_in
+            if password:
+                print("[sign_in] Password provided, skipping sign_in, calling check_password directly...", flush=True)
+                try:
+                    user = await client.check_password(password)
+                    print(f"[sign_in] 2FA passed! user_id={user.id}", flush=True)
+                except PasswordHashInvalid:
+                    print("[sign_in] Invalid 2FA password", flush=True)
+                    raise ValueError("Неверный пароль 2FA")
+            else:
+                # Первый вызов - с кодом, без пароля
+                try:
+                    print("[sign_in] Calling sign_in...", flush=True)
+                    user = await client.sign_in(phone, phone_code_hash, code)
+                    print(f"[sign_in] Success! user_id={user.id}, is_connected={client.is_connected}", flush=True)
+                except PhoneCodeExpired:
+                    print("[sign_in] PhoneCodeExpired error - код действительно истёк", flush=True)
+                    # Cleanup expired client
+                    del _pending_clients[phone]
+                    try:
+                        await client.disconnect()
+                    except Exception:
+                        pass
+                    raise ValueError("Код истёк. Пожалуйста, запросите новый код.")
+                except SessionPasswordNeeded:
+                    print("[sign_in] 2FA required", flush=True)
+                    # Продлеваем TTL клиента в Redis на ещё 10 минут для ввода 2FA пароля
+                    r = await self._get_redis()
+                    await r.set(f"auth:{phone}:hash", phone_code_hash, ex=600)
+                    await r.close()
+                    print(f"[sign_in] Extended client TTL for 2FA input (600s)", flush=True)
+                    keep_client_connected = True  # DON'T disconnect - we need client for next call
+                    print("[sign_in] Keeping client connected for 2FA password input", flush=True)
                     return {"status": "2fa_required"}
-                user = await client.check_password(password)
-                print(f"[sign_in] 2FA passed! user_id={user.id}", flush=True)
 
             # Now we can export session string (user is authenticated)
             print("[sign_in] Exporting session...", flush=True)
@@ -186,6 +229,15 @@ class TelegramAuthService:
             r = await self._get_redis()
             await r.delete(f"auth:{phone}:hash")
             await r.close()
+            
+            # Cleanup temp workdir
+            if hasattr(client, 'workdir') and client.workdir:
+                try:
+                    import shutil
+                    shutil.rmtree(client.workdir, ignore_errors=True)
+                    print(f"[sign_in] Cleaned up temp workdir: {client.workdir}", flush=True)
+                except Exception as e:
+                    print(f"[sign_in] Failed to cleanup workdir: {e}", flush=True)
 
             return {"status": "success", "user": {"id": user.id, "username": user.username}}
 
@@ -196,11 +248,17 @@ class TelegramAuthService:
             print(f"[sign_in] ERROR: {type(e).__name__}: {e}", flush=True)
             raise e
         finally:
-            # Disconnect client
-            try:
-                await client.disconnect()
-            except Exception:
-                pass
+            # Disconnect client ONLY if not waiting for 2FA password
+            if not keep_client_connected:
+                try:
+                    await client.disconnect()
+                    # Cleanup temp workdir on error
+                    if hasattr(client, 'workdir') and client.workdir and os.path.exists(client.workdir):
+                        import shutil
+                        shutil.rmtree(client.workdir, ignore_errors=True)
+                        print(f"[sign_in] Cleaned up workdir on disconnect: {client.workdir}", flush=True)
+                except Exception:
+                    pass
 
     async def sign_in_public(self, phone: str, code: str, password: str | None = None):
         """
@@ -215,32 +273,55 @@ class TelegramAuthService:
             raise ValueError("Сессия истекла. Запросите новый код.")
         
         client, phone_code_hash = _pending_clients[phone]
-        print(f"[sign_in_public] Found client, hash={phone_code_hash[:10]}...", flush=True)
+        print(f"[sign_in_public] Found client, hash={phone_code_hash[:10]}..., is_connected={client.is_connected}", flush=True)
 
         should_disconnect = True  # Flag to control client disconnection
         
         try:
-            # Ensure client is connected before sign_in
+            # Telegram требует, чтобы клиент оставался подключенным между всеми вызовами
+            # Reconnect НЕ РАБОТАЕТ для 2FA - auth_key становится невалидным
             if not client.is_connected:
-                print("[sign_in_public] Client disconnected, reconnecting...", flush=True)
-                await client.connect()
-                print("[sign_in_public] Reconnected!", flush=True)
+                print(f"[sign_in_public] ERROR: Client disconnected! (password={'provided' if password else 'not provided'})", flush=True)
+                print("[sign_in_public] Reconnect does NOT work - auth_key invalidated", flush=True)
+                # Cleanup invalid client
+                del _pending_clients[phone]
+                raise ValueError("Сессия истекла. Клиент отключился. Пожалуйста, запросите новый код.")
             
-            try:
-                print("[sign_in_public] Calling sign_in...", flush=True)
-                user = await client.sign_in(phone, phone_code_hash, code)
-                print(f"[sign_in_public] Success! user_id={user.id}", flush=True)
-            except SessionPasswordNeeded:
-                print("[sign_in_public] 2FA required", flush=True)
-                if not password:
+            # КРИТИЧНО: Если password предоставлен, код УЖЕ использован - пропускаем sign_in
+            if password:
+                print("[sign_in_public] Password provided, skipping sign_in, calling check_password directly...", flush=True)
+                try:
+                    user = await client.check_password(password)
+                    print(f"[sign_in_public] 2FA passed! user_id={user.id}", flush=True)
+                except PasswordHashInvalid:
+                    print("[sign_in_public] ERROR: Invalid 2FA password", flush=True)
+                    raise ValueError("Неверный пароль 2FA")
+            else:
+                # Первый вызов - с кодом, без пароля
+                try:
+                    print("[sign_in_public] Calling sign_in...", flush=True)
+                    user = await client.sign_in(phone, phone_code_hash, code)
+                    print(f"[sign_in_public] Success! user_id={user.id}, is_connected={client.is_connected}", flush=True)
+                except PhoneCodeExpired:
+                    print("[sign_in_public] PhoneCodeExpired error - код действительно истёк", flush=True)
+                    # Cleanup expired client
+                    del _pending_clients[phone]
+                    try:
+                        await client.disconnect()
+                    except Exception:
+                        pass
+                    raise ValueError("Код истёк. Пожалуйста, запросите новый код.")
+                except SessionPasswordNeeded:
+                    print("[sign_in_public] 2FA required", flush=True)
                     # DON'T disconnect - we need the client for the next request with password
                     should_disconnect = False
-                    print("[sign_in_public] Keeping client connected for 2FA", flush=True)
+                    # Продлеваем TTL клиента в Redis на ещё 10 минут для ввода 2FA пароля
+                    r = await self._get_redis()
+                    await r.set(f"auth:{phone}:hash", phone_code_hash, ex=600)
+                    await r.close()
+                    print("[sign_in_public] Keeping client connected for 2FA, extended TTL (600s)", flush=True)
+                    print(f"[sign_in_public] should_disconnect={should_disconnect}, is_connected={client.is_connected}", flush=True)
                     return {"status": "2fa_required"}
-                # Password provided, try to authenticate
-                print("[sign_in_public] Checking 2FA password...", flush=True)
-                user = await client.check_password(password)
-                print(f"[sign_in_public] 2FA passed! user_id={user.id}", flush=True)
 
             # Export session string before disconnecting
             session_string = await client.export_session_string()

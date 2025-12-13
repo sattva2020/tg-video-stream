@@ -18,20 +18,52 @@ interface StatusItem {
 export const WelcomeCardContent: React.FC<WelcomeCardContentProps> = ({ user }) => {
   const { t } = useTranslation();
 
+  const isTechnicalTelegramEmail = Boolean(user?.email && user.email.startsWith('telegram_') && user.email.endsWith('@sattva.local'));
+  const displayEmail = user?.email && !isTechnicalTelegramEmail ? user.email : null;
+
+  const rawStatus = (user?.status ?? 'approved').toString();
+  const isApproved = rawStatus === 'approved' || rawStatus === 'active';
+  const isPending = rawStatus === 'pending';
+
+  const formatLastLogin = (value?: string | null) => {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+
+    try {
+      return new Intl.DateTimeFormat('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(date);
+    } catch {
+      return date.toLocaleString();
+    }
+  };
+
   const statusItems: StatusItem[] = [
     {
       id: 'account',
       label: t('user.status.account', 'Статус аккаунта'),
-      value: user?.status === 'active'
+      value: isApproved
         ? t('user.status.active', 'Активен')
-        : t('user.status.pending', 'Ожидает одобрения'),
-      positive: user?.status === 'active',
+        : isPending
+          ? t('user.status.pending', 'Ожидает одобрения')
+          : t('user.status.rejected', 'Отклонён'),
+      positive: isApproved,
     },
     {
       id: 'email',
-      label: t('user.status.email', 'Email подтверждён'),
-      value: user?.email ?? t('user.status.emailMissing', 'Не указан'),
-      positive: Boolean(user?.email),
+      label: t('user.status.email', 'Email'),
+      value: displayEmail ?? t('user.status.emailMissing', 'Не указан'),
+      positive: Boolean(displayEmail),
     },
     {
       id: 'telegram',
@@ -50,16 +82,21 @@ export const WelcomeCardContent: React.FC<WelcomeCardContentProps> = ({ user }) 
     {
       id: 'lastLogin',
       label: t('user.status.lastLogin', 'Последний вход'),
-      value: t('user.status.lastLoginUnknown', 'Нет данных'),
-      positive: false,
+      value: formatLastLogin((user as any)?.last_login) ?? t('user.status.lastLoginUnknown', 'Нет данных'),
+      positive: Boolean(formatLastLogin((user as any)?.last_login)),
     },
   ];
 
   const tips: string[] = [
-    t('user.tips.connectTelegram', 'Подключите Telegram, чтобы получать уведомления о трансляциях'),
+    ...(!user?.telegram_username
+      ? [t('user.tips.connectTelegram', 'Подключите Telegram, чтобы получать уведомления о трансляциях')]
+      : []),
+    ...(isPending
+      ? [t('user.tips.pendingApproval', 'Дождитесь одобрения аккаунта администратором для полного доступа')]
+      : []),
     t('user.tips.checkSchedule', 'Проверяйте расписание эфиров перед выходом в эфир'),
     t('user.tips.manageChannels', 'Управляйте каналами в разделе «Менеджер каналов»'),
-  ];
+  ].slice(0, 3);
 
   return (
     <div className="space-y-6 w-full">

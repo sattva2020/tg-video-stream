@@ -128,6 +128,14 @@ async def login_public(request: LoginRequest, db: Session = Depends(get_db)):
                 user.telegram_username = username
             if first_name:
                 user.full_name = first_name
+            # Обновляем время последнего входа
+            if hasattr(user, 'update_last_login'):
+                user.update_last_login()
+            db.commit()
+
+        # Обновляем время последнего входа и для новых пользователей
+        if hasattr(user, 'update_last_login') and getattr(user, 'last_login', None) is None:
+            user.update_last_login()
             db.commit()
         
         # Сохраняем или обновляем TelegramAccount для стриминга

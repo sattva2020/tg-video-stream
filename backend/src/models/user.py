@@ -1,5 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, func, Boolean, text, Enum, BigInteger
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
@@ -41,6 +42,9 @@ class User(Base):
     email_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Metadata
+    last_login = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     audit_logs = relationship(
@@ -67,6 +71,10 @@ class User(Base):
         has_google = bool(self.google_id)
         has_email_password = bool(self.email and self.hashed_password)
         return has_google or has_email_password
+
+    def update_last_login(self) -> None:
+        """Обновить время последнего успешного входа."""
+        self.last_login = datetime.now(timezone.utc)
     
     @property
     def is_superuser(self) -> bool:

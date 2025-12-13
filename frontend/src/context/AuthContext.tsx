@@ -7,9 +7,12 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isPendingApproval: boolean;
+  pendingApprovalMessage: string | null;
   login: (token: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  clearPendingStatus: () => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -28,11 +31,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isPendingApproval, setIsPendingApproval] = useState<boolean>(false);
+  const [pendingApprovalMessage, setPendingApprovalMessage] = useState<string | null>(null);
 
   const logout = useCallback(() => {
     localStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
+    setIsPendingApproval(false);
+    setPendingApprovalMessage(null);
+  }, []);
+
+  const clearPendingStatus = useCallback(() => {
+    setIsPendingApproval(false);
+    setPendingApprovalMessage(null);
   }, []);
 
   const checkAuth = useCallback(async () => {
@@ -59,15 +71,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 profile_picture_url: userData.profile_picture_url,
                 role: (userData.role as UserRole) || (decoded.role as UserRole) || UserRole.USER,
                 status: userData.status,
+              last_login: userData.last_login,
+              email_verified: userData.email_verified,
                 google_id: userData.google_id,
                 telegram_id: userData.telegram_id,
                 telegram_username: userData.telegram_username,
             };
             setUser(userWithRole);
             setIsAuthenticated(true);
-        } catch (error) {
+            setIsPendingApproval(false);
+            setPendingApprovalMessage(null);
+        } catch (error: any) {
             console.error("Failed to fetch user", error);
-          logout();
+            
+            // Check if it's a 403 error with pending status
+            if (error?.response?.status === 403) {
+              const detail = error?.response?.data?.detail;
+              if (detail && (detail.code === 'pending' || detail.code === 'rejected')) {
+                // User is authenticated but not approved yet
+                const message = detail.message || detail.message_key || 'Аккаунт ожидает одобрения администратора';
+                setIsPendingApproval(true);
+                setPendingApprovalMessage(message);
+                setIsAuthenticated(false);
+                setUser(null);
+                // Don't clear token - user might be approved later
+                setIsLoading(false);
+                return;
+              }
+            }
+            
+            // For other errors, logout completely
+            logout();
         }
 
       } catch (error) {
@@ -95,7 +129,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [checkAuth]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated, 
+      isLoading, 
+      isPendingApproval, 
+      pendingApprovalMessage,
+      login, 
+      logout, 
+      refreshUser,
+      clearPendingStatus 
+    }}>
       {children}
     </AuthContext.Provider>
   );
