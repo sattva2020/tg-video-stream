@@ -1,0 +1,210 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]: 
+        - text: Telegram Streamer
+      - navigation [ref=e7]:
+        - link "Можливості" [ref=e8] [cursor=pointer]:
+          - /url: "#features"
+        - link "Процес" [ref=e9] [cursor=pointer]:
+          - /url: "#workflow"
+        - link "Сценарії" [ref=e10] [cursor=pointer]:
+          - /url: "#use-cases"
+      - generic [ref=e11]:
+        - group "Змінити мову лендингу" [ref=e12]:
+          - button "RU" [ref=e13] [cursor=pointer]
+          - generic [ref=e14]: /
+          - button "UA" [pressed] [ref=e15] [cursor=pointer]
+          - generic [ref=e16]: /
+          - button "DE" [ref=e17] [cursor=pointer]
+          - generic [ref=e18]: /
+          - button "EN" [ref=e19] [cursor=pointer]
+        - group "Переключатель темы" [ref=e20]:
+          - button "Светлая" [pressed] [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+          - button "Тёмная" [ref=e28] [cursor=pointer]:
+            - img [ref=e29]
+        - button "Почати роботу" [ref=e31] [cursor=pointer]
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: 
+          - text: v2.0 Стримінгова платформа
+        - heading "24/7 трансляції в Telegram без OBS і серверів" [level=1] [ref=e36]
+        - paragraph [ref=e37]: Керуйте плейлистами, фейловерами та ефірами в єдиній хмарній консолі. Стабільність 99,9%.
+        - generic [ref=e38]:
+          - button "Почати роботу " [ref=e39] [cursor=pointer]:
+            - text: Почати роботу
+            - generic [ref=e40]: 
+          - button "Подивитися демо" [ref=e41] [cursor=pointer]
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]: "365"
+            - generic [ref=e45]: днів у ефірі
+          - generic [ref=e46]:
+            - generic [ref=e47]: <100 мс
+            - generic [ref=e48]: затримка
+          - generic [ref=e49]:
+            - generic [ref=e50]: Fail-safe
+            - generic [ref=e51]: ранер
+      - generic [ref=e52]:
+        - generic [ref=e53]:
+          - generic [ref=e54]: Console
+          - generic [ref=e56]:
+            - generic [ref=e57]: 
+            - text: Дашборд
+          - generic [ref=e58]:
+            - generic [ref=e59]: 
+            - text: Расписание
+          - generic [ref=e60]:
+            - generic [ref=e61]: 
+            - text: Медиатека
+          - generic [ref=e62]:
+            - generic [ref=e63]: 
+            - text: Настройки
+        - generic [ref=e64]:
+          - generic [ref=e65]:
+            - generic [ref=e66]:
+              - heading [level=3] [ref=e67]: Главный канал
+              - text: rtmp://tg-streamer.io/live/key_...
+            - generic [ref=e68]:
+              - generic [ref=e69]: 1080p 60fps
+              - generic [ref=e70]: Stable
+          - generic [ref=e71]:
+            - generic [ref=e79]: LIVE
+            - generic [ref=e80]:
+              - generic [ref=e81]: 
+              - text: 12,402
+            - generic [ref=e82]:
+              - generic [ref=e83]: Evening News / Main Block
+              - generic [ref=e84]: 00:14:23 / 01:00:00
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]:
+                - generic [ref=e89]: Breaking News
+                - generic [ref=e90]: Сейчас в эфире
+              - generic [ref=e91]: 
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e94]: Tech Review
+                - generic [ref=e95]: 14:30 - 15:15
+              - generic [ref=e96]: 
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - heading "Комплект телекласу для Telegram" [level=2] [ref=e99]
+        - paragraph [ref=e100]: Професійні телепроцеси, адаптовані для месенджера
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - generic [ref=e104]: 
+          - heading "Джерела контенту" [level=3] [ref=e105]
+          - list [ref=e106]:
+            - listitem [ref=e107]:
+              - generic [ref=e108]: 
+              - text: Потоки з YouTube
+            - listitem [ref=e109]:
+              - generic [ref=e110]: 
+              - text: Завантаження MP4/MKV
+            - listitem [ref=e111]:
+              - generic [ref=e112]: 
+              - text: RTMP Ingest
+        - generic [ref=e113]:
+          - generic [ref=e115]: 
+          - heading "Автоматизація розкладів" [level=3] [ref=e116]
+          - list [ref=e117]:
+            - listitem [ref=e118]:
+              - generic [ref=e119]: 
+              - text: Візуальний календар
+            - listitem [ref=e120]:
+              - generic [ref=e121]: 
+              - text: Шаблони ефірів
+            - listitem [ref=e122]:
+              - generic [ref=e123]: 
+              - text: Часові пояси
+        - generic [ref=e124]:
+          - generic [ref=e126]: 
+          - heading "Безпечний RBAC" [level=3] [ref=e127]
+          - list [ref=e128]:
+            - listitem [ref=e129]:
+              - generic [ref=e130]: 
+              - text: Ролі та доступи
+            - listitem [ref=e131]:
+              - generic [ref=e132]: 
+              - text: Погодження workflow
+            - listitem [ref=e133]:
+              - generic [ref=e134]: 
+              - text: 2FA/MFA захист
+        - generic [ref=e135]:
+          - generic [ref=e137]: 
+          - heading "Відмовостійкість" [level=3] [ref=e138]
+          - list [ref=e139]:
+            - listitem [ref=e140]:
+              - generic [ref=e141]: 
+              - text: Перевірки стану 24/7
+            - listitem [ref=e142]:
+              - generic [ref=e143]: 
+              - text: Автофейловери
+            - listitem [ref=e144]:
+              - generic [ref=e145]: 
+              - text: Резервні потоки
+    - generic [ref=e147]:
+      - generic [ref=e148]:
+        - heading "Вихід в ефір за чотири кроки" [level=2] [ref=e149]
+        - paragraph [ref=e150]: Прибираємо технічну невизначеність, залишаємо творчість
+      - generic [ref=e151]:
+        - generic [ref=e153]:
+          - generic [ref=e154]: "1"
+          - generic [ref=e155]: Setup
+          - heading "Підключіть акаунти" [level=4] [ref=e156]
+          - paragraph [ref=e157]: Зв’яжіть Telegram-канали чи чати через захищений API-токен.
+        - generic [ref=e158]:
+          - generic [ref=e159]: "2"
+          - generic [ref=e160]: Build
+          - heading "Зберіть плейлист" [level=4] [ref=e161]
+          - paragraph [ref=e162]: Завантажте відео або додайте зовнішні потоки для трансляції.
+        - generic [ref=e163]:
+          - generic [ref=e164]: "3"
+          - generic [ref=e165]: Plan
+          - heading "Заплануйте тиждень" [level=4] [ref=e166]
+          - paragraph [ref=e167]: Розставте контент у сітці, налаштуйте повтори та паузи.
+        - generic [ref=e168]:
+          - generic [ref=e169]: "4"
+          - generic [ref=e170]: Live
+          - heading "Моніторте ефір" [level=4] [ref=e171]
+          - paragraph [ref=e172]: Стежте за станом стриму, якістю сигналу та аудиторією в реальному часі.
+    - generic [ref=e173]:
+      - heading "Де вже працює Telegram Streamer" [level=2] [ref=e175]
+      - generic [ref=e176]:
+        - generic [ref=e177]:
+          - generic [ref=e178]: 
+          - heading "Новинні канали" [level=4] [ref=e179]
+          - paragraph [ref=e180]: Автоматична ротація випусків із живими включеннями.
+        - generic [ref=e181]:
+          - generic [ref=e182]: 
+          - heading "24/7 радіо та стріми" [level=4] [ref=e183]
+          - paragraph [ref=e184]: Цілодобове музичне та подкаст-віщання без пауз.
+        - generic [ref=e185]:
+          - generic [ref=e186]: 
+          - heading "Медійні ретрансляції" [level=4] [ref=e187]
+          - paragraph [ref=e188]: Ретрансляція телеканалів у екосистему Telegram.
+    - contentinfo [ref=e189]:
+      - generic [ref=e190]:
+        - generic [ref=e191]: 
+        - generic [ref=e192]: Telegram Streamer
+      - generic [ref=e193]:
+        - link "Документація" [ref=e194] [cursor=pointer]:
+          - /url: "#"
+        - link "API" [ref=e195] [cursor=pointer]:
+          - /url: "#"
+        - link "Безпека" [ref=e196] [cursor=pointer]:
+          - /url: "#"
+        - link "Контакти" [ref=e197] [cursor=pointer]:
+          - /url: "#"
+      - generic [ref=e198]: © 2025 Telegram Streamer Platform. Усі права захищені.
+    - button "Повернутися нагору":
+      - generic: 
+  - region "Notifications alt+T"
+```

@@ -102,6 +102,7 @@ const SlotBadge: React.FC<{
   
   return (
     <button
+      data-testid={`slot-${slot.id}`}
       onClick={(e) => {
         e.stopPropagation();
         onClick();
@@ -380,6 +381,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             color="primary"
             onPress={() => onCreateSlot(new Date())}
             startContent={<Plus className="w-4 h-4" />}
+            data-testid="schedule-add-slot-button"
           >
             {t('schedule.addSlot', 'Добавить')}
           </Button>
@@ -393,6 +395,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           size="sm"
           variant="flat"
           onPress={goToPrevMonth}
+          aria-label={t('schedule.prevMonth', 'Предыдущий месяц')}
         >
           <ChevronLeft className="w-5 h-5" />
         </Button>
@@ -415,6 +418,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           size="sm"
           variant="flat"
           onPress={goToNextMonth}
+          aria-label={t('schedule.nextMonth', 'Следующий месяц')}
         >
           <ChevronRight className="w-5 h-5" />
         </Button>

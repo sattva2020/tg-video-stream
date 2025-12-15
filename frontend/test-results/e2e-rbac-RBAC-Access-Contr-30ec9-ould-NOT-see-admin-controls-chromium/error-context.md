@@ -1,0 +1,125 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Sattva" [ref=e8] [cursor=pointer]:
+          - /url: /dashboard
+          - img "Sattva" [ref=e9]
+        - navigation [ref=e11]:
+          - link "Dashboard" [ref=e12] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e13]
+            - generic [ref=e16]: Dashboard
+          - link "Channels" [ref=e17] [cursor=pointer]:
+            - /url: /channels
+            - img [ref=e18]
+            - generic [ref=e21]: Channels
+          - link "Playlist" [ref=e22] [cursor=pointer]:
+            - /url: /playlist
+            - img [ref=e23]
+            - generic [ref=e25]: Playlist
+          - link "Schedule" [ref=e26] [cursor=pointer]:
+            - /url: /schedule
+            - img [ref=e27]
+            - generic [ref=e29]: Schedule
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - img [ref=e32]
+            - generic [ref=e35]: user@example.com
+          - button "en" [ref=e36] [cursor=pointer]:
+            - img [ref=e37]
+            - generic [ref=e40]: en
+          - button "Switch to dark mode" [ref=e41] [cursor=pointer]:
+            - img [ref=e42]
+          - button "Logout" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - generic [ref=e48]: Logout
+    - main [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - heading "Добро пожаловать, user@example.com" [level=2] [ref=e53]
+            - paragraph [ref=e54]: Краткая сводка по вашему аккаунту и трансляции
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - generic [ref=e59]:
+                - img [ref=e61]
+                - generic [ref=e64]:
+                  - paragraph [ref=e65]: Статус аккаунта
+                  - paragraph [ref=e66]: Активен
+              - generic [ref=e68]:
+                - img [ref=e70]
+                - generic [ref=e73]:
+                  - paragraph [ref=e74]: Email
+                  - paragraph [ref=e75]: user@example.com
+              - generic [ref=e77]:
+                - img [ref=e79]
+                - generic [ref=e81]:
+                  - paragraph [ref=e82]: Telegram подключён
+                  - paragraph [ref=e83]: Не подключён
+              - generic [ref=e85]:
+                - img [ref=e87]
+                - generic [ref=e90]:
+                  - paragraph [ref=e91]: Ваша роль
+                  - generic [ref=e93]: USER
+              - generic [ref=e95]:
+                - img [ref=e97]
+                - generic [ref=e99]:
+                  - paragraph [ref=e100]: Последний вход
+                  - paragraph [ref=e101]: Нет данных
+            - generic [ref=e102]:
+              - generic [ref=e103]:
+                - img [ref=e104]
+                - heading "Советы по использованию" [level=3] [ref=e106]
+              - list [ref=e107]:
+                - listitem [ref=e108]:
+                  - generic [ref=e110]: Подключите Telegram, чтобы получать уведомления о трансляциях
+                - listitem [ref=e111]:
+                  - generic [ref=e113]: Проверяйте расписание эфиров перед выходом в эфир
+                - listitem [ref=e114]:
+                  - generic [ref=e116]: Управляйте каналами в разделе «Менеджер каналов»
+        - generic [ref=e117]:
+          - generic [ref=e118]:
+            - heading "user.dashboard.profileTitle" [level=3] [ref=e120]
+            - generic [ref=e122]:
+              - generic [ref=e123]:
+                - generic [ref=e124]: user.dashboard.emailLabel
+                - generic [ref=e125]: user@example.com
+              - generic [ref=e126]:
+                - generic [ref=e127]: user.dashboard.statusLabel
+                - generic [ref=e129]: user.status.active
+          - generic [ref=e130]:
+            - heading "user.dashboard.streamStatusTitle" [level=3] [ref=e132]:
+              - img [ref=e133]
+              - text: user.dashboard.streamStatusTitle
+            - generic [ref=e140]:
+              - generic [ref=e144]: operator.status.offline
+              - generic [ref=e145]:
+                - img [ref=e146]
+                - generic [ref=e149]: user.dashboard.queueCount
+        - generic [ref=e151]:
+          - heading "user.dashboard.quickActionsTitle" [level=3] [ref=e153]
+          - generic [ref=e155]:
+            - link "user.dashboard.quickActions.channels user.dashboard.quickActions.channelsDesc" [ref=e156] [cursor=pointer]:
+              - /url: /channels
+              - img [ref=e158]
+              - generic [ref=e161]:
+                - paragraph [ref=e162]: user.dashboard.quickActions.channels
+                - paragraph [ref=e163]: user.dashboard.quickActions.channelsDesc
+            - link "user.dashboard.quickActions.settings user.dashboard.quickActions.settingsDesc" [ref=e164] [cursor=pointer]:
+              - /url: /settings
+              - img [ref=e166]
+              - generic [ref=e169]:
+                - paragraph [ref=e170]: user.dashboard.quickActions.settings
+                - paragraph [ref=e171]: user.dashboard.quickActions.settingsDesc
+            - link "user.dashboard.quickActions.support user.dashboard.quickActions.supportDesc" [ref=e172] [cursor=pointer]:
+              - /url: /docs/help
+              - img [ref=e174]
+              - generic [ref=e177]:
+                - paragraph [ref=e178]: user.dashboard.quickActions.support
+                - paragraph [ref=e179]: user.dashboard.quickActions.supportDesc
+  - region "Notifications alt+T"
+```

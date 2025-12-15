@@ -39,14 +39,18 @@ export const METRICS_REFETCH_INTERVAL = 30 * 1000;
  * ```
  */
 export function useSystemMetrics() {
+  const isTestEnv = process.env.NODE_ENV === 'test';
+  const retryCount = isTestEnv ? 0 : 3;
   const query = useQuery({
     queryKey: SYSTEM_METRICS_QUERY_KEY,
     queryFn: systemApi.getMetrics,
     staleTime: METRICS_REFETCH_INTERVAL / 2, // 15 секунд
     refetchInterval: METRICS_REFETCH_INTERVAL,
     refetchOnWindowFocus: true,
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    retry: retryCount,
+    retryDelay: isTestEnv
+      ? 0
+      : (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   // Вычисляем статусы метрик
