@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../../src/lib/api/authClient', () => {
   return {
@@ -16,9 +17,11 @@ import { AuthProvider } from '../../src/context/AuthContext';
 describe('AuthCard register error handling', () => {
   it('displays server error banner when register fails with auth error', async () => {
     render(
-      <AuthProvider>
-        <AuthCard mode="register" onModeChange={() => {}} />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthProvider>
+          <AuthCard mode="register" onModeChange={() => {}} />
+        </AuthProvider>
+      </MemoryRouter>
     );
 
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'exist@example.com' } });

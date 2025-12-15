@@ -107,10 +107,10 @@ describe('TelegramLoginButton', () => {
   
   it('applies disabled styles when disabled', () => {
     const { container } = renderComponent({ disabled: true });
-    
-    const wrapper = container.querySelector('div');
-    expect(wrapper?.className).toContain('opacity-50');
-    expect(wrapper?.className).toContain('pointer-events-none');
+    const button = container.querySelector('button');
+    expect(button).toBeDisabled();
+    expect(button?.className).toContain('disabled:opacity-50');
+    expect(button?.className).toContain('disabled:cursor-not-allowed');
   });
   
   it('cleans up callback on unmount', async () => {

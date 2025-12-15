@@ -32,21 +32,35 @@ vi.mock('@/hooks/useScheduleQuery', () => ({
   useCreatePlaylist: vi.fn(),
   useUpdatePlaylist: vi.fn(),
   useDeletePlaylist: vi.fn(),
+  usePlaylistGroups: vi.fn(),
+  useCreatePlaylistGroup: vi.fn(),
+  useDeletePlaylistGroup: vi.fn(),
+  useMovePlaylistToGroup: vi.fn(),
   useCopySchedule: vi.fn(),
   useScheduleTemplates: vi.fn(),
+}));
+
+vi.mock('@/hooks/useMediaQuery', () => ({
+  useMediaFolders: vi.fn(),
+  useScanFolder: vi.fn(),
 }));
 
 import {
   useScheduleCalendar,
   usePlaylists,
+  usePlaylistGroups,
   useCreateSlot,
   useUpdateSlot,
   useDeleteSlot,
   useCreatePlaylist,
   useUpdatePlaylist,
   useDeletePlaylist,
+  useCreatePlaylistGroup,
+  useDeletePlaylistGroup,
+  useMovePlaylistToGroup,
   useCopySchedule,
 } from '@/hooks/useScheduleQuery';
+import { useMediaFolders, useScanFolder } from '@/hooks/useMediaQuery';
 
 // ==================== Test Fixtures ====================
 
@@ -55,7 +69,7 @@ const mockSlot: ScheduleSlot = {
   channel_id: 'channel-1',
   playlist_id: 'playlist-1',
   user_id: 'user-1',
-  date: '2025-11-27',
+  date: '2025-12-15',
   start_time: '10:00:00',
   end_time: '12:00:00',
   title: 'Morning Show',
@@ -85,16 +99,31 @@ const mockPlaylist: Playlist = {
 
 const mockCalendarDays: CalendarDay[] = [
   {
-    date: '2025-11-27',
+    date: '2025-12-15',
     slots: [mockSlot],
     total_duration: 7200,
   },
   {
-    date: '2025-11-28',
+    date: '2025-12-16',
     slots: [],
     total_duration: 0,
   },
 ];
+
+const buildCalendarResponse = (month = 12) => ({
+  data: month === 12
+    ? mockCalendarDays
+    : [
+        {
+          date: `2026-${String(month).padStart(2, '0')}-05`,
+          slots: [],
+          total_duration: 0,
+        },
+      ],
+  isLoading: false,
+  isError: false,
+  error: null,
+});
 
 // ==================== Test Wrapper ====================
 
@@ -128,12 +157,9 @@ describe('ScheduleCalendar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    vi.mocked(useScheduleCalendar).mockReturnValue({
-      data: mockCalendarDays,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as any);
+    vi.mocked(useScheduleCalendar).mockImplementation((_channelId, _year, month) =>
+      buildCalendarResponse(month ?? 12) as any
+    );
 
     vi.mocked(useDeleteSlot).mockReturnValue({
       mutateAsync: vi.fn(),
@@ -153,8 +179,9 @@ describe('ScheduleCalendar', () => {
       { wrapper: createWrapper() }
     );
 
-    // Должен отображаться заголовок месяца
-    expect(screen.getByText(/ноябрь|november/i)).toBeInTheDocument();
+    const dayCells = document.querySelectorAll('.min-h-\\[120px\\]');
+    expect(dayCells.length).toBeGreaterThan(0);
+    expect(screen.getByText(/Расписание/i)).toBeInTheDocument();
   });
 
   it('displays slots on calendar', async () => {
@@ -169,9 +196,8 @@ describe('ScheduleCalendar', () => {
       { wrapper: createWrapper() }
     );
 
-    await waitFor(() => {
-      expect(screen.getByText('Morning Show')).toBeInTheDocument();
-    });
+    await screen.findByTestId('slot-slot-1');
+    expect(screen.getByTestId('slot-slot-1')).toBeInTheDocument();
   });
 
   it('shows loading state', () => {
@@ -214,15 +240,20 @@ describe('ScheduleCalendar', () => {
       { wrapper: createWrapper() }
     );
 
-    // Находим кнопки навигации по иконкам
-    const buttons = screen.getAllByRole('button');
-    const nextButton = buttons.find(b => b.querySelector('svg.lucide-chevron-right'));
-    
-    if (nextButton) {
-      await userEvent.click(nextButton);
-      // После клика должен показаться следующий месяц
-      expect(screen.getByText(/декабрь|december/i)).toBeInTheDocument();
-    }
+    const nextButton = screen.getByRole('button', { name: /следующий месяц|next month/i });
+    const prevButton = screen.getByRole('button', { name: /предыдущий месяц|previous month/i });
+
+    await screen.findByTestId('slot-slot-1');
+
+    await userEvent.click(nextButton);
+    await waitFor(() => {
+      expect(screen.queryByTestId('slot-slot-1')).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(prevButton);
+    await waitFor(() => {
+      expect(screen.getByTestId('slot-slot-1')).toBeInTheDocument();
+    });
   });
 
   it('calls onEditSlot when clicking a slot', async () => {
@@ -237,7 +268,7 @@ describe('ScheduleCalendar', () => {
       { wrapper: createWrapper() }
     );
 
-    const slotElement = screen.getByText('Morning Show');
+    const slotElement = await screen.findByTestId('slot-slot-1');
     await userEvent.click(slotElement);
 
     expect(mockOnEditSlot).toHaveBeenCalledWith(mockSlot);
@@ -256,7 +287,7 @@ describe('ScheduleCalendar', () => {
     );
 
     // Находим кнопку "Добавить" в хедере
-    const addButton = screen.getByRole('button', { name: /добавить|add/i });
+    const addButton = screen.getByTestId('schedule-add-slot-button');
     await userEvent.click(addButton);
 
     expect(mockOnCreateSlot).toHaveBeenCalled();
@@ -420,12 +451,50 @@ describe('PlaylistManager', () => {
       mutateAsync: vi.fn().mockResolvedValue(undefined),
       isPending: false,
     } as any);
+
+    vi.mocked(usePlaylistGroups).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(useCreatePlaylistGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useDeletePlaylistGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useMovePlaylistToGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useMediaFolders).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(useScanFolder).mockReturnValue({
+      data: null,
+      isLoading: false,
+    } as any);
   });
 
-  it('renders playlist list', () => {
+  const expandUngroupedSection = async () => {
+    const ungroupedButton = screen.getByRole('button', { name: /Без группы|Ungrouped/i });
+    await userEvent.click(ungroupedButton);
+  };
+
+  it('renders playlist list', async () => {
     render(<PlaylistManager />, { wrapper: createWrapper() });
 
-    expect(screen.getByText('Test Playlist')).toBeInTheDocument();
+    await expandUngroupedSection();
+
+    const playlistCard = await screen.findByText('Test Playlist');
+    expect(playlistCard).toBeInTheDocument();
   });
 
   it.skip('shows empty state when no playlists', () => {
@@ -474,9 +543,13 @@ describe('PlaylistManager', () => {
 
     render(<PlaylistManager />, { wrapper: createWrapper() });
 
+    await expandUngroupedSection();
+
     // Проверяем что оба плейлиста отображаются
-    expect(screen.getByText('Test Playlist')).toBeInTheDocument();
-    expect(screen.getByText('Another Playlist')).toBeInTheDocument();
+    const primaryPlaylist = await screen.findByText('Test Playlist');
+    const anotherPlaylist = await screen.findByText('Another Playlist');
+    expect(primaryPlaylist).toBeInTheDocument();
+    expect(anotherPlaylist).toBeInTheDocument();
 
     const searchInput = screen.getByPlaceholderText(/поиск|search/i);
     await userEvent.type(searchInput, 'Another');
@@ -485,7 +558,7 @@ describe('PlaylistManager', () => {
     await waitFor(() => {
       expect(screen.queryByText('Test Playlist')).not.toBeInTheDocument();
     });
-    expect(screen.getByText('Another Playlist')).toBeInTheDocument();
+    expect(await screen.findByText('Another Playlist')).toBeInTheDocument();
   });
 
   it.skip('expands playlist to show tracks', async () => {
@@ -509,15 +582,42 @@ describe('PlaylistManager', () => {
 
 describe('Accessibility', () => {
   beforeEach(() => {
-    vi.mocked(useScheduleCalendar).mockReturnValue({
-      data: mockCalendarDays,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as any);
+    vi.mocked(useScheduleCalendar).mockImplementation((_channelId, _year, month) =>
+      buildCalendarResponse(month ?? 12) as any
+    );
 
     vi.mocked(usePlaylists).mockReturnValue({
       data: [mockPlaylist],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(usePlaylistGroups).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(useCreatePlaylistGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useDeletePlaylistGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useMovePlaylistToGroup).mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(useMediaFolders).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(useScanFolder).mockReturnValue({
+      data: null,
       isLoading: false,
     } as any);
 
@@ -582,12 +682,9 @@ describe('Accessibility', () => {
 
 describe('Responsive Behavior', () => {
   beforeEach(() => {
-    vi.mocked(useScheduleCalendar).mockReturnValue({
-      data: mockCalendarDays,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as any);
+    vi.mocked(useScheduleCalendar).mockImplementation((_channelId, _year, month) =>
+      buildCalendarResponse(month ?? 12) as any
+    );
 
     vi.mocked(useDeleteSlot).mockReturnValue({
       mutateAsync: vi.fn(),

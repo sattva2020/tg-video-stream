@@ -1,14 +1,22 @@
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import AuthCard from '../../src/components/auth/AuthCard';
-import { AuthProvider } from '../../src/context/AuthContext';
+import { MemoryRouter } from 'react-router-dom';
+import '../../src/i18n';
+
+vi.mock('../../src/context/AuthContext', () => ({
+  useAuth: () => ({
+    login: vi.fn().mockResolvedValue(undefined),
+    isPendingApproval: false,
+  }),
+}));
 
 describe('AuthCard error display', () => {
   it('shows banner when provided initialBanner', () => {
     render(
-      <AuthProvider>
-        <AuthCard mode="login" onModeChange={() => {}} initialBanner={{ tone: 'error', message: 'Test error' }} />
-      </AuthProvider>
+      <MemoryRouter>
+        <AuthCard initialBanner={{ tone: 'error', message: 'Test error' }} />
+      </MemoryRouter>
     );
     expect(screen.getByText('Test error')).toBeInTheDocument();
   });

@@ -8,7 +8,7 @@
  * - Импорт из YouTube/m3u
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Music,
@@ -138,7 +138,7 @@ interface DraggablePlaylistCardProps {
   t: any;
 }
 
-const DraggablePlaylistCard: React.FC<DraggablePlaylistCardProps> = ({
+const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardProps>(({
   playlist,
   groups,
   isSelected,
@@ -147,7 +147,7 @@ const DraggablePlaylistCard: React.FC<DraggablePlaylistCardProps> = ({
   onDelete,
   onMoveToGroup,
   t,
-}) => {
+}, forwardedRef) => {
   const {
     attributes,
     listeners,
@@ -163,10 +163,20 @@ const DraggablePlaylistCard: React.FC<DraggablePlaylistCardProps> = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const setRefs = useCallback((node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    if (!forwardedRef) return;
+    if (typeof forwardedRef === 'function') {
+      forwardedRef(node);
+    } else {
+      (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+    }
+  }, [forwardedRef, setNodeRef]);
+
   const SourceIcon = getSourceIcon(playlist.source_type);
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setRefs} style={style}>
       <Card
         isPressable={!!onSelect}
         isHoverable
@@ -274,7 +284,9 @@ const DraggablePlaylistCard: React.FC<DraggablePlaylistCardProps> = ({
       </Card>
     </div>
   );
-};
+});
+
+DraggablePlaylistCard.displayName = 'DraggablePlaylistCard';
 
 // ==================== Droppable Group ====================
 
