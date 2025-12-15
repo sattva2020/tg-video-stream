@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy Cargo files for dependency caching
 COPY Cargo.toml Cargo.lock* ./
 
-# Create dummy main.rs to build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Create dummy source files to build dependencies
+RUN mkdir src && \
+    echo "pub fn dummy() {}" > src/lib.rs && \
+    echo "fn main() {}" > src/main.rs
 
 # Build dependencies (cached layer)
 RUN cargo build --release && rm -rf src
@@ -20,8 +22,8 @@ RUN cargo build --release && rm -rf src
 # Copy actual source
 COPY src ./src
 
-# Touch main.rs to force rebuild
-RUN touch src/main.rs
+# Touch source files to force rebuild
+RUN touch src/lib.rs src/main.rs
 
 # Build release binary
 RUN cargo build --release
