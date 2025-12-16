@@ -2,7 +2,7 @@
 //!
 //! Определяет параметры транскодирования и генерирует FFmpeg аргументы.
 
-use crate::models::{AudioCodec, AudioFormat, AudioQuality, TranscodeRequest};
+use crate::models::{AudioCodec, AudioFormat, TranscodeRequest};
 
 /// Профиль транскодирования с полной конфигурацией FFmpeg
 #[derive(Debug, Clone)]

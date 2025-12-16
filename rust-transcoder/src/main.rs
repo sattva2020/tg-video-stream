@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use tracing::{info, Level};
+use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use rust_transcoder::{build_router, AppState};

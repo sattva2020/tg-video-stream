@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{AppError, AppResult},
-    models::{TranscodeRequest, TranscodeResponse, TranscodeStatus},
+    models::{TranscodeRequest, TranscodeResponse},
     transcoder::filters,
     AppState,
 };

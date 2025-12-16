@@ -8,7 +8,6 @@ use tokio::process::{Child, Command};
 use tracing::{debug, instrument};
 
 use crate::error::{AppError, AppResult};
-use crate::models::{AudioCodec, AudioFormat, AudioQuality};
 
 use super::profiles::TranscodeProfile;
 
