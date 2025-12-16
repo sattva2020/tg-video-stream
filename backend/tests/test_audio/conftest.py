@@ -14,6 +14,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import Mock, AsyncMock, patch
 import uuid
+import os
+from dotenv import load_dotenv
+
+# Загрузить .env.test для тестов
+test_env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env.test')
+if os.path.exists(test_env_path):
+    load_dotenv(test_env_path, override=True)
+else:
+    print("⚠️  Warning: .env.test not found, using default .env")
 
 from tests.test_audio.test_app import app  # Test-specific app
 from src.database import Base, get_db
@@ -22,26 +31,59 @@ from src.models.playback_settings import PlaybackSettings
 from services.auth_service import auth_service
 
 
-# Test database (in-memory SQLite)
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
+# Test database configuration
+# Используется DATABASE_URL из .env.test (PostgreSQL на VPS)
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
 
-engine = create_engine(
-    SQLALCHEMY_TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+if DATABASE_URL.startswith("postgresql"):
+    # PostgreSQL на VPS для integration tests
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,  # Проверка соединения
+        pool_size=5,
+        max_overflow=10,
+        echo=False  # Установить True для отладки SQL запросов
+    )
+    print(f"✅ Используется PostgreSQL на VPS для тестов: {DATABASE_URL.split('@')[1]}")
+else:
+    # Fallback на SQLite для локальных тестов
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False}
+    )
+    print("⚠️  Используется SQLite для тестов (не рекомендуется для integration tests)")
+
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @pytest.fixture(scope="function")
 def db_session():
     """Create a fresh database session for each test."""
+    # Создать таблицы если их нет (для первого запуска)
     Base.metadata.create_all(bind=engine)
+    
     session = TestingSessionLocal()
     try:
         yield session
     finally:
-        session.close()
-        Base.metadata.drop_all(bind=engine)
+        # Cleanup: удалить тестовые данные
+        session.rollback()
+        
+        # Очистить только тестовые данные (по email паттерну)
+        try:
+            session.query(PlaybackSettings).filter(
+                PlaybackSettings.user_id.in_(
+                    session.query(User.id).filter(User.email.like('test%@example.com'))
+                )
+            ).delete(synchronize_session=False)
+            
+            session.query(User).filter(User.email.like('test%@example.com')).delete(synchronize_session=False)
+            session.commit()
+        except Exception as e:
+            print(f"⚠️  Cleanup error: {e}")
+            session.rollback()
+        finally:
+            session.close()
 
 
 @pytest.fixture(scope="function")
