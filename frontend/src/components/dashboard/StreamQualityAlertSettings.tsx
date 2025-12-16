@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { QualityAlertConfigUpdate, QualityAlertConfigResponse } from '../../api/admin';
+import { QualityAlertConfigUpdate } from '../../api/admin';
 
 interface StreamQualityAlertSettingsProps {
   streamUrl: string;
