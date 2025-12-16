@@ -42,8 +42,8 @@ const QUICK_ACTIONS_BY_ROLE: Record<UserRole, readonly QuickActionId[]> = {
   [UserRole.SUPERADMIN]: ['stream-toggle', 'restart', 'users', 'playlist', 'settings'],
   [UserRole.ADMIN]: ['stream-toggle', 'restart', 'users', 'playlist', 'settings'],
   [UserRole.MODERATOR]: ['stream-toggle', 'restart', 'playlist'],
-  [UserRole.OPERATOR]: ['stream-toggle', 'restart'],
-  [UserRole.USER]: ['stream-toggle', 'restart'],
+  [UserRole.OPERATOR]: ['stream-toggle', 'restart', 'playlist'],
+  [UserRole.USER]: ['playlist'],
 };
 
 export const QuickActions: React.FC<QuickActionsProps> = ({

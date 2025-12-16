@@ -10,12 +10,13 @@ import { useState, useCallback } from 'react';
 /**
  * Hook для получения списка пользователей с пагинацией
  */
-export function useUsers(params?: UsersListParams) {
+export function useUsers(params?: UsersListParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.users.list(params || {}),
     queryFn: () => adminApi.listUsers(params),
     staleTime: 60 * 1000, // 1 минута
     placeholderData: keepPreviousData, // Сохраняем предыдущие данные при смене страницы
+    enabled: options?.enabled,
   });
 }
 
@@ -147,8 +148,8 @@ export function useRejectUser() {
 /**
  * Hook для статистики пользователей
  */
-export function useUserStats() {
-  const { data, isLoading } = useUsers({ page: 1, page_size: 1000 });
+export function useUserStats(options?: { enabled?: boolean }) {
+  const { data, isLoading } = useUsers({ page: 1, page_size: 1000 }, options);
   
   const users = data?.items || [];
   
