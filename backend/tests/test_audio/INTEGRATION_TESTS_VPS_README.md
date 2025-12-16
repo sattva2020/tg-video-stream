@@ -7,15 +7,17 @@
 ## Архитектура
 
 ```
-Локальная машина           VPS (37.53.91.144)
-│                          │
-│  tests/                  │  Docker Network (10.99.99.0/24)
-│    test_audio/           │    │
-│      conftest.py ────────┼────┼─► PostgreSQL Container (db:5432)
-│      test_endpoints.py   │    │     └─ sattva_test_db (test DB)
-│      .env.test           │    │
-│                          │    └─► Backend Container
-│                          │          (запуск тестов)
+Локальная машина           VPS внутренняя сеть
+│                          │  (10.99.99.6 - внутренний IP)
+│                          │  (37.53.91.144 - публичный IP)
+│  tests/                  │
+│    test_audio/           │  Docker Compose
+│      conftest.py ────────┼─► │
+│      test_endpoints.py   │   ├─► PostgreSQL Container (db:5432)
+│      .env.test           │   │     └─ sattva_test_db (test DB)
+│                          │   │
+│                          │   └─► Backend Container
+│                          │         (запуск тестов)
 ```
 
 ## Настройка
@@ -26,7 +28,7 @@
 - **Database**: `sattva_test_db`
 - **User**: `sattva_test`  
 - **Password**: `TestPassword2024Secure`
-- **Host**: `db` (внутри Docker сети) или `localhost` (на VPS)
+- **Host**: `db` (внутри Docker контейнера), `localhost` (на VPS хосте), `10.99.99.6` (внутренняя сеть VPS)
 
 ### 2. Файл .env.test
 
@@ -117,7 +119,7 @@ session.query(User).filter(User.email.like('test%@example.com')).delete()
 
 **Проблема**: `connection to server at "10.99.99.6", port 5432 failed`
 
-**Решение**: 10.99.99.6 - это внутренний Docker network IP. Запускайте тесты на VPS или используйте SSH tunnel.
+**Решение**: 10.99.99.6 - это внутренний IP VPS в приватной сети датацентра (недоступен из интернета). Запускайте тесты на VPS или используйте SSH tunnel к публичному IP 37.53.91.144.
 
 ### Database Does Not Exist
 
