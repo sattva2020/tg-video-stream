@@ -5,6 +5,9 @@ import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
+import { UserRole } from '../../types/user';
+
+const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
 
 export const DesktopNav: React.FC = () => {
   const { t } = useTranslation();
@@ -20,7 +23,8 @@ export const DesktopNav: React.FC = () => {
     { 
       path: '/channels', 
       label: t('nav.channels', 'Каналы'), 
-      icon: <Tv className="w-4 h-4" /> 
+      icon: <Tv className="w-4 h-4" />,
+      allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
       path: '/playlist', 
@@ -30,7 +34,8 @@ export const DesktopNav: React.FC = () => {
     { 
       path: '/schedule', 
       label: t('nav.schedule', 'Расписание'), 
-      icon: <CalendarDays className="w-4 h-4" /> 
+      icon: <CalendarDays className="w-4 h-4" />,
+      allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
       path: '/admin/pending', 

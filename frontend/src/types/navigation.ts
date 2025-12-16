@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { UserRole } from './user';
 
 export interface NavItem {
   path: string;
@@ -6,4 +7,5 @@ export interface NavItem {
   icon: ReactNode;
   adminOnly?: boolean;
   moderatorAllowed?: boolean;
+  allowedRoles?: UserRole[];
 }

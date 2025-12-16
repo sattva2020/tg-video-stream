@@ -19,6 +19,9 @@ import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { isAdminLike } from '../../utils';
 import { NavItem } from '../../types/navigation';
+import { UserRole } from '../../types/user';
+
+const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
 
 export const MobileNav: React.FC = () => {
   const { t } = useTranslation();
@@ -35,7 +38,8 @@ export const MobileNav: React.FC = () => {
     { 
       path: '/channels', 
       label: t('nav.channels', 'Каналы'), 
-      icon: <Tv className="w-5 h-5" /> 
+      icon: <Tv className="w-5 h-5" />,
+      allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
       path: '/playlist', 
@@ -45,7 +49,8 @@ export const MobileNav: React.FC = () => {
     { 
       path: '/schedule', 
       label: t('nav.schedule', 'Расписание'), 
-      icon: <CalendarDays className="w-5 h-5" /> 
+      icon: <CalendarDays className="w-5 h-5" />,
+      allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
       path: '/admin/pending', 
