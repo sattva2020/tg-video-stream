@@ -16,10 +16,10 @@ import httpx
 from sqlalchemy.orm import Session
 
 from src.database import get_db
-from src.auth.dependencies import get_current_user
+from src.api.auth.dependencies import get_current_user
 from src.models.user import User
 from src.models.playback_settings import PlaybackSettings
-from src.config import settings
+from src.core.config import settings
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 
