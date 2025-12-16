@@ -19,7 +19,7 @@ import {
   Button,
   Skeleton,
 } from '@heroui/react';
-import { usePaginatedUsers, useApproveUser, useRejectUser } from '../../hooks/useUsersQuery';
+import { usePaginatedUsers, useApproveUser, useRejectUser, useUpdateUserRole } from '../../hooks/useUsersQuery';
 import { useToast } from '../../hooks/useToast';
 import { Pagination } from '../ui/Pagination';
 
@@ -36,10 +36,11 @@ interface UserCardProps {
   };
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onUpdateRole?: (id: string, role: string) => void;
   isLoading?: boolean;
 }
 
-const UserCard: React.FC<UserCardProps> = ({ user, onApprove, onReject, isLoading }) => {
+const UserCard: React.FC<UserCardProps> = ({ user, onApprove, onReject, onUpdateRole, isLoading }) => {
   const { t } = useTranslation();
   
   const getStatusConfig = (status: string) => {
@@ -107,12 +108,24 @@ const UserCard: React.FC<UserCardProps> = ({ user, onApprove, onReject, isLoadin
                 <span>{createdDate}</span>
               </div>
             )}
-            {user.role && (
-              <div className="flex items-center gap-1">
-                <Shield className="w-3.5 h-3.5" />
-                <span>{user.role}</span>
-              </div>
-            )}
+            <div className="flex items-center gap-1">
+              <Shield className="w-3.5 h-3.5" />
+              {onUpdateRole ? (
+                <select
+                  value={user.role || 'user'}
+                  onChange={(e) => onUpdateRole(user.id, e.target.value)}
+                  className="bg-transparent border-none p-0 text-xs font-medium text-[color:var(--color-text-muted)] focus:ring-0 cursor-pointer hover:text-[color:var(--color-text)]"
+                  disabled={isLoading}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                  <option value="superadmin">superadmin</option>
+                </select>
+              ) : (
+                <span>{user.role || 'user'}</span>
+              )}
+            </div>
           </div>
 
           {/* Actions for pending users */}
@@ -187,6 +200,7 @@ export const UserManagementPanel: React.FC = () => {
   
   const approveMutation = useApproveUser();
   const rejectMutation = useRejectUser();
+  const updateRoleMutation = useUpdateUserRole();
 
   // Handlers
   const handleSearch = useCallback((value: string) => {
@@ -217,6 +231,14 @@ export const UserManagementPanel: React.FC = () => {
       toast.error(t('admin.rejectError', 'Ошибка при отклонении'));
     }
   }, [rejectMutation, toast, t]);
+
+  const handleUpdateRole = useCallback(async (userId: string, role: string) => {
+    try {
+      await updateRoleMutation.mutateAsync({ id: userId, role });
+    } catch (error) {
+      // Error handled in hook
+    }
+  }, [updateRoleMutation]);
 
   // Filter tabs
   const filterTabs = useMemo(() => [
@@ -320,7 +342,8 @@ export const UserManagementPanel: React.FC = () => {
                 user={user}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                isLoading={approveMutation.isPending || rejectMutation.isPending}
+                onUpdateRole={handleUpdateRole}
+                isLoading={approveMutation.isPending || rejectMutation.isPending || updateRoleMutation.isPending}
               />
             ))}
           </AnimatePresence>

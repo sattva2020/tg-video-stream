@@ -36,6 +36,10 @@ class PaginatedUsersResponse(BaseModel):
     page_size: int
     total_pages: int
 
+
+class UserRoleUpdate(BaseModel):
+    role: str
+
 # Redis connection
 redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379"))
 
@@ -134,6 +138,56 @@ def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     )
     
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
+
+
+@router.put("/users/{user_id}/role")
+def update_user_role(
+    user_id: UUID, 
+    role_data: UserRoleUpdate, 
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(require_admin)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Check permissions
+    current_role = getattr(current_user, 'role', '').lower()
+    target_role = getattr(user, 'role', '').lower()
+    new_role = role_data.role.lower()
+    
+    # Only superadmin can modify superadmin
+    if target_role == 'superadmin' and current_role != 'superadmin':
+        raise HTTPException(status_code=403, detail="Only superadmin can modify superadmin accounts")
+        
+    # Only superadmin can promote to superadmin
+    if new_role == 'superadmin' and current_role != 'superadmin':
+        raise HTTPException(status_code=403, detail="Only superadmin can promote to superadmin")
+        
+    # Validate role
+    valid_roles = ['user', 'admin', 'superadmin']
+    if new_role not in valid_roles:
+        raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+        
+    user.role = new_role
+    db.commit()
+    db.refresh(user)
+    
+    # Log activity
+    activity_service = ActivityService(db)
+    activity_service.log_event(
+        event_type="user_role_updated",
+        message=f"Роль пользователя {user.email} изменена на {new_role}",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        details={
+            "target_user_id": str(user.id), 
+            "old_role": target_role,
+            "new_role": new_role
+        }
+    )
+    
+    return {"status": "ok", "id": str(user.id), "new_role": user.role}
 
 
 @router.delete("/users/{user_id}")

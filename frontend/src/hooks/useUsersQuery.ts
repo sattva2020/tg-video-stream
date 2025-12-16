@@ -162,3 +162,27 @@ export function useUserStats(options?: { enabled?: boolean }) {
   
   return { stats, isLoading };
 }
+
+/**
+ * Hook для изменения роли пользователя
+ */
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) => adminApi.updateUserRole(id, role),
+    
+    onError: (error: any) => {
+      toast.error(`Не удалось изменить роль: ${error.response?.data?.detail || error.message}`);
+    },
+    
+    onSuccess: (_, variables) => {
+      toast.success(`Роль изменена на ${variables.role}`);
+    },
+    
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all });
+    },
+  });
+}

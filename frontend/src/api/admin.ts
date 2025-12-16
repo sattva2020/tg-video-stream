@@ -188,6 +188,10 @@ export const adminApi = {
     const response = await client.post(`/api/admin/users/${id}/reject`);
     return response.data;
   },
+  updateUserRole: async (id: string, role: string) => {
+    const response = await client.put(`/api/admin/users/${id}/role`, { role });
+    return response.data;
+  },
   getPlaylist: async () => {
     const response = await client.get('/api/admin/playlist');
     return response.data;
