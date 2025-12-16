@@ -37,6 +37,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder
@@ -50,7 +51,7 @@ USER transcoder
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8090/health || exit 1
+    CMD wget -q --spider http://localhost:8090/health || exit 1
 
 EXPOSE 8090
 
