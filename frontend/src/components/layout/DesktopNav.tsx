@@ -38,8 +38,8 @@ export const DesktopNav: React.FC = () => {
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
-      path: '/admin/pending', 
-      label: t('nav.pendingUsers', 'Ожидающие'), 
+      path: '/users', 
+      label: t('nav.users', 'Пользователи'), 
       icon: <Users className="w-4 h-4" />,
       adminOnly: true 
     },

@@ -10,7 +10,7 @@ const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
 const PendingApprovalPage = lazy(() => import('./pages/PendingApprovalPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const PlaylistPage = lazy(() => import('./pages/Playlist'));
-const PendingUsers = lazy(() => import('./pages/admin/PendingUsers'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const ChannelManager = lazy(() => import('./pages/ChannelManager'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
@@ -66,7 +66,7 @@ const App: React.FC = () => {
             {/* Routes for ADMIN and above */}
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/admin/pending" element={<PendingUsers />} />
+              <Route path="/users" element={<UsersPage />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
             </Route>
             

@@ -101,7 +101,7 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
   }, [toast, t, queryClient, canControlStream]);
 
   // Navigation handlers
-  const handleOpenUsers = useCallback(() => setActiveTab('users'), []);
+  const handleOpenUsers = useCallback(() => navigate('/users'), [navigate]);
   const handleOpenPlaylist = useCallback(() => navigate('/playlist'), [navigate]);
   const handleOpenSettings = useCallback(() => navigate('/settings'), [navigate]);
 
@@ -150,9 +150,8 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
 
   const tabItems = useMemo(() => ([
     { key: 'overview', label: t('admin.overview', 'Обзор') },
-    ...(canManageUsers ? [{ key: 'users', label: t('admin.users', 'Пользователи') }] : []),
     { key: 'stream', label: t('admin.stream', 'Трансляция') },
-  ]), [t, canManageUsers]);
+  ]), [t]);
 
   return (
     <div className="space-y-6">
@@ -249,12 +248,6 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
               <div>
                 <ActivityTimelineLive />
               </div>
-            </div>
-          )}
-
-          {activeTab === 'users' && canManageUsers && (
-            <div>
-              <UserManagementPanel />
             </div>
           )}
 
