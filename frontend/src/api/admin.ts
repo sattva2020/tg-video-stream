@@ -2,6 +2,8 @@ import { client } from './client';
 
 export interface StreamMetrics {
   online: boolean;
+  current_stream_url?: string | null;
+  current_stream_name?: string | null;
   metrics: {
     timestamp: number;
     system: {
