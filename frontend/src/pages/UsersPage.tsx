@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ResponsiveHeader } from '../components/layout';
-import UserManagementPanel from '../components/dashboard/UserManagementPanel';
+import { UserManagementPanel } from '../components/dashboard/UserManagementPanel';
 
 const UsersPage: React.FC = () => {
   const { t } = useTranslation();

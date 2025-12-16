@@ -16,7 +16,6 @@ import { QuickActions } from './QuickActions';
 import { ActivityTimelineLive } from './ActivityTimeline';
 import { SystemHealthLive } from './SystemHealth';
 import { StreamStatusCard } from './StreamStatusCard';
-import { UserManagementPanel } from './UserManagementPanel';
 
 // Hooks & API
 import { useUserStats } from '../../hooks/useUsersQuery';
@@ -26,7 +25,6 @@ import { useToast } from '../../hooks/useToast';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
 import { UserRole } from '../../types/user';
-import { ROLE_PERMISSIONS } from '../../types/permissions';
 
 interface AdminDashboardV2Props {
   role?: UserRole;
@@ -39,8 +37,6 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
   const queryClient = useQueryClient();
 
   const resolvedRole = role ?? UserRole.ADMIN;
-  const permissions = ROLE_PERMISSIONS[resolvedRole];
-  const canManageUsers = permissions?.canManageUsers ?? false;
   const canControlStream = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.OPERATOR, UserRole.MODERATOR].includes(resolvedRole);
   const canViewSystemStats = [UserRole.SUPERADMIN, UserRole.ADMIN].includes(resolvedRole);
   
