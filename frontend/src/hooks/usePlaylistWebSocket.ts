@@ -155,6 +155,7 @@ export function usePlaylistWebSocket({
             emitEvent('stream_stopped');
             break;
             
+          case 'ping':
           case 'pong':
             // Keepalive response, ignore
             break;

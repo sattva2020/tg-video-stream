@@ -7,6 +7,7 @@ Pydantic модели для API мониторинга системы.
 
 from datetime import datetime
 from typing import Optional, Any
+from uuid import UUID
 from pydantic import BaseModel, Field, ConfigDict
 
 
@@ -39,7 +40,7 @@ class SystemMetricsResponse(BaseModel):
 class ActivityEventResponse(BaseModel):
     """Событие активности системы."""
     
-    id: int = Field(..., description="Уникальный ID события")
+    id: UUID = Field(..., description="Уникальный ID события")
     type: str = Field(..., description="Тип события")
     message: str = Field(..., description="Текст сообщения")
     user_email: Optional[str] = Field(None, description="Email пользователя (если есть)")
