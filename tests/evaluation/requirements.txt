@@ -1,0 +1,5 @@
+# Audio API Evaluation Requirements
+# Azure AI Evaluation SDK и зависимости
+
+azure-ai-evaluation>=1.1.0
+python-dotenv>=1.0.0

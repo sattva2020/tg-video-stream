@@ -3,7 +3,7 @@
     "query_id": "transcode_01",
     "endpoint": "/api/v1/audio/transcode",
     "method": "POST",
-    "timestamp": "2025-12-16T11:44:31.483738",
+    "timestamp": "2025-12-16T11:46:32.217622",
     "input": {
       "payload": {
         "source_url": "https://example.com/audio/track1.mp3",
@@ -15,26 +15,28 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:31 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:32 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "107",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "session_id": "b7696e14-d116-4da8-813d-0b3483978cdf",
+        "message": "Transcoding started",
+        "status": "processing"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "transcode_02",
     "endpoint": "/api/v1/audio/transcode",
     "method": "POST",
-    "timestamp": "2025-12-16T11:44:32.009254",
+    "timestamp": "2025-12-16T11:46:32.793961",
     "input": {
       "payload": {
         "source_url": "https://example.com/audio/track2.mp3",
@@ -47,26 +49,28 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:32 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:33 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "107",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "session_id": "49b586cd-895a-4327-ba76-4b0af67a2af9",
+        "message": "Transcoding started",
+        "status": "processing"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "transcode_03",
     "endpoint": "/api/v1/audio/transcode",
     "method": "POST",
-    "timestamp": "2025-12-16T11:44:32.543722",
+    "timestamp": "2025-12-16T11:46:33.381044",
     "input": {
       "payload": {
         "source_url": "https://example.com/audio/track3.mp3",
@@ -94,26 +98,28 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:32 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:33 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "107",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "session_id": "cd24f7c7-4e1e-495a-a57b-beeab75681ea",
+        "message": "Transcoding started",
+        "status": "processing"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "transcode_04",
     "endpoint": "/api/v1/audio/transcode",
     "method": "POST",
-    "timestamp": "2025-12-16T11:44:33.080039",
+    "timestamp": "2025-12-16T11:46:33.974614",
     "input": {
       "payload": {
         "source_url": "https://example.com/audio/track4.mp3",
@@ -126,51 +132,58 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:33 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:34 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "107",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "session_id": "4950de9a-aaed-4091-b59d-a0c60bcce3fb",
+        "message": "Transcoding started",
+        "status": "processing"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "settings_get_01",
     "endpoint": "/api/v1/audio/settings",
     "method": "GET",
-    "timestamp": "2025-12-16T11:44:33.610724",
+    "timestamp": "2025-12-16T11:46:34.526575",
     "input": {
       "payload": {},
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:33 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:34 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "119",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "speed": 1.0,
+        "pitch_correction": true,
+        "equalizer_preset": "flat",
+        "equalizer_custom": null,
+        "language": "ru",
+        "theme": "light"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "settings_update_01",
     "endpoint": "/api/v1/audio/settings",
     "method": "PUT",
-    "timestamp": "2025-12-16T11:44:34.136718",
+    "timestamp": "2025-12-16T11:46:35.208186",
     "input": {
       "payload": {
         "speed": 1.25
@@ -178,26 +191,26 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:34 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:35 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "43",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "message": "Settings updated successfully"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "settings_update_02",
     "endpoint": "/api/v1/audio/settings",
     "method": "PUT",
-    "timestamp": "2025-12-16T11:44:34.664289",
+    "timestamp": "2025-12-16T11:46:35.762350",
     "input": {
       "payload": {
         "equalizer_preset": "treble_boost"
@@ -205,26 +218,26 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:35 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:36 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "43",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "message": "Settings updated successfully"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "settings_update_03",
     "endpoint": "/api/v1/audio/settings",
     "method": "PUT",
-    "timestamp": "2025-12-16T11:44:35.195558",
+    "timestamp": "2025-12-16T11:46:36.302206",
     "input": {
       "payload": {
         "pitch_correction": true
@@ -232,51 +245,53 @@
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:35 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:36 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "43",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "message": "Settings updated successfully"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "health_check_01",
     "endpoint": "/api/v1/audio/health",
     "method": "GET",
-    "timestamp": "2025-12-16T11:44:35.721317",
+    "timestamp": "2025-12-16T11:46:36.878692",
     "input": {
       "payload": {},
       "query_params": {}
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:36 GMT",
+        "date": "Tue, 16 Dec 2025 11:46:37 GMT",
         "content-type": "application/json",
-        "content-length": "22",
+        "content-length": "66",
         "connection": "keep-alive"
       },
       "body": {
-        "detail": "Not Found"
+        "status": "healthy",
+        "service": "rust-transcoder",
+        "version": "0.1.0"
       }
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   },
   {
     "query_id": "stream_01",
     "endpoint": "/api/v1/audio/transcode/stream",
     "method": "GET",
-    "timestamp": "2025-12-16T11:44:36.260162",
+    "timestamp": "2025-12-16T11:46:37.467216",
     "input": {
       "payload": {},
       "query_params": {
@@ -284,19 +299,21 @@
       }
     },
     "response": {
-      "status_code": 404,
+      "status_code": 200,
       "headers": {
         "server": "nginx/1.24.0 (Ubuntu)",
-        "date": "Tue, 16 Dec 2025 11:44:36 GMT",
-        "content-type": "application/json",
-        "content-length": "22",
-        "connection": "keep-alive"
+        "date": "Tue, 16 Dec 2025 11:46:37 GMT",
+        "content-type": "audio/mpeg",
+        "transfer-encoding": "chunked",
+        "connection": "keep-alive",
+        "cache-control": "no-cache",
+        "x-transcode-session": "test-session-123"
       },
-      "content_length": 22,
-      "content_type": "application/json",
+      "content_length": 0,
+      "content_type": "audio/mpeg",
       "is_streaming": true
     },
-    "success": false,
+    "success": true,
     "execution_time_ms": null
   }
 ]
