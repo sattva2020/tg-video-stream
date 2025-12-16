@@ -3,6 +3,7 @@ import logging
 import os
 import asyncio
 from urllib.parse import urlparse
+from typing import Optional
 
 log = logging.getLogger("tg_video_streamer")
 
@@ -127,3 +128,82 @@ def get_transcoding_profile(url: str, content_type: str | None = None) -> dict |
                 return profile
 
     return None
+
+
+async def convert_audio_format(
+    source_url: str,
+    target_format: str = "opus",
+    use_rust_transcoder: bool = True
+) -> Optional[str]:
+    """
+    Конвертирует аудио файл в целевой формат используя Rust transcoder.
+    
+    Phase 5 (T051-T052): Audio Format Conversion
+    - MP3 → WAV/Opus
+    - FLAC → WAV/Opus
+    - Автоматическое определение формата
+    - Fallback на прямое использование при ошибках
+    
+    Args:
+        source_url: URL источника аудио (MP3, FLAC, etc)
+        target_format: Целевой формат ("opus", "wav")
+        use_rust_transcoder: Использовать Rust transcoder (True) или прямой URL (False)
+    
+    Returns:
+        URL транскодированного потока или None при ошибках
+    """
+    if not use_rust_transcoder:
+        log.info(f"Rust transcoder disabled, using direct URL: {source_url}")
+        return source_url
+    
+    try:
+        from transcode_client import get_transcode_client, TranscodeRequest
+        
+        # Получаем singleton клиент
+        client = get_transcode_client()
+        
+        # Проверяем доступность Rust сервиса
+        is_healthy = await client.check_health()
+        if not is_healthy:
+            log.warning("Rust transcoder unavailable, using direct URL fallback")
+            return source_url
+        
+        # Определяем требуется ли конвертация
+        content_type = await detect_content_type(source_url)
+        profile = get_transcoding_profile(source_url, content_type)
+        
+        if not profile:
+            log.debug(f"No transcoding needed for {source_url}")
+            return source_url
+        
+        log.info(f"Converting audio: {source_url} → {target_format} (profile: {profile.get('description')})")
+        
+        # Создаём запрос на транскодирование
+        request = TranscodeRequest(
+            source_url=source_url,
+            format=target_format,
+            codec="libopus" if target_format == "opus" else "pcm_s16le",
+            quality="medium",
+            bitrate=96 if target_format == "opus" else None,
+            sample_rate=48000,
+            channels=2,
+            normalize=True,
+            target_loudness=-16.0,
+        )
+        
+        # Получаем информацию о транскодировании
+        response = await client.transcode(request)
+        session_id = response.get("session_id")
+        
+        # Формируем URL транскодированного потока
+        transcoded_url = f"{client.rust_transcoder_url}/api/v1/transcode/{session_id}/stream"
+        
+        log.info(f"Audio conversion successful: {transcoded_url}")
+        return transcoded_url
+        
+    except ImportError:
+        log.warning("TranscodeClient not available, using direct URL")
+        return source_url
+    except Exception as e:
+        log.error(f"Audio conversion failed: {e}, using direct URL fallback")
+        return source_url

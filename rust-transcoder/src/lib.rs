@@ -33,16 +33,24 @@ impl AppState {
 
 /// Строит основной Router приложения
 pub fn build_router(state: Arc<AppState>) -> Router {
+    use tower_http::cors::{Any, CorsLayer};
+    
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     Router::new()
-        // Health endpoints
+        // Health endpoints (корневые для Docker healthcheck)
         .route("/health", get(api::health::health_check))
         .route("/health/ready", get(api::health::readiness_check))
         .route("/health/live", get(api::health::liveness_check))
-        // Metrics endpoint
+        // Metrics endpoint (корневой для Prometheus scrape)
         .route("/metrics", get(api::metrics::metrics_handler))
         // API v1 routes
         .nest("/api/v1", api::routes(state.clone()))
-        .with_state(state)
+        .layer(cors)
+        .layer(axum::Extension(state))
 }
 
 #[cfg(test)]

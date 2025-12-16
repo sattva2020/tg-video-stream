@@ -1,5 +1,5 @@
 import subprocess, json, os, shlex, asyncio
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Dict, Any
 import logging
 import audio_utils
 
@@ -92,6 +92,11 @@ def build_ffmpeg_av_args(quality: str) -> Tuple[list, list]:
 async def best_stream_url(youtube_url: str) -> str:
     """
     Получить прямой URL лучшего видео-/аудио потока для ffmpeg.
+    
+    Phase 5 (T051-T052): Автоматическая конвертация аудио форматов
+    - Определяет MP3/FLAC файлы
+    - Конвертирует через Rust transcoder → Opus/WAV
+    - Fallback на прямое использование при ошибках
     """
     # Check if it's a local file
     if os.path.exists(youtube_url) or youtube_url.startswith("file://"):
@@ -99,7 +104,14 @@ async def best_stream_url(youtube_url: str) -> str:
 
     # Check if it's a direct audio file
     if audio_utils.is_audio_file(youtube_url):
-        return youtube_url
+        # Phase 5: Попытка конвертации MP3/FLAC → Opus через Rust transcoder
+        converted_url = await audio_utils.convert_audio_format(
+            source_url=youtube_url,
+            target_format="opus",
+            use_rust_transcoder=True
+        )
+        # convert_audio_format возвращает исходный URL при ошибках (fallback)
+        return converted_url if converted_url else youtube_url
 
     loop = asyncio.get_running_loop()
     cmd = ["yt-dlp", "-g", "-f", "best", youtube_url]
@@ -114,3 +126,40 @@ async def best_stream_url(youtube_url: str) -> str:
     except Exception as e:
         log.error(f"Error getting best stream url for {youtube_url}: {e}")
         return youtube_url
+
+async def get_stream_quality(url: str, timeout: int = 10) -> Optional[Dict[str, Any]]:
+    """
+    Feature 022 (T001): Получить информацию о качестве потока.
+    
+    Анализирует аудио/видео поток и возвращает метрики качества:
+    - Кодек
+    - Битрейт
+    - Разрешение (для видео)
+    - FPS (для видео)
+    - Уровень качества (low/medium/high/lossless)
+    
+    Args:
+        url: URL потока для анализа
+        timeout: Таймаут FFprobe в секундах
+        
+    Returns:
+        Dict с информацией о качестве или None если анализ неудачен
+        
+    Examples:
+        >>> quality = await get_stream_quality("https://example.com/audio.mp3")
+        >>> print(quality['overall_quality'])  # 'medium'
+    """
+    try:
+        # Lazy import to avoid dependency issues
+        from ffprobe_utils import analyze_stream_quality
+        
+        stream_quality = await analyze_stream_quality(url, timeout)
+        if stream_quality:
+            return stream_quality.to_dict()
+        return None
+    except ImportError:
+        log.warning("ffprobe_utils module not available")
+        return None
+    except Exception as e:
+        log.error(f"Error analyzing stream quality for {url}: {e}")
+        return None

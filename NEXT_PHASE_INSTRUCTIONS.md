@@ -1,19 +1,47 @@
-# Next Steps: Phase 6 - Database Migrations
+# ✅ Phase 6: Database Migrations - COMPLETE
 
-**Current Status**: Phase 5 (Telegram Commands) ✅ Complete at 38/82 tasks (46%)
+**Status**: ✅ COMPLETE (December 16, 2025)  
+**Duration**: 30 minutes  
+**Production**: All 4 tables deployed ✅
 
 ---
 
-## Phase 6 Overview: Database Migrations
+## Phase 6 Summary
 
 **Goal**: Create Alembic migrations for 4 new SQLAlchemy models created in Phase 3
 
-**Why Important**: 
-- Required before any deployment to production
-- Enables database schema versioning and rollback capability
-- Allows team members to sync database schema via `alembic upgrade head`
+**Result**: ✅ ALL TABLES IN PRODUCTION
+- ✅ playback_settings (80 KB)
+- ✅ radio_streams (32 KB)
+- ✅ scheduled_playlists (16 KB)
+- ✅ lyrics_cache (40 KB)
 
-**Time Estimate**: 30-45 minutes
+**Merge Migration**: `58c64dc71747_merge_three_heads.py` (resolved 3 divergent heads)
+
+---
+
+## Next Steps: Choose Your Path
+
+### ✅ Spec 018: Role UI Fixes - COMPLETE
+**Status**: ✅ ЗАВЕРШЕНО (16 декабря 2025)  
+**Result**: 25 unit тестов, 100% coverage  
+**Report**: [docs/testing/spec018-role-helpers-unit-tests.md](docs/testing/spec018-role-helpers-unit-tests.md)
+
+### Option B: Start Spec 020 (Big Feature - 5-7 sessions)
+**Task**: Rust FFmpeg Wrapper + Python API  
+**Impact**: Фундамент для audio conversion  
+**Components**: Rust microservice, REST API, Python client
+
+### Option C: Phase 5 Audio Conversion (Depends on 020)
+**Task**: T051-T052 audio format conversion  
+**Impact**: MP3→WAV, FLAC→WAV support  
+**Duration**: 1-2 sessions after Spec 020
+
+---
+
+## Recommended Next Phase
+
+**Spec 018: Role UI Fixes (Unit Tests)** - завершить начатое
 
 ---
 

@@ -11,6 +11,8 @@
 |-----------|--------|--------|-----------|
 | **Phase 2** (Production Broadcast) | ✅ COMPLETE | 30/30 | Полностью готово в production |
 | **Phase 5b** (Online M3U) | ✅ COMPLETE | 4/4 | Реализовано и протестировано |
+| **Phase 6** (Database Migrations) | ✅ COMPLETE | 4/4 | Все таблицы в production ✅ |
+| **Spec 020** (Rust FFmpeg Wrapper) | ✅ 90% COMPLETE | 49/58 | Phase 6 Metrics готов ✅ |
 | **Phase 5** (Feature 003: Audio) | ⏳ PENDING | ~12-15 | Планируется, не требуется срочно |
 | **Phase 6+** (Advanced Audio) | 📋 ROADMAP | ~20+ | Будущие фазы |
 
@@ -59,6 +61,60 @@
 
 ---
 
+## ✅ НЕДАВНО ЗАВЕРШЕНО
+
+### Spec 020: Rust FFmpeg Wrapper - Phase 6 Metrics
+
+**Дата**: 16 декабря 2025  
+**Продолжительность**: 45 минут  
+**Статус**: ✅ 90% COMPLETE
+
+```
+✅ Phase 6: User Story 3 - Metrics & Monitoring (8/8 tasks)
+   - Health endpoint с расширенной информацией
+   - Prometheus metrics (requests, latency, active streams, errors)
+   - Router integration + CORS
+   - Contract tests (health + metrics)
+   
+Метрики:
+✅ transcode_requests_total (Counter)
+✅ active_streams (Gauge)
+✅ transcode_latency_milliseconds (Histogram)
+✅ transcode_errors_total (Counter)
+
+Production-ready: ✅ Можно деплоить
+```
+
+**Report**: [PHASE6_METRICS_COMPLETE.md](PHASE6_METRICS_COMPLETE.md)
+
+---
+
+### Spec 018: Role UI Fixes - Unit Tests
+
+**Дата**: 16 декабря 2025  
+**Продолжительность**: 25 минут  
+**Статус**: ✅ COMPLETE
+
+```
+✅ 25 unit тестов для roleHelpers.ts
+✅ 100% code coverage (Stmts, Branch, Funcs, Lines)
+✅ 5 тестовых групп:
+   - Constants (4 теста)
+   - isAdminLike() (5 тестов)
+   - canControlStream() (5 тестов)
+   - getDashboardComponent() (7 тестов)
+   - Role hierarchy integration (4 теста)
+
+Файлы:
+✅ frontend/tests/unit/roleHelpers.test.ts (полное покрытие)
+✅ docs/testing/spec018-role-helpers-unit-tests.md (документация)
+```
+
+**Test Results**: `25 passed (25)` за 2.55s  
+**Coverage**: 100% для `src/utils/roleHelpers.ts`
+
+---
+
 ## ⏳ ЧТО ЕЩЁ НЕ СДЕЛАНО
 
 ### Phase 5: Online Audio Sources (Feature 003)
@@ -81,7 +137,7 @@
 [ ] T051-T052: Audio format conversion
     - MP3 → WAV, FLAC → WAV и т.д.
     - FFmpeg интеграция для транскодирования
-    - Status: PENDING
+    - Status: PENDING (Requires Spec 020)
 
 [x] T053-T055: Online playlist support
     - Загрузка m3u с интернета
@@ -431,3 +487,67 @@ Mock coverage: 100% (no real network calls)
 - Systemd integration for streamer processes.
 
 **Next Steps**: Feature complete. Ready for release.
+
+
+---
+
+## ��� Feature 022: Stream Quality Monitoring (FFprobe Integration)
+
+**Date**: December 16, 2025 | **Duration**: 45 minutes | **Status**: ✅ PHASE 1 COMPLETE
+
+### ��� Quick Summary
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| Lines of Code | 1,040+ | ✅ |
+| Unit Tests | 40 | ✅ |
+| Pass Rate | 100% | ✅ |
+| Codec Support | 15+ | ✅ |
+
+### ✅ Phase 1 Components
+
+**1. Core Module (ffprobe_utils.py - 461 lines)**
+- AudioCodec & VideoCodec enums (15+ codecs)
+- Quality level enums (Low/Medium/High/Lossless/Ultra)
+- Audio/Video/Stream metadata classes
+- Codec normalization (_normalize_codec)
+- Quality calculation algorithms
+- FFprobe JSON parsing
+- Async stream analysis with error handling
+- Batch processing support
+- 5-minute result caching
+
+**2. Utils Integration (+30 lines)**
+- get_stream_quality() public API
+- Integration with best_stream_url()
+- Graceful error handling
+
+**3. Comprehensive Tests (579 lines)**
+- 40 unit tests across 8 categories
+- 100% pass rate ✅
+- Codec normalization, quality calculation, parsing, async, caching
+
+**4. Documentation**
+- Complete feature spec (400+ lines)
+- Architecture & usage examples
+- API documentation
+- Quality metrics reference
+
+### ��� Quality Levels
+
+**Audio**: LOW (≤64k) | MEDIUM (64-128k) | HIGH (128-192k) | LOSSLESS (≥192k)
+
+**Video**: LOW (≤480p) | MEDIUM (480-720p) | HIGH (720-1080p) | ULTRA (>1080p)
+
+### ��� Files Created
+
+```
+✅ streamer/ffprobe_utils.py (461 lines)
+✅ tests/audio/test_ffprobe_quality_monitoring.py (579 lines)
+✅ docs/features/feature-022-stream-quality-monitoring.md (400+ lines)
+✅ .internal/FEATURE022_PHASE1_COMPLETE.md
+```
+
+### ��� Status: Ready for Phase 2 (Admin Dashboard + Prometheus)
+
+**Last Updated**: December 16, 2025

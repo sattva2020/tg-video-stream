@@ -37,7 +37,7 @@
 |------|--------|-------|
 | No new libraries | ✅ PASS | Используем существующие зависимости |
 | Reuse existing patterns | ✅ PASS | Расширение NavItem interface |
-| Test coverage | ⏳ PENDING | Unit тесты для roleHelpers |
+| Test coverage | ✅ COMPLETE | 25 unit тестов, 100% coverage |
 | i18n support | ✅ PASS | Новые строки добавляются в локали |
 | Accessibility | ✅ PASS | Используем Hero UI с a11y |
 

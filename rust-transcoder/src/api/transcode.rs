@@ -15,6 +15,7 @@ use tracing::{info, instrument};
 use uuid::Uuid;
 
 use crate::{
+    api::metrics::{ACTIVE_STREAMS, TRANSCODE_ERRORS_TOTAL, TRANSCODE_LATENCY_MS, TRANSCODE_REQUESTS_TOTAL},
     error::{AppError, AppResult},
     models::{TranscodeRequest, TranscodeResponse},
     transcoder::filters,
@@ -34,6 +35,13 @@ pub async fn transcode_handler(
     State(state): State<Arc<AppState>>,
     Json(request): Json<TranscodeRequest>,
 ) -> AppResult<impl IntoResponse> {
+    use std::time::Instant;
+    
+    let start_time = Instant::now();
+    
+    // Инкрементируем счётчик запросов
+    TRANSCODE_REQUESTS_TOTAL.inc();
+    
     // Генерируем session_id
     let session_id = Uuid::new_v4();
     tracing::Span::current().record("session_id", session_id.to_string());
@@ -57,15 +65,32 @@ pub async fn transcode_handler(
     );
 
     // Валидация запроса
-    request.validate().map_err(AppError::Validation)?;
+    if let Err(e) = request.validate() {
+        TRANSCODE_ERRORS_TOTAL.inc();
+        TRANSCODE_LATENCY_MS
+            .with_label_values(&[&request.format.to_string(), "validation_error"])
+            .observe(start_time.elapsed().as_millis() as f64);
+        return Err(AppError::Validation(e));
+    }
 
     // Проверяем доступность семафора
     let permit = state
         .transcode_semaphore
         .try_acquire()
-        .map_err(|_| AppError::ConcurrencyLimitExceeded(state.max_concurrent_streams))?;
+        .map_err(|_| {
+            TRANSCODE_ERRORS_TOTAL.inc();
+            TRANSCODE_LATENCY_MS
+                .with_label_values(&[&request.format.to_string(), "concurrency_limit"])
+                .observe(start_time.elapsed().as_millis() as f64);
+            AppError::ConcurrencyLimitExceeded(state.max_concurrent_streams)
+        })?;
 
     info!("Acquired semaphore permit");
+    
+    // Обновляем метрику активных стримов
+    let available = state.transcode_semaphore.available_permits();
+    let active = state.max_concurrent_streams.saturating_sub(available);
+    ACTIVE_STREAMS.set(active as f64);
 
     // Генерируем цепочку audio filters если указаны
     let filter_chain = if has_filters {
@@ -109,6 +134,16 @@ pub async fn transcode_handler(
 
     // Permit будет освобождён при drop
     drop(permit);
+    
+    // Обновляем метрику активных стримов после освобождения permit
+    let available_after = state.transcode_semaphore.available_permits();
+    let active_after = state.max_concurrent_streams.saturating_sub(available_after);
+    ACTIVE_STREAMS.set(active_after as f64);
+    
+    // Записываем latency успешного запроса
+    TRANSCODE_LATENCY_MS
+        .with_label_values(&[&request.format.to_string(), "success"])
+        .observe(start_time.elapsed().as_millis() as f64);
 
     Ok((headers, Json(response)))
 }

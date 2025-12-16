@@ -1,10 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import { adminApi, StreamMetrics } from '../../api/admin';
+import { adminApi, StreamMetrics, StreamQualityResponse } from '../../api/admin';
+import StreamQualityBadge from '../../components/dashboard/StreamQualityBadge';
+import StreamQualityChart from '../../components/dashboard/StreamQualityChart';
+import StreamQualityAlertSettings from '../../components/dashboard/StreamQualityAlertSettings';
 
 const Metrics: React.FC = () => {
   const [metrics, setMetrics] = useState<StreamMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [quality, setQuality] = useState<StreamQualityResponse | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(false);
+  const [qualityError, setQualityError] = useState<string | null>(null);
+  
+  // Phase 3 tabs
+  const [activeTab, setActiveTab] = useState<'quality' | 'trends' | 'alerts'>('quality');
 
+  // Fetch system metrics
   useEffect(() => {
     const fetchMetrics = async () => {
       try {
@@ -20,6 +30,31 @@ const Metrics: React.FC = () => {
     const interval = setInterval(fetchMetrics, 5000); // Poll every 5s
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch stream quality
+  useEffect(() => {
+    const fetchQuality = async () => {
+      try {
+        setQualityLoading(true);
+        // Get current streaming URL from metrics if available
+        const streamUrl = metrics?.current_stream_url || 'http://localhost:8081/stream';
+        const data = await adminApi.getStreamQuality(streamUrl, 10, true);
+        setQuality(data);
+        setQualityError(null);
+      } catch (err) {
+        setQualityError('Failed to fetch stream quality');
+        setQuality(null);
+      } finally {
+        setQualityLoading(false);
+      }
+    };
+
+    if (metrics?.online) {
+      fetchQuality();
+      const interval = setInterval(fetchQuality, 15000); // Poll every 15s
+      return () => clearInterval(interval);
+    }
+  }, [metrics?.online, metrics?.current_stream_url]);
 
   if (error) return <div className="text-red-500">{error}</div>;
   if (!metrics) return <div>Loading metrics...</div>;
@@ -82,6 +117,80 @@ const Metrics: React.FC = () => {
         </div>
       ) : (
         <div className="text-gray-500 italic">No metrics available (Streamer might be stopped)</div>
+      )}
+
+      {/* Feature 022 Phase 2 & 3: Stream Quality Monitoring */}
+      {isOnline && (
+        <div className="mt-6 border-t pt-6">
+          <h2 className="text-xl font-semibold mb-4">Stream Quality</h2>
+          
+          {/* Tab Navigation */}
+          <div className="flex gap-4 mb-6 border-b">
+            <button
+              onClick={() => setActiveTab('quality')}
+              className={`px-4 py-2 font-medium border-b-2 transition ${
+                activeTab === 'quality'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Current Quality (Phase 2)
+            </button>
+            <button
+              onClick={() => setActiveTab('trends')}
+              className={`px-4 py-2 font-medium border-b-2 transition ${
+                activeTab === 'trends'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Trend Analysis (Phase 3)
+            </button>
+            <button
+              onClick={() => setActiveTab('alerts')}
+              className={`px-4 py-2 font-medium border-b-2 transition ${
+                activeTab === 'alerts'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Alert Settings (Phase 3)
+            </button>
+          </div>
+
+          {/* Quality Badge - Phase 2 */}
+          {activeTab === 'quality' && (
+            <div className="border p-4 rounded">
+              <StreamQualityBadge 
+                quality={quality} 
+                loading={qualityLoading}
+                error={qualityError}
+                compact={false}
+              />
+            </div>
+          )}
+
+          {/* Trend Chart - Phase 3 */}
+          {activeTab === 'trends' && (
+            <div className="border p-4 rounded">
+              <StreamQualityChart 
+                streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
+                streamName={metrics?.current_stream_name}
+                hours={24}
+              />
+            </div>
+          )}
+
+          {/* Alert Settings - Phase 3 */}
+          {activeTab === 'alerts' && (
+            <div className="border p-4 rounded">
+              <StreamQualityAlertSettings 
+                streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
+                streamName={metrics?.current_stream_name}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

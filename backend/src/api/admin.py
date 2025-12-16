@@ -8,13 +8,23 @@ from uuid import UUID
 import redis
 import json
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 from src.services.stream_controller import get_stream_controller, StreamController
 from src.services.playlist_service import playlist_service
 from src.services.activity_service import ActivityService
+from src.schemas.stream_quality import (
+    StreamQualityResponse, 
+    StreamQualityStatus,
+    QualityTrendData,
+    QualityAlertConfigUpdate,
+    QualityAlertConfigResponse,
+)
+from src.services.stream_quality_service import get_stream_quality_service, StreamQualityService
+from src.services.quality_trends_service import get_quality_trends_service, QualityTrendsService
 
 router = APIRouter()
+
 
 class PlaylistUpdate(BaseModel):
     items: List[str]
@@ -308,3 +318,264 @@ def update_playlist(playlist: PlaylistUpdate, current_user: User = Depends(requi
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update playlist")
     return {"status": "success", "items": playlist.items}
+
+# ============================================================================
+# Feature 022 Phase 2: Stream Quality Monitoring Endpoints
+# ============================================================================
+
+@router.get("/stream/quality/{stream_url:path}", response_model=Optional[StreamQualityResponse])
+async def get_stream_quality(
+    stream_url: str,
+    timeout: int = Query(10, ge=1, le=30, description="FFprobe timeout in seconds"),
+    use_cache: bool = Query(True, description="Use cached results if available"),
+    current_user: User = Depends(require_admin),
+    quality_service: StreamQualityService = Depends(get_stream_quality_service)
+):
+    """
+    Feature 022 Phase 2: Получить информацию о качестве потока
+    
+    Анализирует аудио/видео поток и возвращает метрики качества:
+    - Кодек (audio/video)
+    - Битрейт
+    - Разрешение (для видео)
+    - FPS (для видео)
+    - Уровень качества (low/medium/high/lossless/ultra)
+    
+    Parameters:
+        stream_url: URL потока для анализа
+        timeout: Таймаут FFprobe (1-30 сек)
+        use_cache: Использовать кеш результатов (5-мин TTL)
+    
+    Returns:
+        StreamQualityResponse с информацией о качестве или null
+    
+    Example:
+        GET /api/admin/stream/quality/https://example.com/audio.mp3
+        Returns:
+        {
+            "url": "https://example.com/audio.mp3",
+            "audio": {
+                "codec": "opus",
+                "bitrate_kbps": 96,
+                "sample_rate_hz": 48000,
+                "channels": 2,
+                "duration_sec": 180.5,
+                "quality": "medium"
+            },
+            "video": null,
+            "is_audio_only": true,
+            "overall_quality": "medium"
+        }
+    """
+    try:
+        quality = await quality_service.analyze_stream_quality(
+            stream_url,
+            timeout=timeout,
+            use_cache=use_cache,
+            force=False
+        )
+        return quality
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze stream quality: {str(e)}"
+        )
+
+
+@router.get("/streams/quality/batch", response_model=Dict[str, Optional[StreamQualityResponse]])
+async def batch_analyze_streams(
+    urls: List[str] = Query(..., description="List of stream URLs to analyze"),
+    timeout: int = Query(10, ge=1, le=30, description="FFprobe timeout per stream"),
+    current_user: User = Depends(require_admin),
+    quality_service: StreamQualityService = Depends(get_stream_quality_service)
+):
+    """
+    Feature 022 Phase 2: Batch анализ качества множественных потоков
+    
+    Параллельно анализирует качество нескольких потоков.
+    
+    Parameters:
+        urls: Список URL потоков для анализа
+        timeout: Таймаут FFprobe на каждый поток (1-30 сек)
+    
+    Returns:
+        Dict {url: StreamQualityResponse} для каждого потока
+    
+    Example:
+        GET /api/admin/streams/quality/batch?urls=https://example1.com/audio.mp3&urls=https://example2.com/video.mp4
+        Returns:
+        {
+            "https://example1.com/audio.mp3": {...},
+            "https://example2.com/video.mp4": {...}
+        }
+    """
+    try:
+        results = await quality_service.analyze_batch_streams(
+            urls,
+            timeout=timeout
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to batch analyze streams: {str(e)}"
+        )
+
+
+@router.post("/quality/cache/clear")
+async def clear_quality_cache(
+    stream_url: Optional[str] = Query(None, description="Clear cache for specific URL (or all if None)"),
+    current_user: User = Depends(require_admin),
+    quality_service: StreamQualityService = Depends(get_stream_quality_service)
+):
+    """
+    Feature 022 Phase 2: Очистить кеш результатов анализа качества
+    
+    Очищает кешированные результаты анализа потоков.
+    
+    Parameters:
+        stream_url: URL потока для очистки (None = очистить весь кеш)
+    
+    Returns:
+        Статус операции
+    """
+    try:
+        quality_service.clear_cache(stream_url)
+        return {
+            "status": "success",
+            "message": f"Cache cleared for {stream_url if stream_url else 'all streams'}"
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear cache: {str(e)}"
+        )
+
+
+# ========== Feature 022 Phase 3: Trends & Alerts ==========
+
+@router.get("/stream/quality/trend/{stream_url:path}", response_model=QualityTrendData)
+async def get_quality_trend(
+    stream_url: str,
+    hours: int = Query(24, ge=1, le=168, description="Number of hours of history (1-168, default 24)"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    trends_service: QualityTrendsService = Depends(get_quality_trends_service)
+):
+    """
+    Feature 022 Phase 3: Получить тренд качества потока за N часов
+    
+    Возвращает историческую информацию о качестве потока для построения графиков.
+    
+    Parameters:
+        stream_url: URL потока
+        hours: Количество часов истории (1-168, по умолчанию 24)
+    
+    Returns:
+        QualityTrendData с историей и статистикой
+        
+    Example:
+        GET /api/admin/stream/quality/trend/http://stream.local?hours=24
+        
+        Response:
+        {
+            "stream_url": "http://stream.local",
+            "stream_name": "My Stream",
+            "history": [
+                {
+                    "timestamp": "2025-12-16T10:00:00",
+                    "overall_quality": "high",
+                    "audio_quality": "high",
+                    "audio_bitrate_kbps": 128,
+                    ...
+                },
+                ...
+            ],
+            "average_quality": "high",
+            "min_quality": "medium",
+            "max_quality": "high",
+            "success_rate": 0.95,
+            "samples_count": 288,
+            ...
+        }
+    """
+    try:
+        trend = await trends_service.get_quality_trend(db, stream_url, hours)
+        return trend
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get quality trend: {str(e)}"
+        )
+
+
+@router.post("/stream/quality/alert/config", response_model=QualityAlertConfigResponse)
+async def set_quality_alert_config(
+    config: QualityAlertConfigUpdate,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    trends_service: QualityTrendsService = Depends(get_quality_trends_service)
+):
+    """
+    Feature 022 Phase 3: Установить конфигурацию alert для потока
+    
+    Создаёт или обновляет конфигурацию для отправки alert'ов при падении качества.
+    
+    Request Body:
+        {
+            "stream_url": "http://stream.local",
+            "stream_name": "My Stream",
+            "min_overall_quality": "high",
+            "min_audio_bitrate_kbps": 128,
+            "min_video_bitrate_kbps": 2000,
+            "min_video_resolution": "1280x720",
+            "enabled": true,
+            "notify_on_degradation": true,
+            "notify_on_recovery": true,
+            "consecutive_failures": 3,
+            "alert_channels": {
+                "telegram": [123456789],
+                "email": ["admin@example.com"]
+            }
+        }
+    
+    Returns:
+        QualityAlertConfigResponse с обновленной конфигурацией
+    """
+    try:
+        updated_config = await trends_service.set_alert_config(db, config)
+        return updated_config
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to set alert config: {str(e)}"
+        )
+
+
+@router.get("/stream/quality/alert/config/{stream_url:path}", response_model=Optional[QualityAlertConfigResponse])
+async def get_quality_alert_config(
+    stream_url: str,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+    trends_service: QualityTrendsService = Depends(get_quality_trends_service)
+):
+    """
+    Feature 022 Phase 3: Получить конфигурацию alert для потока
+    
+    Parameters:
+        stream_url: URL потока
+    
+    Returns:
+        QualityAlertConfigResponse или null если конфигурация не существует
+        
+    Example:
+        GET /api/admin/stream/quality/alert/config/http://stream.local
+    """
+    try:
+        config = await trends_service.get_alert_config(db, stream_url)
+        return config
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get alert config: {str(e)}"
+        )

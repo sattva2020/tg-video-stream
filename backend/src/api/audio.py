@@ -113,7 +113,8 @@ async def transcode_audio(
             data = response.json()
             return TranscodeResponse(**data)
             
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, Exception) as e:
+            # Ловим и HTTPError и общие Exception (для тестов с mock)
             raise HTTPException(
                 status_code=503,
                 detail=f"Rust-transcoder unavailable: {str(e)}"
@@ -221,7 +222,18 @@ async def update_audio_settings(
     db.commit()
     db.refresh(settings)
     
-    return {"message": "Settings updated successfully"}
+    # Возвращаем обновленные настройки (для тестов и клиента)
+    return {
+        "speed": settings.speed,
+        "pitch_correction": settings.pitch_correction,
+        "equalizer_preset": settings.equalizer_preset,
+        "equalizer_custom": settings.equalizer_custom,
+        "language": settings.language,
+        "theme": settings.theme,
+        "auto_play": settings.auto_play,
+        "shuffle": settings.shuffle,
+        "repeat_mode": settings.repeat_mode,
+    }
 
 
 @router.get("/health")

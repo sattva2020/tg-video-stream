@@ -24,7 +24,13 @@ if os.path.exists(test_env_path):
 else:
     print("⚠️  Warning: .env.test not found, using default .env")
 
-from tests.test_audio.test_app import app  # Test-specific app
+# Динамический импорт test_app для избежания проблем с путями
+import sys
+test_audio_dir = os.path.dirname(__file__)
+if test_audio_dir not in sys.path:
+    sys.path.insert(0, test_audio_dir)
+
+from test_app import app  # Test-specific app
 from src.database import Base, get_db
 from src.models.user import User
 from src.models.playback_settings import PlaybackSettings
@@ -161,19 +167,24 @@ def mock_httpx_client():
     """Mock httpx AsyncClient for rust-transcoder calls."""
     mock_client = AsyncMock()
     
-    # Default successful responses
+    # ВАЖНО: response должен быть обычным Mock, не AsyncMock
+    # потому что response.json() и response.raise_for_status() - синхронные методы в httpx
     mock_response = Mock()
     mock_response.status_code = 200
     mock_response.is_success = True
-    mock_response.json.return_value = {
+    mock_response.json = Mock(return_value={
         "session_id": "test-session-123",
         "message": "Transcoding started",
         "status": "processing"
-    }
+    })
     mock_response.headers = {"content-type": "application/json"}
+    mock_response.raise_for_status = Mock()  # Синхронный метод в httpx
     
-    mock_client.post.return_value = mock_response
-    mock_client.get.return_value = mock_response
+    # post() и get() возвращают awaitable mock response
+    mock_client.post = AsyncMock(return_value=mock_response)
+    mock_client.get = AsyncMock(return_value=mock_response)
+    mock_client.__aenter__.return_value = mock_client  # Для async context manager
+    mock_client.__aexit__.return_value = AsyncMock()
     
     return mock_client
 
@@ -181,5 +192,7 @@ def mock_httpx_client():
 @pytest.fixture
 def mock_rust_transcoder(mock_httpx_client):
     """Patch httpx.AsyncClient to use mock."""
-    with patch("httpx.AsyncClient", return_value=mock_httpx_client):
+    # Patch для async context manager
+    with patch("httpx.AsyncClient") as MockClient:
+        MockClient.return_value = mock_httpx_client
         yield mock_httpx_client
