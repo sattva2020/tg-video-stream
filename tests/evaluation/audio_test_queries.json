@@ -1,0 +1,123 @@
+[
+  {
+    "query_id": "transcode_01",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "description": "Transcode audio with speed adjustment",
+    "payload": {
+      "source_url": "https://example.com/audio/track1.mp3",
+      "format": "mp3",
+      "codec": "libmp3lame",
+      "quality": "high",
+      "speed": 1.5
+    },
+    "expected_behavior": "Apply 1.5x speed with high quality"
+  },
+  {
+    "query_id": "transcode_02",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "description": "Transcode with equalizer preset",
+    "payload": {
+      "source_url": "https://example.com/audio/track2.mp3",
+      "format": "opus",
+      "codec": "libopus",
+      "quality": "medium",
+      "speed": 1.0,
+      "equalizer_preset": "bass_boost"
+    },
+    "expected_behavior": "Apply bass boost equalizer with medium quality"
+  },
+  {
+    "query_id": "transcode_03",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "description": "Transcode with custom equalizer",
+    "payload": {
+      "source_url": "https://example.com/audio/track3.mp3",
+      "format": "mp3",
+      "codec": "libmp3lame",
+      "quality": "high",
+      "speed": 0.8,
+      "equalizer_custom": {
+        "bands": [
+          {"frequency": 60, "gain": 3.0},
+          {"frequency": 230, "gain": 1.5},
+          {"frequency": 910, "gain": -2.0}
+        ]
+      }
+    },
+    "expected_behavior": "Apply custom 3-band equalizer with 0.8x speed"
+  },
+  {
+    "query_id": "transcode_04",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "description": "Transcode with volume adjustment",
+    "payload": {
+      "source_url": "https://example.com/audio/track4.mp3",
+      "format": "aac",
+      "codec": "aac",
+      "quality": "low",
+      "speed": 2.0,
+      "volume": 0.5
+    },
+    "expected_behavior": "Apply 2x speed with 50% volume at low quality"
+  },
+  {
+    "query_id": "settings_get_01",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "GET",
+    "description": "Get user playback settings",
+    "payload": {},
+    "expected_behavior": "Return user's current playback settings"
+  },
+  {
+    "query_id": "settings_update_01",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "description": "Update speed setting",
+    "payload": {
+      "speed": 1.25
+    },
+    "expected_behavior": "Update user speed to 1.25x"
+  },
+  {
+    "query_id": "settings_update_02",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "description": "Update equalizer preset",
+    "payload": {
+      "equalizer_preset": "treble_boost"
+    },
+    "expected_behavior": "Update user equalizer to treble boost preset"
+  },
+  {
+    "query_id": "settings_update_03",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "description": "Update pitch correction",
+    "payload": {
+      "pitch_correction": true
+    },
+    "expected_behavior": "Enable pitch correction for user"
+  },
+  {
+    "query_id": "health_check_01",
+    "endpoint": "/api/v1/audio/health",
+    "method": "GET",
+    "description": "Check rust-transcoder health",
+    "payload": {},
+    "expected_behavior": "Return healthy status from rust-transcoder service"
+  },
+  {
+    "query_id": "stream_01",
+    "endpoint": "/api/v1/audio/transcode/stream",
+    "method": "GET",
+    "description": "Stream processed audio",
+    "query_params": {
+      "session_id": "test-session-123"
+    },
+    "expected_behavior": "Stream audio chunks with correct content-type"
+  }
+]

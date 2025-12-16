@@ -44,6 +44,7 @@ from api.queue import router as queue_router  # noqa: E402
 from api.metrics import router as metrics_router  # noqa: E402
 from src.api.analytics import router as analytics_router, internal_router as analytics_internal_router  # noqa: E402
 from src.api.internal import router as internal_router  # noqa: E402
+from src.api.audio import router as audio_router  # noqa: E402
 from database import engine, Base
 
 
@@ -158,6 +159,7 @@ app.include_router(notifications_logs.router)
 app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
 app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
 app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])
+app.include_router(audio_router, prefix="/api/v1", tags=["Audio Processing"])
 
 
 # Setup Prometheus middleware

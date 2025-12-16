@@ -1,0 +1,302 @@
+[
+  {
+    "query_id": "transcode_01",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "timestamp": "2025-12-16T11:44:31.483738",
+    "input": {
+      "payload": {
+        "source_url": "https://example.com/audio/track1.mp3",
+        "format": "mp3",
+        "codec": "libmp3lame",
+        "quality": "high",
+        "speed": 1.5
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:31 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "transcode_02",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "timestamp": "2025-12-16T11:44:32.009254",
+    "input": {
+      "payload": {
+        "source_url": "https://example.com/audio/track2.mp3",
+        "format": "opus",
+        "codec": "libopus",
+        "quality": "medium",
+        "speed": 1.0,
+        "equalizer_preset": "bass_boost"
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:32 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "transcode_03",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "timestamp": "2025-12-16T11:44:32.543722",
+    "input": {
+      "payload": {
+        "source_url": "https://example.com/audio/track3.mp3",
+        "format": "mp3",
+        "codec": "libmp3lame",
+        "quality": "high",
+        "speed": 0.8,
+        "equalizer_custom": {
+          "bands": [
+            {
+              "frequency": 60,
+              "gain": 3.0
+            },
+            {
+              "frequency": 230,
+              "gain": 1.5
+            },
+            {
+              "frequency": 910,
+              "gain": -2.0
+            }
+          ]
+        }
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:32 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "transcode_04",
+    "endpoint": "/api/v1/audio/transcode",
+    "method": "POST",
+    "timestamp": "2025-12-16T11:44:33.080039",
+    "input": {
+      "payload": {
+        "source_url": "https://example.com/audio/track4.mp3",
+        "format": "aac",
+        "codec": "aac",
+        "quality": "low",
+        "speed": 2.0,
+        "volume": 0.5
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:33 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "settings_get_01",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "GET",
+    "timestamp": "2025-12-16T11:44:33.610724",
+    "input": {
+      "payload": {},
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:33 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "settings_update_01",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "timestamp": "2025-12-16T11:44:34.136718",
+    "input": {
+      "payload": {
+        "speed": 1.25
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:34 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "settings_update_02",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "timestamp": "2025-12-16T11:44:34.664289",
+    "input": {
+      "payload": {
+        "equalizer_preset": "treble_boost"
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:35 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "settings_update_03",
+    "endpoint": "/api/v1/audio/settings",
+    "method": "PUT",
+    "timestamp": "2025-12-16T11:44:35.195558",
+    "input": {
+      "payload": {
+        "pitch_correction": true
+      },
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:35 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "health_check_01",
+    "endpoint": "/api/v1/audio/health",
+    "method": "GET",
+    "timestamp": "2025-12-16T11:44:35.721317",
+    "input": {
+      "payload": {},
+      "query_params": {}
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:36 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "success": false,
+    "execution_time_ms": null
+  },
+  {
+    "query_id": "stream_01",
+    "endpoint": "/api/v1/audio/transcode/stream",
+    "method": "GET",
+    "timestamp": "2025-12-16T11:44:36.260162",
+    "input": {
+      "payload": {},
+      "query_params": {
+        "session_id": "test-session-123"
+      }
+    },
+    "response": {
+      "status_code": 404,
+      "headers": {
+        "server": "nginx/1.24.0 (Ubuntu)",
+        "date": "Tue, 16 Dec 2025 11:44:36 GMT",
+        "content-type": "application/json",
+        "content-length": "22",
+        "connection": "keep-alive"
+      },
+      "content_length": 22,
+      "content_type": "application/json",
+      "is_streaming": true
+    },
+    "success": false,
+    "execution_time_ms": null
+  }
+]

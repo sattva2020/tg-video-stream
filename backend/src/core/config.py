@@ -59,5 +59,8 @@ class Settings:
 
     # Playlist
     PLAYLIST_PATH: str = os.getenv("PLAYLIST_PATH", "/app/data/playlist.txt")
+    
+    # Audio Processing (rust-transcoder)
+    RUST_TRANSCODER_URL: str = os.getenv("RUST_TRANSCODER_URL", "http://rust-transcoder:8090")
 
 settings = Settings()
