@@ -4,8 +4,8 @@
  * Отображает график качества потока за 24 часа с использованием Recharts
  */
 
-import React, { useEffect, useState } from 'react';
-import { QualityTrendData, QualityHistoryPoint } from '../../api/admin';
+import { useEffect, useState } from 'react';
+import { QualityTrendData } from '../../api/admin';
 
 interface StreamQualityChartProps {
   streamUrl: string;
@@ -13,7 +13,6 @@ interface StreamQualityChartProps {
   hours?: number;
   loading?: boolean;
   error?: string | null;
-  onDataLoaded?: (data: QualityTrendData) => void;
 }
 
 /**
@@ -34,8 +33,7 @@ export default function StreamQualityChart({
   streamName,
   hours = 24,
   loading = false,
-  error = null,
-  onDataLoaded,
+  error = null 
 }: StreamQualityChartProps) {
   const [trendData, setTrendData] = useState<QualityTrendData | null>(null);
   const [isLoading, setIsLoading] = useState(loading);

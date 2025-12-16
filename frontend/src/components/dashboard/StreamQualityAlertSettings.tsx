@@ -4,13 +4,12 @@
  * Интерфейс для конфигурации alert'ов при падении качества потока
  */
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QualityAlertConfigUpdate, QualityAlertConfigResponse } from '../../api/admin';
 
 interface StreamQualityAlertSettingsProps {
   streamUrl: string;
   streamName?: string;
-  onSave?: (config: QualityAlertConfigResponse) => void;
   loading?: boolean;
   error?: string | null;
 }
@@ -32,7 +31,7 @@ const resolutionOptions = ['640x480', '1280x720', '1920x1080', '2560x1440', '384
 export default function StreamQualityAlertSettings({
   streamUrl,
   streamName,
-  onSave,
+
   loading = false,
   error = null,
 }: StreamQualityAlertSettingsProps) {

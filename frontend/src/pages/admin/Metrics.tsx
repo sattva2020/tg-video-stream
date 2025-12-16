@@ -175,7 +175,7 @@ const Metrics: React.FC = () => {
             <div className="border p-4 rounded">
               <StreamQualityChart 
                 streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
-                streamName={metrics?.current_stream_name}
+                streamName={metrics?.current_stream_name || undefined}
                 hours={24}
               />
             </div>
@@ -186,7 +186,7 @@ const Metrics: React.FC = () => {
             <div className="border p-4 rounded">
               <StreamQualityAlertSettings 
                 streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
-                streamName={metrics?.current_stream_name}
+                streamName={metrics?.current_stream_name || undefined}
               />
             </div>
           )}
