@@ -531,11 +531,33 @@ export const I18N_RESOURCES = {
   },
 };
 
+// Helper to unflatten keys (convert "a.b": "val" to {a: {b: "val"}})
+const unflatten = (data: Record<string, any>) => {
+  const result: Record<string, any> = {};
+  for (const i in data) {
+    const keys = i.split('.');
+    keys.reduce((acc, key, index) => {
+      if (index === keys.length - 1) {
+        acc[key] = data[i];
+        return acc[key];
+      }
+      acc[key] = acc[key] || {};
+      return acc[key];
+    }, result);
+  }
+  return result;
+};
+
 i18n
   .use(initReactI18next)
   .use(LanguageDetector)
   .init({
-    resources: I18N_RESOURCES,
+    resources: {
+      ru: { translation: unflatten(I18N_RESOURCES.ru.translation) },
+      en: { translation: unflatten(I18N_RESOURCES.en.translation) },
+      uk: { translation: unflatten(I18N_RESOURCES.uk.translation) },
+      es: { translation: unflatten(I18N_RESOURCES.es.translation) },
+    },
     fallbackLng: 'ru',
     supportedLngs: ['ru', 'en', 'uk', 'es'],
     debug: false,
