@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, validator
 import httpx
 from sqlalchemy.orm import Session
 
-from src.database import get_db
+from database import get_db
 from src.api.auth.dependencies import get_current_user
 from src.models.user import User
 from src.models.playback_settings import PlaybackSettings

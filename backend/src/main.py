@@ -169,7 +169,7 @@ app.add_middleware(PrometheusMiddleware)
 # Setup sliding session middleware (auto-refresh JWT tokens)
 from src.middleware.sliding_session import SlidingSessionMiddleware
 app.add_middleware(SlidingSessionMiddleware)
-print("✓ Sliding session middleware initialized")
+print("[OK] Sliding session middleware initialized")
 
 # Setup rate limiter middleware
 from src.middleware.rate_limiter import RateLimiterMiddleware
@@ -178,9 +178,9 @@ try:
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     redis_client = redis.from_url(redis_url)
     app.add_middleware(RateLimiterMiddleware, redis_client=redis_client)
-    print(f"✓ Rate limiter middleware initialized (Redis: {redis_url})")
+    print(f"[OK] Rate limiter middleware initialized (Redis: {redis_url})")
 except Exception as e:
-    print(f"⚠ Rate limiter middleware disabled: {e}")
+    print(f"[WARN] Rate limiter middleware disabled: {e}")
 
 
 # @app.on_event("startup")

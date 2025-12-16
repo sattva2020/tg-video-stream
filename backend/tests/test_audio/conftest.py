@@ -45,7 +45,7 @@ def db_session():
 
 
 @pytest.fixture(scope="function")
-def override_get_db(db_session):
+def override_get_db(db_session, test_user):
     """Override FastAPI database dependency."""
     def _override_get_db():
         try:
@@ -53,7 +53,13 @@ def override_get_db(db_session):
         finally:
             db_session.close()
     
+    def _override_get_current_user():
+        return test_user
+    
+    from src.api.auth.dependencies import get_current_user as real_get_current_user
+    
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[real_get_current_user] = _override_get_current_user
     yield
     app.dependency_overrides.clear()
 
@@ -97,16 +103,15 @@ def auth_headers(test_user):
     """Create authentication headers with JWT token."""
     from services.auth_service import auth_service
     
-    token = auth_service.create_access_token(
-        data={"sub": str(test_user.id), "role": test_user.role}
-    )
+    token = auth_service.create_jwt_for_user(test_user)
     return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture
 def client(override_get_db):
     """Create FastAPI test client."""
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 @pytest.fixture
