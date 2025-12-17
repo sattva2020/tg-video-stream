@@ -69,7 +69,7 @@ const App: React.FC = () => {
             
             {/* Routes for ADMIN and above */}
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
-              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/admin" element={<Navigate to="/settings" replace />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
             </Route>
