@@ -38,15 +38,6 @@ const defaultTestForm = {
   body: 'Эта отправка создана из UI правил',
 };
 
-const defaultTestForm = {
-  ruleId: '',
-  severity: 'warning',
-  tags: '{}',
-  host: '',
-  subject: 'Test notification',
-  body: 'Эта отправка создана из UI правил',
-};
-
 const parseJsonSafe = (value: string): Record<string, unknown> | undefined => {
   if (!value || !value.trim()) return undefined;
   try {

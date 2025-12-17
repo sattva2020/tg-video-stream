@@ -90,13 +90,13 @@ export const StepFilters: React.FC<StepFiltersProps> = ({
         {showAdvanced && (
           <div className="mt-4 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] p-4">
             <RateLimitConfig
-              maxMessages={form.rateLimitMessages}
-              windowSec={form.rateLimitWindowSec}
+              maxMessages={form.maxMessages}
+              windowSec={form.windowSec}
               dedupWindowSec={form.dedupWindowSec}
               onChange={({ maxMessages, windowSec, dedupWindowSec }) =>
                 onChange({
-                  rateLimitMessages: maxMessages,
-                  rateLimitWindowSec: windowSec,
+                  maxMessages,
+                  windowSec,
                   dedupWindowSec,
                 })
               }
