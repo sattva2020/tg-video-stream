@@ -2,23 +2,67 @@
  * Страница настроек пользователя.
  * 
  * Включает:
- * - Привязка/отвязка Telegram
  * - Информация о профиле
- * - Связанные аккаунты
+ * - Связанные аккаунты (Google, Telegram, Email)
+ * - Внешний вид (тема, язык)
+ * - Уведомления
+ * - Безопасность
+ * - О приложении
  */
 import React, { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { ResponsiveHeader } from '../components/layout';
-import { ThemeToggle } from '../components/auth/ThemeToggle';
 import TelegramLoginButton from '../components/TelegramLoginButton';
 import { telegramAuthApi, TelegramAuthData } from '../services/telegramAuth';
+import { 
+  Sun, Moon, Monitor, Globe, Bell,
+  Shield, LogOut, Info, ExternalLink,
+  Mail, MessageSquare, Smartphone
+} from 'lucide-react';
+
+// Версия приложения
+const APP_VERSION = '1.0.0';
 
 const SettingsPage: React.FC = () => {
-  const { user, refreshUser } = useAuth();
+  const { i18n } = useTranslation();
+  const { user, refreshUser, logout } = useAuth();
   const [isLinking, setIsLinking] = useState(false);
   const [isUnlinking, setIsUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // Настройки уведомлений (локальное состояние, можно связать с API)
+  const [notifications, setNotifications] = useState({
+    email: true,
+    push: false,
+    telegram: true,
+  });
+
+  // Текущий язык
+  const currentLang = i18n.resolvedLanguage?.split('-')[0] || 'ru';
+  
+  // Текущая тема (из CSS переменной или localStorage)
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as 'light' | 'dark' | 'system') || 'dark';
+  });
+
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    // Применяем тему
+    if (newTheme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', newTheme);
+    }
+  };
+
+  const handleLanguageChange = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
 
   const handleLinkTelegram = useCallback(async (data: TelegramAuthData) => {
     setIsLinking(true);
@@ -88,10 +132,7 @@ const SettingsPage: React.FC = () => {
       {/* Header */}
       <div className="border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/30">
         <div className="mx-auto max-w-3xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl font-semibold">Настройки</h1>
-            <ThemeToggle className="text-[color:var(--color-text)]" />
-          </div>
+          <h1 className="text-xl font-semibold">Настройки</h1>
         </div>
       </div>
 
@@ -258,6 +299,263 @@ const SettingsPage: React.FC = () => {
               </p>
             </div>
           )}
+        </section>
+
+        {/* Appearance Section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2 flex items-center gap-2">
+            <Sun className="w-5 h-5" />
+            Внешний вид
+          </h2>
+
+          <div className="space-y-4">
+            {/* Theme */}
+            <div className="p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="font-medium">Тема оформления</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Выберите цветовую схему интерфейса
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleThemeChange('light')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'light'
+                      ? 'bg-[color:var(--color-accent)] text-white'
+                      : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'
+                  }`}
+                >
+                  <Sun className="w-4 h-4" />
+                  Светлая
+                </button>
+                <button
+                  onClick={() => handleThemeChange('dark')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'dark'
+                      ? 'bg-[color:var(--color-accent)] text-white'
+                      : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'
+                  }`}
+                >
+                  <Moon className="w-4 h-4" />
+                  Тёмная
+                </button>
+                <button
+                  onClick={() => handleThemeChange('system')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    theme === 'system'
+                      ? 'bg-[color:var(--color-accent)] text-white'
+                      : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'
+                  }`}
+                >
+                  <Monitor className="w-4 h-4" />
+                  Системная
+                </button>
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <Globe className="w-5 h-5 text-[color:var(--color-accent)]" />
+                  <div>
+                    <p className="font-medium">Язык интерфейса</p>
+                    <p className="text-sm text-[color:var(--color-text-secondary)]">
+                      Выберите язык приложения
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
+                  { code: 'uk', label: 'Українська', flag: '🇺🇦' },
+                  { code: 'en', label: 'English', flag: '🇬🇧' },
+                  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+                ].map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      currentLang === lang.code
+                        ? 'bg-[color:var(--color-accent)] text-white'
+                        : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'
+                    }`}
+                  >
+                    <span>{lang.flag}</span>
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Notifications Section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2 flex items-center gap-2">
+            <Bell className="w-5 h-5" />
+            Уведомления
+          </h2>
+
+          <div className="space-y-3">
+            {/* Email Notifications */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-[color:var(--color-text-secondary)]" />
+                <div>
+                  <p className="font-medium">Email-уведомления</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Получать уведомления на почту
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNotifications(prev => ({ ...prev, email: !prev.email }))}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  notifications.email ? 'bg-[color:var(--color-accent)]' : 'bg-gray-600'
+                }`}
+              >
+                <span 
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    notifications.email ? 'left-7' : 'left-1'
+                  }`} 
+                />
+              </button>
+            </div>
+
+            {/* Telegram Notifications */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-5 h-5 text-[color:var(--color-text-secondary)]" />
+                <div>
+                  <p className="font-medium">Telegram-уведомления</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Получать уведомления в Telegram
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNotifications(prev => ({ ...prev, telegram: !prev.telegram }))}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  notifications.telegram ? 'bg-[color:var(--color-accent)]' : 'bg-gray-600'
+                }`}
+                disabled={!user?.telegram_id}
+                title={!user?.telegram_id ? 'Сначала привяжите Telegram' : ''}
+              >
+                <span 
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    notifications.telegram ? 'left-7' : 'left-1'
+                  }`} 
+                />
+              </button>
+            </div>
+
+            {/* Push Notifications */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-5 h-5 text-[color:var(--color-text-secondary)]" />
+                <div>
+                  <p className="font-medium">Push-уведомления</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Уведомления в браузере
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setNotifications(prev => ({ ...prev, push: !prev.push }))}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  notifications.push ? 'bg-[color:var(--color-accent)]' : 'bg-gray-600'
+                }`}
+              >
+                <span 
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    notifications.push ? 'left-7' : 'left-1'
+                  }`} 
+                />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Security Section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2 flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Безопасность
+          </h2>
+
+          <div className="space-y-3">
+            {/* Active Sessions */}
+            <div className="p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Активные сессии</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Текущее устройство
+                  </p>
+                </div>
+                <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-500 text-xs font-medium">
+                  Активна
+                </span>
+              </div>
+            </div>
+
+            {/* Logout from all devices */}
+            <button
+              onClick={() => {
+                if (confirm('Выйти со всех устройств? Вам потребуется войти заново.')) {
+                  logout();
+                }
+              }}
+              className="w-full flex items-center justify-between p-4 rounded-lg bg-[color:var(--color-panel)] border border-red-500/30 hover:bg-red-500/10 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="w-5 h-5 text-red-400" />
+                <div className="text-left">
+                  <p className="font-medium text-red-400">Выйти со всех устройств</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Завершить все активные сессии
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        {/* About Section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2 flex items-center gap-2">
+            <Info className="w-5 h-5" />
+            О приложении
+          </h2>
+
+          <div className="p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[color:var(--color-text-secondary)]">Версия</span>
+                <span className="font-mono">{APP_VERSION}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[color:var(--color-text-secondary)]">Сборка</span>
+                <span className="font-mono text-sm">2025.12.17</span>
+              </div>
+              <div className="pt-3 border-t border-[color:var(--color-border)]">
+                <a
+                  href="https://github.com/sattva2020/tg-video-stream"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-[color:var(--color-accent)] hover:underline"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  GitHub репозиторий
+                </a>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>
