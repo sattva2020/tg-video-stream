@@ -94,10 +94,34 @@ if [ -f "$ENV_PATH" ]; then
 fi
 
 # Copy systemd unit if present in release and enable
-if [ -f "$DEST/tg_video_streamer.service" ]; then
-  cp "$DEST/tg_video_streamer.service" /etc/systemd/system/tg_video_streamer.service
+SERVICE_FILE="$DEST/config/systemd/tg_video_streamer.service"
+TARGET_SERVICE="tg_video_streamer.service"
+
+if [ -f "$SERVICE_FILE" ]; then
+  cp "$SERVICE_FILE" "/etc/systemd/system/$TARGET_SERVICE"
   systemctl daemon-reload || true
-  systemctl enable tg_video_streamer || true
+  systemctl enable "$TARGET_SERVICE" || true
+elif [ -f "$DEST/tg_video_streamer.service" ]; then
+  # Fallback for flat structure
+  cp "$DEST/tg_video_streamer.service" "/etc/systemd/system/$TARGET_SERVICE"
+  systemctl daemon-reload || true
+  systemctl enable "${TARGET_SERVICE%.service}" || true
+fi
+
+# Update Nginx config if present
+NGINX_CONFIG="$DEST/config/nginx/sattva-streamer"
+if [ -f "$NGINX_CONFIG" ]; then
+  echo "Updating Nginx configuration..."
+  cp "$NGINX_CONFIG" /etc/nginx/sites-available/sattva-streamer
+  # Ensure symlink exists
+  ln -sf /etc/nginx/sites-available/sattva-streamer /etc/nginx/sites-enabled/sattva-streamer
+  # Test and reload
+  if nginx -t; then
+    systemctl reload nginx
+    echo "Nginx reloaded successfully"
+  else
+    echo "WARNING: Nginx configuration test failed, not reloading"
+  fi
 fi
 
 # Restart service (best-effort). If service is configured to run as deploy user,

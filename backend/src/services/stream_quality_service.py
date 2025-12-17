@@ -7,10 +7,13 @@ Feature 022 Phase 2: Stream Quality Service
 
 import asyncio
 import logging
+import re
 from typing import Optional, Dict
 from datetime import datetime
 import sys
 import os
+
+from src.services.stream_controller import get_stream_controller
 
 # Add streamer to path for imports
 streamer_path = os.path.join(os.path.dirname(__file__), '../../../streamer')
@@ -37,6 +40,49 @@ class StreamQualityService:
             cls._instance = super().__new__(cls)
         return cls._instance
     
+    def _get_performance_metrics(self) -> Optional[Dict]:
+        """
+        Получает метрики производительности из логов FFmpeg.
+        """
+        try:
+            controller = get_stream_controller()
+            logs = controller.get_logs(lines=20)
+            if not logs:
+                return None
+            
+            # Ищем последнюю строку статуса FFmpeg
+            # frame=  234 fps= 24 q=28.0 size=    1234kB time=00:00:10.00 bitrate=1000.0kbits/s speed=1.0x drop= 0
+            for line in reversed(logs):
+                if "frame=" in line and "fps=" in line:
+                    metrics = {}
+                    
+                    # Dropped frames
+                    drop_match = re.search(r'drop=\s*(\d+)', line)
+                    if drop_match:
+                        metrics['dropped_frames'] = int(drop_match.group(1))
+                    
+                    # Speed
+                    speed_match = re.search(r'speed=\s*([\d\.]+)x', line)
+                    if speed_match:
+                        metrics['speed'] = float(speed_match.group(1))
+                        
+                    # FPS
+                    fps_match = re.search(r'fps=\s*([\d\.]+)', line)
+                    if fps_match:
+                        metrics['fps'] = float(fps_match.group(1))
+                        
+                    # Bitrate
+                    bitrate_match = re.search(r'bitrate=\s*([\d\.]+)kbits/s', line)
+                    if bitrate_match:
+                        metrics['bitrate_kbps'] = float(bitrate_match.group(1))
+                        
+                    return metrics
+            
+            return None
+        except Exception as e:
+            log.error(f"Error getting performance metrics: {e}")
+            return None
+
     async def analyze_stream_quality(
         self,
         url: str,
@@ -73,7 +119,14 @@ class StreamQualityService:
                 stream_quality = await analyze_stream_quality(url, timeout)
             
             if stream_quality:
-                return self._serialize_quality(stream_quality)
+                result = self._serialize_quality(stream_quality)
+                
+                # Добавляем метрики производительности
+                perf_metrics = self._get_performance_metrics()
+                if perf_metrics:
+                    result['performance'] = perf_metrics
+                
+                return result
             return None
             
         except ImportError as e:

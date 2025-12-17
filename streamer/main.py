@@ -79,6 +79,7 @@ load_dotenv()
 
 API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
+# SESSION_STRING is legacy/optional. Authorization is now primarily handled via GUI/Redis commands.
 SESSION_STRING = os.getenv("SESSION_STRING", "")
 CHAT_ID: Union[int, str] = os.getenv("CHAT_ID", "")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "")
@@ -163,37 +164,30 @@ if not (API_ID and API_HASH and CHAT_ID):
     )
     RUN_APP = False
 elif not SESSION_STRING:
-    # SESSION_STRING is missing — log info and proceed with degraded mode
-    # User can add SESSION_STRING later and restart
+    # SESSION_STRING is missing — log info but continue to allow lazy initialization via Redis commands
     logging.getLogger("tg_video_streamer").info(
-        "SESSION_STRING not provided in .env — running in degraded mode. "
-        "To activate: set SESSION_STRING in .env and restart the service"
+        "SESSION_STRING not provided in .env — starting in idle mode. "
+        "Client will be initialized when a start command with session_string is received."
     )
-    RUN_APP = False
+    # RUN_APP = True is default
 
 app = Client(
     name="tg_streamer",
     api_id=API_ID,
     api_hash=API_HASH,
-    session_string=SESSION_STRING if SESSION_STRING else None,
+    session_string=SESSION_STRING,
     in_memory=True,
     workdir="./tdlib"
-) if SESSION_STRING else Client(
-    name="tg_streamer",
-    api_id=API_ID,
-    api_hash=API_HASH,
-    in_memory=True,
-    workdir="./tdlib"
-)
+) if SESSION_STRING else None
 
 pytg = None
-if PYG_AVAILABLE:
+if PYG_AVAILABLE and app:
     try:
         pytg = PyTgCalls(app)
     except Exception as e:
         log.warning("pytgcalls initialization failed: %s", e)
         pytg = None
-else:
+elif not PYG_AVAILABLE:
     log.warning("pytgcalls not available — running in degraded mode (no voice/video).")
 
 async def ensure_join(chat: Union[int, str]):
@@ -352,7 +346,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
     Handle start command from backend.
     Creates a new streaming task for the specified channel.
     """
-    global active_streams
+    global active_streams, app, pytg
     
     channel_id = config.channel_id
     log.info(f"Starting stream for channel {channel_id} ({config.name})")
@@ -365,8 +359,32 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
     # For now, we use the global pytg instance
     # In a full multi-channel setup, each channel would have its own Client
     if not pytg:
-        log.error("pytgcalls not available - cannot start stream")
-        return False
+        if config.session_string:
+            log.info("Initializing global Telegram client from command...")
+            try:
+                app = Client(
+                    name="tg_streamer",
+                    api_id=config.api_id or API_ID,
+                    api_hash=config.api_hash or API_HASH,
+                    session_string=config.session_string,
+                    in_memory=True,
+                    workdir="./tdlib"
+                )
+                await app.start()
+                
+                if PYG_AVAILABLE:
+                    pytg = PyTgCalls(app)
+                    await pytg.start()
+                    log.info("Global client and pytgcalls initialized successfully")
+                else:
+                    log.error("pytgcalls library not available")
+                    return False
+            except Exception as e:
+                log.exception("Failed to initialize client from command: %s", e)
+                return False
+        else:
+            log.error("pytgcalls not available and no session_string provided - cannot start stream")
+            return False
     
     try:
         # Use the chat_id from config
@@ -496,24 +514,37 @@ async def handle_playlist_update(channel_id: str):
 async def main():
     global redis_command_handler
     
-    if not RUN_APP:
-        log.info("Starting in degraded idle mode (no Telegram client).")
-        
-        # Still start Redis command handler to respond to commands
-        redis_command_handler = RedisCommandHandler()
-        redis_command_handler.on_start = handle_channel_start
-        redis_command_handler.on_stop = handle_channel_stop
-        redis_command_handler.on_update_playlist = handle_playlist_update
+    # Start Redis command handler immediately to ensure we can receive commands
+    # even if the main app fails to start or is in degraded mode.
+    redis_command_handler = RedisCommandHandler()
+    redis_command_handler.on_start = handle_channel_start
+    redis_command_handler.on_stop = handle_channel_stop
+    redis_command_handler.on_update_playlist = handle_playlist_update
+    try:
         await redis_command_handler.start()
-        log.info("Redis command handler started in degraded mode")
-        
-        # degraded loop: don't attempt to connect to Telegram or start pytgcalls
+        log.info("Redis command handler started")
+    except Exception as e:
+        log.error("Failed to start Redis command handler: %s", e)
+
+    if not RUN_APP:
+        log.info("Starting in degraded idle mode (missing critical credentials).")
         try:
             while True:
                 await asyncio.sleep(60)
         finally:
             if redis_command_handler:
                 await redis_command_handler.stop()
+        return
+
+    if not app:
+        log.info("No global session configured. Waiting for commands via Redis.")
+        try:
+            while True:
+                await asyncio.sleep(60)
+        finally:
+            if redis_command_handler:
+                await redis_command_handler.stop()
+        return
 
     # Try to start the Client and detect invalid/expired sessions early.
     try:
@@ -524,11 +555,10 @@ async def main():
             try:
                 me = await app.get_me()
             except (SessionExpired, AuthKeyInvalid) as e:
-                # Session is invalid/expired — trigger recovery
                 log.exception("Telegram session invalid or expired: %s", e)
-                from auto_session_runner import recover
-                recover()
-                # recover() calls execv, so we shouldn't reach here.
+                # Continue in idle mode
+                while True:
+                    await asyncio.sleep(60)
                 return
 
             except SessionPasswordNeeded:
@@ -536,18 +566,10 @@ async def main():
                 # Enter degraded mode
                 while True:
                     await asyncio.sleep(60)
+                return
 
             log.info("Logged in as: %s", me.id)
             await ensure_join(CHAT_ID)
-            
-            # Start Redis command handler for receiving backend commands
-            global redis_command_handler
-            redis_command_handler = RedisCommandHandler()
-            redis_command_handler.on_start = handle_channel_start
-            redis_command_handler.on_stop = handle_channel_stop
-            redis_command_handler.on_update_playlist = handle_playlist_update
-            await redis_command_handler.start()
-            log.info("Redis command handler started")
             
             # Initialize auto-end handler if available
             global auto_end_handler
@@ -626,23 +648,11 @@ async def main():
     except RPCError as e:
         log.exception("Telegram RPC error during startup: %s", e)
         log.error("Entering degraded mode. Check your API_ID/API_HASH/SESSION_STRING or network connectivity.")
-        # Start Redis handler even in degraded mode
-        if not redis_command_handler:
-            redis_command_handler = RedisCommandHandler()
-            redis_command_handler.on_start = handle_channel_start
-            redis_command_handler.on_stop = handle_channel_stop
-            await redis_command_handler.start()
         while True:
             await asyncio.sleep(60)
     except Exception as e:
         log.exception("Unhandled error during startup: %s", e)
         # If something unexpected happened, enter degraded mode to keep service alive
-        # Start Redis handler even in degraded mode
-        if not redis_command_handler:
-            redis_command_handler = RedisCommandHandler()
-            redis_command_handler.on_start = handle_channel_start
-            redis_command_handler.on_stop = handle_channel_stop
-            await redis_command_handler.start()
         while True:
             await asyncio.sleep(60)
 

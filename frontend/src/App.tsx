@@ -20,6 +20,8 @@ const Analytics = lazy(() => import('./pages/admin/Analytics'));
 const NotificationsPage = lazy(() => import('./pages/notifications/Channels'));
 const NotificationRulesPage = lazy(() => import('./pages/notifications/Rules'));
 const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));
+const NotificationTemplatesPage = lazy(() => import('./pages/notifications/Templates'));
+const NotificationRecipientsPage = lazy(() => import('./pages/notifications/Recipients'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -59,6 +61,8 @@ const App: React.FC = () => {
               <Route path="/channels" element={<ChannelManager />} />
               <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/notifications/channels" element={<NotificationsPage />} />
+              <Route path="/notifications/templates" element={<NotificationTemplatesPage />} />
+              <Route path="/notifications/recipients" element={<NotificationRecipientsPage />} />
               <Route path="/notifications/rules" element={<NotificationRulesPage />} />
               <Route path="/notifications/logs" element={<NotificationLogsPage />} />
             </Route>

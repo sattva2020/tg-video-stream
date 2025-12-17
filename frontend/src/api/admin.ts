@@ -84,10 +84,18 @@ export interface VideoQualityMetrics {
   quality?: string;  // low, medium, high, ultra
 }
 
+export interface PerformanceMetrics {
+  dropped_frames?: number;
+  speed?: number;
+  fps?: number;
+  bitrate_kbps?: number;
+}
+
 export interface StreamQualityResponse {
   url: string;
   audio?: AudioQualityMetrics | null;
   video?: VideoQualityMetrics | null;
+  performance?: PerformanceMetrics | null;
   is_audio_only: boolean;
   is_video_only: boolean;
   has_both: boolean;

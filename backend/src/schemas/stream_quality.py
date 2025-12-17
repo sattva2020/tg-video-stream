@@ -28,6 +28,14 @@ class VideoQualityMetrics(BaseModel):
     quality: Optional[str] = None  # low, medium, high, ultra
 
 
+class PerformanceMetrics(BaseModel):
+    """Метрики производительности стрима (из логов FFmpeg)"""
+    dropped_frames: Optional[int] = 0
+    speed: Optional[float] = None
+    fps: Optional[float] = None
+    bitrate_kbps: Optional[float] = None
+
+
 class StreamQualityResponse(BaseModel):
     """
     Feature 022 Phase 2: Ответ с информацией о качестве потока
@@ -37,6 +45,7 @@ class StreamQualityResponse(BaseModel):
     url: str
     audio: Optional[AudioQualityMetrics] = None
     video: Optional[VideoQualityMetrics] = None
+    performance: Optional[PerformanceMetrics] = None
     is_audio_only: bool = False
     is_video_only: bool = False
     has_both: bool = False

@@ -90,7 +90,7 @@ fi
 echo -e "${GREEN}✓ Connected to remote server${NC}"
 
 # Check remote prerequisites
-REMOTE_CHECKS=$(ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" -p "$REMOTE_PORT" bash -c '
+REMOTE_CHECKS=$(ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" -p "$REMOTE_PORT" bash -s <<'EOF'
   errors=0
   
   # Check Python
@@ -112,7 +112,8 @@ REMOTE_CHECKS=$(ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" -p "$REMOTE_PORT" bash
   fi
   
   exit $errors
-' 2>&1)
+EOF
+2>&1)
 
 if [ -n "$REMOTE_CHECKS" ]; then
   echo -e "${RED}✗ Remote prerequisite check failed:${NC}"
@@ -148,7 +149,9 @@ echo "Using artifact: $ARTIFACT"
 
 # Run deployment
 cd /tmp
-bash '"'"'./remote_deploy.sh'"'"'
+ls -l ./remote_deploy.sh
+python3 -c "import sys; content = open(\"remote_deploy.sh\", \"rb\").read().replace(b\"\r\n\", b\"\n\"); open(\"remote_deploy.sh\", \"wb\").write(content)"
+bash -x './remote_deploy.sh'
 
 # Verify service is running
 echo "Waiting for service startup..."
@@ -173,7 +176,7 @@ else
   fi
   
   # Execute deployment
-  ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" -p "$REMOTE_PORT" bash -c "$DEPLOY_SCRIPT" 2>&1 | while IFS= read -r line; do
+  echo "$DEPLOY_SCRIPT" | ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" -p "$REMOTE_PORT" "tr -d '\r' | bash" 2>&1 | while IFS= read -r line; do
     echo "  $line"
   done
 fi

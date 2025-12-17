@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3 } from 'lucide-react';
+import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3, Bell } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
@@ -35,6 +35,12 @@ export const DesktopNav: React.FC = () => {
       path: '/schedule', 
       label: t('nav.schedule', 'Расписание'), 
       icon: <CalendarDays className="w-4 h-4" />,
+      allowedRoles: OPERATOR_AND_ABOVE
+    },
+    { 
+      path: '/notifications/rules', 
+      label: t('nav.notifications', 'Оповещения'), 
+      icon: <Bell className="w-4 h-4" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 

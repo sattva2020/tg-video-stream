@@ -16,6 +16,7 @@ import { QuickActions } from './QuickActions';
 import { ActivityTimelineLive } from './ActivityTimeline';
 import { SystemHealthLive } from './SystemHealth';
 import { StreamStatusCard } from './StreamStatusCard';
+import { StreamQualityCard } from './StreamQualityCard';
 
 // Hooks & API
 import { useUserStats } from '../../hooks/useUsersQuery';
@@ -239,6 +240,10 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
             <div className="grid lg:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <StreamStatusCard refreshInterval={10000} useWebSocket={true} />
+                <StreamQualityCard 
+                  streamUrl={streamData?.status?.current_track?.url} 
+                  title={t('quality.currentTrack', 'Качество текущего трека')}
+                />
                 <SystemHealthLive />
               </div>
               <div>
@@ -248,8 +253,15 @@ export const AdminDashboardV2: React.FC<AdminDashboardV2Props> = ({ role }) => {
           )}
 
           {activeTab === 'stream' && (
-            <div className="grid lg:grid-cols-2 gap-6">
-              <StreamStatusCard refreshInterval={5000} useWebSocket={true} />
+            <div className="space-y-6">
+              <div className="grid lg:grid-cols-2 gap-6">
+                <StreamStatusCard refreshInterval={5000} useWebSocket={true} />
+                <StreamQualityCard 
+                  streamUrl={streamData?.status?.current_track?.url} 
+                  title={t('quality.currentTrack', 'Качество текущего трека')}
+                />
+              </div>
+              
               {canControlStream && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}

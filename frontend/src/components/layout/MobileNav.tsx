@@ -14,6 +14,7 @@ import {
   CalendarDays,
   Activity,
   BarChart3,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
@@ -50,6 +51,12 @@ export const MobileNav: React.FC = () => {
       path: '/schedule', 
       label: t('nav.schedule', 'Расписание'), 
       icon: <CalendarDays className="w-5 h-5" />,
+      allowedRoles: OPERATOR_AND_ABOVE
+    },
+    { 
+      path: '/notifications/rules', 
+      label: t('nav.notifications', 'Оповещения'), 
+      icon: <Bell className="w-5 h-5" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
