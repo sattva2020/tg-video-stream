@@ -230,9 +230,16 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                 )}
               </div>
               <div>
-                <h3 className="font-semibold text-[color:var(--color-text)]">
-                  {playlist.name}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-[color:var(--color-text)]">
+                    {playlist.name}
+                  </h3>
+                  {isLive && (
+                    <Chip size="sm" variant="flat" color="danger">
+                      {t('playlist.liveNow', 'В эфире')}
+                    </Chip>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-1 text-xs text-default-500">
                   <span>{playlist.items_count} треков</span>
                   <span>•</span>
@@ -997,7 +1004,6 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                   variant="flat"
                   color="danger"
                   className="self-center"
-                  startContent={<span className="w-2 h-2 rounded-full bg-danger" aria-hidden="true" />}
                   title={t('playlist.liveCountTitle', 'Количество плейлистов в трансляции')}
                   aria-label={t('playlist.liveCountTitle', 'Количество плейлистов в трансляции')}
                 >
