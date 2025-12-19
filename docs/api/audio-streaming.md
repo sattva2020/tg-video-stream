@@ -42,7 +42,7 @@ Authorization: Bearer <access_token>
 
 ### Скорость воспроизведения
 
-#### `PUT /api/playback/speed`
+### `PUT /api/playback/speed`
 
 Изменить скорость воспроизведения.
 
@@ -78,7 +78,7 @@ Authorization: Bearer <access_token>
 
 ### Тональность
 
-#### `PUT /api/playback/pitch`
+### `PUT /api/playback/pitch`
 
 Изменить тональность (высоту тона).
 
@@ -111,7 +111,7 @@ Authorization: Bearer <access_token>
 
 ### Перемотка
 
-#### `POST /api/playback/seek`
+### `POST /api/playback/seek`
 
 Перемотать к указанной позиции.
 
@@ -140,7 +140,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-#### `GET /api/playback/position`
+### `GET /api/playback/position`
 
 Получить текущую позицию воспроизведения.
 
@@ -167,7 +167,7 @@ Authorization: Bearer <access_token>
 
 ## Equalizer API
 
-#### `GET /api/playback/equalizer/presets`
+### `GET /api/playback/equalizer/presets`
 
 Получить список доступных пресетов эквалайзера.
 
@@ -199,7 +199,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-#### `PUT /api/playback/equalizer`
+### `PUT /api/playback/equalizer`
 
 Применить пресет эквалайзера.
 
@@ -224,7 +224,7 @@ Authorization: Bearer <access_token>
 
 ## Radio API
 
-#### `POST /api/radio/streams`
+### `POST /api/radio/streams`
 
 Добавить новую радиостанцию.
 
@@ -252,7 +252,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-#### `GET /api/radio/streams`
+### `GET /api/radio/streams`
 
 Получить список радиостанций.
 
@@ -287,7 +287,7 @@ Authorization: Bearer <access_token>
 
 ## Lyrics API
 
-#### `GET /api/lyrics/{track_id}`
+### `GET /api/lyrics/{track_id}`
 
 Получить текст песни.
 
@@ -325,7 +325,7 @@ Authorization: Bearer <access_token>
 
 ## Recognition API
 
-#### `POST /api/recognition/identify`
+### `POST /api/recognition/identify`
 
 Распознать музыку из аудиофайла.
 
@@ -364,7 +364,7 @@ audio: <binary file>
 
 ## Scheduler API
 
-#### `POST /api/scheduler/schedules`
+### `POST /api/scheduler/schedules`
 
 Создать расписание воспроизведения.
 
@@ -393,7 +393,7 @@ audio: <binary file>
 
 ---
 
-#### `GET /api/scheduler/schedules`
+### `GET /api/scheduler/schedules`
 
 Получить список расписаний.
 
@@ -422,7 +422,7 @@ audio: <binary file>
 
 ## I18n API
 
-#### `GET /api/i18n/languages`
+### `GET /api/i18n/languages`
 
 Получить список поддерживаемых языков.
 
