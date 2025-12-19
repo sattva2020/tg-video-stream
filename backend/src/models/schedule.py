@@ -50,8 +50,12 @@ class ScheduleSlot(Base):
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     
-    # Повторение
-    repeat_type = Column(Enum(RepeatType), default=RepeatType.NONE, nullable=False)
+    # Повторение (используем values_callable для передачи .value вместо .name)
+    repeat_type = Column(
+        Enum(RepeatType, values_callable=lambda x: [e.value for e in x]),
+        default=RepeatType.NONE,
+        nullable=False
+    )
     repeat_days = Column(JSON, nullable=True)  # [0,1,2,3,4] для пн-пт (0=понедельник)
     repeat_until = Column(Date, nullable=True)  # До какой даты повторять
     

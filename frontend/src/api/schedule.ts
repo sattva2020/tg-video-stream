@@ -276,6 +276,13 @@ export const scheduleApi = {
     return response.data;
   },
 
+  playNow: async (playlistId: string, channelId: string): Promise<{ message: string; slot_id: string }> => {
+    const response = await client.post(`/api/schedule/playlists/${playlistId}/play-now`, null, {
+      params: { channel_id: channelId }
+    });
+    return response.data;
+  },
+
   // Playlist Groups
   getGroups: async (channelId?: string): Promise<PlaylistGroup[]> => {
     const response = await client.get('/api/schedule/groups', {

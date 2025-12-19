@@ -52,8 +52,12 @@ const ChannelManager: React.FC = () => {
   
   const loading = channelsLoading || accountsLoading;
   
+  // DEV: Авто-открытие модального окна в тестовом режиме (?test2fa=1)
+  const urlParams = new URLSearchParams(window.location.search);
+  const testMode = urlParams.get('test2fa') === '1';
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(testMode); // Авто-открытие в тестовом режиме
   const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [formData, setFormData] = useState<CreateChannelData>({
@@ -527,6 +531,10 @@ const ChannelManager: React.FC = () => {
                 onSuccess={() => {
                   setIsAuthModalOpen(false);
                   queryClient.invalidateQueries({ queryKey: queryKeys.telegram.all });
+                  // После успешной авторизации открываем форму создания канала
+                  setTimeout(() => {
+                    openCreateModal();
+                  }, 500);
                 }} 
               />
             </div>

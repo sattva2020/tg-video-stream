@@ -44,6 +44,13 @@ class FolderInfo(BaseModel):
     total_duration: int
 
 
+class ScanResult(BaseModel):
+    """Результат сканирования папки."""
+    folder: str
+    files: List[MediaFile]
+    total: int
+
+
 def get_file_metadata(file_path: Path) -> Optional[MediaFile]:
     """Извлечь метаданные из аудиофайла."""
     try:
@@ -86,7 +93,7 @@ def get_file_metadata(file_path: Path) -> Optional[MediaFile]:
         return None
 
 
-@router.get("/folders", response_model=List[str])
+@router.get("/folders", response_model=List[FolderInfo])
 async def list_music_folders(
     current_user: User = Depends(get_current_user)
 ):
@@ -99,20 +106,33 @@ async def list_music_folders(
     folders = []
     for item in music_root.rglob("*"):
         if item.is_dir():
-            # Проверяем, есть ли в папке аудиофайлы
-            has_audio = any(
-                f.suffix.lower() in ALLOWED_EXTENSIONS
-                for f in item.iterdir()
-                if f.is_file()
-            )
-            if has_audio:
-                folders.append(str(item.relative_to(music_root)))
+            # Считаем аудиофайлы в папке
+            audio_files = [
+                f for f in item.iterdir()
+                if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS
+            ]
+            if audio_files:
+                total_size = sum(f.stat().st_size for f in audio_files)
+                folders.append(FolderInfo(
+                    path=str(item.relative_to(music_root)),
+                    name=item.name,
+                    files_count=len(audio_files),
+                    total_size=total_size,
+                    total_duration=0  # Вычисление длительности дорого, пропускаем
+                ))
     
-    # Добавляем корневую папку
-    if any(f.suffix.lower() in ALLOWED_EXTENSIONS for f in music_root.iterdir() if f.is_file()):
-        folders.insert(0, ".")
+    # Добавляем корневую папку если в ней есть аудио
+    root_audio = [f for f in music_root.iterdir() if f.is_file() and f.suffix.lower() in ALLOWED_EXTENSIONS]
+    if root_audio:
+        folders.insert(0, FolderInfo(
+            path=".",
+            name="Корневая папка",
+            files_count=len(root_audio),
+            total_size=sum(f.stat().st_size for f in root_audio),
+            total_duration=0
+        ))
     
-    return sorted(folders)
+    return sorted(folders, key=lambda x: x.path)
 
 
 @router.get("/folders/{folder_path:path}/info", response_model=FolderInfo)
@@ -199,7 +219,7 @@ async def list_folder_files(
     return files
 
 
-@router.get("/scan", response_model=List[MediaFile])
+@router.get("/scan", response_model=ScanResult)
 async def scan_music_folder(
     folder: Optional[str] = Query(None, description="Папка для сканирования (относительно MUSIC_ROOT)"),
     recursive: bool = Query(True, description="Рекурсивное сканирование"),
@@ -243,4 +263,11 @@ async def scan_music_folder(
             if metadata:
                 files.append(metadata)
     
-    return files
+    # Сортируем по имени файла
+    files.sort(key=lambda f: f.filename.lower())
+    
+    return ScanResult(
+        folder=folder or ".",
+        files=files,
+        total=len(files)
+    )

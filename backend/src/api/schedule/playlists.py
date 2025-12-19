@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.models.user import User
-from src.models.schedule import ScheduleSlot, Playlist
+from src.models.schedule import ScheduleSlot, Playlist, PlaylistGroup, RepeatType
 from src.api.auth import get_current_user
 
 from .schemas import (
@@ -281,4 +281,138 @@ async def get_channel_active_playlist(
         "playlist_name": None,
         "is_shuffled": False,
         "items": []
+    }
+
+
+@router.post("/playlists/{playlist_id}/move-to-group", response_model=PlaylistResponse)
+async def move_playlist_to_group(
+    playlist_id: str,
+    group_id: Optional[str] = None,
+    position: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Переместить плейлист в группу."""
+    # Superadmin/Admin могут перемещать любые плейлисты
+    if current_user.role.upper() in ("SUPERADMIN", "ADMIN"):
+        playlist = db.query(Playlist).filter(Playlist.id == uuid.UUID(playlist_id)).first()
+    else:
+        playlist = db.query(Playlist).filter(
+            Playlist.id == uuid.UUID(playlist_id),
+            Playlist.user_id == current_user.id
+        ).first()
+    
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    if group_id:
+        group = db.query(PlaylistGroup).filter(
+            PlaylistGroup.id == uuid.UUID(group_id),
+            PlaylistGroup.is_active == True
+        ).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
+        playlist.group_id = uuid.UUID(group_id)
+    else:
+        playlist.group_id = None
+    
+    if position is not None:
+        playlist.position = position
+    
+    db.commit()
+    db.refresh(playlist)
+    
+    return PlaylistResponse(
+        id=str(playlist.id),
+        name=playlist.name,
+        description=playlist.description,
+        channel_id=str(playlist.channel_id) if playlist.channel_id else None,
+        group_id=str(playlist.group_id) if playlist.group_id else None,
+        position=playlist.position or 0,
+        color=playlist.color,
+        source_type=playlist.source_type,
+        source_url=playlist.source_url,
+        items=playlist.items or [],
+        items_count=playlist.items_count,
+        total_duration=playlist.total_duration,
+        is_active=playlist.is_active,
+        is_shuffled=playlist.is_shuffled,
+        is_public=playlist.is_public if hasattr(playlist, 'is_public') else False,
+        share_code=playlist.share_code if hasattr(playlist, 'share_code') else None,
+        created_at=playlist.created_at
+    )
+
+
+@router.post("/playlists/{playlist_id}/play-now")
+async def play_playlist_now(
+    playlist_id: str,
+    channel_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Запустить плейлист немедленно на указанном канале.
+    
+    Создаёт временный слот в расписании и отправляет команду стримеру.
+    """
+    import json
+    import redis
+    import os
+    from datetime import datetime, timezone, timedelta
+    
+    # Проверяем плейлист
+    playlist = db.query(Playlist).filter(
+        Playlist.id == uuid.UUID(playlist_id),
+        Playlist.is_active == True
+    ).first()
+    
+    if not playlist:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    # Проверяем канал
+    from src.models.telegram import Channel
+    channel = db.query(Channel).filter(
+        Channel.id == uuid.UUID(channel_id)
+    ).first()
+    
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    
+    # Создаём временный слот на текущее время (2 часа)
+    now = datetime.now(timezone.utc)
+    slot = ScheduleSlot(
+        channel_id=uuid.UUID(channel_id),
+        playlist_id=uuid.UUID(playlist_id),
+        start_date=now.date(),
+        start_time=now.time(),
+        end_time=(now + timedelta(hours=2)).time(),
+        title=f"🎵 {playlist.name}",
+        color=playlist.color or "#8B5CF6",
+        is_active=True,
+    )
+    db.add(slot)
+    db.commit()
+    
+    # Отправляем команду стримеру через Redis
+    try:
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        
+        command = {
+            "action": "update_playlist",
+            "channel_id": channel_id,
+            "playlist_id": playlist_id,
+            "immediate": True
+        }
+        r.publish("stream:control", json.dumps(command))
+        
+    except Exception as e:
+        # Логируем ошибку, но не прерываем - слот создан
+        import logging
+        logging.error(f"Failed to send Redis command: {e}")
+    
+    return {
+        "status": "success",
+        "message": f"Плейлист '{playlist.name}' запущен на канале '{channel.name}'",
+        "slot_id": str(slot.id)
     }

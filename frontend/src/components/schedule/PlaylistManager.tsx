@@ -32,6 +32,7 @@ import {
   HardDrive,
   Globe,
   GripVertical,
+  Play,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -61,22 +62,27 @@ import {
   useCreatePlaylistGroup,
   useDeletePlaylistGroup,
   useMovePlaylistToGroup,
+  usePlayNow,
+  useScheduleSlots,
+  useScheduleSlotsForChannels,
 } from '../../hooks/useScheduleQuery';
+import { useChannels } from '../../hooks/useChannelsQuery';
 import { useMediaFolders, useScanFolder } from '../../hooks/useMediaQuery';
 import type { Playlist, PlaylistItem, PlaylistGroup } from '../../api/schedule';
+import type { Channel } from '../../api/channels';
 import {
   DndContext,
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragOverEvent,
   closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
   useDroppable,
+  useDraggable,
 } from '@dnd-kit/core';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 // ==================== Types ====================
 
@@ -130,37 +136,43 @@ function getSourceIcon(sourceType: string) {
 interface DraggablePlaylistCardProps {
   playlist: Playlist;
   groups: PlaylistGroup[];
+  channels: Channel[];
   isSelected: boolean;
+  isLive: boolean;
   onSelect?: (playlist: Playlist) => void;
   onEdit: (playlist: Playlist) => void;
   onDelete: (playlist: Playlist) => void;
   onMoveToGroup: (playlistId: string, groupId: string | undefined) => void;
+  onPlayNow: (playlistId: string, channelId: string) => void;
   t: any;
 }
 
 const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardProps>(({
   playlist,
   groups,
+  channels,
   isSelected,
+  isLive,
   onSelect,
   onEdit,
   onDelete,
   onMoveToGroup,
+  onPlayNow,
   t,
 }, forwardedRef) => {
+  const [showChannelSelect, setShowChannelSelect] = useState(false);
   const {
     attributes,
     listeners,
     setNodeRef,
     transform,
-    transition,
     isDragging,
-  } = useSortable({ id: playlist.id });
+  } = useDraggable({ id: playlist.id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : undefined,
   };
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
@@ -178,7 +190,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
   return (
     <div ref={setRefs} style={style}>
       <Card
-        isPressable={!!onSelect}
+        isPressable={!!onSelect && !isDragging}
         isHoverable
         className={`
           overflow-hidden
@@ -205,10 +217,17 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                 <GripVertical className="w-4 h-4" />
               </div>
               <div
-                className="p-2 rounded-lg"
+                className="p-2 rounded-lg relative"
                 style={{ backgroundColor: `${playlist.color}20` }}
               >
                 <SourceIcon className="w-5 h-5" style={{ color: playlist.color }} />
+                {isLive && (
+                  <span
+                    className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-danger"
+                    title={t('playlist.liveNow', 'Сейчас транслируется')}
+                    aria-label={t('playlist.liveNow', 'Сейчас транслируется')}
+                  />
+                )}
               </div>
               <div>
                 <h3 className="font-semibold text-[color:var(--color-text)]">
@@ -255,6 +274,13 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                     </DropdownMenu>
                   </Dropdown>
                 </DropdownItem>
+                <DropdownItem 
+                  key="play-now" 
+                  startContent={<Play className="w-4 h-4" />} 
+                  onPress={() => setShowChannelSelect(true)}
+                >
+                  {t('playlist.playNow', 'Транслировать сейчас')}
+                </DropdownItem>
                 <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="w-4 h-4" />} onPress={() => onDelete(playlist)}>
                   {t('common.delete', 'Удалить')}
                 </DropdownItem>
@@ -282,6 +308,41 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
           </div>
         </CardBody>
       </Card>
+
+      {/* Модальное окно выбора канала для трансляции */}
+      <Modal isOpen={showChannelSelect} onClose={() => setShowChannelSelect(false)} size="sm">
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <span>Выберите канал</span>
+            <span className="text-sm font-normal text-default-500">
+              Плейлист: {playlist.name}
+            </span>
+          </ModalHeader>
+          <ModalBody className="pb-6">
+            <div className="flex flex-col gap-2">
+              {channels.map((channel) => (
+                <Button
+                  key={channel.id}
+                  variant="flat"
+                  className="justify-start"
+                  startContent={<Play className="w-4 h-4" />}
+                  onPress={() => {
+                    onPlayNow(playlist.id, channel.id);
+                    setShowChannelSelect(false);
+                  }}
+                >
+                  {channel.name}
+                </Button>
+              ))}
+              {channels.length === 0 && (
+                <p className="text-center text-default-500 py-4">
+                  Нет доступных каналов
+                </p>
+              )}
+            </div>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 });
@@ -393,8 +454,8 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
     // Для folder - берём из результата сканирования
     if (formData.source_type === 'folder' && scanResult) {
       items = scanResult.files.map(file => ({
-        url: `file://${file.file_path}`,
-        title: file.title || file.file_path.split('/').pop() || 'Untitled',
+        url: `file://${file.path}`,
+        title: file.title || file.filename || 'Untitled',
         duration: file.duration,
         type: 'local' as const,
       }));
@@ -711,10 +772,43 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
 
   const { data: playlists = [], isLoading } = usePlaylists(channelId);
   const { data: groups = [] } = usePlaylistGroups(channelId);
+  const { data: channels = [] } = useChannels();
   const deleteMutation = useDeletePlaylist();
   const createGroupMutation = useCreatePlaylistGroup();
   const deleteGroupMutation = useDeletePlaylistGroup();
   const moveToGroupMutation = useMovePlaylistToGroup();
+  const playNowMutation = usePlayNow();
+
+  // Get current date for active slots
+  const today = new Date();
+  const startDate = today.toISOString().split('T')[0];
+  const endDate = startDate;
+  const { data: selectedChannelSlots = [] } = useScheduleSlots(channelId || '', startDate, endDate);
+  const multiChannelSlotsQueries = useScheduleSlotsForChannels(
+    channelId ? [] : channels.map(c => c.id),
+    startDate,
+    endDate
+  );
+
+  const slots = useMemo(() => {
+    if (channelId) return selectedChannelSlots;
+    return multiChannelSlotsQueries.flatMap(q => q.data ?? []);
+  }, [channelId, selectedChannelSlots, multiChannelSlotsQueries]);
+
+  const livePlaylistIds = useMemo(() => {
+    const ids = new Set<string>();
+    slots.forEach(slot => {
+      if (slot.is_active && slot.playlist_id) ids.add(slot.playlist_id);
+    });
+    return ids;
+  }, [slots]);
+
+  const liveCount = livePlaylistIds.size;
+
+  // Check if playlist is currently active (being broadcast)
+  const isPlaylistActive = (playlistId: string): boolean => {
+    return livePlaylistIds.has(playlistId);
+  };
 
   // Toggle group expand/collapse
   const toggleGroup = (groupId: string) => {
@@ -803,6 +897,10 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
     await moveToGroupMutation.mutateAsync({ playlistId, groupId });
   };
 
+  const handlePlayNow = async (playlistId: string, channelId: string) => {
+    await playNowMutation.mutateAsync({ playlistId, channelId });
+  };
+
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -819,6 +917,17 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
     const { active } = event;
     const playlist = playlists.find(p => p.id === active.id);
     setActivePlaylist(playlist || null);
+    
+    // При начале перетаскивания разворачиваем все группы
+    const allGroupIds = new Set(['ungrouped', ...groups.map(g => g.id)]);
+    setExpandedGroups(allGroupIds);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (over && over.id.toString().startsWith('group-')) {
+      // Группа подсвечивается автоматически через isOver в DroppableGroup
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -843,11 +952,14 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       key={playlist.id}
       playlist={playlist}
       groups={groups}
+      channels={channels}
       isSelected={selectedPlaylistId === playlist.id}
+      isLive={isPlaylistActive(playlist.id)}
       onSelect={onSelectPlaylist}
       onEdit={handleEdit}
       onDelete={handleDelete}
       onMoveToGroup={handleMoveToGroup}
+      onPlayNow={handlePlayNow}
       t={t}
     />
   );
@@ -858,6 +970,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="space-y-4">
@@ -878,6 +991,19 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
             </div>
 
             <div className="flex gap-2">
+              {liveCount > 0 && (
+                <Chip
+                  size="sm"
+                  variant="flat"
+                  color="danger"
+                  className="self-center"
+                  startContent={<span className="w-2 h-2 rounded-full bg-danger" aria-hidden="true" />}
+                  title={t('playlist.liveCountTitle', 'Количество плейлистов в трансляции')}
+                  aria-label={t('playlist.liveCountTitle', 'Количество плейлистов в трансляции')}
+                >
+                  {t('playlist.liveCount', 'В эфире')}: {liveCount}
+                </Chip>
+              )}
               <Button
                 variant="flat"
                 onPress={handleCreateGroup}

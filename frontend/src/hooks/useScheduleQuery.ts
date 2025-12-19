@@ -2,7 +2,7 @@
  * React Query хуки для работы с расписанием и плейлистами.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { scheduleApi, ScheduleSlotCreate, ScheduleSlotUpdate, ScheduleTemplateCreate, PlaylistCreate, PlaylistUpdate, PlaylistGroupCreate, PlaylistGroupUpdate, BulkCopyRequest, ApplyTemplateRequest } from '../api/schedule';
 import { useToast } from './useToast';
@@ -84,6 +84,23 @@ export function useScheduleSlots(channelId: string, startDate: string, endDate: 
     queryFn: () => scheduleApi.getSlots(channelId, startDate, endDate),
     enabled: !!channelId && !!startDate && !!endDate,
     staleTime: 30 * 1000, // 30 секунд
+  });
+}
+
+/**
+ * Получить слоты расписания за период сразу по нескольким каналам.
+ *
+ * Важно: используется для UI, где список плейлистов отображается без выбранного канала,
+ * но нужно корректно подсветить "сейчас транслируется".
+ */
+export function useScheduleSlotsForChannels(channelIds: string[], startDate: string, endDate: string) {
+  return useQueries({
+    queries: channelIds.map((channelId) => ({
+      queryKey: scheduleQueryKeys.slots(channelId, startDate, endDate),
+      queryFn: () => scheduleApi.getSlots(channelId, startDate, endDate),
+      enabled: !!channelId && !!startDate && !!endDate,
+      staleTime: 30 * 1000, // 30 секунд
+    })),
   });
 }
 
@@ -335,6 +352,26 @@ export function useMovePlaylistToGroup() {
     },
     onError: (error: unknown) => {
       toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+/**
+ * Запустить трансляцию плейлиста немедленно
+ */
+export function usePlayNow() {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({ playlistId, channelId }: { playlistId: string; channelId: string }) => 
+      scheduleApi.playNow(playlistId, channelId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'slots'] });
+      toast.success('Трансляция запущена!');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, 'Ошибка запуска'));
     },
   });
 }

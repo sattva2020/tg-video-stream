@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, Phone, KeyRound, Lock, Clock, AlertTriangle } from 'lucide-react';
@@ -92,7 +92,11 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
 
   const phoneForm = useForm<PhoneForm>({ resolver: zodResolver(phoneSchema) });
   const codeForm = useForm<CodeForm>({ resolver: zodResolver(codeSchema) });
-  const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema) });
+  const passwordForm = useForm<PasswordForm>({ 
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { password: '' },
+    mode: 'onChange'
+  });
 
   // Парсинг ошибки rate limit из ответа API
   const parseRateLimitError = (err: any): RateLimitInfo | null => {
@@ -321,20 +325,25 @@ export const TelegramLogin: React.FC<TelegramLoginProps> = ({ onSuccess, apiPref
               <Lock className="h-4 w-4 text-gray-400" />
               Пароль 2FA
             </label>
-            <PasswordInput
-              {...passwordForm.register('password')}
-              id="tg-2fa-code"
-              name="tg-2fa-verification"
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              data-form-type="other"
-              data-lpignore="true"
-              placeholder="Введите пароль 2FA"
-              className="w-full px-4 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              buttonClassName="text-gray-400 hover:text-gray-200"
-              iconSize={20}
+            <Controller
+              name="password"
+              control={passwordForm.control}
+              render={({ field }) => (
+                <PasswordInput
+                  id="tg-2fa-code"
+                  {...field}
+                  autoComplete="new-password"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  placeholder="Введите пароль 2FA"
+                  className="w-full px-4 py-2 border rounded-md bg-gray-800 border-gray-600 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  buttonClassName="text-gray-400 hover:text-gray-200"
+                  iconSize={20}
+                />
+              )}
             />
             {passwordForm.formState.errors.password && (
               <p className="text-red-400 text-xs mt-1">{passwordForm.formState.errors.password.message}</p>

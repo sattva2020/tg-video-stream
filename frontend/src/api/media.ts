@@ -3,23 +3,30 @@
  */
 import { client } from './client';
 
-export interface AudioMetadata {
-  file_path: string;
-  title?: string;
-  artist?: string;
-  album?: string;
-  duration?: number;
+export interface MediaFile {
+  path: string;           // Относительный путь от MUSIC_ROOT
+  filename: string;       // Имя файла
+  title?: string;         // Название трека (из тегов)
+  artist?: string;        // Исполнитель
+  album?: string;         // Альбом
+  duration: number;       // Длительность в секундах
+  size: number;           // Размер файла в байтах
+  mime_type: string;      // MIME тип
 }
 
 export interface FolderInfo {
   path: string;
-  audio_count: number;
-  has_subdirs: boolean;
+  name: string;
+  files_count: number;
+  total_size: number;
+  total_duration: number;
+  audio_count?: number;
+  has_subdirs?: boolean;
 }
 
 export interface ScanResult {
   folder: string;
-  files: AudioMetadata[];
+  files: MediaFile[];
   total: number;
 }
 
@@ -27,7 +34,7 @@ export interface ScanResult {
  * Получить список папок с аудиофайлами
  */
 export const getFolders = async (): Promise<FolderInfo[]> => {
-  const { data } = await client.get<FolderInfo[]>('/media/folders');
+  const { data } = await client.get<FolderInfo[]>('/api/media/folders');
   return data;
 };
 
@@ -38,7 +45,7 @@ export const scanFolder = async (
   folder: string,
   recursive = false
 ): Promise<ScanResult> => {
-  const { data } = await client.get<ScanResult>('/media/scan', {
+  const { data } = await client.get<ScanResult>('/api/media/scan', {
     params: { folder, recursive }
   });
   return data;
@@ -48,6 +55,6 @@ export const scanFolder = async (
  * Получить информацию о папке
  */
 export const getFolderInfo = async (path: string): Promise<FolderInfo> => {
-  const { data } = await client.get<FolderInfo>(`/media/folders/${encodeURIComponent(path)}/info`);
+  const { data } = await client.get<FolderInfo>(`/api/media/folders/${encodeURIComponent(path)}/info`);
   return data;
 };

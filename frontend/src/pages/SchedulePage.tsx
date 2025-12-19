@@ -357,7 +357,7 @@ export default function SchedulePage() {
               )}
 
               {activeTab === 'playlists' && (
-                <PlaylistManager />
+                <PlaylistManager channelId={selectedChannelId} />
               )}
 
               {activeTab === 'templates' && (
