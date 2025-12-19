@@ -89,6 +89,7 @@ services:
   # Telegram Video Streamer
   streamer:
     build: ./streamer
+    profiles: ["docker-streamer"]
     env_file:
       - .env
     volumes:

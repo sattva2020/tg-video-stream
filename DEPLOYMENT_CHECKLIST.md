@@ -10,7 +10,7 @@
 ## ✅ Pre-Deployment (10 minutes)
 
 ### Code Review
-- [ ] Read: `PHASE3_QUICK_START.md` (executive summary)
+- [ ] Read: `docs/development/phase3/PHASE3_QUICK_START.md` (executive summary)
 - [ ] Review: Backend service layer in IDE
 - [ ] Review: Frontend components in IDE
 - [ ] Verify: All files created in correct locations
@@ -38,8 +38,8 @@ npm test StreamQualityPhase3.test.tsx
 ### Validation Script
 ```bash
 cd /path/to/project
-chmod +x validate-phase3.sh
-./validate-phase3.sh
+chmod +x scripts/validate-phase3.sh
+./scripts/validate-phase3.sh
 # Expected: All checks passing ✅
 ```
 
@@ -329,7 +329,7 @@ New features:
 ✅ Intelligent threshold management
 
 Location: Admin > Metrics (3 new tabs)
-Docs: PHASE3_QUICK_START.md
+Docs: docs/development/phase3/PHASE3_QUICK_START.md
 
 Please test and report any issues.
 ```
@@ -392,7 +392,7 @@ mysql -u root -p your_database < backup_phase3_*.sql
 **After Deployment**:
 - Feature guide: `docs/features/feature-022-phase3-advanced-monitoring.md`
 - Quick troubleshooting: See "Troubleshooting" section above
-- Full documentation: `PHASE3_DOCUMENTATION_INDEX.md`
+- Full documentation: `docs/development/phase3/PHASE3_DOCUMENTATION_INDEX.md`
 
 ---
 

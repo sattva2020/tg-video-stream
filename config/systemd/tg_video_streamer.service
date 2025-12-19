@@ -1,16 +1,38 @@
 [Unit]
-Description=Telegram Video Streamer
-After=network.target
+Description=Telegram Video Streamer (release-based)
+After=network.target redis.service
+Wants=redis.service
 
 [Service]
 Type=simple
 User=tgstream
 Group=tgstream
 WorkingDirectory=/opt/tg_video_streamer/current/streamer
+Environment=PYTHONUNBUFFERED=1
+Environment=STREAMER_MODE=multi
+Environment=PATH=/opt/tg_video_streamer/current/venv/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/opt/tg_video_streamer/current/.env
-ExecStart=/opt/tg_video_streamer/current/venv/bin/python main.py
+ExecStart=/opt/tg_video_streamer/current/venv/bin/python multi_channel_runner.py
 Restart=always
-RestartSec=5
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tg-video-streamer
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/tg_video_streamer/current/streamer /var/log /tmp
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=200%
 
 [Install]
 WantedBy=multi-user.target

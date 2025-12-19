@@ -5,6 +5,10 @@
 **Директория:** `/opt/sattva-streamer`
 **Статус:** ✅ **УСПЕШНО**
 
+> ⚠️ Важно: этот документ описывает исторический деплой Phase 3 в `/opt/sattva-streamer`.
+> Текущий канонический runtime на VPS — release-based в `/opt/tg_video_streamer/current`.
+> См. [docs/development/VPS_CANONICAL_RUNTIME.md](docs/development/VPS_CANONICAL_RUNTIME.md).
+
 ---
 
 ## 📋 Выполненные действия
@@ -40,9 +44,11 @@
 ## 🚀 Как проверить
 
 Откройте в браузере:
-**http://37.53.91.144/admin/metrics**
+
+**[http://37.53.91.144/admin/metrics](http://37.53.91.144/admin/metrics)**
 
 Должны появиться 3 вкладки:
+
 1. **Quality** (Текущее качество)
 2. **Trends** (Графики - Phase 3)
 3. **Alerts** (Настройки - Phase 3)
@@ -50,5 +56,6 @@
 ---
 
 ## ⚠️ Важно
+
 Если возникнут проблемы, бэкап `.env` сохранен как `.env.backup_phase3`.
 Бэкап базы данных сохранен как `backup_phase3_pre_deploy.sql`.

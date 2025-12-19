@@ -1,5 +1,7 @@
 [Unit]
-Description=Sattva Telegram Streamer Service
+# LEGACY: данный unit-файл относится к историческому пути /opt/sattva-streamer.
+# На продовом VPS должен быть замаскирован (symlink на /dev/null), чтобы исключить дубль стримера.
+Description=Sattva Telegram Streamer Service (LEGACY)
 Documentation=https://github.com/sattva2020/tg-video-stream
 After=network.target redis.service postgresql.service
 Wants=redis.service
