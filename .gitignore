@@ -176,6 +176,13 @@ backend/.ruff_cache/
 
 # Project-local internal files (diagnostics, temp, archives)
 .internal/
+
+# Артефакты, которые не должны лежать в корне репозитория
+telegram-deploy-*.tar.gz
+frontend_dist.tar.gz
+tg_video_streamer_*.zip
+test_playlist.db
+ChatGPT Image*.png
 # Local session/env directory (do not commit secrets)
 .session-env/
 

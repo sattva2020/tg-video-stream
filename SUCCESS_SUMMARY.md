@@ -71,15 +71,15 @@
    frontend/src/pages/admin/Metrics.Phase3.test.tsx
 
 ✅ Documentation
-   PHASE3_QUICK_START.md ← Start here!
-   PHASE3_FINAL_SUMMARY.md
-   PHASE3_IMPLEMENTATION_REPORT.md
-   PHASE3_IMPLEMENTATION_COMPLETE.md
-   PHASE3_NEXT_STEPS.md
-   PHASE3_DOCUMENTATION_INDEX.md
+   docs/development/phase3/PHASE3_QUICK_START.md ← Start here!
+   docs/development/phase3/PHASE3_FINAL_SUMMARY.md
+   docs/development/phase3/PHASE3_IMPLEMENTATION_REPORT.md
+   docs/development/phase3/PHASE3_IMPLEMENTATION_COMPLETE.md
+   docs/development/phase3/PHASE3_NEXT_STEPS.md
+   docs/development/phase3/PHASE3_DOCUMENTATION_INDEX.md
    DEPLOYMENT_CHECKLIST.md ← Use for deployment
    docs/features/feature-022-phase3-advanced-monitoring.md
-   validate-phase3.sh
+   scripts/validate-phase3.sh
 ```
 
 ---
@@ -89,7 +89,7 @@
 ### Step 1: Review (10 min)
 ```bash
 # Read the quick start
-cat PHASE3_QUICK_START.md
+cat docs/development/phase3/PHASE3_QUICK_START.md
 
 # Review key files in your IDE
 code backend/src/services/quality_trends_service.py
@@ -102,7 +102,7 @@ code frontend/src/components/dashboard/StreamQualityChart.tsx
 cd backend && pytest tests/api/test_quality_trends.py -v
 
 # Run validation script
-chmod +x validate-phase3.sh && ./validate-phase3.sh
+chmod +x scripts/validate-phase3.sh && ./scripts/validate-phase3.sh
 ```
 
 ### Step 3: Deploy (30 min)
@@ -136,11 +136,11 @@ docker compose up -d backend frontend
 
 | Need | Read This | Time |
 |------|-----------|------|
-| **Quick overview** | PHASE3_QUICK_START.md | 5 min |
+| **Quick overview** | docs/development/phase3/PHASE3_QUICK_START.md | 5 min |
 | **Deployment steps** | DEPLOYMENT_CHECKLIST.md | 10 min |
 | **Complete guide** | docs/features/feature-022-phase3-advanced-monitoring.md | 20 min |
-| **All details** | PHASE3_IMPLEMENTATION_REPORT.md | 30 min |
-| **What's next** | PHASE3_NEXT_STEPS.md | 10 min |
+| **All details** | docs/development/phase3/PHASE3_IMPLEMENTATION_REPORT.md | 30 min |
+| **What's next** | docs/development/phase3/PHASE3_NEXT_STEPS.md | 10 min |
 
 ---
 
@@ -297,9 +297,9 @@ All answers are in the documentation:
 |----------|-----------------|
 | How do I deploy? | DEPLOYMENT_CHECKLIST.md |
 | How does it work? | docs/features/feature-022-phase3-advanced-monitoring.md |
-| What was built? | PHASE3_FINAL_SUMMARY.md |
-| What's next? | PHASE3_NEXT_STEPS.md |
-| Where's everything? | PHASE3_DOCUMENTATION_INDEX.md |
+| What was built? | docs/development/phase3/PHASE3_FINAL_SUMMARY.md |
+| What's next? | docs/development/phase3/PHASE3_NEXT_STEPS.md |
+| Where's everything? | docs/development/phase3/PHASE3_DOCUMENTATION_INDEX.md |
 
 ---
 

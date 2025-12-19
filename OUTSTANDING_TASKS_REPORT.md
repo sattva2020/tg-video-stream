@@ -85,7 +85,7 @@
 Production-ready: âœ… ÐœÐ¾Ð¶Ð½Ð¾ Ð´ÐµÐ¿Ð»Ð¾Ð¸Ñ‚ÑŒ
 ```
 
-**Report**: [PHASE6_METRICS_COMPLETE.md](PHASE6_METRICS_COMPLETE.md)
+**Report**: [docs/development/phase6/PHASE6_METRICS_COMPLETE.md](docs/development/phase6/PHASE6_METRICS_COMPLETE.md)
 
 ---
 
@@ -491,11 +491,11 @@ Mock coverage: 100% (no real network calls)
 
 ---
 
-## í¶• Feature 022: Stream Quality Monitoring (FFprobe Integration)
+## ï¿½ï¿½ï¿½ Feature 022: Stream Quality Monitoring (FFprobe Integration)
 
 **Date**: December 16, 2025 | **Duration**: 45 minutes | **Status**: âœ… PHASE 1 COMPLETE
 
-### í³Š Quick Summary
+### ï¿½ï¿½ï¿½ Quick Summary
 
 | Metric | Value | Status |
 |--------|-------|--------|
@@ -533,13 +533,13 @@ Mock coverage: 100% (no real network calls)
 - API documentation
 - Quality metrics reference
 
-### í¾¯ Quality Levels
+### ï¿½ï¿½ï¿½ Quality Levels
 
 **Audio**: LOW (â‰¤64k) | MEDIUM (64-128k) | HIGH (128-192k) | LOSSLESS (â‰¥192k)
 
 **Video**: LOW (â‰¤480p) | MEDIUM (480-720p) | HIGH (720-1080p) | ULTRA (>1080p)
 
-### í³‹ Files Created
+### ï¿½ï¿½ï¿½ Files Created
 
 ```
 âœ… streamer/ffprobe_utils.py (461 lines)
@@ -548,6 +548,6 @@ Mock coverage: 100% (no real network calls)
 âœ… .internal/FEATURE022_PHASE1_COMPLETE.md
 ```
 
-### íº€ Status: Ready for Phase 2 (Admin Dashboard + Prometheus)
+### ï¿½ï¿½ï¿½ Status: Ready for Phase 2 (Admin Dashboard + Prometheus)
 
 **Last Updated**: December 16, 2025

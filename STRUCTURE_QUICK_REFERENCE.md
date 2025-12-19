@@ -15,7 +15,7 @@
 
 ## Мини-чеклист перед коммитом
 1. В корне нет `*_COMPLETE.md`, `test_*.sh`, лишних README.
-2. `.env` не коммитим, используем `template.env` и `scripts/generate_env.sh`.
+2. `.env` не коммитим, используем `.env.template` как шаблон.
 3. Документация обновлена + прогнаны `npm run docs:validate && npm run docs:report` (если менялись docs).
 4. Логи/артефакты удалены или перенесены в `.internal/`.
 5. Структура новых файлов описана в `PROJECT_STRUCTURE_GUIDELINES.md` при необходимости.
