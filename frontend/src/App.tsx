@@ -22,8 +22,6 @@ const NotificationRulesPage = lazy(() => import('./pages/notifications/Rules'));
 const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));
 const NotificationTemplatesPage = lazy(() => import('./pages/notifications/Templates'));
 const NotificationRecipientsPage = lazy(() => import('./pages/notifications/Recipients'));
-// DEV: Тестовая страница для 2FA
-const Test2FAPage = lazy(() => import('./pages/Test2FAPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -50,8 +48,6 @@ const App: React.FC = () => {
             <Route path="/login" element={<AuthPage3D />} />
             <Route path="/pending-approval" element={<PendingApprovalPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            {/* DEV: Тестовая страница для 2FA без авторизации */}
-            <Route path="/test-2fa" element={<Test2FAPage />} />
             
             {/* Routes for all authenticated users */}
             <Route element={<ProtectedRoute />}>

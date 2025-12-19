@@ -16,6 +16,7 @@ from unittest.mock import Mock, AsyncMock, patch
 import uuid
 import os
 from dotenv import load_dotenv
+from sqlalchemy.pool import StaticPool
 
 # Загрузить .env.test для тестов
 test_env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env.test')
@@ -31,33 +32,41 @@ if test_audio_dir not in sys.path:
     sys.path.insert(0, test_audio_dir)
 
 from test_app import app  # Test-specific app
-from src.database import Base, get_db
+from src.database import Base, get_db as src_get_db
 from src.models.user import User
 from src.models.playback_settings import PlaybackSettings
 from services.auth_service import auth_service
 
 
 # Test database configuration
-# Используется DATABASE_URL из .env.test (PostgreSQL на VPS)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///:memory:")
+# По умолчанию тесты должны быть самодостаточными и не зависеть от внешней БД.
+# Для интеграционных прогонов с PostgreSQL нужно ЯВНО включить флаг и задать URL.
+TEST_USE_POSTGRES = os.getenv("TEST_USE_POSTGRES", "").strip().lower() in {"1", "true", "yes"}
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+DATABASE_URL = TEST_DATABASE_URL or os.getenv("DATABASE_URL") or "sqlite+pysqlite:///:memory:"
 
-if DATABASE_URL.startswith("postgresql"):
-    # PostgreSQL на VPS для integration tests
+if TEST_USE_POSTGRES and DATABASE_URL.startswith("postgresql"):
+    # PostgreSQL (интеграционные тесты) — включается только явно
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True,  # Проверка соединения
+        pool_pre_ping=True,
         pool_size=5,
         max_overflow=10,
-        echo=False  # Установить True для отладки SQL запросов
+        echo=False,
     )
-    print(f"✅ Используется PostgreSQL на VPS для тестов: {DATABASE_URL.split('@')[1]}")
+    try:
+        db_host_hint = DATABASE_URL.split("@", 1)[1]
+    except Exception:
+        db_host_hint = "<masked>"
+    print(f"✅ Тесты используют PostgreSQL (TEST_USE_POSTGRES=true): {db_host_hint}")
 else:
-    # Fallback на SQLite для локальных тестов
+    # SQLite in-memory для быстрых локальных прогонов
     engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False}
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
-    print("⚠️  Используется SQLite для тестов (не рекомендуется для integration tests)")
+    print("✅ Тесты используют SQLite in-memory (self-contained)")
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -105,8 +114,19 @@ def override_get_db(db_session, test_user):
         return test_user
     
     from src.api.auth.dependencies import get_current_user as real_get_current_user
-    
-    app.dependency_overrides[get_db] = _override_get_db
+
+    # ВАЖНО: в кодовой базе встречаются оба варианта импорта get_db:
+    # - `from database import get_db`
+    # - `from src.database import get_db`
+    # Это создаёт два разных объекта функции и без двойного override тесты
+    # могут внезапно ходить в реальную БД.
+    try:
+        from database import get_db as root_get_db
+        app.dependency_overrides[root_get_db] = _override_get_db
+    except Exception as e:
+        print(f"⚠️  Не удалось импортировать database.get_db для override: {e}")
+
+    app.dependency_overrides[src_get_db] = _override_get_db
     app.dependency_overrides[real_get_current_user] = _override_get_current_user
     yield
     app.dependency_overrides.clear()

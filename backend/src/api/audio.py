@@ -10,7 +10,7 @@ Audio processing API endpoints.
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field, validator
 import httpx
 from sqlalchemy.orm import Session
@@ -114,10 +114,12 @@ async def transcode_audio(
             return TranscodeResponse(**data)
             
         except (httpx.HTTPError, Exception) as e:
-            # Ловим и HTTPError и общие Exception (для тестов с mock)
-            raise HTTPException(
+            # Ловим и HTTPError и общие Exception (для тестов с mock).
+            # Возвращаем JSONResponse, чтобы исключить response_model-валидацию
+            # и не зависеть от поведения __aexit__ у замоканных async context managers.
+            return JSONResponse(
                 status_code=503,
-                detail=f"Rust-transcoder unavailable: {str(e)}"
+                content={"detail": f"Rust-transcoder unavailable: {str(e)}"},
             )
 
 
