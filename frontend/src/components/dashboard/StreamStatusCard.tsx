@@ -160,48 +160,51 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   // Loading skeleton
   if (loading && !status) {
     return (
-      <Card className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-[color:var(--color-border)]/60">
-        <CardBody className="gap-4 p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Skeleton className="w-10 h-10 rounded-lg" />
-              <div>
-                <Skeleton className="h-5 w-40 mb-2" />
-                <Skeleton className="h-4 w-24" />
+      <div className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+        <Card shadow="none" className="bg-transparent">
+          <CardBody className="gap-4 p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Skeleton className="w-10 h-10 rounded-lg" />
+                <div>
+                  <Skeleton className="h-5 w-40 mb-2" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+              <Skeleton className="w-8 h-8 rounded-lg" />
+            </div>
+            
+            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+              <div className="flex items-start gap-3">
+                <Skeleton className="w-10 h-10 rounded-lg" />
+                <div className="flex-1">
+                  <Skeleton className="h-3 w-20 mb-2" />
+                  <Skeleton className="h-5 w-48 mb-1" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
               </div>
             </div>
-            <Skeleton className="w-8 h-8 rounded-lg" />
-          </div>
-          
-          <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
-            <div className="flex items-start gap-3">
-              <Skeleton className="w-10 h-10 rounded-lg" />
-              <div className="flex-1">
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
                 <Skeleton className="h-3 w-20 mb-2" />
-                <Skeleton className="h-5 w-48 mb-1" />
-                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-6 w-8" />
+              </div>
+              <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+                <Skeleton className="h-3 w-16 mb-2" />
+                <Skeleton className="h-6 w-8" />
               </div>
             </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
-              <Skeleton className="h-3 w-20 mb-2" />
-              <Skeleton className="h-6 w-8" />
-            </div>
-            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
-              <Skeleton className="h-3 w-16 mb-2" />
-              <Skeleton className="h-6 w-8" />
-            </div>
-          </div>
-        </CardBody>
-      </Card>
+          </CardBody>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-[color:var(--color-border)]/60">
-      <CardBody className="gap-4 p-4 sm:p-5">
+    <div className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+      <Card shadow="none" className="bg-transparent">
+        <CardBody className="gap-4 p-4 sm:p-5">
         {/* Header with status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -317,8 +320,9 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
             <span>{error || status?.error}</span>
           </div>
         )}
-      </CardBody>
-    </Card>
+        </CardBody>
+      </Card>
+    </div>
   );
 };
 

@@ -11,26 +11,15 @@
 **Статус:** ✅ Исправлено и задеплоено  
 **Проблема:** Telegram коды истекали сразу после ввода, особенно при включенной двухфакторной аутентификации (2FA)  
 **Решение:** 
-- Добавлен `no_updates=True` для предотвращения отключения клиента
-- Увеличен TTL в Redis до 600 секунд
-- Реализован reconnect workaround для 2FA
-- Продление TTL при запросе 2FA пароля
 
 **Изменённые файлы:**
-- `backend/src/services/telegram_auth.py`
 
----
 
 #### [TELEGRAM_AUTH_FIX_SUMMARY.md](TELEGRAM_AUTH_FIX_SUMMARY.md)
 **Дата:** 13 декабря 2025  
 **Тип:** Сводка исправлений  
 **Описание:** Полная сводка всех исправлений Telegram авторизации, включая:
-- Проблему #1: Код истекает мгновенно (без 2FA)
-- Проблему #2: Код истекает при 2FA
-- Все решения и технические детали
-- Инструкции по тестированию и деплою
 
----
 
 #### [TELEGRAM_2FA_RECONNECT_FIX_V2.md](TELEGRAM_2FA_RECONNECT_FIX_V2.md)
 **Дата:** 13 декабря 2025  
@@ -41,15 +30,9 @@
 2. Клиент отключался при 2FA, предыдущее исправление не работало
 
 **Решение:**
-- Добавлен `autocomplete="off"` для поля 2FA пароля
-- Изменена логика reconnect: выполняется ДО `sign_in()`, а не после
-- Проверка `is_connected` пропускается, если передан пароль
 
 **Изменённые файлы:**
-- `frontend/src/components/auth/TelegramLogin.tsx` (autocomplete)
-- `backend/src/services/telegram_auth.py` (early reconnect pattern)
 
----
 
 #### [TELEGRAM_2FA_AUTOCOMPLETE_FIX_V3.md](TELEGRAM_2FA_AUTOCOMPLETE_FIX_V3.md)
 **Дата:** 13 декабря 2025  
@@ -114,6 +97,15 @@
 
 ---
 
+### Frontend (декабрь 2025)
+
+#### [FRONTEND_STREAM_STATUS_CARD_OUTLINE_FIX.md](FRONTEND_STREAM_STATUS_CARD_OUTLINE_FIX.md)
+**Дата:** 20 декабря 2025  
+**Статус:** 🔄 Исправлено (ожидает деплоя)  
+**Проблема:** В тёмной теме блок «Статус трансляции» не имел выраженного контура/обводки как у других карточек.  
+
+---
+
 ## 📊 Статистика
 
 | Компонент | Исправлений | Последнее обновление |
@@ -121,7 +113,8 @@
 | Telegram Auth | 5 | 13.12.2025 |
 | Database | 1 | 12.12.2025 |
 | Playlist Manager | 1 | 12.12.2025 |
-| **Всего** | **7** | **13.12.2025** |
+| Frontend | 1 | 20.12.2025 |
+| **Всего** | **8** | **20.12.2025** |
 
 ### Критичность исправлений:
 
@@ -129,7 +122,7 @@
 |-----------|------------|------------|
 | 🔴 КРИТИЧНЫЙ | 3 | Telegram Auth (2FA Security, Reconnect, Code Reuse) |
 | 🟡 ВЫСОКИЙ | 2 | Telegram Auth (Code Expiration x2) |
-| 🟢 СРЕДНИЙ | 2 | Database, Playlist Manager |
+| 🟢 СРЕДНИЙ | 3 | Database, Playlist Manager, Frontend |
 
 ## 🔍 Поиск исправления
 

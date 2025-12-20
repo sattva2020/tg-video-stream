@@ -180,6 +180,10 @@ backend/.ruff_cache/
 # Артефакты, которые не должны лежать в корне репозитория
 telegram-deploy-*.tar.gz
 frontend_dist.tar.gz
+frontend/frontend_dist.tar.gz
+frontend/frontend_dist.tgz
+frontend/frontend_dist*.tar.gz
+frontend/frontend_dist*.tgz
 tg_video_streamer_*.zip
 test_playlist.db
 ChatGPT Image*.png
