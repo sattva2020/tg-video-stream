@@ -75,27 +75,30 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
 
   if (!streamUrl) {
     return (
-      <Card className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-        <CardBody className="p-4 flex flex-row items-center gap-4">
-          <div className="p-2 rounded-full bg-[color:var(--color-surface-muted)]">
-            <Activity size={20} className="text-[color:var(--color-text-muted)]" />
-          </div>
-          <div>
-            <h3 className="text-base font-semibold text-[color:var(--color-text)]">
-              {title || t('quality.title', 'Качество потока')}
-            </h3>
-            <p className="text-sm text-[color:var(--color-text-secondary)]">
-              {t('quality.noStream', 'Нет активного потока для анализа')}
-            </p>
-          </div>
-        </CardBody>
-      </Card>
+      <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+        <Card className="bg-transparent shadow-none border-none">
+          <CardBody className="p-4 flex flex-row items-center gap-4">
+            <div className="p-2 rounded-full bg-[color:var(--color-surface-muted)]">
+              <Activity size={20} className="text-[color:var(--color-text-muted)]" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold text-[color:var(--color-text)]">
+                {title || t('quality.title', 'Качество потока')}
+              </h3>
+              <p className="text-sm text-[color:var(--color-text-secondary)]">
+                {t('quality.noStream', 'Нет активного потока для анализа')}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="h-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-      <CardBody className="p-6">
+    <div className="h-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+      <Card className="h-full bg-transparent shadow-none border-none">
+        <CardBody className="p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10 text-primary">
@@ -239,7 +242,8 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
             </Button>
           </div>
         )}
-      </CardBody>
-    </Card>
+        </CardBody>
+      </Card>
+    </div>
   );
 };
