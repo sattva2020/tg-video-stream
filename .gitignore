@@ -139,6 +139,9 @@ pnpm-lock.yaml
 # Allow committing frontend's package-lock (we prefer a lockfile for reproducible frontend builds)
 !frontend/package-lock.json
 
+# Allow committing pnpm lockfile for frontend (CI uses pnpm)
+!frontend/pnpm-lock.yaml
+
 # Vite build output
 frontend/dist/
 frontend/build/

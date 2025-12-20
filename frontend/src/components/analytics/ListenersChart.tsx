@@ -142,7 +142,12 @@ export const ListenersChart: React.FC<ListenersChartProps> = ({
               }}
               labelStyle={{ color: '#9CA3AF' }}
               itemStyle={{ color: '#3B82F6' }}
-              formatter={(value: number) => [`${value} слушателей`, 'Количество']}
+              formatter={(value) => {
+                const numericValue =
+                  typeof value === 'number' ? value : Number(value ?? 0);
+                const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                return [`${safeValue} слушателей`, 'Количество'];
+              }}
               labelFormatter={(label) => label}
             />
             <Area
