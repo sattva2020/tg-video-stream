@@ -17,6 +17,7 @@
   - Настройка окружения
   - Code style и conventions
   - Процесс code review
+  - [**RELEASE_METADATA_AND_SMOKE_TESTS.md**](./development/RELEASE_METADATA_AND_SMOKE_TESTS.md) — метаданные релиза и smoke-проверки деплоя
 
 ### Функциональность
 - [**features/**](./features/) — описание функций системы

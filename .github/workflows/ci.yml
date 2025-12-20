@@ -9,6 +9,22 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  docs-validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install root dependencies
+      run: npm install
+
+    - name: Validate docs
+      run: npm run docs:validate
+
   security-check:
     runs-on: ubuntu-latest
     steps:
@@ -103,15 +119,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
+        cache: 'pnpm'
+        cache-dependency-path: frontend/pnpm-lock.yaml
     - name: Install system dependencies (unixODBC)
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
         
+    - name: Enable Corepack
+      run: corepack enable
+
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install --frozen-lockfile
 
     - name: Set up Python for pre-commit
       uses: actions/setup-python@v5
@@ -125,10 +144,10 @@ jobs:
       run: pre-commit run --all-files
       
     - name: Lint
-      run: npm run lint
+      run: pnpm lint
       
     - name: Run unit tests with coverage
-      run: npm run test:coverage
+      run: pnpm test:coverage
       
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
@@ -138,7 +157,41 @@ jobs:
         path: frontend/coverage
       
     - name: Build
-      run: npm run build
+      run: pnpm build
+
+  build-artifact:
+    runs-on: ubuntu-latest
+    needs: [frontend-test, docs-validate]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install frontend deps
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: pnpm build
+
+      - name: Build deploy artifact
+        run: bash scripts/build_artifact.sh
+
+      - name: Upload deploy artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-deploy
+          path: telegram-deploy-*.tar.gz
+          if-no-files-found: error
 
   frontend-perf:
     runs-on: ubuntu-latest
@@ -162,7 +215,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
 
       - name: Install project dependencies (root)
-        run: npm ci
+        run: npm install
 
       - name: Run perf measurement
         env:

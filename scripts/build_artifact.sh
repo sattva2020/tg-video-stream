@@ -14,6 +14,31 @@ echo "Building artifact: $ARTIFACT_NAME"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
+# Release metadata (helps debugging production issues)
+GIT_SHA="unknown"
+GIT_BRANCH="unknown"
+GIT_DIRTY="null"
+if command -v git >/dev/null 2>&1 && [ -d ".git" ]; then
+    GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    GIT_BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+    if [ -n "$(git status --porcelain 2>/dev/null || true)" ]; then
+        GIT_DIRTY="true"
+    else
+        GIT_DIRTY="false"
+    fi
+fi
+
+BUILD_TIME_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+cat > "$BUILD_DIR/RELEASE_META.json" <<EOF
+{
+  "artifact_name": "${ARTIFACT_NAME}",
+  "build_time_utc": "${BUILD_TIME_UTC}",
+  "git_sha": "${GIT_SHA}",
+  "git_branch": "${GIT_BRANCH}",
+  "git_dirty": ${GIT_DIRTY}
+}
+EOF
+
 # Copy backend
 echo "Copying backend..."
 mkdir -p "$BUILD_DIR/backend"

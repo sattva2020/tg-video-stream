@@ -38,6 +38,18 @@ else
   tar --no-same-owner -xzf "$TARFILE" -C "$DEST"
 fi
 
+# Record deployment metadata for troubleshooting
+DEPLOY_TIME_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+DEPLOY_HOST="$(hostname 2>/dev/null || echo unknown)"
+cat > "$DEST/DEPLOY_META.json" <<EOF
+{
+  "release_ver": "${VER}",
+  "deploy_time_utc": "${DEPLOY_TIME_UTC}",
+  "deploy_host": "${DEPLOY_HOST}",
+  "source_artifact": "$(basename "$TARFILE")"
+}
+EOF
+
 # Create venv under the release if missing (this avoids sharing venv across releases)
 if [ ! -d "$DEST/venv" ]; then
   if ! command -v python3 >/dev/null 2>&1; then
@@ -82,6 +94,12 @@ TMP_LINK="$APP_DIR/.current_tmp_$VER"
 ln -sfn "$DEST" "$TMP_LINK"
 mv -Tf "$TMP_LINK" "$CURRENT_LINK"
 echo "Updated $CURRENT_LINK -> $DEST"
+
+# Keep a copy of metadata in current/ for quick access
+cp -f "$DEST/DEPLOY_META.json" "$CURRENT_LINK/DEPLOY_META.json" || true
+if [ -f "$DEST/RELEASE_META.json" ]; then
+  cp -f "$DEST/RELEASE_META.json" "$CURRENT_LINK/RELEASE_META.json" || true
+fi
 
 # Ensure .env permissions and ownership on the newly activated release (best-effort)
 ENV_PATH="$CURRENT_LINK/.env"
