@@ -10,7 +10,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button, Card, Tabs, Tab, Tooltip, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Select, SelectItem, Skeleton } from '@heroui/react';
+import { Button, Card, Tooltip, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Select, SelectItem, Skeleton } from '@heroui/react';
 import { CalendarDays, List, Copy, ChevronDown, Plus, RefreshCw } from 'lucide-react';
 
 import { ResponsiveHeader } from '@/components/layout';
@@ -37,6 +37,9 @@ export default function SchedulePage() {
   const { data: templates = [], isLoading: templatesLoading } = useScheduleTemplates();
   const { data: playlists = [] } = usePlaylists();
   const applyTemplateMutation = useApplyTemplate();
+
+  const flatControlClassName =
+    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
   
   // Auto-select first channel
   useEffect(() => {
@@ -162,7 +165,7 @@ export default function SchedulePage() {
                   <DropdownTrigger>
                     <Button
                       variant="flat"
-                      className="text-foreground"
+                      className={flatControlClassName}
                       startContent={<Copy className="w-4 h-4" />}
                       endContent={<ChevronDown className="w-4 h-4" />}
                     >
@@ -190,7 +193,7 @@ export default function SchedulePage() {
                 <Tooltip content={t('schedule.copySchedule', 'Копировать расписание')}>
                   <Button
                     variant="flat"
-                    className="text-foreground"
+                    className={flatControlClassName}
                     isIconOnly
                     onPress={() => setIsCopyModalOpen(true)}
                   >
@@ -253,60 +256,58 @@ export default function SchedulePage() {
           transition={{ delay: 0.2 }}
         >
           <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4 sm:p-6">
-            <Tabs
-              selectedKey={activeTab}
-              onSelectionChange={(key) => setActiveTab(key as TabKey)}
-              variant="underlined"
-              classNames={{
-                base: 'w-full',
-                tabList:
-                  'gap-6 w-full relative rounded-none p-0 border-b border-[color:var(--color-border)] bg-transparent',
-                cursor: 'w-full bg-[color:var(--color-accent)]',
-                tab: 'max-w-fit px-0 h-12',
-                tabContent:
-                  'text-[color:var(--color-text-muted)] group-data-[selected=true]:text-[color:var(--color-accent)]',
-              }}
-            >
-              <Tab
-                key="calendar"
-                title={
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm shadow-violet-500/25">
-                      <CalendarDays className="w-4 h-4 text-white" />
-                    </div>
-                    <span>{t('schedule.tabs.calendar', 'Календарь')}</span>
-                  </div>
-                }
-              />
-              <Tab
-                key="playlists"
-                title={
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/25">
-                      <List className="w-4 h-4 text-white" />
-                    </div>
-                    <span>{t('schedule.tabs.playlists', 'Плейлисты')}</span>
-                    <Badge size="sm" color="primary" variant="flat">
-                      {playlists.length}
-                    </Badge>
-                  </div>
-                }
-              />
-              <Tab
-                key="templates"
-                title={
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm shadow-amber-500/25">
-                      <Copy className="w-4 h-4 text-white" />
-                    </div>
-                    <span>{t('schedule.tabs.templates', 'Шаблоны')}</span>
-                    <Badge size="sm" color="secondary" variant="flat">
-                      {templates.length}
-                    </Badge>
-                  </div>
-                }
-              />
-            </Tabs>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-[color:var(--color-border)] pb-3">
+              <button
+                type="button"
+                onClick={() => setActiveTab('calendar')}
+                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-full transition-all border flex items-center gap-2
+                  ${activeTab === 'calendar'
+                    ? 'bg-[color:var(--color-accent)]/15 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm shadow-[color:var(--color-accent)]/30'
+                    : 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-border)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)]'}
+                `}
+              >
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm shadow-violet-500/25">
+                  <CalendarDays className="w-4 h-4 text-white" />
+                </div>
+                <span>{t('schedule.tabs.calendar', 'Календарь')}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('playlists')}
+                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-full transition-all border flex items-center gap-2
+                  ${activeTab === 'playlists'
+                    ? 'bg-[color:var(--color-accent)]/15 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm shadow-[color:var(--color-accent)]/30'
+                    : 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-border)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)]'}
+                `}
+              >
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/25">
+                  <List className="w-4 h-4 text-white" />
+                </div>
+                <span>{t('schedule.tabs.playlists', 'Плейлисты')}</span>
+                <Badge size="sm" color="primary" variant="flat">
+                  {playlists.length}
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('templates')}
+                className={`px-3 sm:px-4 py-2 text-sm font-medium rounded-full transition-all border flex items-center gap-2
+                  ${activeTab === 'templates'
+                    ? 'bg-[color:var(--color-accent)]/15 border-[color:var(--color-accent)] text-[color:var(--color-accent)] shadow-sm shadow-[color:var(--color-accent)]/30'
+                    : 'bg-[color:var(--color-surface-muted)] border-[color:var(--color-border)] text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:border-[color:var(--color-border-strong)]'}
+                `}
+              >
+                <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm shadow-amber-500/25">
+                  <Copy className="w-4 h-4 text-white" />
+                </div>
+                <span>{t('schedule.tabs.templates', 'Шаблоны')}</span>
+                <Badge size="sm" color="secondary" variant="flat">
+                  {templates.length}
+                </Badge>
+              </button>
+            </div>
 
             {/* Tab Content */}
             <AnimatePresence mode="wait">

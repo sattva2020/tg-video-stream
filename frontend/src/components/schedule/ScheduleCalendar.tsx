@@ -341,6 +341,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const flatControlClassName =
+    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -364,6 +367,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <Button
             size="sm"
             variant="flat"
+            className={flatControlClassName}
             onPress={() => onApplyTemplate(new Date(currentYear, currentMonth, 1))}
             startContent={<Layers className="w-4 h-4" />}
           >
@@ -387,7 +391,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           isIconOnly
           size="sm"
           variant="flat"
-          className="text-foreground"
+          className={flatControlClassName}
           onPress={goToPrevMonth}
           aria-label={t('schedule.prevMonth', 'Предыдущий месяц')}
         >
@@ -401,7 +405,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <Button
             size="sm"
             variant="flat"
-            className="text-foreground"
+            className={flatControlClassName}
             onPress={goToToday}
           >
             {t('schedule.today', 'Сегодня')}
@@ -412,7 +416,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           isIconOnly
           size="sm"
           variant="flat"
-          className="text-foreground"
+          className={flatControlClassName}
           onPress={goToNextMonth}
           aria-label={t('schedule.nextMonth', 'Следующий месяц')}
         >
@@ -485,6 +489,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 <Button
                   size="sm"
                   variant="flat"
+                  className={flatControlClassName}
                   onPress={() => onCopyDay(new Date(selectedDate))}
                   startContent={<Copy className="w-4 h-4" />}
                 >

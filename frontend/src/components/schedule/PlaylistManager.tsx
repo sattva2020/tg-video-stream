@@ -417,6 +417,9 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
   channelId,
 }) => {
   const { t } = useTranslation();
+
+  const flatControlClassName =
+    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
   const isEditMode = !!playlist;
 
   const createMutation = useCreatePlaylist();
@@ -787,7 +790,7 @@ https://drive.google.com/file/d/.../view | Трек из Google Drive`}
         </ModalBody>
 
         <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+          <Button variant="flat" className={flatControlClassName} onPress={onClose}>
             {t('common.cancel', 'Отмена')}
           </Button>
           <Button

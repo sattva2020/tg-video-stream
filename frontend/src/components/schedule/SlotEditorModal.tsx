@@ -110,6 +110,8 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const isEditMode = !!slot;
+  const flatControlClassName =
+    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
   const baseId = useId();
   const startDateId = `${baseId}-start-date`;
   const startTimeId = `${baseId}-start-time`;
@@ -459,6 +461,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   <Button
                     size="sm"
                     variant="flat"
+                    className={flatControlClassName}
                     startContent={<X className="w-3 h-3" />}
                     onPress={() => {
                       setShowPlaylistForm(false);
@@ -693,7 +696,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
         </ModalBody>
 
         <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+          <Button variant="flat" className={flatControlClassName} onPress={onClose}>
             {t('common.cancel', 'Отмена')}
           </Button>
           <Button

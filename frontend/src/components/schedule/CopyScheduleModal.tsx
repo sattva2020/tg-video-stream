@@ -75,22 +75,24 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
   // Source date string
   const sourceDateStr = formatDate(sourceDate);
 
+  const flatControlClassName =
+    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
   // Navigation
   const goToPrevMonth = () => {
     if (currentMonth === 0) {
-      setCurrentYear(y => y - 1);
+      setCurrentYear((y) => y - 1);
       setCurrentMonth(11);
     } else {
-      setCurrentMonth(m => m - 1);
+      setCurrentMonth((m) => m - 1);
     }
   };
 
   const goToNextMonth = () => {
     if (currentMonth === 11) {
-      setCurrentYear(y => y + 1);
+      setCurrentYear((y) => y + 1);
       setCurrentMonth(0);
     } else {
-      setCurrentMonth(m => m + 1);
+      setCurrentMonth((m) => m + 1);
     }
   };
 
@@ -213,15 +215,16 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
         <ModalBody>
           {/* Quick actions */}
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button size="sm" variant="flat" onPress={selectWeek}>
+            <Button size="sm" variant="flat" className={flatControlClassName} onPress={selectWeek}>
               {t('schedule.selectWeek', 'Вся неделя')}
             </Button>
-            <Button size="sm" variant="flat" onPress={selectMonth}>
+            <Button size="sm" variant="flat" className={flatControlClassName} onPress={selectMonth}>
               {t('schedule.selectMonth', 'Весь месяц')}
             </Button>
             <Button 
               size="sm" 
               variant="flat" 
+              className={flatControlClassName}
               onPress={clearSelection}
               isDisabled={selectedDates.size === 0}
             >
@@ -237,13 +240,13 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
 
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
-            <Button isIconOnly size="sm" variant="flat" onPress={goToPrevMonth}>
+            <Button isIconOnly size="sm" variant="flat" className={flatControlClassName} onPress={goToPrevMonth}>
               <ChevronLeft className="w-5 h-5" />
             </Button>
             <span className="font-semibold">
               {MONTHS_RU[currentMonth]} {currentYear}
             </span>
-            <Button isIconOnly size="sm" variant="flat" onPress={goToNextMonth}>
+            <Button isIconOnly size="sm" variant="flat" className={flatControlClassName} onPress={goToNextMonth}>
               <ChevronRight className="w-5 h-5" />
             </Button>
           </div>
@@ -332,7 +335,7 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
         </ModalBody>
 
         <ModalFooter>
-          <Button variant="flat" onPress={onClose}>
+          <Button variant="flat" className={flatControlClassName} onPress={onClose}>
             {t('common.cancel', 'Отмена')}
           </Button>
           <Button
