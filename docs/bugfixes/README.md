@@ -136,7 +136,7 @@
 
 #### [FRONTEND_SCHEDULE_PILLS_AND_FLAT_CONTROLS_CONTRAST_FIX.md](FRONTEND_SCHEDULE_PILLS_AND_FLAT_CONTROLS_CONTRAST_FIX.md)
 **Дата:** 20 декабря 2025  
-**Статус:** 🔄 В процессе  
+**Статус:** ✅ Исправлено и задеплоено  
 **Проблема:** На `/schedule` в тёмной теме часть flat-кнопок/стрелок и кнопок в модалках оставалась низкоконтрастной; вкладки не соответствовали «пиллам» Dashboard V2.  
 
 ---
