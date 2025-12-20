@@ -31,5 +31,14 @@ TailwindCSS не генерировал утилиты, используемые
 - Обновлён `frontend/dist` атомарной заменой.
 - В `current/frontend/dist/assets/index-*.css` подтверждено наличие `--heroui-danger`.
 
+## Дополнение: повышение заметности dot
+После восстановления стилей `danger` точка могла оставаться плохо заметной из-за малого размера/контраста на фоне карточки.
+
+В [frontend/src/components/schedule/PlaylistManager.tsx](../../frontend/src/components/schedule/PlaylistManager.tsx) для `Badge isDot`:
+- включён `showOutline` (обводка вокруг dot);
+- установлен `size="lg"` (больше размер);
+- добавлен `classNames={{ badge: 'z-10' }}` (поверх иконки).
+
 ## Затронутые файлы
 - [frontend/tailwind.config.js](../../frontend/tailwind.config.js)
+- [frontend/src/components/schedule/PlaylistManager.tsx](../../frontend/src/components/schedule/PlaylistManager.tsx)

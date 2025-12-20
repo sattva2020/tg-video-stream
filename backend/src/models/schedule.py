@@ -200,7 +200,7 @@ class Playlist(Base):
     color = Column(String(7), default="#8B5CF6")  # Фиолетовый по умолчанию
     
     # Источник плейлиста
-    source_type = Column(String(50), default="manual")  # manual, youtube, m3u, folder
+    source_type = Column(String(50), default="manual")  # manual, youtube, m3u, folder, gdrive_folder
     source_url = Column(String(2048), nullable=True)    # URL источника (YouTube playlist, m3u)
     
     # Элементы плейлиста (JSON массив)

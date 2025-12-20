@@ -388,6 +388,11 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                 link = item.get("url", "")
                 if not link:
                     continue
+
+                # Если backend отдаёт относительный URL (например, /api/media/...),
+                # превращаем его в абсолютный, иначе ffmpeg воспримет как локальный путь.
+                if link.startswith("/api/"):
+                    link = backend_url.rstrip("/") + link
                 
                 try:
                     # Expand playlists and get stream URL

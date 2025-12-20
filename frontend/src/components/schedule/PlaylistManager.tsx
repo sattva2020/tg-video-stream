@@ -107,6 +107,7 @@ const SOURCE_TYPES = [
   { value: 'youtube', label: 'YouTube Playlist', icon: Youtube },
   { value: 'm3u', label: 'M3U файл', icon: FileText },
   { value: 'folder', label: 'Локальная папка', icon: HardDrive },
+  { value: 'gdrive_folder', label: 'Google Drive папка', icon: FolderOpen },
 ];
 
 const PRESET_COLORS = [
@@ -121,6 +122,8 @@ function getSourceIcon(sourceType: string) {
       return Youtube;
     case 'm3u':
       return FileText;
+    case 'gdrive_folder':
+      return FolderOpen;
     case 'folder':
     case 'local':
       return HardDrive;
@@ -195,6 +198,8 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
         isHoverable
         className={`
           overflow-hidden
+          bg-[color:var(--color-surface)]
+          border border-[color:var(--color-border)]
           ${isSelected ? 'ring-2 ring-violet-500' : ''}
           ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}
         `}
@@ -217,21 +222,27 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
               >
                 <GripVertical className="w-4 h-4" />
               </div>
-              <div
-                className="p-2 rounded-lg relative"
-                style={{ backgroundColor: `${playlist.color}20` }}
+              <Badge
+                isDot
+                color="danger"
+                placement="top-right"
+                size="lg"
+                showOutline
+                isInvisible={!isLive}
+                classNames={{
+                  badge:
+                    '!top-0 !right-0 !translate-x-0 !-translate-y-0 !z-20 w-5 h-5 min-w-5 min-h-5',
+                }}
+                title={t('playlist.liveNow', 'Сейчас транслируется')}
+                aria-label={t('playlist.liveNow', 'Сейчас транслируется')}
               >
-                <Badge
-                  isDot
-                  color="danger"
-                  placement="top-right"
-                  isInvisible={!isLive}
-                  title={t('playlist.liveNow', 'Сейчас транслируется')}
-                  aria-label={t('playlist.liveNow', 'Сейчас транслируется')}
+                <div
+                  className="p-2 rounded-lg"
+                  style={{ backgroundColor: `${playlist.color}20` }}
                 >
                   <SourceIcon className="w-5 h-5" style={{ color: playlist.color }} />
-                </Badge>
-              </div>
+                </div>
+              </Badge>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-[color:var(--color-text)]">
@@ -475,11 +486,14 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
         .split('\n')
         .filter(line => line.trim())
         .map(line => {
-          const parts = line.split('|').map(p => p.trim());
+          const trimmed = line.trim();
+          const separatorIndex = trimmed.indexOf('|');
+          const urlPart = (separatorIndex === -1 ? trimmed : trimmed.slice(0, separatorIndex)).trim();
+          const titlePart = (separatorIndex === -1 ? '' : trimmed.slice(separatorIndex + 1)).trim();
           return {
-            url: parts[0] || '',
-            title: parts[1] || parts[0] || 'Untitled',
-            type: parts[0]?.includes('youtube') ? 'youtube' : 'unknown',
+            url: urlPart || '',
+            title: titlePart || urlPart || 'Untitled',
+            type: urlPart?.toLowerCase().includes('youtube') ? 'youtube' : 'unknown',
           };
         });
     }
@@ -521,7 +535,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
         backdrop: "bg-black/50",
       }}
     >
-      <ModalContent className="bg-white dark:bg-gray-900 shadow-xl">
+      <ModalContent className="bg-[color:var(--color-surface)] border border-[color:var(--color-border)] shadow-xl">
         <ModalHeader className="flex items-center gap-3">
           <div
             className="p-2 rounded-lg"
@@ -530,7 +544,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
             <Music className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
               {isEditMode ? t('playlist.edit', 'Редактирование') : t('playlist.create', 'Новый плейлист')}
             </h2>
           </div>
@@ -538,10 +552,15 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
         <ModalBody className="gap-4">
           <div>
-            <label className="text-sm font-medium text-default-700 mb-2 block">
+            <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
               {t('playlist.name', 'Название')} <span className="text-danger">*</span>
             </label>
             <Input
+              variant="bordered"
+              classNames={{
+                inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+              }}
               placeholder={t('playlist.namePlaceholder', 'Мой плейлист')}
               value={formData.name}
               onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
@@ -549,10 +568,15 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
           </div>
 
           <div>
-            <label className="text-sm font-medium text-default-700 mb-2 block">
+            <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
               {t('playlist.description', 'Описание')}
             </label>
             <Textarea
+              variant="bordered"
+              classNames={{
+                inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+              }}
               placeholder={t('playlist.descriptionPlaceholder', 'Описание плейлиста...')}
               value={formData.description}
               onChange={(e) => setFormData(f => ({ ...f, description: e.target.value }))}
@@ -562,7 +586,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
           {/* Color picker */}
           <div>
-            <label className="text-sm font-medium text-default-700 mb-2 block">
+            <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
               {t('playlist.color', 'Цвет')}
             </label>
             <div className="flex flex-wrap gap-2">
@@ -572,7 +596,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                   onClick={() => setFormData(f => ({ ...f, color }))}
                   className={`
                     w-8 h-8 rounded-lg transition-all
-                    ${formData.color === color ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' : 'hover:scale-105'}
+                    ${formData.color === color ? 'ring-2 ring-offset-2 ring-offset-[color:var(--color-surface)] ring-violet-500 scale-110' : 'hover:scale-105'}
                   `}
                   style={{ backgroundColor: color }}
                 />
@@ -582,7 +606,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
           {/* Source type */}
           <div>
-            <label className="text-sm font-medium text-default-700 mb-2 block">
+            <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
               {t('playlist.sourceType', 'Источник')}
             </label>
             <div className="flex gap-2">
@@ -596,7 +620,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                       flex items-center gap-2 px-4 py-2 rounded-lg transition-all
                       ${formData.source_type === type.value
                         ? 'bg-violet-500 text-white'
-                        : 'bg-default-100 hover:bg-default-200'}
+                        : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-white/5'}
                     `}
                   >
                     <Icon className="w-4 h-4" />
@@ -607,18 +631,27 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
             </div>
           </div>
 
-          {/* Source URL (for youtube/m3u) */}
+          {/* Source URL (for youtube/m3u/gdrive_folder) */}
           {formData.source_type !== 'manual' && formData.source_type !== 'folder' && (
             <div>
-              <label className="text-sm font-medium text-default-700 mb-2 block">
+              <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
                 {formData.source_type === 'youtube'
                   ? t('playlist.youtubeUrl', 'URL плейлиста YouTube')
-                  : t('playlist.m3uUrl', 'URL m3u файла')}
+                  : formData.source_type === 'gdrive_folder'
+                    ? t('playlist.gdriveFolderUrl', 'URL папки Google Drive')
+                    : t('playlist.m3uUrl', 'URL m3u файла')}
               </label>
               <Input
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 placeholder={formData.source_type === 'youtube'
                   ? 'https://youtube.com/playlist?list=...'
-                  : 'https://example.com/playlist.m3u'}
+                  : formData.source_type === 'gdrive_folder'
+                    ? 'https://drive.google.com/drive/folders/XXXXXXXXXXXXXXXXXXXX?usp=sharing'
+                    : 'https://example.com/playlist.m3u'}
                 value={formData.source_url}
                 onChange={(e) => setFormData(f => ({ ...f, source_url: e.target.value }))}
                 startContent={<ExternalLink className="w-4 h-4 text-default-400" />}
@@ -629,7 +662,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
           {/* Folder path (for local files) */}
           {formData.source_type === 'folder' && (
             <div className="space-y-3">
-              <label className="text-sm font-medium text-default-700 mb-2 block">
+              <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
                 {t('playlist.folderPath', 'Выберите папку с музыкой')}
               </label>
               
@@ -641,7 +674,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                   ))}
                 </div>
               ) : Array.isArray(folders) && folders.length > 0 ? (
-                <div className="max-h-64 overflow-y-auto space-y-2 border border-default-200 rounded-lg p-3">
+                <div className="max-h-64 overflow-y-auto space-y-2 border border-[color:var(--color-border)] rounded-lg p-3">
                   {folders.map((folder) => (
                     <button
                       key={folder.path}
@@ -654,7 +687,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                         w-full flex items-center gap-3 p-3 rounded-lg transition-all
                         ${formData.source_url === folder.path
                           ? 'bg-violet-500 text-white'
-                          : 'bg-default-100 hover:bg-default-200'
+                          : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-white/5'
                         }
                       `}
                     >
@@ -675,7 +708,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="p-8 text-center border border-dashed border-default-300 rounded-lg">
+                <div className="p-8 text-center border border-dashed border-[color:var(--color-border)] rounded-lg">
                   <FolderOpen className="w-12 h-12 mx-auto mb-3 text-default-400" />
                   <p className="text-sm text-default-500">
                     {t('playlist.noFolders', 'Папки с музыкой не найдены')}
@@ -715,12 +748,17 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
           {/* Manual items entry */}
           {formData.source_type === 'manual' && (
             <div>
-              <label className="text-sm font-medium text-default-700 mb-2 block">
+              <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 block">
                 {t('playlist.items', 'Треки (по одному на строку)')}
               </label>
               <Textarea
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 placeholder={`https://youtube.com/watch?v=... | Название трека
-https://youtube.com/watch?v=... | Другой трек`}
+https://drive.google.com/file/d/.../view | Трек из Google Drive`}
                 value={formData.items_text}
                 onChange={(e) => setFormData(f => ({ ...f, items_text: e.target.value }))}
                 minRows={5}
@@ -729,12 +767,12 @@ https://youtube.com/watch?v=... | Другой трек`}
           )}
 
           {/* Shuffle option */}
-          <div className="flex items-center gap-3 p-3 rounded-lg bg-default-100">
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
             <button
               onClick={() => setFormData(f => ({ ...f, is_shuffled: !f.is_shuffled }))}
               className={`
                 p-2 rounded-lg transition-colors
-                ${formData.is_shuffled ? 'bg-violet-500 text-white' : 'bg-default-200'}
+                ${formData.is_shuffled ? 'bg-violet-500 text-white' : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'}
               `}
             >
               <Shuffle className="w-4 h-4" />
@@ -1014,7 +1052,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                 </Chip>
               )}
               <Button
-                variant="flat"
+                variant="faded"
                 onPress={handleCreateGroup}
                 startContent={<FolderPlus className="w-4 h-4" />}
               >
@@ -1043,7 +1081,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
             />
             <Dropdown>
               <DropdownTrigger>
-                <Button variant="flat" startContent={<ArrowUpDown className="w-4 h-4" />}>
+                <Button variant="faded" startContent={<ArrowUpDown className="w-4 h-4" />}>
                   {t('playlist.sort', 'Сортировка')}
                 </Button>
               </DropdownTrigger>

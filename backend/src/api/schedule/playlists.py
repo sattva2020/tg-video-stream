@@ -8,6 +8,7 @@
 """
 import uuid
 from typing import List, Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -24,6 +25,55 @@ from .schemas import (
     PlaylistUpdate,
     PlaylistResponse,
 )
+
+
+async def _maybe_expand_gdrive_folder_items(source_type: str, source_url: Optional[str]) -> Optional[list]:
+    """Если source_type == gdrive_folder — развернуть публичную папку в список items.
+
+    В items сохраняем относительные URL к backend-прокси, чтобы не светить GOOGLE_DRIVE_API_KEY.
+    """
+    if (source_type or "").lower() != "gdrive_folder":
+        return None
+
+    if not source_url:
+        raise HTTPException(status_code=400, detail="source_url is required for gdrive_folder")
+
+    import os
+    from src.services.google_drive import extract_drive_folder_id, list_drive_folder_files, filter_media_files
+
+    api_key = os.getenv("GOOGLE_DRIVE_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=400, detail="GOOGLE_DRIVE_API_KEY is not configured")
+
+    try:
+        folder_id = extract_drive_folder_id(source_url)
+        files = await list_drive_folder_files(folder_id=folder_id, api_key=api_key)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=502, detail="Failed to fetch Google Drive folder")
+
+    media_files = filter_media_files(files)
+    media_files.sort(key=lambda f: (f.get("name") or "").lower())
+
+    items: list = []
+    for f in media_files:
+        file_id = f.get("id")
+        name = f.get("name") or "Untitled"
+        if not file_id:
+            continue
+        safe_name = quote(name)
+        items.append(
+            {
+                "url": f"/api/media/gdrive/files/{file_id}/{safe_name}",
+                "title": name,
+                "duration": 0,
+                "type": "stream",
+            }
+        )
+    return items
 
 router = APIRouter(tags=["schedule-playlists"])
 
@@ -78,8 +128,11 @@ async def create_playlist(
     current_user: User = Depends(get_current_user)
 ):
     """Создать новый плейлист."""
+    # Для gdrive_folder разворачиваем source_url в items на backend
+    expanded = await _maybe_expand_gdrive_folder_items(playlist_data.source_type, playlist_data.source_url)
+
     # Вычисляем статистику
-    items = playlist_data.items or []
+    items = expanded if expanded is not None else (playlist_data.items or [])
     total_duration = sum(item.get("duration", 0) for item in items)
     
     playlist = Playlist(
@@ -138,6 +191,14 @@ async def update_playlist(
         raise HTTPException(status_code=404, detail="Playlist not found")
     
     update_data = playlist_data.model_dump(exclude_unset=True)
+
+    # Если обновляют gdrive_folder source_url/source_type — пересобираем items.
+    # Важный нюанс: фронт для non-manual источников может не отправлять items.
+    new_source_type = (update_data.get("source_type") or playlist.source_type or "").lower()
+    new_source_url = update_data.get("source_url") if "source_url" in update_data else playlist.source_url
+    if new_source_type == "gdrive_folder" and ("source_url" in update_data or "source_type" in update_data) and "items" not in update_data:
+        expanded = await _maybe_expand_gdrive_folder_items(new_source_type, new_source_url)
+        update_data["items"] = expanded or []
     
     # Пересчитываем статистику при обновлении items
     if "items" in update_data:
