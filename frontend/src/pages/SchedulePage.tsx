@@ -271,7 +271,9 @@ export default function SchedulePage() {
                 key="calendar"
                 title={
                   <div className="flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4" />
+                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-sm shadow-violet-500/25">
+                      <CalendarDays className="w-4 h-4 text-white" />
+                    </div>
                     <span>{t('schedule.tabs.calendar', 'Календарь')}</span>
                   </div>
                 }
@@ -280,7 +282,9 @@ export default function SchedulePage() {
                 key="playlists"
                 title={
                   <div className="flex items-center gap-2">
-                    <List className="w-4 h-4" />
+                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/25">
+                      <List className="w-4 h-4 text-white" />
+                    </div>
                     <span>{t('schedule.tabs.playlists', 'Плейлисты')}</span>
                     <Badge size="sm" color="primary" variant="flat">
                       {playlists.length}
@@ -292,7 +296,9 @@ export default function SchedulePage() {
                 key="templates"
                 title={
                   <div className="flex items-center gap-2">
-                    <Copy className="w-4 h-4" />
+                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 shadow-sm shadow-amber-500/25">
+                      <Copy className="w-4 h-4 text-white" />
+                    </div>
                     <span>{t('schedule.tabs.templates', 'Шаблоны')}</span>
                     <Badge size="sm" color="secondary" variant="flat">
                       {templates.length}
