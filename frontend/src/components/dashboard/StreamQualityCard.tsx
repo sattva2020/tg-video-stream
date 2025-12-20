@@ -75,7 +75,7 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
 
   if (!streamUrl) {
     return (
-      <Card className="bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+      <Card className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
         <CardBody className="p-4 flex flex-row items-center gap-4">
           <div className="p-2 rounded-full bg-[color:var(--color-surface-muted)]">
             <Activity size={20} className="text-[color:var(--color-text-muted)]" />
@@ -94,7 +94,7 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
   }
 
   return (
-    <Card className="h-full bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+    <Card className="h-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
       <CardBody className="p-6">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-3">
