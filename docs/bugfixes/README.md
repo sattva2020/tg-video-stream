@@ -148,6 +148,13 @@
 
 ---
 
+#### [FRONTEND_SCHEDULE_DAY_CARDS_TODAY_HIGHLIGHT_FIX.md](FRONTEND_SCHEDULE_DAY_CARDS_TODAY_HIGHLIGHT_FIX.md)
+**Дата:** 20 декабря 2025  
+**Статус:** ✅ Исправлено, задеплоено и протестировано  
+**Проблема:** На `/schedule` карточки дней визуально сливались с фоном, а текущий день (Today) выделялся недостаточно заметно.  
+
+---
+
 ## 📊 Статистика
 
 | Компонент | Исправлений | Последнее обновление |
@@ -155,8 +162,8 @@
 | Telegram Auth | 5 | 13.12.2025 |
 | Database | 1 | 12.12.2025 |
 | Playlist Manager | 1 | 12.12.2025 |
-| Frontend | 9 | 20.12.2025 |
-| **Всего** | **16** | **20.12.2025** |
+| Frontend | 10 | 20.12.2025 |
+| **Всего** | **17** | **20.12.2025** |
 
 ### Критичность исправлений:
 
@@ -164,7 +171,7 @@
 |-----------|------------|------------|
 | 🔴 КРИТИЧНЫЙ | 3 | Telegram Auth (2FA Security, Reconnect, Code Reuse) |
 | 🟡 ВЫСОКИЙ | 2 | Telegram Auth (Code Expiration x2) |
-| 🟢 СРЕДНИЙ | 3 | Database, Playlist Manager, Frontend |
+| 🟢 СРЕДНИЙ | 4 | Database, Playlist Manager, Frontend |
 
 ## 🔍 Поиск исправления
 
