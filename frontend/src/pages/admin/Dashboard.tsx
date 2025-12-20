@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { adminApi } from '../../api/admin';
+import { ResponsiveHeader } from '../../components/layout';
 import Metrics from './Metrics';
 import Logs from './Logs';
 import Playlist from './Playlist';
@@ -26,13 +27,16 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8 text-gray-800">Admin Dashboard</h1>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Control Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Stream Control</h2>
+    <>
+      <ResponsiveHeader />
+      <main className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Control Panel */}
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-6">
+              <h2 className="text-xl font-semibold mb-4">Stream Control</h2>
           
           <div className="flex space-x-4">
             <button
@@ -59,28 +63,36 @@ const Dashboard: React.FC = () => {
           </div>
 
           {message && (
-            <div className={`mt-4 p-3 rounded ${message.startsWith('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+            <div
+              className={`mt-4 p-3 rounded-xl border ${
+                message.startsWith('Error')
+                  ? 'bg-red-500/10 border-red-500/20 text-red-300'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              }`}
+            >
               {message}
             </div>
           )}
-        </div>
+            </div>
 
-        {/* Metrics Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <Metrics />
-        </div>
+            {/* Metrics Panel */}
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-6">
+              <Metrics />
+            </div>
 
-        {/* Playlist Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-md lg:col-span-2">
-          <Playlist />
-        </div>
+            {/* Playlist Panel */}
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-6 lg:col-span-2">
+              <Playlist />
+            </div>
 
-        {/* Logs Panel */}
-        <div className="bg-white p-6 rounded-lg shadow-md lg:col-span-2">
-          <Logs />
+            {/* Logs Panel */}
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-6 lg:col-span-2">
+              <Logs />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   );
 };
 

@@ -32,21 +32,24 @@ const MetricCard: React.FC<MetricCardProps> = ({
   icon,
   color = 'blue',
 }) => {
-  const colorClasses = {
-    green: 'bg-green-50 border-green-200 text-green-800',
-    blue: 'bg-blue-50 border-blue-200 text-blue-800',
-    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-800',
-    red: 'bg-red-50 border-red-200 text-red-800',
-    gray: 'bg-gray-50 border-gray-200 text-gray-800',
+  const dotClasses: Record<NonNullable<MetricCardProps['color']>, string> = {
+    green: 'bg-emerald-500',
+    blue: 'bg-blue-500',
+    yellow: 'bg-amber-500',
+    red: 'bg-rose-500',
+    gray: 'bg-[color:var(--color-text-muted)]',
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${colorClasses[color]}`}>
+    <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium opacity-75">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-          {subtitle && <p className="text-xs opacity-60 mt-1">{subtitle}</p>}
+          <div className="flex items-center gap-2">
+            <span className={`inline-block h-2 w-2 rounded-full ${dotClasses[color]}`} />
+            <p className="text-sm font-medium text-[color:var(--color-text-muted)]">{title}</p>
+          </div>
+          <p className="text-2xl font-bold text-[color:var(--color-text)]">{value}</p>
+          {subtitle && <p className="text-xs text-[color:var(--color-text-muted)] mt-1">{subtitle}</p>}
         </div>
         <span className="text-3xl">{icon}</span>
       </div>
@@ -62,8 +65,8 @@ const ConnectionStatus: React.FC<{ isConnected: boolean; error: string | null }>
 }) => {
   if (error) {
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-        <span className="w-2 h-2 mr-2 rounded-full bg-red-500 animate-pulse" />
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400">
+        <span className="w-2 h-2 mr-2 rounded-full bg-rose-500 animate-pulse" />
         Error: {error}
       </span>
     );
@@ -71,16 +74,16 @@ const ConnectionStatus: React.FC<{ isConnected: boolean; error: string | null }>
 
   if (!isConnected) {
     return (
-      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-        <span className="w-2 h-2 mr-2 rounded-full bg-yellow-500 animate-pulse" />
+      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-500/10 border border-amber-500/20 text-amber-400">
+        <span className="w-2 h-2 mr-2 rounded-full bg-amber-500 animate-pulse" />
         Connecting...
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-      <span className="w-2 h-2 mr-2 rounded-full bg-green-500" />
+    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+      <span className="w-2 h-2 mr-2 rounded-full bg-emerald-500" />
       Connected
     </span>
   );
@@ -123,28 +126,28 @@ export const Monitoring: React.FC = () => {
   }, [lastUpdate]);
 
   return (
-    <>
+    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
       <ResponsiveHeader />
-      <div className="min-h-screen bg-gray-100 p-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Stream Monitoring</h1>
-          <p className="text-sm text-gray-500">
-            Real-time system metrics and stream status
-          </p>
+            <h1 className="text-2xl font-bold text-[color:var(--color-text)]">Stream Monitoring</h1>
+            <p className="text-sm text-[color:var(--color-text-muted)]">
+              Real-time system metrics and stream status
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-[color:var(--color-text-muted)]">
+              Last update: {lastUpdateFormatted}
+            </span>
+            <ConnectionStatus isConnected={isConnected} error={error} />
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-500">
-            Last update: {lastUpdateFormatted}
-          </span>
-          <ConnectionStatus isConnected={isConnected} error={error} />
-        </div>
-      </div>
 
       {/* System Metrics */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">System Metrics</h2>
+        <h2 className="text-lg font-semibold text-[color:var(--color-text)] mb-3">System Metrics</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Active Streams"
@@ -176,15 +179,15 @@ export const Monitoring: React.FC = () => {
       {/* Auto-End Warnings */}
       {warnings.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold text-red-700 mb-3">
+          <h2 className="text-lg font-semibold text-rose-400 mb-3">
             ⚠️ Auto-End Warnings ({warnings.length})
           </h2>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="rounded-2xl bg-rose-500/10 border border-rose-500/20 p-4">
             {warnings.map(([channelId, warning]) => (
-              <div key={channelId} className="flex items-center justify-between py-2 border-b border-red-100 last:border-0">
+              <div key={channelId} className="flex items-center justify-between py-2 border-b border-rose-500/20 last:border-0">
                 <div>
-                  <span className="font-medium text-red-800">Channel {channelId}</span>
-                  <p className="text-sm text-red-600">
+                  <span className="font-medium text-rose-300">Channel {channelId}</span>
+                  <p className="text-sm text-rose-300/90">
                     Stream will auto-end in {Math.floor(warning.remaining_seconds / 60)}m {warning.remaining_seconds % 60}s
                   </p>
                 </div>
@@ -197,14 +200,14 @@ export const Monitoring: React.FC = () => {
 
       {/* Active Streams */}
       <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-700 mb-3">
+        <h2 className="text-lg font-semibold text-[color:var(--color-text)] mb-3">
           Active Streams ({activeStreams.length})
         </h2>
         {activeStreams.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-8 text-center">
             <span className="text-4xl mb-4 block">📺</span>
-            <p className="text-gray-500">No active streams</p>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-[color:var(--color-text-muted)]">No active streams</p>
+            <p className="text-sm text-[color:var(--color-text-muted)] mt-1">
               Streams will appear here when they start playing
             </p>
           </div>
@@ -225,7 +228,7 @@ export const Monitoring: React.FC = () => {
       {/* All Streams (including stopped) */}
       {streams.length > activeStreams.length && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-500 mb-3">
+          <h2 className="text-lg font-semibold text-[color:var(--color-text-muted)] mb-3">
             Stopped Streams ({streams.length - activeStreams.length})
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
@@ -244,7 +247,7 @@ export const Monitoring: React.FC = () => {
 
       {/* Debug Info (only in dev) */}
       {import.meta.env.DEV && (
-        <div className="mt-8 p-4 bg-gray-800 text-gray-300 rounded-lg text-xs font-mono">
+        <div className="mt-8 p-4 rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 text-xs font-mono text-[color:var(--color-text)]">
           <details>
             <summary className="cursor-pointer hover:text-white">Debug Info</summary>
             <pre className="mt-2 overflow-auto max-h-64">
@@ -253,8 +256,8 @@ export const Monitoring: React.FC = () => {
           </details>
         </div>
       )}
-      </div>
-    </>
+      </main>
+    </div>
   );
 };
 

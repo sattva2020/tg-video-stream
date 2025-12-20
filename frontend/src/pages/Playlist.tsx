@@ -18,7 +18,7 @@ const PlaylistPage: React.FC = () => {
   }, [channels, selectedChannelId])
   
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)]">
+    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
       <ResponsiveHeader />
       
       <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
@@ -30,7 +30,7 @@ const PlaylistPage: React.FC = () => {
           {/* Channel selector */}
           {channels.length > 1 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-default-600 whitespace-nowrap">
+              <span className="text-sm font-medium text-[color:var(--color-text-muted)] whitespace-nowrap">
                 {t('playlist.channel', 'Канал')}:
               </span>
               <Select
@@ -42,7 +42,7 @@ const PlaylistPage: React.FC = () => {
                 isLoading={channelsLoading}
                 popoverProps={{
                   classNames: {
-                    content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                    content: "bg-[color:var(--color-panel)] border border-[color:var(--color-border)]",
                   },
                 }}
               >

@@ -92,9 +92,9 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
       <ResponsiveHeader />
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -103,10 +103,10 @@ export default function SchedulePage() {
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[color:var(--color-text)]">
                 {t('schedule.title', 'Расписание трансляций')}
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-[color:var(--color-text-muted)] mt-1">
                 {t('schedule.subtitle', 'Управление расписанием и плейлистами')}
               </p>
             </div>
@@ -117,7 +117,7 @@ export default function SchedulePage() {
                 <Skeleton className="w-48 h-10 rounded-lg" />
               ) : channels.length > 0 ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-default-600 whitespace-nowrap">
+                  <span className="text-sm font-medium text-[color:var(--color-text-muted)] whitespace-nowrap">
                     {t('schedule.channel', 'Канал')}:
                   </span>
                   <Select
@@ -131,7 +131,7 @@ export default function SchedulePage() {
                     }}
                     popoverProps={{
                       classNames: {
-                        content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                        content: "bg-[color:var(--color-panel)] border border-[color:var(--color-border)]",
                       },
                     }}
                     disableSelectorIconRotation
@@ -210,61 +210,69 @@ export default function SchedulePage() {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
         >
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg">
-                <CalendarDays className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
+                  <CalendarDays className="w-5 h-5 text-[color:var(--color-accent)]" />
+                </div>
+                <div>
+                  <p className="text-xs text-[color:var(--color-text-muted)]">
+                    {t('schedule.todaySlots', 'Слотов сегодня')}
+                  </p>
+                  <p className="text-xl font-bold text-[color:var(--color-text)]">12</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('schedule.todaySlots', 'Слотов сегодня')}
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">12</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-success-100 dark:bg-success-900/30 rounded-lg">
-                <List className="w-5 h-5 text-success-600 dark:text-success-400" />
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
+                  <List className="w-5 h-5 text-[color:var(--color-accent)]" />
+                </div>
+                <div>
+                  <p className="text-xs text-[color:var(--color-text-muted)]">
+                    {t('schedule.playlists', 'Плейлистов')}
+                  </p>
+                  <p className="text-xl font-bold text-[color:var(--color-text)]">{playlists.length}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('schedule.playlists', 'Плейлистов')}
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{playlists.length}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning-100 dark:bg-warning-900/30 rounded-lg">
-                <Copy className="w-5 h-5 text-warning-600 dark:text-warning-400" />
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
+                  <Copy className="w-5 h-5 text-[color:var(--color-accent)]" />
+                </div>
+                <div>
+                  <p className="text-xs text-[color:var(--color-text-muted)]">
+                    {t('schedule.templates', 'Шаблонов')}
+                  </p>
+                  <p className="text-xl font-bold text-[color:var(--color-text)]">{templates.length}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('schedule.templates', 'Шаблонов')}
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{templates.length}</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-secondary-100 dark:bg-secondary-900/30 rounded-lg">
-                <RefreshCw className="w-5 h-5 text-secondary-600 dark:text-secondary-400" />
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-4 flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
+                  <RefreshCw className="w-5 h-5 text-[color:var(--color-accent)]" />
+                </div>
+                <div>
+                  <p className="text-xs text-[color:var(--color-text-muted)]">
+                    {t('schedule.weekSlots', 'Слотов на неделю')}
+                  </p>
+                  <p className="text-xl font-bold text-[color:var(--color-text)]">84</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {t('schedule.weekSlots', 'Слотов на неделю')}
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">84</p>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </motion.div>
 
         {/* Tabs */}
@@ -273,102 +281,111 @@ export default function SchedulePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <Tabs
-            selectedKey={activeTab}
-            onSelectionChange={(key) => setActiveTab(key as TabKey)}
-            variant="underlined"
-            classNames={{
-              tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider",
-              cursor: "w-full bg-primary",
-              tab: "max-w-fit px-0 h-12",
-              tabContent: "group-data-[selected=true]:text-primary"
-            }}
-          >
-            <Tab
-              key="calendar"
-              title={
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4" />
-                  <span>{t('schedule.tabs.calendar', 'Календарь')}</span>
-                </div>
-              }
-            />
-            <Tab
-              key="playlists"
-              title={
-                <div className="flex items-center gap-2">
-                  <List className="w-4 h-4" />
-                  <span>{t('schedule.tabs.playlists', 'Плейлисты')}</span>
-                  <Badge size="sm" color="primary" variant="flat">
-                    {playlists.length}
-                  </Badge>
-                </div>
-              }
-            />
-            <Tab
-              key="templates"
-              title={
-                <div className="flex items-center gap-2">
-                  <Copy className="w-4 h-4" />
-                  <span>{t('schedule.tabs.templates', 'Шаблоны')}</span>
-                  <Badge size="sm" color="secondary" variant="flat">
-                    {templates.length}
-                  </Badge>
-                </div>
-              }
-            />
-          </Tabs>
-
-          {/* Tab Content */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="mt-6"
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4 sm:p-6">
+            <Tabs
+              selectedKey={activeTab}
+              onSelectionChange={(key) => setActiveTab(key as TabKey)}
+              variant="underlined"
+              classNames={{
+                base: 'w-full',
+                tabList:
+                  'gap-6 w-full relative rounded-none p-0 border-b border-[color:var(--color-border)] bg-transparent',
+                cursor: 'w-full bg-[color:var(--color-accent)]',
+                tab: 'max-w-fit px-0 h-12',
+                tabContent:
+                  'text-[color:var(--color-text-muted)] group-data-[selected=true]:text-[color:var(--color-accent)]',
+              }}
             >
-              {activeTab === 'calendar' && (
-                channelsLoading ? (
-                  <div className="p-8 text-center">
-                    <Skeleton className="w-full h-[500px] rounded-xl" />
+              <Tab
+                key="calendar"
+                title={
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4" />
+                    <span>{t('schedule.tabs.calendar', 'Календарь')}</span>
                   </div>
-                ) : !selectedChannelId ? (
-                  <Card className="p-8 text-center">
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {channels.length === 0 
-                        ? t('schedule.noChannels', 'Нет доступных каналов. Добавьте канал для управления расписанием.')
-                        : t('schedule.selectChannelPrompt', 'Выберите канал для просмотра расписания')}
-                    </p>
-                  </Card>
-                ) : (
-                  <ScheduleCalendar
-                    channelId={selectedChannelId}
-                    onCreateSlot={handleDateClick}
-                    onEditSlot={handleSlotClick}
-                    onCopyDay={(date) => {
-                      setSelectedDate(date);
-                      setIsCopyModalOpen(true);
-                    }}
-                    onApplyTemplate={() => {}}
+                }
+              />
+              <Tab
+                key="playlists"
+                title={
+                  <div className="flex items-center gap-2">
+                    <List className="w-4 h-4" />
+                    <span>{t('schedule.tabs.playlists', 'Плейлисты')}</span>
+                    <Badge size="sm" color="primary" variant="flat">
+                      {playlists.length}
+                    </Badge>
+                  </div>
+                }
+              />
+              <Tab
+                key="templates"
+                title={
+                  <div className="flex items-center gap-2">
+                    <Copy className="w-4 h-4" />
+                    <span>{t('schedule.tabs.templates', 'Шаблоны')}</span>
+                    <Badge size="sm" color="secondary" variant="flat">
+                      {templates.length}
+                    </Badge>
+                  </div>
+                }
+              />
+            </Tabs>
+
+            {/* Tab Content */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+                className="mt-6"
+              >
+                {activeTab === 'calendar' &&
+                  (channelsLoading ? (
+                    <div className="p-8 text-center">
+                      <Skeleton className="w-full h-[500px] rounded-xl" />
+                    </div>
+                  ) : !selectedChannelId ? (
+                    <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+                      <Card className="bg-transparent shadow-none border-none">
+                        <div className="p-8 text-center">
+                          <p className="text-[color:var(--color-text-muted)]">
+                            {channels.length === 0
+                              ? t(
+                                  'schedule.noChannels',
+                                  'Нет доступных каналов. Добавьте канал для управления расписанием.'
+                                )
+                              : t('schedule.selectChannelPrompt', 'Выберите канал для просмотра расписания')}
+                          </p>
+                        </div>
+                      </Card>
+                    </div>
+                  ) : (
+                    <ScheduleCalendar
+                      channelId={selectedChannelId}
+                      onCreateSlot={handleDateClick}
+                      onEditSlot={handleSlotClick}
+                      onCopyDay={(date) => {
+                        setSelectedDate(date);
+                        setIsCopyModalOpen(true);
+                      }}
+                      onApplyTemplate={() => {}}
+                    />
+                  ))}
+
+                {activeTab === 'playlists' && <PlaylistManager channelId={selectedChannelId} />}
+
+                {activeTab === 'templates' && (
+                  <TemplatesSection
+                    templates={templates}
+                    isLoading={templatesLoading}
+                    onApply={handleApplyTemplate}
                   />
-                )
-              )}
-
-              {activeTab === 'playlists' && (
-                <PlaylistManager channelId={selectedChannelId} />
-              )}
-
-              {activeTab === 'templates' && (
-                <TemplatesSection
-                  templates={templates}
-                  isLoading={templatesLoading}
-                  onApply={handleApplyTemplate}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </motion.div>
 
         {/* Modals */}
@@ -405,11 +422,18 @@ function TemplatesSection({ templates, isLoading, onApply }: TemplatesSectionPro
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="p-6 animate-pulse">
-            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-          </Card>
+          <div
+            key={i}
+            className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5"
+          >
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-6 animate-pulse">
+                <div className="h-6 bg-[color:var(--color-surface-muted)] rounded w-3/4 mb-3" />
+                <div className="h-4 bg-[color:var(--color-surface-muted)] rounded w-full mb-2" />
+                <div className="h-4 bg-[color:var(--color-surface-muted)] rounded w-2/3" />
+              </div>
+            </Card>
+          </div>
         ))}
       </div>
     );
@@ -417,18 +441,22 @@ function TemplatesSection({ templates, isLoading, onApply }: TemplatesSectionPro
 
   if (templates.length === 0) {
     return (
-      <Card className="p-12 text-center">
-        <Copy className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-        <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
-          {t('schedule.noTemplates', 'Нет шаблонов')}
-        </h3>
-        <p className="text-gray-500 dark:text-gray-400 mb-4">
-          {t('schedule.noTemplatesDesc', 'Создайте шаблон расписания для быстрого применения')}
-        </p>
-        <Button color="primary" startContent={<Plus className="w-4 h-4" />}>
-          {t('schedule.createTemplate', 'Создать шаблон')}
-        </Button>
-      </Card>
+      <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+        <Card className="bg-transparent shadow-none border-none">
+          <div className="p-12 text-center">
+            <Copy className="w-16 h-16 mx-auto text-[color:var(--color-text-muted)] mb-4" />
+            <h3 className="text-xl font-semibold text-[color:var(--color-text)] mb-2">
+              {t('schedule.noTemplates', 'Нет шаблонов')}
+            </h3>
+            <p className="text-[color:var(--color-text-muted)] mb-4">
+              {t('schedule.noTemplatesDesc', 'Создайте шаблон расписания для быстрого применения')}
+            </p>
+            <Button color="primary" startContent={<Plus className="w-4 h-4" />}>
+              {t('schedule.createTemplate', 'Создать шаблон')}
+            </Button>
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -441,29 +469,33 @@ function TemplatesSection({ templates, isLoading, onApply }: TemplatesSectionPro
           animate={{ opacity: 1, scale: 1 }}
           whileHover={{ scale: 1.02 }}
         >
-          <Card className="p-6 hover:shadow-lg transition-shadow">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              {template.name}
-            </h3>
-            {template.description && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                {template.description}
-              </p>
-            )}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400">
-                {t('schedule.slotsCount', { count: template.slots?.length || 0 })}
-              </span>
-              <Button
-                size="sm"
-                color="primary"
-                variant="flat"
-                onPress={() => onApply(template)}
-              >
-                {t('schedule.apply', 'Применить')}
-              </Button>
-            </div>
-          </Card>
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+            <Card className="bg-transparent shadow-none border-none">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-[color:var(--color-text)] mb-2">
+                  {template.name}
+                </h3>
+                {template.description && (
+                  <p className="text-sm text-[color:var(--color-text-muted)] mb-4">
+                    {template.description}
+                  </p>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[color:var(--color-text-muted)]">
+                    {t('schedule.slotsCount', { count: template.slots?.length || 0 })}
+                  </span>
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="flat"
+                    onPress={() => onApply(template)}
+                  >
+                    {t('schedule.apply', 'Применить')}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
         </motion.div>
       ))}
     </div>

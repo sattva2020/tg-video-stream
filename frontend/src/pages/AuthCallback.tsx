@@ -33,11 +33,11 @@ const AuthCallback: React.FC = () => {
   }, [searchParams, navigate, login]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+    <div className="flex items-center justify-center min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
         <h2 className="text-xl font-semibold">{t('entering', 'Entering...')}</h2>
-        <p className="text-gray-400 mt-2">Processing Google Login...</p>
+        <p className="text-[color:var(--color-text-muted)] mt-2">Processing Google Login...</p>
       </div>
     </div>
   );

@@ -78,8 +78,8 @@ const Analytics: React.FC = () => {
   return (
     <>
       <ResponsiveHeader />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <main className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
@@ -87,27 +87,27 @@ const Analytics: React.FC = () => {
             className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
           >
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-[color:var(--color-text)]">
               Аналитика
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm text-[color:var(--color-text-muted)] mt-1">
               Статистика вещания и слушателей
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             {/* Period Selector */}
-            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl p-1 border border-gray-200 dark:border-gray-700">
-              <Calendar className="w-4 h-4 text-gray-400 ml-2" />
+            <div className="flex items-center gap-2 rounded-2xl p-1 bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-sm shadow-black/5">
+              <Calendar className="w-4 h-4 text-[color:var(--color-text-muted)] ml-2" />
               {periodOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setPeriod(option.value)}
                   className={`
-                    px-3 py-1.5 text-sm font-medium rounded-lg transition-all
+                    px-3 py-1.5 text-sm font-medium rounded-xl transition-colors duration-300
                     ${period === option.value
-                      ? 'bg-blue-500 text-white'
-                      : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      ? 'bg-[color:var(--color-accent)] text-white'
+                      : 'text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:bg-[color:var(--color-surface)]'
                     }
                   `}
                 >
@@ -121,9 +121,9 @@ const Analytics: React.FC = () => {
               onClick={fetchData}
               disabled={loading}
               className={`
-                p-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700
-                transition-all disabled:opacity-50
+                p-2 rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)]
+                text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] hover:bg-[color:var(--color-surface)]
+                transition-colors duration-300 disabled:opacity-50
                 ${loading ? 'animate-spin' : ''}
               `}
               title="Обновить"
@@ -138,7 +138,7 @@ const Analytics: React.FC = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4 text-red-600 dark:text-red-400"
+            className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20 text-red-300"
           >
             {error}
           </motion.div>
@@ -194,12 +194,12 @@ const Analytics: React.FC = () => {
 
         {/* Last Updated */}
         {lastUpdated && (
-          <div className="text-center text-xs text-gray-400 dark:text-gray-500">
+          <div className="text-center text-xs text-[color:var(--color-text-muted)]">
             Последнее обновление: {lastUpdated.toLocaleTimeString('ru-RU')}
           </div>
         )}
       </div>
-    </div>
+    </main>
     </>
   );
 };

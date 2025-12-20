@@ -3,7 +3,7 @@
  * Tests for updated Metrics component with quality monitoring
  */
 import { render, screen, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Metrics from './Metrics';
 import * as adminApi from '../../api/admin';
 
@@ -63,6 +63,13 @@ describe('Metrics Component with Stream Quality', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    // На случай падений/таймаутов внутри теста.
+    vi.useRealTimers();
+  });
+
+  const bytesToMbRounded = (bytes: number) => (bytes / 1024 / 1024).toFixed(0);
+
   describe('Component Rendering', () => {
     it('should render Metrics component', async () => {
       (adminApi.adminApi.getMetrics as any).mockResolvedValue(mockMetrics);
@@ -92,11 +99,10 @@ describe('Metrics Component with Stream Quality', () => {
       (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
 
       render(<Metrics />);
-      
-      await waitFor(() => {
-        expect(screen.getByText(/System/i)).toBeInTheDocument();
-        expect(screen.getByText(/45.5%/)).toBeInTheDocument();
-      });
+
+      expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /^System$/i })).toBeInTheDocument();
+      expect(screen.getByText('45.5%')).toBeInTheDocument();
     });
 
     it('should display system memory usage', async () => {
@@ -116,12 +122,13 @@ describe('Metrics Component with Stream Quality', () => {
       (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
 
       render(<Metrics />);
-      
-      await waitFor(() => {
-        expect(screen.getByText(/Streamer Process/i)).toBeInTheDocument();
-        expect(screen.getByText(/12.5%/)).toBeInTheDocument();
-        expect(screen.getByText(/256 MB/)).toBeInTheDocument();
-      });
+
+      expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+      const expectedMb = bytesToMbRounded(mockMetrics.metrics.process.memory_rss);
+
+      expect(screen.getByRole('heading', { level: 3, name: /Streamer Process/i })).toBeInTheDocument();
+      expect(screen.getByText('12.5%')).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`${expectedMb}\\s*MB`, 'i'))).toBeInTheDocument();
     });
 
     it('should display online status', async () => {
@@ -210,25 +217,33 @@ describe('Metrics Component with Stream Quality', () => {
     });
 
     it('should update quality on interval', async () => {
-      jest.useFakeTimers();
-      
-      (adminApi.adminApi.getMetrics as any).mockResolvedValue(mockMetrics);
-      (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
 
-      render(<Metrics />);
-      
-      await waitFor(() => {
-        expect(adminApi.adminApi.getStreamQuality).toHaveBeenCalledTimes(1);
-      });
+      try {
+        (adminApi.adminApi.getMetrics as any).mockResolvedValue(mockMetrics);
+        (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
 
-      // Advance time by 15 seconds (quality polling interval)
-      jest.advanceTimersByTime(15000);
-      
-      await waitFor(() => {
-        expect(adminApi.adminApi.getStreamQuality).toHaveBeenCalledTimes(2);
-      });
+        render(<Metrics />);
 
-      jest.useRealTimers();
+        // Дождаться первичной загрузки метрик (после чего стартует polling качества)
+        expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+
+        await waitFor(() => {
+          expect(adminApi.adminApi.getStreamQuality).toHaveBeenCalledTimes(1);
+        });
+
+        const qualityIntervalCall = setIntervalSpy.mock.calls.find(([, delay]) => delay === 15000);
+        expect(qualityIntervalCall).toBeTruthy();
+
+        const qualityTick = qualityIntervalCall?.[0] as unknown as () => Promise<void> | void;
+        await qualityTick();
+
+        await waitFor(() => {
+          expect(adminApi.adminApi.getStreamQuality).toHaveBeenCalledTimes(2);
+        });
+      } finally {
+        setIntervalSpy.mockRestore();
+      }
     });
   });
 
@@ -245,24 +260,32 @@ describe('Metrics Component with Stream Quality', () => {
     });
 
     it('should poll metrics every 5 seconds', async () => {
-      jest.useFakeTimers();
-      
-      (adminApi.adminApi.getMetrics as any).mockResolvedValue(mockMetrics);
-      (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
 
-      render(<Metrics />);
-      
-      await waitFor(() => {
-        expect(adminApi.adminApi.getMetrics).toHaveBeenCalledTimes(1);
-      });
+      try {
+        (adminApi.adminApi.getMetrics as any).mockResolvedValue(mockMetrics);
+        (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
 
-      jest.advanceTimersByTime(5000);
-      
-      await waitFor(() => {
-        expect(adminApi.adminApi.getMetrics).toHaveBeenCalledTimes(2);
-      });
+        render(<Metrics />);
 
-      jest.useRealTimers();
+        expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+
+        await waitFor(() => {
+          expect(adminApi.adminApi.getMetrics).toHaveBeenCalledTimes(1);
+        });
+
+        const metricsIntervalCall = setIntervalSpy.mock.calls.find(([, delay]) => delay === 5000);
+        expect(metricsIntervalCall).toBeTruthy();
+
+        const metricsTick = metricsIntervalCall?.[0] as unknown as () => Promise<void> | void;
+        await metricsTick();
+
+        await waitFor(() => {
+          expect(adminApi.adminApi.getMetrics).toHaveBeenCalledTimes(2);
+        });
+      } finally {
+        setIntervalSpy.mockRestore();
+      }
     });
 
     it('should handle metrics fetch error', async () => {
@@ -315,9 +338,11 @@ describe('Metrics Component with Stream Quality', () => {
       (adminApi.adminApi.getStreamQuality as any).mockResolvedValue(mockQuality);
 
       render(<Metrics />);
-      
+
+      const expectedMb = bytesToMbRounded(customMetrics.metrics.process.memory_rss);
+
       await waitFor(() => {
-        expect(screen.getByText(/512 MB/)).toBeInTheDocument();
+        expect(screen.getByText(new RegExp(`${expectedMb}\\s*MB`, 'i'))).toBeInTheDocument();
       });
     });
 

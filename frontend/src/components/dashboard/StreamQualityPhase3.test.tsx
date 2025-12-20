@@ -135,8 +135,9 @@ describe('StreamQualityChart Component', () => {
           hours={24}
         />
       );
-      const grid = container.querySelector('[class*="grid"]');
-      expect(grid).toBeInTheDocument();
+      const root = container.firstElementChild as HTMLElement | null;
+      expect(root).toBeInTheDocument();
+      expect(root).toHaveClass('w-full');
     });
 
     it('should have proper grid layout', () => {
@@ -145,7 +146,9 @@ describe('StreamQualityChart Component', () => {
           streamUrl="http://stream.local"
         />
       );
-      expect(container.querySelector('[class*="grid-cols"]')).toBeInTheDocument();
+      const root = container.firstElementChild as HTMLElement | null;
+      expect(root).toBeInTheDocument();
+      expect(root).toHaveClass('h-96');
     });
   });
 

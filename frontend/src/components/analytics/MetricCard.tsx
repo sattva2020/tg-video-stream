@@ -82,14 +82,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     if (!trend) return null;
     if (trend.value > 0) return <TrendingUp className="w-4 h-4 text-emerald-500" />;
     if (trend.value < 0) return <TrendingDown className="w-4 h-4 text-rose-500" />;
-    return <Minus className="w-4 h-4 text-gray-400" />;
+    return <Minus className="w-4 h-4 text-[color:var(--color-text-muted)]" />;
   };
 
   const getTrendColor = () => {
     if (!trend) return '';
     if (trend.value > 0) return 'text-emerald-500';
     if (trend.value < 0) return 'text-rose-500';
-    return 'text-gray-400';
+    return 'text-[color:var(--color-text-muted)]';
   };
 
   return (
@@ -98,10 +98,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       className={`
         relative overflow-hidden rounded-2xl p-6
-        bg-white dark:bg-gray-800/50
-        border ${config.border}
-        shadow-lg ${config.glow}
-        backdrop-blur-sm
+        bg-[color:var(--color-panel)]
+        border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)]
+        shadow-md shadow-black/5
       `}
     >
       {/* Gradient Background */}
@@ -122,23 +121,23 @@ export const MetricCard: React.FC<MetricCardProps> = ({
         </div>
 
         <div className="space-y-1">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          <h3 className="text-sm font-medium text-[color:var(--color-text-muted)]">
             {title}
           </h3>
           {loading ? (
-            <div className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+            <div className="h-8 w-24 bg-[color:var(--color-border)] rounded animate-pulse" />
           ) : (
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            <p className="text-2xl font-bold text-[color:var(--color-text)]">
               {value}
             </p>
           )}
           {subtitle && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-[color:var(--color-text-muted)]">
               {subtitle}
             </p>
           )}
           {trend && (
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-[color:var(--color-text-muted)]">
               {trend.label}
             </p>
           )}

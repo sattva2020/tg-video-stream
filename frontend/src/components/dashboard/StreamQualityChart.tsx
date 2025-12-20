@@ -39,7 +39,16 @@ export default function StreamQualityChart({
   const [isLoading, setIsLoading] = useState(loading);
   const [errorMsg, setErrorMsg] = useState<string | null>(error);
 
+  // Если родитель управляет loading-состоянием, считаем его источником истины.
   useEffect(() => {
+    setIsLoading(loading);
+  }, [loading]);
+
+  useEffect(() => {
+    // При внешнем loading=true не запускаем внутреннюю загрузку,
+    // чтобы не ломать контролируемое поведение.
+    if (loading) return;
+
     const fetchTrendData = async () => {
       setIsLoading(true);
       try {
@@ -62,7 +71,7 @@ export default function StreamQualityChart({
     };
 
     fetchTrendData();
-  }, [streamUrl, hours]);
+  }, [streamUrl, hours, loading]);
 
   // Loading state
   if (isLoading) {

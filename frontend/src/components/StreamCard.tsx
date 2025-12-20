@@ -113,10 +113,11 @@ export const StreamCard: React.FC<StreamCardProps> = ({
   return (
     <div
       className={`
-        bg-white dark:bg-gray-800 rounded-lg shadow-md 
-        border border-gray-200 dark:border-gray-700
-        p-4 transition-all hover:shadow-lg
-        ${onClick ? 'cursor-pointer hover:border-blue-400' : ''}
+        rounded-2xl bg-[color:var(--color-panel)]
+        border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)]
+        shadow-md shadow-black/5
+        p-4 transition-colors
+        ${onClick ? 'cursor-pointer hover:border-[color:var(--color-accent)]' : ''}
         ${className}
       `}
       onClick={onClick}
@@ -126,10 +127,10 @@ export const StreamCard: React.FC<StreamCardProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xl">{statusConfig.icon}</span>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-semibold text-[color:var(--color-text)]">
               {channelName || `Channel ${displayChannelId}`}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-[color:var(--color-text-muted)]">
               ID: {channelId}
             </p>
           </div>
@@ -147,17 +148,17 @@ export const StreamCard: React.FC<StreamCardProps> = ({
       {/* Listeners */}
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">👥</span>
-        <span className="text-2xl font-bold text-gray-900 dark:text-white">
+        <span className="text-2xl font-bold text-[color:var(--color-text)]">
           {streamState.listeners_count}
         </span>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-[color:var(--color-text-muted)]">
           listeners
         </span>
       </div>
 
       {/* Current Position (for playing streams) */}
       {streamState.status === 'playing' && streamState.current_position > 0 && (
-        <div className="flex items-center gap-2 mb-3 text-sm text-gray-600 dark:text-gray-300">
+        <div className="flex items-center gap-2 mb-3 text-sm text-[color:var(--color-text-muted)]">
           <span>⏱️</span>
           <span>{formatDuration(streamState.current_position)}</span>
         </div>
@@ -165,8 +166,8 @@ export const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Placeholder Warning */}
       {streamState.is_placeholder && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-2 mb-3">
-          <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 text-sm">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-2 mb-3">
+          <div className="flex items-center gap-2 text-blue-300 text-sm">
             <span>🔄</span>
             <span>Playing placeholder audio (queue empty)</span>
           </div>
@@ -175,8 +176,8 @@ export const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Auto-End Warning */}
       {autoEndWarning && (
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md p-2 mb-3">
-          <div className="flex items-center gap-2 text-orange-700 dark:text-orange-300 text-sm">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-2 mb-3">
+          <div className="flex items-center gap-2 text-amber-300 text-sm">
             <span>⚠️</span>
             <span>
               Auto-stop in {autoEndWarning.remaining_seconds}s (no listeners)
@@ -187,11 +188,11 @@ export const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Current Track */}
       {streamState.current_item_id && (
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+        <div className="border-t border-[color:var(--color-border)] pt-3 mt-3">
+          <p className="text-xs text-[color:var(--color-text-muted)] mb-1">
             Current Track
           </p>
-          <p className="text-sm text-gray-700 dark:text-gray-300 truncate">
+          <p className="text-sm text-[color:var(--color-text)] truncate">
             {streamState.current_item_id}
           </p>
         </div>
@@ -199,7 +200,7 @@ export const StreamCard: React.FC<StreamCardProps> = ({
 
       {/* Footer - Last Update */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-3">
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-[color:var(--color-text-muted)]">
           Updated {formatTimeAgo(streamState.timestamp)}
         </p>
       </div>

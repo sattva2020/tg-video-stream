@@ -57,7 +57,7 @@ const Metrics: React.FC = () => {
   }, [metrics?.online, metrics?.current_stream_url]);
 
   if (error) return <div className="text-red-500">{error}</div>;
-  if (!metrics) return <div>Loading metrics...</div>;
+  if (!metrics) return <div className="text-[color:var(--color-text-muted)]">Loading metrics...</div>;
 
   const isOnline = metrics.online;
   const sys = metrics.metrics?.system;
@@ -74,15 +74,21 @@ const Metrics: React.FC = () => {
     <div>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">System Metrics</h2>
-        <span className={`px-3 py-1 rounded-full text-sm font-bold ${isOnline ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-semibold border ${
+            isOnline
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+              : 'bg-red-500/10 border-red-500/20 text-red-300'
+          }`}
+        >
           {isOnline ? 'ONLINE' : 'OFFLINE'}
         </span>
       </div>
 
       {metrics.metrics ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border p-4 rounded">
-            <h3 className="font-medium text-gray-500 mb-2">System</h3>
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
+            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">System</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>CPU Usage:</span>
@@ -92,17 +98,17 @@ const Metrics: React.FC = () => {
                 <span>Memory Usage:</span>
                 <span className="font-mono">{formatPercent(systemMemoryPercent)}</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div className="w-full bg-[color:var(--color-border)] rounded-full h-2.5">
                 <div
-                  className="bg-blue-600 h-2.5 rounded-full"
+                  className="bg-[color:var(--color-accent)] h-2.5 rounded-full"
                   style={{ width: `${systemCpuPercent ?? 0}%` }}
                 ></div>
               </div>
             </div>
           </div>
 
-          <div className="border p-4 rounded">
-            <h3 className="font-medium text-gray-500 mb-2">Streamer Process</h3>
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
+            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">Streamer Process</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>CPU Usage:</span>
@@ -116,22 +122,22 @@ const Metrics: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="text-gray-500 italic">No metrics available (Streamer might be stopped)</div>
+        <div className="text-[color:var(--color-text-muted)] italic">No metrics available (Streamer might be stopped)</div>
       )}
 
       {/* Feature 022 Phase 2 & 3: Stream Quality Monitoring */}
       {isOnline && (
-        <div className="mt-6 border-t pt-6">
+        <div className="mt-6 border-t border-[color:var(--color-border)] pt-6">
           <h2 className="text-xl font-semibold mb-4">Stream Quality</h2>
           
           {/* Tab Navigation */}
-          <div className="flex gap-4 mb-6 border-b">
+          <div className="flex gap-4 mb-6 border-b border-[color:var(--color-border)]">
             <button
               onClick={() => setActiveTab('quality')}
               className={`px-4 py-2 font-medium border-b-2 transition ${
                 activeTab === 'quality'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]'
+                  : 'border-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]'
               }`}
             >
               Current Quality (Phase 2)
@@ -140,8 +146,8 @@ const Metrics: React.FC = () => {
               onClick={() => setActiveTab('trends')}
               className={`px-4 py-2 font-medium border-b-2 transition ${
                 activeTab === 'trends'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]'
+                  : 'border-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]'
               }`}
             >
               Trend Analysis (Phase 3)
@@ -150,8 +156,8 @@ const Metrics: React.FC = () => {
               onClick={() => setActiveTab('alerts')}
               className={`px-4 py-2 font-medium border-b-2 transition ${
                 activeTab === 'alerts'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]'
+                  : 'border-transparent text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)]'
               }`}
             >
               Alert Settings (Phase 3)
@@ -160,7 +166,7 @@ const Metrics: React.FC = () => {
 
           {/* Quality Badge - Phase 2 */}
           {activeTab === 'quality' && (
-            <div className="border p-4 rounded">
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
               <StreamQualityBadge 
                 quality={quality} 
                 loading={qualityLoading}
@@ -172,7 +178,7 @@ const Metrics: React.FC = () => {
 
           {/* Trend Chart - Phase 3 */}
           {activeTab === 'trends' && (
-            <div className="border p-4 rounded">
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
               <StreamQualityChart 
                 streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
                 streamName={metrics?.current_stream_name || undefined}
@@ -183,7 +189,7 @@ const Metrics: React.FC = () => {
 
           {/* Alert Settings - Phase 3 */}
           {activeTab === 'alerts' && (
-            <div className="border p-4 rounded">
+            <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
               <StreamQualityAlertSettings 
                 streamUrl={metrics?.current_stream_url || 'http://localhost:8081/stream'}
                 streamName={metrics?.current_stream_name || undefined}

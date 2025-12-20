@@ -25,6 +25,7 @@ import type { ScheduleSlot, Playlist, CalendarDay } from '@/api/schedule';
 vi.mock('@/hooks/useScheduleQuery', () => ({
   useScheduleCalendar: vi.fn(),
   useScheduleSlots: vi.fn(),
+  useScheduleSlotsForChannels: vi.fn(),
   usePlaylists: vi.fn(),
   useCreateSlot: vi.fn(),
   useUpdateSlot: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock('@/hooks/useScheduleQuery', () => ({
   useCreatePlaylistGroup: vi.fn(),
   useDeletePlaylistGroup: vi.fn(),
   useMovePlaylistToGroup: vi.fn(),
+  usePlayNow: vi.fn(),
   useCopySchedule: vi.fn(),
   useScheduleTemplates: vi.fn(),
 }));
@@ -47,6 +49,8 @@ vi.mock('@/hooks/useMediaQuery', () => ({
 
 import {
   useScheduleCalendar,
+  useScheduleSlots,
+  useScheduleSlotsForChannels,
   usePlaylists,
   usePlaylistGroups,
   useCreateSlot,
@@ -58,6 +62,7 @@ import {
   useCreatePlaylistGroup,
   useDeletePlaylistGroup,
   useMovePlaylistToGroup,
+  usePlayNow,
   useCopySchedule,
 } from '@/hooks/useScheduleQuery';
 import { useMediaFolders, useScanFolder } from '@/hooks/useMediaQuery';
@@ -432,6 +437,13 @@ describe('PlaylistManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    vi.mocked(useScheduleSlots).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    vi.mocked(useScheduleSlotsForChannels).mockReturnValue([] as any);
+
     vi.mocked(usePlaylists).mockReturnValue({
       data: [mockPlaylist],
       isLoading: false,
@@ -469,6 +481,11 @@ describe('PlaylistManager', () => {
 
     vi.mocked(useMovePlaylistToGroup).mockReturnValue({
       mutateAsync: vi.fn(),
+      isPending: false,
+    } as any);
+
+    vi.mocked(usePlayNow).mockReturnValue({
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
       isPending: false,
     } as any);
 

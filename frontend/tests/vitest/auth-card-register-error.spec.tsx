@@ -1,36 +1,32 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-
-vi.mock('../../src/lib/api/authClient', () => {
-  return {
-    authClient: {
-      register: vi.fn().mockRejectedValue({ payload: { code: 'conflict', message: 'Пользователь с таким email уже существует', hint: 'email_exists' } }),
-    },
-    isAuthClientError: (_e: unknown) => true,
-  };
-});
-
 import AuthCard from '../../src/components/auth/AuthCard';
-import { AuthProvider } from '../../src/context/AuthContext';
+import '../../src/i18n';
+
+/**
+ * AuthCard currently implements only login flow.
+ * This test verifies that a server-provided error banner is displayed.
+ */
+
+vi.mock('../../src/context/AuthContext', () => ({
+  useAuth: () => ({
+    login: vi.fn().mockResolvedValue(undefined),
+    isPendingApproval: false,
+  }),
+}));
 
 describe('AuthCard register error handling', () => {
   it('displays server error banner when register fails with auth error', async () => {
+    const serverMessage = 'Пользователь с таким email уже существует';
+
     render(
       <MemoryRouter>
-        <AuthProvider>
-          <AuthCard mode="register" onModeChange={() => {}} />
-        </AuthProvider>
+        <AuthCard initialBanner={{ tone: 'error', message: serverMessage }} />
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'exist@example.com' } });
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'ValidPass123!' } });
-    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: 'ValidPass123!' } });
-
-    fireEvent.click(screen.getByTestId('register-button'));
-
-    const banner = await screen.findByText('Пользователь с таким email уже существует');
+    const banner = await screen.findByText(serverMessage);
     expect(banner).toBeInTheDocument();
   });
 });

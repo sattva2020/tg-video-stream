@@ -183,26 +183,19 @@ const CalendarDayCell: React.FC<DayProps> = ({
     <div
       onClick={onClick}
       className={`
-        relative min-h-[120px] p-2 border rounded-xl cursor-pointer
+        relative min-h-[120px] p-2 rounded-xl cursor-pointer
+        border border-[color:var(--color-border)]
         transition-all duration-150 group hover:scale-[1.01]
-        ${isToday 
-          ? 'border-2 border-violet-500 bg-violet-500/20 shadow-lg shadow-violet-500/20' 
-          : 'border-[color:var(--color-border)] hover:border-[color:var(--color-border-hover)]'}
-        ${isSelected 
-          ? 'ring-2 ring-violet-500 ring-opacity-50' 
-          : ''}
-        ${day.has_conflicts 
-          ? 'border-amber-500/50' 
-          : ''}
+        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)]' : 'ring-1 ring-inset ring-[color:var(--color-border)]'}
+        ${isToday ? 'border-[color:var(--color-accent)]' : ''}
+        ${day.has_conflicts ? 'border-amber-500/50' : ''}
       `}
     >
       {/* Day number */}
       <div className="flex items-center justify-between mb-2">
         <span className={`
           text-sm font-semibold
-          ${isToday 
-            ? 'text-violet-600 dark:text-violet-400' 
-            : 'text-[color:var(--color-text)]'}
+          ${isToday ? 'text-[color:var(--color-accent)]' : 'text-[color:var(--color-text)]'}
         `}>
           {dayNum}
         </span>
@@ -353,8 +346,8 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-            <Calendar className="w-5 h-5 text-white" />
+          <div className="p-2.5 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-sm shadow-black/5">
+            <Calendar className="w-5 h-5 text-[color:var(--color-accent)]" />
           </div>
           <div>
             <h2 className="text-lg font-bold text-[color:var(--color-text)]">
@@ -389,7 +382,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* Month Navigation */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+      <div className="flex items-center justify-between p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
         <Button
           isIconOnly
           size="sm"
@@ -425,7 +418,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* Calendar Grid */}
-      <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] overflow-hidden">
+      <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-[color:var(--color-border)]">
           {WEEKDAYS.map((day, i) => (
@@ -433,9 +426,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               key={day} 
               className={`
                 py-3 text-center text-sm font-medium
-                ${i >= 5 
-                  ? 'text-rose-500 dark:text-rose-400' 
-                  : 'text-[color:var(--color-text-muted)]'}
+                text-[color:var(--color-text-muted)]
               `}
             >
               {day}
@@ -477,7 +468,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]"
+            className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5"
           >
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold text-[color:var(--color-text)]">
@@ -584,7 +575,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
       {/* Loading overlay */}
       {isFetching && !isLoading && (
-        <div className="fixed top-4 right-4 px-3 py-2 rounded-lg bg-violet-500 text-white text-sm shadow-lg">
+        <div className="fixed top-4 right-4 px-3 py-2 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 text-sm text-[color:var(--color-text)]">
           {t('common.loading', 'Загрузка...')}
         </div>
       )}

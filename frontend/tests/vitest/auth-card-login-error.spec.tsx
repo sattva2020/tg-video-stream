@@ -33,12 +33,12 @@ describe('AuthCard login error handling', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'exist@example.com' } });
-    fireEvent.change(screen.getByLabelText(/пароль|password/i), { target: { value: 'ValidPass123!' } });
+    fireEvent.change(screen.getByTestId('email-input'), { target: { value: 'exist@example.com' } });
+    fireEvent.change(screen.getByTestId('password-input'), { target: { value: 'ValidPass123!' } });
 
     fireEvent.click(screen.getByTestId('login-button'));
 
-    const errorBanner = await screen.findByText('Неверный email или пароль.');
-    expect(errorBanner).toBeInTheDocument();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Неверный email или пароль\.|Invalid email or password\./i);
   });
 });

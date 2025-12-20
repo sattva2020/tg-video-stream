@@ -61,8 +61,17 @@ export default function StreamQualityAlertSettings({
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Если родитель управляет loading-состоянием, считаем его источником истины.
+  useEffect(() => {
+    setIsLoading(loading);
+  }, [loading]);
+
   // Load existing config on mount
   useEffect(() => {
+    // При внешнем loading=true не запускаем внутреннюю загрузку,
+    // чтобы не "сбрасывать" UI и не ломать контролируемое поведение.
+    if (loading) return;
+
     const loadConfig = async () => {
       setIsLoading(true);
       try {
@@ -82,7 +91,7 @@ export default function StreamQualityAlertSettings({
     };
 
     loadConfig();
-  }, [streamUrl]);
+  }, [streamUrl, loading]);
 
   const handleSave = async () => {
     setIsSaving(true);

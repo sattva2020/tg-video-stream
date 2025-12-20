@@ -198,10 +198,10 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
         isHoverable
         className={`
           overflow-hidden
-          bg-[color:var(--color-surface)]
+          bg-[color:var(--color-panel)]
           border border-[color:var(--color-border)]
-          ${isSelected ? 'ring-2 ring-violet-500' : ''}
-          ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}
+          ring-1 ring-inset ${isSelected ? 'ring-[color:var(--color-accent)]' : 'ring-[color:var(--color-border)]'}
+          ${isDragging ? 'shadow-md shadow-black/10 ring-[color:var(--color-accent)]' : ''}
         `}
         onPress={() => onSelect?.(playlist)}
       >
@@ -388,7 +388,7 @@ const DroppableGroup: React.FC<DroppableGroupProps> = ({ id, children, className
       ref={setNodeRef}
       className={`
         ${className || ''}
-        ${isOver ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''}
+        ${isOver ? 'ring-1 ring-inset ring-[color:var(--color-accent)] bg-[color:var(--color-surface-muted)]' : ''}
         transition-all duration-200
       `}
     >

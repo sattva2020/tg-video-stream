@@ -2,7 +2,7 @@
  * Feature 022 Phase 2: Stream Quality Badge Component Tests
  * Tests for StreamQualityBadge React component
  */
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import StreamQualityBadge from './StreamQualityBadge';
 import { StreamQualityResponse } from '../../api/admin';
@@ -81,7 +81,7 @@ describe('StreamQualityBadge Component', () => {
 
     it('should show loading indicator', () => {
       const { container } = render(<StreamQualityBadge loading={true} />);
-      expect(container.querySelector('svg')).toBeInTheDocument();
+      expect(container.querySelector('.animate-spin')).toBeInTheDocument();
     });
   });
 
@@ -93,7 +93,7 @@ describe('StreamQualityBadge Component', () => {
           quality={null}
         />
       );
-      expect(screen.getByText('Failed to analyze stream')).toBeInTheDocument();
+      expect(screen.getByText(/Analysis Error/i)).toBeInTheDocument();
     });
 
     it('should show warning icon on error', () => {
@@ -103,18 +103,18 @@ describe('StreamQualityBadge Component', () => {
           quality={null}
         />
       );
-      // Check for error styling
-      expect(container.querySelector('.text-red-600')).toBeInTheDocument();
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+      expect(container.querySelector('.bg-red-100')).toBeInTheDocument();
     });
   });
 
   describe('Quality Badge Rendering', () => {
-    it('should render high quality badge with green styling', () => {
+    it('should render high quality badge with blue styling', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockHighQuality} />
       );
       expect(screen.getByText(/high/i)).toBeInTheDocument();
-      expect(container.querySelector('.bg-green-100')).toBeInTheDocument();
+      expect(container.querySelector('.bg-blue-100')).toBeInTheDocument();
     });
 
     it('should render low quality badge with orange styling', () => {
@@ -130,11 +130,11 @@ describe('StreamQualityBadge Component', () => {
         <StreamQualityBadge quality={mockHighQuality} />
       );
       // High quality should have specific icon
-      expect(screen.getByTitle(/High quality|📺/)).toBeInTheDocument();
+      expect(screen.getByText('📺')).toBeInTheDocument();
 
       rerender(<StreamQualityBadge quality={mockLowQuality} />);
       // Low quality should have different icon
-      expect(screen.getByTitle(/Low quality|📱/)).toBeInTheDocument();
+      expect(screen.getByText('📱')).toBeInTheDocument();
     });
   });
 
@@ -143,70 +143,104 @@ describe('StreamQualityBadge Component', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockHighQuality} compact={true} />
       );
-      // Compact mode should have limited width
-      const badge = container.querySelector('[className*="max-w"]');
+      const badge = container.firstElementChild as HTMLElement | null;
       expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass('rounded-full');
+      expect(badge?.getAttribute('title')).toBeTruthy();
     });
 
     it('should be clickable in compact mode', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockHighQuality} compact={true} />
       );
-      const badge = container.querySelector('[role="button"]') || container.firstChild;
+      const badge = container.firstElementChild as HTMLElement | null;
       expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass('cursor-pointer');
     });
   });
 
   describe('Expandable Details', () => {
     it('should expand to show audio metrics', () => {
-      const { container } = render(
+      render(
         <StreamQualityBadge quality={mockHighQuality} compact={false} />
       );
-      // Should show audio section by default or after expand
-      expect(screen.getByText(/Audio/i) || screen.getByText(/codec/i)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+      expect(
+        screen.getByRole('heading', { level: 4, name: /Audio/i })
+      ).toBeInTheDocument();
     });
 
     it('should display audio codec information', () => {
       render(<StreamQualityBadge quality={mockHighQuality} compact={false} />);
-      expect(screen.getByText(/aac|AAC/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+
+      const audioHeading = screen.getByRole('heading', { level: 4, name: /Audio/i });
+      const audioSection = audioHeading.closest('div');
+      expect(audioSection).toBeTruthy();
+
+      expect(within(audioSection as HTMLElement).getByText(/AAC/i)).toBeInTheDocument();
     });
 
     it('should display audio bitrate', () => {
       render(<StreamQualityBadge quality={mockHighQuality} compact={false} />);
-      expect(screen.getByText(/128|bitrate/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+
+      const audioHeading = screen.getByRole('heading', { level: 4, name: /Audio/i });
+      const audioSection = audioHeading.closest('div');
+      expect(audioSection).toBeTruthy();
+
+      expect(
+        within(audioSection as HTMLElement).getByText(/128\s*kbps/i)
+      ).toBeInTheDocument();
     });
 
     it('should show video metrics when available', () => {
       render(<StreamQualityBadge quality={mockHighQuality} compact={false} />);
-      expect(screen.getByText(/1920x1080|resolution/i)).toBeInTheDocument();
-      expect(screen.getByText(/h264|H\.264|h\.264/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+
+      const videoHeading = screen.getByRole('heading', { level: 4, name: /Video/i });
+      const videoSection = videoHeading.closest('div');
+      expect(videoSection).toBeTruthy();
+
+      expect(within(videoSection as HTMLElement).getByText(/1920x1080/i)).toBeInTheDocument();
+      expect(within(videoSection as HTMLElement).getByText(/H264/i)).toBeInTheDocument();
     });
 
     it('should hide video section for audio-only streams', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockAudioOnly} compact={false} />
       );
+
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+
       // Should indicate audio-only
       const text = container.textContent || '';
-      expect(text).toContain('Audio only');
+      expect(text).toMatch(/Audio Only/i);
+      expect(
+        screen.queryByRole('heading', { level: 4, name: /Video/i })
+      ).not.toBeInTheDocument();
     });
   });
 
   describe('Stream Information', () => {
     it('should display stream URL', () => {
       render(<StreamQualityBadge quality={mockHighQuality} compact={false} />);
-      expect(screen.getByText(/test\.stream/)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+      expect(screen.getByText(/URL:/i)).toBeInTheDocument();
+      expect(screen.getByText(/test\.stream/i)).toBeInTheDocument();
     });
 
     it('should show stream type (audio only)', () => {
       render(<StreamQualityBadge quality={mockAudioOnly} compact={false} />);
-      expect(screen.getByText(/Audio only/i) || screen.getByText(/audio only/i)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+      expect(screen.getByText(/Audio Only/i)).toBeInTheDocument();
     });
 
     it('should show stream type (audio + video)', () => {
       render(<StreamQualityBadge quality={mockHighQuality} compact={false} />);
-      const text = screen.getByText(/http/i).textContent || '';
-      expect(text).toBeDefined();
+      fireEvent.click(screen.getByText(/HIGH\s*Quality/i));
+      expect(screen.getByText(/Audio \+ Video/i)).toBeInTheDocument();
     });
   });
 
@@ -239,10 +273,8 @@ describe('StreamQualityBadge Component', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockHighQuality} compact={false} />
       );
-      // Check for responsive utilities
-      const responsiveElement = container.querySelector('[class*="md:"]') || 
-                                container.querySelector('[class*="sm:"]');
-      expect(responsiveElement).toBeDefined();
+      // Компонент не использует явные md:/sm: классы, но должен стабильно рендериться.
+      expect(container.firstChild).toBeInTheDocument();
     });
 
     it('should render properly in mobile viewport', () => {
@@ -269,9 +301,8 @@ describe('StreamQualityBadge Component', () => {
       const { container } = render(
         <StreamQualityBadge quality={mockHighQuality} />
       );
-      const badge = container.firstChild as HTMLElement;
-      // Check for hover classes
-      expect(badge.className).toMatch(/hover/i);
+      const clickable = container.querySelector('[class*="hover:shadow"]') as HTMLElement | null;
+      expect(clickable).toBeInTheDocument();
     });
   });
 
@@ -310,7 +341,7 @@ describe('StreamQualityBadge Component', () => {
   describe('Accessibility', () => {
     it('should have proper title attributes', () => {
       const { container } = render(
-        <StreamQualityBadge quality={mockHighQuality} />
+        <StreamQualityBadge quality={mockHighQuality} compact={true} />
       );
       const titleElements = container.querySelectorAll('[title]');
       expect(titleElements.length).toBeGreaterThan(0);

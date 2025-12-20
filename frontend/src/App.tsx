@@ -32,7 +32,7 @@ const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
     <div className="flex flex-col items-center gap-4">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"></div>
-      <span className="text-sm text-gray-400">Загрузка...</span>
+      <span className="text-sm text-[color:var(--color-text-muted)]">Загрузка...</span>
     </div>
   </div>
 );
