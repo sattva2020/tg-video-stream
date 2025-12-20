@@ -255,8 +255,8 @@ export default function SchedulePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4 sm:p-6">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-b border-[color:var(--color-border)] pb-3">
+          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5 p-4 sm:p-6">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 pb-3">
               <button
                 type="button"
                 onClick={() => setActiveTab('calendar')}
@@ -325,7 +325,7 @@ export default function SchedulePage() {
                       <Skeleton className="w-full h-[500px] rounded-xl" />
                     </div>
                   ) : !selectedChannelId ? (
-                    <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+                    <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5">
                       <Card className="bg-transparent shadow-none border-none">
                         <div className="p-8 text-center">
                           <p className="text-[color:var(--color-text-muted)]">

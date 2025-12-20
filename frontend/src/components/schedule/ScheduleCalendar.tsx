@@ -184,9 +184,11 @@ const CalendarDayCell: React.FC<DayProps> = ({
       onClick={onClick}
       className={`
         relative min-h-[120px] p-2 rounded-xl cursor-pointer
+        bg-[color:var(--color-surface-muted)]
         border border-[color:var(--color-border)]
         transition-all duration-150 group hover:scale-[1.01]
-        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)]' : 'ring-1 ring-inset ring-[color:var(--color-border)]'}
+        hover:bg-[color:var(--color-surface-hover)]
+        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)] bg-[color:var(--color-panel)]' : ''}
         ${isToday ? 'border-[color:var(--color-accent)]' : ''}
         ${day.has_conflicts ? 'border-amber-500/50' : ''}
       `}
@@ -386,7 +388,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* Month Navigation */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
+      <div className="flex items-center justify-between p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5">
         <Button
           isIconOnly
           size="sm"
@@ -425,9 +427,9 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* Calendar Grid */}
-      <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
+      <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
         {/* Weekday headers */}
-        <div className="grid grid-cols-7 border-b border-[color:var(--color-border)]">
+        <div className="grid grid-cols-7 bg-[color:var(--color-surface-muted)]">
           {WEEKDAYS.map((day) => (
             <div 
               key={day} 
@@ -475,7 +477,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5"
+            className="p-4 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5"
           >
             <div className="flex items-center justify-between mb-4">
               <h4 className="font-semibold text-[color:var(--color-text)]">
@@ -583,7 +585,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
 
       {/* Loading overlay */}
       {isFetching && !isLoading && (
-        <div className="fixed top-4 right-4 px-3 py-2 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 text-sm text-[color:var(--color-text)]">
+        <div className="fixed top-4 right-4 px-3 py-2 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5 text-sm text-[color:var(--color-text)]">
           {t('common.loading', 'Загрузка...')}
         </div>
       )}
