@@ -299,10 +299,10 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/50 backdrop-blur-sm",
-        base: "bg-white dark:bg-gray-900 shadow-xl",
-        header: "border-b border-gray-200 dark:border-gray-700",
+        base: "bg-[color:var(--color-surface)] border border-[color:var(--color-border)] shadow-xl",
+        header: "border-b border-[color:var(--color-border)]",
         body: "py-6",
-        footer: "border-t border-gray-200 dark:border-gray-700",
+        footer: "border-t border-[color:var(--color-border)]",
       }}
     >
       <ModalContent>
@@ -311,12 +311,12 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             <Clock className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-lg font-semibold text-[color:var(--color-text)]">
               {isEditMode 
                 ? t('schedule.editSlot', 'Редактирование слота')
                 : t('schedule.createSlot', 'Новый слот расписания')}
             </h2>
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-[color:var(--color-text-muted)]">
               {isEditMode 
                 ? t('schedule.editSlotDesc', 'Измените параметры слота')
                 : t('schedule.createSlotDesc', 'Добавьте слот в расписание')}
@@ -328,12 +328,17 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           {/* Date & Time Row */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor={startDateId} className="text-sm font-medium text-default-700">
+              <label htmlFor={startDateId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                 {t('schedule.date', 'Дата')}
               </label>
               <Input
                 id={startDateId}
                 type="date"
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 value={formData.start_date}
                 onChange={(e) => handleChange('start_date', e.target.value)}
                 isInvalid={!!errors.start_date}
@@ -342,12 +347,17 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor={startTimeId} className="text-sm font-medium text-default-700">
+              <label htmlFor={startTimeId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                 {t('schedule.startTime', 'Начало')}
               </label>
               <Input
                 id={startTimeId}
                 type="time"
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 value={formData.start_time}
                 onChange={(e) => handleChange('start_time', e.target.value)}
                 isInvalid={!!errors.start_time}
@@ -356,12 +366,17 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor={endTimeId} className="text-sm font-medium text-default-700">
+              <label htmlFor={endTimeId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                 {t('schedule.endTime', 'Конец')}
               </label>
               <Input
                 id={endTimeId}
                 type="time"
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 value={formData.end_time}
                 onChange={(e) => handleChange('end_time', e.target.value)}
                 isInvalid={!!errors.end_time}
@@ -377,7 +392,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               <label
                 id={playlistLabelId}
                 htmlFor={playlistSelectId}
-                className="text-sm font-medium text-default-700"
+                className="text-sm font-medium text-[color:var(--color-text-muted)]"
               >
                 {t('schedule.playlist', 'Плейлист')}
               </label>
@@ -396,10 +411,15 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
 
             {/* Quick Playlist Creation Form */}
             {showPlaylistForm && (
-              <div className="p-3 rounded-lg bg-primary-50 border border-primary-200 space-y-3">
+              <div className="p-3 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)] space-y-3">
                 <div className="flex flex-col gap-1">
                   <Input
                     size="sm"
+                    variant="bordered"
+                    classNames={{
+                      inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                      input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                    }}
                     placeholder={t('schedule.playlistName', 'Название плейлиста')}
                     aria-label={t('schedule.playlistName', 'Название плейлиста')}
                     value={newPlaylistName}
@@ -408,7 +428,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-default-500">{t('schedule.color', 'Цвет')}:</span>
+                  <span className="text-xs text-[color:var(--color-text-muted)]">{t('schedule.color', 'Цвет')}:</span>
                   <div className="flex gap-1">
                     {PRESET_COLORS.slice(0, 6).map((color) => (
                       <button
@@ -454,12 +474,12 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             {/* Playlist Select or Empty State */}
             {!showPlaylistForm && (
               playlists.length === 0 ? (
-                <div className="p-4 rounded-lg bg-default-100 border border-default-200 text-center">
-                  <Music className="w-8 h-8 mx-auto text-default-400 mb-2" />
-                  <p className="text-sm text-default-600">
+                <div className="p-4 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-center">
+                  <Music className="w-8 h-8 mx-auto text-[color:var(--color-text-muted)] mb-2" />
+                  <p className="text-sm text-[color:var(--color-text)]">
                     {t('schedule.noPlaylistsYet', 'Пока нет плейлистов')}
                   </p>
-                  <p className="text-xs text-default-400 mt-1">
+                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
                     {t('schedule.clickCreateAbove', 'Нажмите "Создать" выше')}
                   </p>
                 </div>
@@ -468,6 +488,11 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   id={playlistSelectId}
                   aria-labelledby={playlistLabelId}
                   placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
+                  classNames={{
+                    trigger: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)]',
+                    value: 'text-[color:var(--color-text)]',
+                    selectorIcon: 'text-[color:var(--color-text-muted)]',
+                  }}
                   selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
                   onSelectionChange={(keys) => {
                     const selected = Array.from(keys)[0] as string;
@@ -475,7 +500,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   }}
                   popoverProps={{
                     classNames: {
-                      content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                      content: "bg-[color:var(--color-surface)] border border-[color:var(--color-border)]",
                     },
                   }}
                 >
@@ -487,7 +512,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                           style={{ backgroundColor: playlist.color }}
                         />
                         <span>{playlist.name}</span>
-                        <span className="text-xs text-default-400">
+                        <span className="text-xs text-[color:var(--color-text-muted)]">
                           ({playlist.items_count} треков)
                         </span>
                       </div>
@@ -499,16 +524,16 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             
             {selectedPlaylist && (
               <div
-                className="mt-2 p-3 rounded-lg bg-default-100"
+                className="mt-2 p-3 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]"
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
               >
                 <div className="flex items-center gap-2 text-sm">
                   <Music className="w-4 h-4" style={{ color: selectedPlaylist.color }} />
-                  <span className="font-medium">{selectedPlaylist.name}</span>
+                  <span className="font-medium text-[color:var(--color-text)]">{selectedPlaylist.name}</span>
                 </div>
-                <p className="text-xs text-default-500 mt-1">
+                <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
                   {selectedPlaylist.items_count} треков • 
                   {Math.floor(selectedPlaylist.total_duration / 3600)}ч {Math.floor((selectedPlaylist.total_duration % 3600) / 60)}м
                 </p>
@@ -519,22 +544,32 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
           {/* Title & Description */}
           <div className="grid grid-cols-1 gap-4">
             <div className="flex flex-col gap-1">
-              <label htmlFor={titleInputId} className="text-sm font-medium text-default-700">
+              <label htmlFor={titleInputId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                 {t('schedule.title', 'Название (опционально)')}
               </label>
               <Input
                 id={titleInputId}
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 placeholder={t('schedule.titlePlaceholder', 'Например: Утренний эфир')}
                 value={formData.title}
                 onChange={(e) => handleChange('title', e.target.value)}
               />
             </div>
             <div className="flex flex-col gap-1">
-              <label htmlFor={descriptionInputId} className="text-sm font-medium text-default-700">
+              <label htmlFor={descriptionInputId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                 {t('schedule.description', 'Описание')}
               </label>
               <Textarea
                 id={descriptionInputId}
+                variant="bordered"
+                classNames={{
+                  inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                  input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                }}
                 placeholder={t('schedule.descriptionPlaceholder', 'Дополнительная информация...')}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
@@ -545,7 +580,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
 
           {/* Color Picker */}
           <div>
-            <label className="text-sm font-medium text-default-700 mb-2 flex items-center gap-2">
+            <label className="text-sm font-medium text-[color:var(--color-text-muted)] mb-2 flex items-center gap-2">
               <Palette className="w-4 h-4" />
               {t('schedule.color', 'Цвет')}
             </label>
@@ -574,7 +609,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             <label
               id={repeatLabelId}
               htmlFor={repeatSelectId}
-              className="text-sm font-medium text-default-700"
+              className="text-sm font-medium text-[color:var(--color-text-muted)]"
             >
               {t('schedule.repeat', 'Повторение')}
             </label>
@@ -582,6 +617,11 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               id={repeatSelectId}
               aria-labelledby={repeatLabelId}
               placeholder={t('schedule.selectRepeat', 'Выберите режим повторения')}
+              classNames={{
+                trigger: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)]',
+                value: 'text-[color:var(--color-text)]',
+                selectorIcon: 'text-[color:var(--color-text-muted)]',
+              }}
               selectedKeys={new Set([formData.repeat_type])}
               onSelectionChange={(keys) => {
                 const selected = Array.from(keys)[0] as RepeatType;
@@ -589,7 +629,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
               }}
               popoverProps={{
                 classNames: {
-                  content: "bg-white dark:bg-gray-900 border border-default-200 dark:border-gray-700",
+                  content: "bg-[color:var(--color-surface)] border border-[color:var(--color-border)]",
                 },
               }}
             >
@@ -603,7 +643,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             {/* Custom days selector */}
             {formData.repeat_type === 'custom' && (
               <div className="mt-3">
-                <p className="text-sm text-default-500 mb-2">
+                <p className="text-sm text-[color:var(--color-text-muted)] mb-2">
                   {t('schedule.selectDays', 'Выберите дни недели:')}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -617,7 +657,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                         px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                         ${formData.repeat_days.includes(day.value)
                           ? 'bg-violet-500 text-white'
-                          : 'bg-default-100 text-default-700 hover:bg-default-200'}
+                          : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-white/5'}
                       `}
                     >
                       {day.label}
@@ -633,12 +673,17 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
             {/* Repeat until date */}
             {formData.repeat_type !== 'none' && (
               <div className="mt-3 flex flex-col gap-1">
-                <label htmlFor={repeatUntilId} className="text-sm font-medium text-default-700">
+                <label htmlFor={repeatUntilId} className="text-sm font-medium text-[color:var(--color-text-muted)]">
                   {t('schedule.repeatUntil', 'Повторять до (опционально)')}
                 </label>
                 <Input
                   id={repeatUntilId}
                   type="date"
+                  variant="bordered"
+                  classNames={{
+                    inputWrapper: 'bg-[color:var(--color-surface)] border-[color:var(--color-border)]',
+                    input: 'text-[color:var(--color-text)] placeholder:text-[color:var(--color-text-muted)]',
+                  }}
                   value={formData.repeat_until}
                   onChange={(e) => handleChange('repeat_until', e.target.value)}
                 />

@@ -5,6 +5,7 @@ import { adminApi, StreamStatus } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { usePlaylistWebSocket } from '../../hooks/usePlaylistWebSocket';
 import { Skeleton } from '../ui/Skeleton';
+import { useTranslation } from 'react-i18next';
 
 interface StreamStatusCardProps {
   /** Auto-refresh interval in milliseconds. Set to 0 to disable. */
@@ -41,6 +42,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   useWebSocket = true,
   channelId,
 }) => {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<StreamStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -158,8 +160,8 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   // Loading skeleton
   if (loading && !status) {
     return (
-      <Card className="w-full">
-        <CardBody className="gap-4">
+      <Card className="w-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+        <CardBody className="gap-4 p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Skeleton className="w-10 h-10 rounded-lg" />
@@ -171,7 +173,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
             <Skeleton className="w-8 h-8 rounded-lg" />
           </div>
           
-          <div className="p-3 rounded-lg bg-default-50 border border-default-200">
+          <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
             <div className="flex items-start gap-3">
               <Skeleton className="w-10 h-10 rounded-lg" />
               <div className="flex-1">
@@ -183,11 +185,11 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
           </div>
           
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-default-50">
+            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
               <Skeleton className="h-3 w-20 mb-2" />
               <Skeleton className="h-6 w-8" />
             </div>
-            <div className="p-3 rounded-lg bg-default-50">
+            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
               <Skeleton className="h-3 w-16 mb-2" />
               <Skeleton className="h-6 w-8" />
             </div>
@@ -198,8 +200,8 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   }
 
   return (
-    <Card className="w-full">
-      <CardBody className="gap-4">
+    <Card className="w-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+      <CardBody className="gap-4 p-4 sm:p-5">
         {/* Header with status */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -207,7 +209,9 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
               <StatusIcon className={`w-5 h-5 ${statusConfig.textClass} ${statusConfig.pulseClass}`} />
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Статус трансляции</h3>
+              <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
+                {t('user.dashboard.streamStatusTitle', 'Статус трансляции')}
+              </h3>
               <div className="flex items-center gap-2 mt-1">
                 <Chip 
                   color={statusConfig.color} 
@@ -218,7 +222,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
                   {statusConfig.label}
                 </Chip>
                 {status?.uptime_seconds ? (
-                  <span className="text-xs text-default-400 flex items-center gap-1">
+                  <span className="text-xs text-[color:var(--color-text-muted)] flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatUptime(status.uptime_seconds)}
                   </span>
@@ -230,16 +234,16 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
           <button
             onClick={handleRefresh}
             disabled={loading}
-            className="p-2 rounded-lg hover:bg-default-100 transition-colors disabled:opacity-50"
+            className="p-2 rounded-lg hover:bg-[color:var(--color-surface-muted)] transition-colors disabled:opacity-50"
             title="Обновить"
           >
-            <RefreshCw className={`w-4 h-4 text-default-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-[color:var(--color-text-muted)] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* Current track */}
         {status?.current_track && (
-          <div className="p-3 rounded-lg bg-default-50 border border-default-200">
+          <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10">
                 <Music className="w-4 h-4 text-blue-500" />
@@ -247,12 +251,12 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <Play className="w-3 h-3 text-green-500" />
-                  <span className="text-xs text-default-400">Сейчас играет</span>
+                  <span className="text-xs text-[color:var(--color-text-muted)]">Сейчас играет</span>
                 </div>
-                <p className="font-medium truncate mt-1" title={status.current_track.title || undefined}>
+                <p className="font-medium truncate mt-1 text-[color:var(--color-text)]" title={status.current_track.title || undefined}>
                   {status.current_track.title || 'Без названия'}
                 </p>
-                <div className="flex items-center gap-3 mt-1 text-xs text-default-400">
+                <div className="flex items-center gap-3 mt-1 text-xs text-[color:var(--color-text-muted)]">
                   <span className="uppercase">{status.current_track.type}</span>
                   <span>{formatDuration(status.current_track.duration)}</span>
                 </div>
@@ -264,13 +268,13 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
         {/* Queue stats */}
         {status?.queue && (
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-default-50">
-              <div className="text-xs text-default-400">Всего в очереди</div>
-              <div className="text-xl font-semibold mt-1">{status.queue.total}</div>
+            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+              <div className="text-xs text-[color:var(--color-text-muted)]">Всего в очереди</div>
+              <div className="text-xl font-semibold mt-1 text-[color:var(--color-text)]">{status.queue.total}</div>
             </div>
-            <div className="p-3 rounded-lg bg-default-50">
-              <div className="text-xs text-default-400">Ожидает</div>
-              <div className="text-xl font-semibold mt-1">{status.queue.queued}</div>
+            <div className="p-3 rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]">
+              <div className="text-xs text-[color:var(--color-text-muted)]">Ожидает</div>
+              <div className="text-xl font-semibold mt-1 text-[color:var(--color-text)]">{status.queue.queued}</div>
             </div>
           </div>
         )}
@@ -278,10 +282,10 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
         {/* System metrics (if available) */}
         {status?.metrics && (
           <div className="space-y-3">
-            <div className="text-xs text-default-400 uppercase tracking-wide">Система</div>
+            <div className="text-xs text-[color:var(--color-text-muted)] uppercase tracking-wide">Система</div>
             <div className="space-y-2">
               <div>
-                <div className="flex justify-between text-xs mb-1">
+                <div className="flex justify-between text-xs mb-1 text-[color:var(--color-text-muted)]">
                   <span>CPU</span>
                   <span>{status.metrics.system.cpu_percent.toFixed(1)}%</span>
                 </div>
@@ -292,7 +296,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
                 />
               </div>
               <div>
-                <div className="flex justify-between text-xs mb-1">
+                <div className="flex justify-between text-xs mb-1 text-[color:var(--color-text-muted)]">
                   <span>Memory</span>
                   <span>{status.metrics.system.memory_percent.toFixed(1)}%</span>
                 </div>
@@ -308,7 +312,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
 
         {/* Error message */}
         {(error || status?.error) && (
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm flex items-start gap-2">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-sm flex items-start gap-2">
             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
             <span>{error || status?.error}</span>
           </div>
