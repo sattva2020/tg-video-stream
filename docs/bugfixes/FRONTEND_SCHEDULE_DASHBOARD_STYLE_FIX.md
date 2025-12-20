@@ -21,6 +21,8 @@
 - frontend/src/pages/SchedulePage.tsx
 - frontend/src/components/schedule/PlaylistManager.tsx
 - frontend/src/components/schedule/ScheduleCalendar.tsx
+- frontend/src/components/schedule/SlotEditorModal.tsx
+- frontend/src/components/schedule/CopyScheduleModal.tsx
 
 ## Тестирование
 Локально:

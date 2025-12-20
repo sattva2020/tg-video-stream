@@ -299,7 +299,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
       backdrop="blur"
       classNames={{
         backdrop: "bg-black/50 backdrop-blur-sm",
-        base: "bg-[color:var(--color-surface)] border border-[color:var(--color-border)] shadow-xl",
+        base: "bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-xl shadow-black/10",
         header: "border-b border-[color:var(--color-border)]",
         body: "py-6",
         footer: "border-t border-[color:var(--color-border)]",
@@ -307,7 +307,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
     >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600">
+          <div className="p-2 rounded-lg bg-[color:var(--color-accent)] shadow-sm shadow-black/10">
             <Clock className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -438,7 +438,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                         aria-label={`Выбрать цвет ${color}`}
                         aria-pressed={newPlaylistColor === color}
                         className={`w-5 h-5 rounded-full transition-all ${
-                          newPlaylistColor === color ? 'ring-2 ring-offset-1 ring-primary' : ''
+                          newPlaylistColor === color ? 'ring-2 ring-offset-1 ring-[color:var(--color-accent)]' : ''
                         }`}
                         style={{ backgroundColor: color }}
                       />
@@ -595,7 +595,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   className={`
                     w-8 h-8 rounded-lg transition-all
                     ${formData.color === color 
-                      ? 'ring-2 ring-offset-2 ring-violet-500 scale-110' 
+                      ? 'ring-2 ring-offset-2 ring-[color:var(--color-accent)] scale-110' 
                       : 'hover:scale-105'}
                   `}
                   style={{ backgroundColor: color }}
@@ -656,7 +656,7 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                       className={`
                         px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                         ${formData.repeat_days.includes(day.value)
-                          ? 'bg-violet-500 text-white'
+                          ? 'bg-[color:var(--color-accent)] text-white'
                           : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-white/5'}
                       `}
                     >

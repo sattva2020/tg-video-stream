@@ -183,17 +183,24 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
       onClose={onClose}
       size="lg"
       scrollBehavior="inside"
+      backdrop="blur"
+      classNames={{
+        backdrop: 'bg-black/50 backdrop-blur-sm',
+        base: 'bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-xl shadow-black/10',
+        header: 'border-b border-[color:var(--color-border)]',
+        footer: 'border-t border-[color:var(--color-border)]',
+      }}
     >
       <ModalContent>
         <ModalHeader className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600">
+          <div className="p-2 rounded-lg bg-[color:var(--color-accent)] shadow-sm shadow-black/10">
             <Copy className="w-5 h-5 text-white" />
           </div>
           <div>
             <h2 className="text-lg font-semibold">
               {t('schedule.copySchedule', 'Копировать расписание')}
             </h2>
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-[color:var(--color-text-muted)]">
               {t('schedule.copyFrom', 'Источник')}: {sourceDate.toLocaleDateString('ru-RU', {
                 weekday: 'short',
                 day: 'numeric',
@@ -223,7 +230,7 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
             
             <div className="flex-1" />
             
-            <span className="text-sm text-default-500 self-center">
+            <span className="text-sm text-[color:var(--color-text-muted)] self-center">
               {t('schedule.selected', 'Выбрано')}: {selectedDates.size}
             </span>
           </div>
@@ -242,15 +249,15 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
           </div>
 
           {/* Calendar */}
-          <div className="rounded-xl border border-default-200 overflow-hidden">
+          <div className="rounded-xl border border-[color:var(--color-border)] overflow-hidden">
             {/* Weekday headers */}
-            <div className="grid grid-cols-7 bg-default-100">
+            <div className="grid grid-cols-7 bg-[color:var(--color-surface-muted)]">
               {WEEKDAYS.map((day, i) => (
                 <div
                   key={day}
                   className={`
                     py-2 text-center text-xs font-medium
-                    ${i >= 5 ? 'text-danger' : 'text-default-500'}
+                    ${i >= 5 ? 'text-danger' : 'text-[color:var(--color-text-muted)]'}
                   `}
                 >
                   {day}
@@ -282,19 +289,19 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
                       relative h-10 rounded-lg font-medium text-sm
                       transition-colors
                       ${isSource
-                        ? 'bg-violet-500 text-white cursor-not-allowed'
+                        ? 'bg-[color:var(--color-panel)] ring-1 ring-inset ring-[color:var(--color-accent)] text-[color:var(--color-text)] cursor-not-allowed'
                         : isSelected
-                          ? 'bg-blue-500 text-white'
+                          ? 'bg-[color:var(--color-accent)] text-white'
                           : isToday
-                            ? 'bg-default-200 text-default-900'
+                            ? 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)]'
                             : isPast
-                              ? 'text-default-300 cursor-not-allowed'
-                              : 'hover:bg-default-100 text-default-700'}
+                              ? 'text-[color:var(--color-text-muted)] opacity-50 cursor-not-allowed'
+                              : 'hover:bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)]'}
                     `}
                   >
                     {dayNum}
                     {isSource && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-[color:var(--color-accent)] rounded-full" />
                     )}
                     {isSelected && (
                       <motion.div
@@ -302,7 +309,7 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
                         animate={{ scale: 1 }}
                         className="absolute -top-1 -right-1"
                       >
-                        <Check className="w-3 h-3 text-white bg-green-500 rounded-full" />
+                        <Check className="w-3 h-3 text-white bg-[color:var(--color-accent)] rounded-full" />
                       </motion.div>
                     )}
                   </motion.button>
@@ -312,13 +319,13 @@ export const CopyScheduleModal: React.FC<CopyScheduleModalProps> = ({
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-4 mt-4 text-xs text-default-500">
+          <div className="flex items-center gap-4 mt-4 text-xs text-[color:var(--color-text-muted)]">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-violet-500" />
+              <div className="w-3 h-3 rounded border border-[color:var(--color-accent)]" />
               <span>{t('schedule.source', 'Источник')}</span>
             </div>
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 rounded bg-blue-500" />
+              <div className="w-3 h-3 rounded bg-[color:var(--color-accent)]" />
               <span>{t('schedule.target', 'Цель')}</span>
             </div>
           </div>

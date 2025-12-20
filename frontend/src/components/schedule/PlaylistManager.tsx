@@ -218,7 +218,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
               <div
                 {...attributes}
                 {...listeners}
-                className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-default-400 hover:text-default-600 touch-none"
+                className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] touch-none"
               >
                 <GripVertical className="w-4 h-4" />
               </div>
@@ -254,7 +254,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                     </Chip>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-default-500">
+                <div className="flex items-center gap-2 mt-1 text-xs text-[color:var(--color-text-muted)]">
                   <span>{playlist.items_count} треков</span>
                   <span>•</span>
                   <span>{formatDuration(playlist.total_duration)}</span>
@@ -310,7 +310,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
           </div>
 
           {playlist.description && (
-            <p className="mt-2 text-xs text-default-500 line-clamp-2">
+            <p className="mt-2 text-xs text-[color:var(--color-text-muted)] line-clamp-2">
               {playlist.description}
             </p>
           )}
@@ -335,7 +335,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <span>Выберите канал</span>
-            <span className="text-sm font-normal text-default-500">
+            <span className="text-sm font-normal text-[color:var(--color-text-muted)]">
               Плейлист: {playlist.name}
             </span>
           </ModalHeader>
@@ -356,7 +356,7 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                 </Button>
               ))}
               {channels.length === 0 && (
-                <p className="text-center text-default-500 py-4">
+                <p className="text-center text-[color:var(--color-text-muted)] py-4">
                   Нет доступных каналов
                 </p>
               )}
@@ -686,7 +686,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                       className={`
                         w-full flex items-center gap-3 p-3 rounded-lg transition-all
                         ${formData.source_url === folder.path
-                          ? 'bg-violet-500 text-white'
+                          ? 'bg-[color:var(--color-accent)] text-white'
                           : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-white/5'
                         }
                       `}
@@ -694,7 +694,7 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                       <Folder className="w-5 h-5 shrink-0" />
                       <div className="flex-1 text-left">
                         <p className="font-medium text-sm">{folder.path}</p>
-                        <p className={`text-xs ${formData.source_url === folder.path ? 'text-white/70' : 'text-default-500'}`}>
+                        <p className={`text-xs ${formData.source_url === folder.path ? 'text-white/70' : 'text-[color:var(--color-text-muted)]'}`}>
                           {folder.audio_count} файлов
                           {folder.has_subdirs && ' • Содержит подпапки'}
                         </p>
@@ -709,11 +709,11 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                 </div>
               ) : (
                 <div className="p-8 text-center border border-dashed border-[color:var(--color-border)] rounded-lg">
-                  <FolderOpen className="w-12 h-12 mx-auto mb-3 text-default-400" />
-                  <p className="text-sm text-default-500">
+                  <FolderOpen className="w-12 h-12 mx-auto mb-3 text-[color:var(--color-text-muted)]" />
+                  <p className="text-sm text-[color:var(--color-text-muted)]">
                     {t('playlist.noFolders', 'Папки с музыкой не найдены')}
                   </p>
-                  <p className="text-xs text-default-400 mt-1">
+                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
                     {t('playlist.checkMusicRoot', 'Проверьте настройку MUSIC_ROOT')}
                   </p>
                 </div>
@@ -721,11 +721,11 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
               {/* Статус сканирования */}
               {scanLoading && (
-                <div className="flex items-center gap-2 p-3 bg-violet-50 dark:bg-violet-900/20 rounded-lg">
+                <div className="flex items-center gap-2 p-3 bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] rounded-lg">
                   <div className="animate-spin">
-                    <Music className="w-4 h-4 text-violet-600" />
+                    <Music className="w-4 h-4 text-[color:var(--color-accent)]" />
                   </div>
-                  <p className="text-sm text-violet-600">
+                  <p className="text-sm text-[color:var(--color-text)]">
                     {t('playlist.scanning', 'Сканирование папки...')}
                   </p>
                 </div>
@@ -733,11 +733,11 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
 
               {/* Результат сканирования */}
               {scanResult && !scanLoading && (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <p className="text-sm text-green-600 font-medium">
+                <div className="p-3 bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] rounded-lg">
+                  <p className="text-sm text-[color:var(--color-text)] font-medium">
                     ✓ Найдено треков: {scanResult.total}
                   </p>
-                  <p className="text-xs text-green-600/70 mt-1">
+                  <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
                     {t('playlist.autoAdded', 'Треки будут добавлены автоматически при создании')}
                   </p>
                 </div>
@@ -772,14 +772,14 @@ https://drive.google.com/file/d/.../view | Трек из Google Drive`}
               onClick={() => setFormData(f => ({ ...f, is_shuffled: !f.is_shuffled }))}
               className={`
                 p-2 rounded-lg transition-colors
-                ${formData.is_shuffled ? 'bg-violet-500 text-white' : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'}
+                ${formData.is_shuffled ? 'bg-[color:var(--color-accent)] text-white' : 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] hover:bg-white/5'}
               `}
             >
               <Shuffle className="w-4 h-4" />
             </button>
             <div>
               <p className="font-medium text-sm">{t('playlist.shuffle', 'Перемешивать')}</p>
-              <p className="text-xs text-default-500">
+              <p className="text-xs text-[color:var(--color-text-muted)]">
                 {t('playlist.shuffleDesc', 'Треки будут воспроизводиться в случайном порядке')}
               </p>
             </div>
@@ -1025,7 +1025,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+              <div className="p-2.5 rounded-xl bg-[color:var(--color-accent)] shadow-lg shadow-black/10">
                 <ListMusic className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -1075,7 +1075,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
               placeholder={t('playlist.search', 'Поиск плейлистов...')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              startContent={<Search className="w-4 h-4 text-default-400" />}
+              startContent={<Search className="w-4 h-4 text-[color:var(--color-text-muted)]" />}
               isClearable
               onClear={() => setSearch('')}
             />
@@ -1106,11 +1106,11 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
               <AnimatePresence mode="popLayout">
                 {filteredPlaylists.length === 0 ? (
                   <div className="col-span-full py-12 text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-default-100 flex items-center justify-center">
-                      <Music className="w-8 h-8 text-default-400" />
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] flex items-center justify-center">
+                      <Music className="w-8 h-8 text-[color:var(--color-text-muted)]" />
                     </div>
                     <h3 className="text-lg font-semibold">{t('playlist.notFound', 'Ничего не найдено')}</h3>
-                    <p className="text-sm text-default-500 mt-1">{t('playlist.tryDifferentSearch', 'Попробуйте другой запрос')}</p>
+                    <p className="text-sm text-[color:var(--color-text-muted)] mt-1">{t('playlist.tryDifferentSearch', 'Попробуйте другой запрос')}</p>
                   </div>
                 ) : (
                   filteredPlaylists.map(renderPlaylistCard)
@@ -1122,10 +1122,10 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
             <div className="space-y-4">
               {/* Groups */}
               {groups.map(group => (
-                <DroppableGroup key={group.id} id={group.id} className="border rounded-xl overflow-hidden dark:border-gray-700">
+                <DroppableGroup key={group.id} id={group.id} className="rounded-xl overflow-hidden bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)]">
                   <button
                     onClick={() => toggleGroup(group.id)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-default-100 transition-colors"
+                    className="w-full flex items-center justify-between p-3 hover:bg-[color:var(--color-surface-muted)] transition-colors"
                     title={t('playlist.toggleGroup', 'Свернуть/развернуть группу')}
                   >
                     <div className="flex items-center gap-3">
@@ -1148,9 +1148,9 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                         <Trash2 className="w-4 h-4 text-danger" />
                       </Button>
                       {expandedGroups.has(group.id) ? (
-                        <ChevronDown className="w-5 h-5 text-default-400" />
+                        <ChevronDown className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                       ) : (
-                        <ChevronRight className="w-5 h-5 text-default-400" />
+                        <ChevronRight className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                       )}
                     </div>
                   </button>
@@ -1161,11 +1161,11 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="border-t dark:border-gray-700"
+                        className="border-t border-[color:var(--color-border)]"
                       >
                         <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                           {groupedPlaylists[group.id]?.length === 0 ? (
-                            <p className="col-span-full text-sm text-default-500 py-4 text-center">
+                            <p className="col-span-full text-sm text-[color:var(--color-text-muted)] py-4 text-center">
                               {t('playlist.emptyGroup', 'Перетащите плейлист сюда')}
                             </p>
                           ) : (
@@ -1179,25 +1179,25 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
               ))}
 
               {/* Ungrouped playlists */}
-              <DroppableGroup id="ungrouped" className="border rounded-xl overflow-hidden dark:border-gray-700">
+              <DroppableGroup id="ungrouped" className="rounded-xl overflow-hidden bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)]">
                 <button
                   onClick={() => toggleGroup('ungrouped')}
-                  className="w-full flex items-center justify-between p-3 hover:bg-default-100 transition-colors"
+                  className="w-full flex items-center justify-between p-3 hover:bg-[color:var(--color-surface-muted)] transition-colors"
                   title={t('playlist.toggleGroup', 'Свернуть/развернуть группу')}
                 >
                   <div className="flex items-center gap-3">
                     {expandedGroups.has('ungrouped') ? (
-                      <FolderOpen className="w-5 h-5 text-default-400" />
+                      <FolderOpen className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                     ) : (
-                      <Folder className="w-5 h-5 text-default-400" />
+                      <Folder className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                     )}
                     <span className="font-medium">{t('playlist.ungrouped', 'Без группы')}</span>
                     <Chip size="sm" variant="flat">{groupedPlaylists.ungrouped.length}</Chip>
                   </div>
                   {expandedGroups.has('ungrouped') ? (
-                    <ChevronDown className="w-5 h-5 text-default-400" />
+                    <ChevronDown className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                   ) : (
-                    <ChevronRight className="w-5 h-5 text-default-400" />
+                    <ChevronRight className="w-5 h-5 text-[color:var(--color-text-muted)]" />
                   )}
                 </button>
 
@@ -1207,11 +1207,11 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="border-t dark:border-gray-700"
+                      className="border-t border-[color:var(--color-border)]"
                     >
                       <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         {groupedPlaylists.ungrouped.length === 0 ? (
-                          <p className="col-span-full text-sm text-default-500 py-4 text-center">
+                          <p className="col-span-full text-sm text-[color:var(--color-text-muted)] py-4 text-center">
                             {t('playlist.emptyGroup', 'Перетащите плейлист сюда')}
                           </p>
                         ) : (
@@ -1227,11 +1227,11 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
               {/* Empty state */}
               {playlists.length === 0 && (
                 <div className="py-12 text-center">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-default-100 flex items-center justify-center">
-                    <Music className="w-8 h-8 text-default-400" />
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] flex items-center justify-center">
+                    <Music className="w-8 h-8 text-[color:var(--color-text-muted)]" />
                   </div>
                   <h3 className="text-lg font-semibold">{t('playlist.empty', 'Плейлист пуст')}</h3>
-                  <p className="text-sm text-default-500 mt-1">{t('playlist.createFirst', 'Создайте первый плейлист')}</p>
+                  <p className="text-sm text-[color:var(--color-text-muted)] mt-1">{t('playlist.createFirst', 'Создайте первый плейлист')}</p>
                 </div>
               )}
             </div>
@@ -1241,7 +1241,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
         <DragOverlay>
           {activePlaylist ? (
             <div className="opacity-80 rotate-3 scale-105 cursor-grabbing">
-              <Card className="w-64 shadow-xl ring-2 ring-primary">
+              <div className="w-64 rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-xl shadow-black/10">
                 <CardBody className="p-3 flex items-center gap-3">
                   <div
                     className="p-2 rounded-lg"
@@ -1254,10 +1254,10 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
                   </div>
                   <div>
                     <h3 className="font-semibold text-sm line-clamp-1">{activePlaylist.name}</h3>
-                    <p className="text-xs text-default-500">{activePlaylist.items_count} треков</p>
+                    <p className="text-xs text-[color:var(--color-text-muted)]">{activePlaylist.items_count} треков</p>
                   </div>
                 </CardBody>
-              </Card>
+              </div>
             </div>
           ) : null}
         </DragOverlay>
