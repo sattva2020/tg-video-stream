@@ -160,7 +160,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   // Loading skeleton
   if (loading && !status) {
     return (
-      <Card className="w-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+      <Card className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-[color:var(--color-border)]/60">
         <CardBody className="gap-4 p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -200,7 +200,7 @@ export const StreamStatusCard: React.FC<StreamStatusCardProps> = ({
   }
 
   return (
-    <Card className="w-full rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+    <Card className="w-full rounded-3xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-[color:var(--color-border)]/60">
       <CardBody className="gap-4 p-4 sm:p-5">
         {/* Header with status */}
         <div className="flex items-center justify-between">
