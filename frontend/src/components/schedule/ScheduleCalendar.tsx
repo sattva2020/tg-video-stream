@@ -421,7 +421,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-[color:var(--color-border)]">
-          {WEEKDAYS.map((day, i) => (
+          {WEEKDAYS.map((day) => (
             <div 
               key={day} 
               className={`
