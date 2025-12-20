@@ -117,7 +117,7 @@ export default function SchedulePage() {
                 <Skeleton className="w-48 h-10 rounded-lg" />
               ) : channels.length > 0 ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[color:var(--color-text-muted)] whitespace-nowrap">
+                  <span className="text-sm font-medium text-[color:var(--color-text)] whitespace-nowrap">
                     {t('schedule.channel', 'Канал')}:
                   </span>
                   <Select
@@ -127,7 +127,9 @@ export default function SchedulePage() {
                     onChange={(e) => setSelectedChannelId(e.target.value)}
                     className="w-40"
                     classNames={{
+                      trigger: "text-foreground",
                       value: "text-foreground",
+                      selectorIcon: "text-foreground",
                     }}
                     popoverProps={{
                       classNames: {
@@ -154,6 +156,7 @@ export default function SchedulePage() {
                   <DropdownTrigger>
                     <Button
                       variant="flat"
+                      className="text-foreground"
                       startContent={<Copy className="w-4 h-4" />}
                       endContent={<ChevronDown className="w-4 h-4" />}
                     >
@@ -181,6 +184,7 @@ export default function SchedulePage() {
                 <Tooltip content={t('schedule.copySchedule', 'Копировать расписание')}>
                   <Button
                     variant="flat"
+                    className="text-foreground"
                     isIconOnly
                     onPress={() => setIsCopyModalOpen(true)}
                   >

@@ -387,6 +387,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           isIconOnly
           size="sm"
           variant="flat"
+          className="text-foreground"
           onPress={goToPrevMonth}
           aria-label={t('schedule.prevMonth', 'Предыдущий месяц')}
         >
@@ -400,6 +401,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           <Button
             size="sm"
             variant="flat"
+            className="text-foreground"
             onPress={goToToday}
           >
             {t('schedule.today', 'Сегодня')}
@@ -410,6 +412,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           isIconOnly
           size="sm"
           variant="flat"
+          className="text-foreground"
           onPress={goToNextMonth}
           aria-label={t('schedule.nextMonth', 'Следующий месяц')}
         >
