@@ -159,6 +159,8 @@ telegram/
 
 - [docs/README.md](../docs/README.md) — документация
 - [docs/bugfixes/](../docs/bugfixes/) — история исправлений багов
+- [docs/bugfixes/FRONTEND_STREAM_STATUS_CARD_OUTLINE_FIX.md](../docs/bugfixes/FRONTEND_STREAM_STATUS_CARD_OUTLINE_FIX.md) — Dashboard V2: обводка карточки «Статус трансляции» в тёмной теме
+- [docs/bugfixes/FRONTEND_STREAM_QUALITY_CARD_OUTLINE_FIX.md](../docs/bugfixes/FRONTEND_STREAM_QUALITY_CARD_OUTLINE_FIX.md) — Dashboard V2: обводка карточки «Качество текущего трека» в тёмной теме
 - [docs/bugfixes/FRONTEND_SCHEDULE_DARK_THEME_CONTROLS_COLOR_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_DARK_THEME_CONTROLS_COLOR_FIX.md) — /schedule: контраст элементов управления в тёмной теме
 - [docs/bugfixes/FRONTEND_SCHEDULE_DASHBOARD_V2_COLORED_CARDS_PARITY_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_DASHBOARD_V2_COLORED_CARDS_PARITY_FIX.md) — /schedule: паритет «цветных» карточек с Dashboard V2
 - [docs/bugfixes/FRONTEND_SCHEDULE_PILLS_AND_FLAT_CONTROLS_CONTRAST_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_PILLS_AND_FLAT_CONTROLS_CONTRAST_FIX.md) — /schedule: вкладки-пиллы + контраст flat-кнопок (календарь и модалки)
@@ -168,4 +170,4 @@ telegram/
 
 ---
 
-*Последнее обновление: 2025-12-20 (добавлен багфикс для /schedule: вкладки-пиллы + контраст flat-кнопок)*
+*Последнее обновление: 2025-12-20 (обновлены ссылки на багфиксы Dashboard V2: обводка карточек)*
