@@ -15,6 +15,7 @@ import { CalendarDays, List, Copy, ChevronDown, Plus, RefreshCw } from 'lucide-r
 
 import { ResponsiveHeader } from '@/components/layout';
 import { ScheduleCalendar, PlaylistManager, SlotEditorModal, CopyScheduleModal } from '@/components/schedule';
+import { StatCard } from '@/components/dashboard/StatCard';
 import { useScheduleTemplates, useApplyTemplate, usePlaylists } from '@/hooks/useScheduleQuery';
 import { useChannels } from '@/hooks/useChannelsQuery';
 import type { ScheduleSlot, ScheduleTemplate } from '@/api/schedule';
@@ -102,13 +103,18 @@ export default function SchedulePage() {
           className="mb-6"
         >
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-[color:var(--color-text)]">
-                {t('schedule.title', 'Расписание трансляций')}
-              </h1>
-              <p className="text-[color:var(--color-text-muted)] mt-1">
-                {t('schedule.subtitle', 'Управление расписанием и плейлистами')}
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/25">
+                <CalendarDays className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-[color:var(--color-text)]">
+                  {t('schedule.title', 'Расписание трансляций')}
+                </h1>
+                <p className="text-[color:var(--color-text-muted)] mt-1">
+                  {t('schedule.subtitle', 'Управление расписанием и плейлистами')}
+                </p>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -214,69 +220,30 @@ export default function SchedulePage() {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6"
         >
-          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-            <Card className="bg-transparent shadow-none border-none">
-              <div className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
-                  <CalendarDays className="w-5 h-5 text-[color:var(--color-accent)]" />
-                </div>
-                <div>
-                  <p className="text-xs text-[color:var(--color-text-muted)]">
-                    {t('schedule.todaySlots', 'Слотов сегодня')}
-                  </p>
-                  <p className="text-xl font-bold text-[color:var(--color-text)]">12</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-            <Card className="bg-transparent shadow-none border-none">
-              <div className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
-                  <List className="w-5 h-5 text-[color:var(--color-accent)]" />
-                </div>
-                <div>
-                  <p className="text-xs text-[color:var(--color-text-muted)]">
-                    {t('schedule.playlists', 'Плейлистов')}
-                  </p>
-                  <p className="text-xl font-bold text-[color:var(--color-text)]">{playlists.length}</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-            <Card className="bg-transparent shadow-none border-none">
-              <div className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
-                  <Copy className="w-5 h-5 text-[color:var(--color-accent)]" />
-                </div>
-                <div>
-                  <p className="text-xs text-[color:var(--color-text-muted)]">
-                    {t('schedule.templates', 'Шаблонов')}
-                  </p>
-                  <p className="text-xl font-bold text-[color:var(--color-text)]">{templates.length}</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5">
-            <Card className="bg-transparent shadow-none border-none">
-              <div className="p-4 flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-[color:var(--color-surface)] border border-[color:var(--color-border)]">
-                  <RefreshCw className="w-5 h-5 text-[color:var(--color-accent)]" />
-                </div>
-                <div>
-                  <p className="text-xs text-[color:var(--color-text-muted)]">
-                    {t('schedule.weekSlots', 'Слотов на неделю')}
-                  </p>
-                  <p className="text-xl font-bold text-[color:var(--color-text)]">84</p>
-                </div>
-              </div>
-            </Card>
-          </div>
+          <StatCard
+            title={t('schedule.todaySlots', 'Слотов сегодня')}
+            value={12}
+            icon={CalendarDays}
+            color="violet"
+          />
+          <StatCard
+            title={t('schedule.playlists', 'Плейлистов')}
+            value={playlists.length}
+            icon={List}
+            color="blue"
+          />
+          <StatCard
+            title={t('schedule.templates', 'Шаблонов')}
+            value={templates.length}
+            icon={Copy}
+            color="amber"
+          />
+          <StatCard
+            title={t('schedule.weekSlots', 'Слотов на неделю')}
+            value={84}
+            icon={RefreshCw}
+            color="emerald"
+          />
         </motion.div>
 
         {/* Tabs */}

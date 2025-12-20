@@ -160,10 +160,11 @@ telegram/
 - [docs/README.md](../docs/README.md) — документация
 - [docs/bugfixes/](../docs/bugfixes/) — история исправлений багов
 - [docs/bugfixes/FRONTEND_SCHEDULE_DARK_THEME_CONTROLS_COLOR_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_DARK_THEME_CONTROLS_COLOR_FIX.md) — /schedule: контраст элементов управления в тёмной теме
+- [docs/bugfixes/FRONTEND_SCHEDULE_DASHBOARD_V2_COLORED_CARDS_PARITY_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_DASHBOARD_V2_COLORED_CARDS_PARITY_FIX.md) — /schedule: паритет «цветных» карточек с Dashboard V2
 - [ai-instructions/BUGFIX_DOCUMENTATION_RULES.md](BUGFIX_DOCUMENTATION_RULES.md) — **ПРАВИЛА документирования багфиксов**
 - [OUTSTANDING_TASKS_REPORT.md](../OUTSTANDING_TASKS_REPORT.md) — текущие задачи
 - [specs/012-project-improvements/](../specs/012-project-improvements/) — план улучшений
 
 ---
 
-*Последнее обновление: 2025-12-20 (обновлены bugfix docs для /schedule: контраст элементов управления)*
+*Последнее обновление: 2025-12-20 (обновлены bugfix docs для /schedule: паритет цветных карточек с Dashboard V2)*
