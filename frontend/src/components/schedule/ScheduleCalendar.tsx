@@ -184,12 +184,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
       onClick={onClick}
       className={`
         relative min-h-[120px] p-2 rounded-xl cursor-pointer
-        bg-[color:var(--color-surface-muted)]
+        bg-[color:var(--color-panel)]
         border border-[color:var(--color-border)]
         transition-all duration-150 group hover:scale-[1.01]
         hover:bg-[color:var(--color-surface-hover)]
-        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)] bg-[color:var(--color-panel)]' : ''}
-        ${isToday ? 'border-[color:var(--color-accent)]' : ''}
+        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)]' : ''}
+        ${isToday && !isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)] ring-opacity-25' : ''}
         ${day.has_conflicts ? 'border-amber-500/50' : ''}
       `}
     >
@@ -344,7 +344,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const todayStr = new Date().toISOString().split('T')[0];
 
   const flatControlClassName =
-    'text-foreground bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
+    'text-foreground bg-[color:var(--color-panel)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
 
   return (
     <div className="space-y-4">
@@ -427,7 +427,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
       </div>
 
       {/* Calendar Grid */}
-      <div className="rounded-xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
+      <div className="rounded-xl bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] shadow-md shadow-black/5 overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 bg-[color:var(--color-surface-muted)]">
           {WEEKDAYS.map((day) => (
