@@ -52,7 +52,7 @@ TailwindCSS не генерировал в production нужную утилит�
 ## 🚀 Статус
 
 - [x] Исправление реализовано
-- [ ] Задеплоено на VPS
+- [x] Задеплоено на VPS
 - [ ] Протестировано на VPS
 
 ## Примечание для прод-диагностики
@@ -61,3 +61,8 @@ TailwindCSS не генерировал в production нужную утилит�
 
 - Канонический runtime и web-root nginx: `/opt/tg_video_streamer/current/frontend/dist`.
 - Что браузер действительно загрузил новый `index-*.css`/`index-*.js` (и не держит старый кэш).
+
+Техническая проверка деплоя (факт):
+
+- Прод отдаёт актуальные Vite ассеты: `/assets/index-DoB3iW1Y.js`, `/assets/index-DmXvRX0I.css`.
+- В продовом CSS присутствует селектор `ring-\[color\:var\(--color-border\)\]` (значит `ring-[color:var(--color-border)]` реально сгенерирован).
