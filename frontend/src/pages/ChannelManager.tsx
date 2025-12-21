@@ -189,7 +189,7 @@ const ChannelManager: React.FC = () => {
             </button>
             <button
               onClick={openCreateModal}
-              className="bg-[color:var(--color-accent)] hover:opacity-90 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-opacity text-sm sm:text-base"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm sm:text-base"
             >
               <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               {t('channels.addChannel', 'Add Channel')}

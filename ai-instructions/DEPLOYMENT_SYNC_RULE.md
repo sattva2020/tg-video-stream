@@ -219,3 +219,62 @@ docker compose --profile docker-streamer up -d streamer
 **Дата добавления правила**: 1 декабря 2025  
 **Причина**: AI-агент случайно включил Docker backend, что привело к конфликту с systemd сервисом на порту 8000.
 
+---
+
+## 🌐 ВАЖНО: Frontend деплой — внешний nginx!
+
+### Проблема
+
+Docker контейнер `sattva-streamer-frontend-1` имеет свой nginx, но **внешний nginx** обслуживает файлы из **другой директории**.
+
+### Конфигурация внешнего nginx
+
+Файл: `/etc/nginx/sites-enabled/sattva-streamer` (или `/etc/nginx/conf.d/*.conf`)
+
+```nginx
+root /opt/tg_video_streamer/current/frontend/dist;
+```
+
+### ✅ Правильный деплой frontend
+
+```bash
+# 1. Билд в Docker контейнере
+cd /opt/sattva-streamer
+docker compose build frontend
+
+# 2. Перезапуск контейнера (обновит файлы внутри)
+docker compose up -d frontend
+
+# 3. КРИТИЧНО: Копирование в директорию внешнего nginx!
+docker cp sattva-streamer-frontend-1:/usr/share/nginx/html/. /opt/tg_video_streamer/current/frontend/dist/
+
+# 4. Перезагрузка nginx
+nginx -s reload
+```
+
+### ❌ Ошибка (так делать НЕЛЬЗЯ!)
+
+```bash
+# Это обновит только Docker контейнер, а внешний nginx продолжит
+# раздавать старые файлы из /opt/tg_video_streamer/current/frontend/dist/
+docker compose build frontend
+docker compose up -d frontend
+# БЕЗ docker cp ← ОШИБКА!
+```
+
+### Скрипт для быстрого деплоя
+
+```bash
+#!/bin/bash
+# /opt/sattva-streamer/deploy-frontend.sh
+cd /opt/sattva-streamer
+docker compose build frontend
+docker compose up -d frontend
+docker cp sattva-streamer-frontend-1:/usr/share/nginx/html/. /opt/tg_video_streamer/current/frontend/dist/
+nginx -s reload
+echo "✅ Frontend deployed!"
+```
+
+**Дата добавления**: 21 декабря 2025  
+**Причина**: AI-агент обновлял Docker контейнер, но изменения не появлялись на сайте, т.к. внешний nginx обслуживает `/opt/tg_video_streamer/current/frontend/dist/`.
+
