@@ -24,6 +24,8 @@
 
 Смысл: `index.html` должен **никогда** не сохраняться, а `/assets/` остаётся `immutable` (это безопасно, т.к. ассеты хэшированы).
 
+Важно: чтобы `immutable` гарантированно доходил до клиента даже через внешние прокси/CDN, для `/assets/` используется **один** заголовок `Cache-Control` (без директивы `expires`, которая может создавать дублирующий `Cache-Control: max-age=...`).
+
 ## 📁 Изменённые файлы
 - [config/nginx/sattva-streamer](../../config/nginx/sattva-streamer) — добавлен `location = /index.html` с `no-store`, убран слабый `no-cache` из SPA fallback.
 - [config/nginx/sattva-streamer.conf](../../config/nginx/sattva-streamer.conf) — синхронизация правил для proxy-режима (точечный `location = /index.html` + перестраховка в `/`).

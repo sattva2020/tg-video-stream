@@ -49,15 +49,14 @@ server {
     # Static assets
     location /assets/ {
         try_files $uri =404;
-        expires 1d;
-        add_header Cache-Control "public, immutable";
+        # Избегаем дублирования Cache-Control (через директиву expires), чтобы внешние прокси не теряли immutable.
+        add_header Cache-Control "public, max-age=86400, immutable" always;
     }
 
     # Images
     location /img/ {
         try_files $uri =404;
-        expires 7d;
-        add_header Cache-Control "public";
+        add_header Cache-Control "public, max-age=604800" always;
     }
 
     # Frontend - SPA fallback
