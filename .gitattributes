@@ -1,0 +1,15 @@
+# Нормализация переводов строк для кроссплатформенной работы.
+# Цель: гарантировать, что shell-скрипты исполняются на Linux (LF),
+# даже если разработка ведётся на Windows.
+
+* text=auto
+
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Конфиги и dotenv-файлы лучше хранить с LF.
+*.conf text eol=lf
+*.ini text eol=lf
+*.env text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
