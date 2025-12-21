@@ -212,12 +212,15 @@ const CalendarDayCell: React.FC<DayProps> = ({
         {/* Conflict indicator */}
         {day.has_conflicts && (
           <Tooltip 
-            content="Есть пересечения слотов"
-            classNames={{
-              content: "bg-amber-500 text-black font-medium px-3 py-2 shadow-lg",
-            }}
+            content={
+              <span className="text-black font-medium">
+                ⚠️ Есть пересечения слотов
+              </span>
+            }
+            color="warning"
+            placement="top"
           >
-            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <AlertCircle className="w-4 h-4 text-amber-500 cursor-help" />
           </Tooltip>
         )}
         
