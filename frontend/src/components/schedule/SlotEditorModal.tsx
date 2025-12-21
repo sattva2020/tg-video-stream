@@ -492,14 +492,21 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   aria-labelledby={playlistLabelId}
                   placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
                   classNames={{
-                    trigger: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)] text-[color:var(--color-text)]',
-                    value: 'text-[color:var(--color-text)]',
+                    trigger: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)]',
+                    value: 'text-[color:var(--color-text)] !opacity-100',
                     selectorIcon: 'text-[color:var(--color-text-muted)]',
+                    listboxWrapper: 'bg-[color:var(--color-surface)]',
+                    popoverContent: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)]',
                   }}
                   selectedKeys={formData.playlist_id ? new Set([formData.playlist_id]) : new Set()}
                   onSelectionChange={(keys) => {
                     const selected = Array.from(keys)[0] as string;
                     handleChange('playlist_id', selected || '');
+                  }}
+                  listboxProps={{
+                    itemClasses: {
+                      base: 'text-[color:var(--color-text)] data-[hover=true]:bg-[color:var(--color-surface-hover)]',
+                    },
                   }}
                   popoverProps={{
                     classNames: {
