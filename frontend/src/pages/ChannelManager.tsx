@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2 } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
@@ -270,6 +270,16 @@ const ChannelManager: React.FC = () => {
                   </div>
                   
                   <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-[color:var(--color-text-muted)] mb-4 sm:mb-6">
+                    <div className="flex justify-between">
+                      <span>{t('channels.streamType', 'Type')}:</span>
+                      <span className="font-medium text-[color:var(--color-text)] flex items-center gap-1.5">
+                        {channel.stream_type === 'audio' ? (
+                          <><Music className="w-4 h-4 text-violet-500" /> Audio</>
+                        ) : (
+                          <><Video className="w-4 h-4 text-blue-500" /> Video</>
+                        )}
+                      </span>
+                    </div>
                     <div className="flex justify-between">
                       <span>{t('channels.quality', 'Quality')}:</span>
                       <span className="font-medium text-[color:var(--color-text)]">{channel.video_quality}</span>
