@@ -40,5 +40,5 @@
 
 ## 🚀 Статус
 - [x] Исправление реализовано в репозитории
-- [ ] Применено на VPS (требуется `nginx -t && systemctl reload nginx`)
-- [ ] Протестировано на VPS
+- [x] Применено на VPS (`nginx -t && systemctl reload nginx`)
+- [x] Протестировано на VPS (`BASE_URL=https://sattva-streamer.top ./tests/smoke/test_frontend_cache_headers.sh`)
