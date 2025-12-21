@@ -19,7 +19,7 @@
 
 ## ✅ Решение
 Усилены anti-cache заголовки для SPA shell:
-- для `/index.html` выставлен строгий режим: `no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` + `Pragma: no-cache` + `expires -1`;
+- для `/index.html` выставлен строгий режим: `no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0` + `Pragma: no-cache` + `Expires: 0`;
 - для `/` (proxy-вариант) добавлена перестраховка теми же заголовками.
 
 Смысл: `index.html` должен **никогда** не сохраняться, а `/assets/` остаётся `immutable` (это безопасно, т.к. ассеты хэшированы).
