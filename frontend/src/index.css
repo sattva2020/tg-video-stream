@@ -164,6 +164,13 @@
     color: var(--color-surface);
   }
 
+  /* Fix HeroUI Select text visibility in dark theme */
+  [data-slot="value"],
+  [data-slot="innerWrapper"] {
+    opacity: 1 !important;
+    color: var(--color-text) !important;
+  }
+
   .glass-morphism {
     background: var(--color-panel);
     -webkit-backdrop-filter: blur(10px);
