@@ -493,7 +493,8 @@ export const SlotEditorModal: React.FC<SlotEditorModalProps> = ({
                   placeholder={t('schedule.selectPlaylist', 'Выберите плейлист')}
                   classNames={{
                     trigger: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)]',
-                    value: 'text-[color:var(--color-text)] !opacity-100',
+                    value: '!text-[color:var(--color-text)] !opacity-100',
+                    innerWrapper: '!opacity-100',
                     selectorIcon: 'text-[color:var(--color-text-muted)]',
                     listboxWrapper: 'bg-[color:var(--color-surface)]',
                     popoverContent: 'bg-[color:var(--color-surface)] border border-[color:var(--color-border)]',
