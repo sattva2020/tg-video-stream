@@ -61,8 +61,14 @@ server {
     }
 
     # Frontend - SPA fallback
+    location = /index.html {
+        # Критично: index.html не должен кэшироваться, иначе браузер может держать старые ссылки на ассеты.
+        add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        expires -1;
+    }
+
     location / {
         try_files $uri $uri/ /index.html;
-        add_header Cache-Control "no-cache" always;
     }
 }

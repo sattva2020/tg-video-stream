@@ -155,6 +155,15 @@
 
 ---
 
+### Infrastructure (декабрь 2025)
+
+#### [NGINX_INDEX_HTML_NO_STORE_CACHE_FIX.md](NGINX_INDEX_HTML_NO_STORE_CACHE_FIX.md)
+**Дата:** 21 декабря 2025  
+**Статус:** ✅ Исправлено (в репозитории), ⏳ ожидает применения на VPS  
+**Проблема:** Браузер мог держать старый `index.html`, из-за чего UI выглядел как «до релиза».
+
+---
+
 ## 📊 Статистика
 
 | Компонент | Исправлений | Последнее обновление |
@@ -163,7 +172,8 @@
 | Database | 1 | 12.12.2025 |
 | Playlist Manager | 1 | 12.12.2025 |
 | Frontend | 10 | 20.12.2025 |
-| **Всего** | **17** | **20.12.2025** |
+| Infrastructure | 1 | 21.12.2025 |
+| **Всего** | **18** | **21.12.2025** |
 
 ### Критичность исправлений:
 
@@ -171,7 +181,7 @@
 |-----------|------------|------------|
 | 🔴 КРИТИЧНЫЙ | 3 | Telegram Auth (2FA Security, Reconnect, Code Reuse) |
 | 🟡 ВЫСОКИЙ | 2 | Telegram Auth (Code Expiration x2) |
-| 🟢 СРЕДНИЙ | 4 | Database, Playlist Manager, Frontend |
+| 🟢 СРЕДНИЙ | 5 | Database, Playlist Manager, Frontend, Infrastructure |
 
 ## 🔍 Поиск исправления
 
