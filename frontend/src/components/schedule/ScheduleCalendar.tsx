@@ -91,6 +91,13 @@ function getSlotDuration(startTime: string, endTime: string): number {
   return (end.hours * 60 + end.minutes) - (start.hours * 60 + start.minutes);
 }
 
+function formatLocalDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // ==================== Sub-Components ====================
 
 const SlotBadge: React.FC<{ 
@@ -173,7 +180,7 @@ const CalendarDayCell: React.FC<DayProps> = ({
   onSlotClick,
   onAddClick,
 }) => {
-  const dayNum = new Date(day.date).getDate();
+  const dayNum = Number(day.date.split('-')[2]);
   const slots = day.slots || [];
   const hasSlots = slots.length > 0;
   const maxVisibleSlots = 2;
@@ -185,12 +192,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
       className={`
         relative min-h-[120px] p-2 rounded-xl cursor-pointer
         bg-[color:var(--color-panel)]
-        border border-[color:var(--color-border)]
+        ring-1 ring-inset ring-[color:var(--color-outline)]
         transition-all duration-150 group hover:scale-[1.01]
         hover:bg-[color:var(--color-surface-hover)]
-        ${isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)]' : ''}
-        ${isToday && !isSelected ? 'ring-1 ring-inset ring-[color:var(--color-accent)] ring-opacity-25' : ''}
-        ${day.has_conflicts ? 'border-amber-500/50' : ''}
+        ${isSelected ? 'ring-2 ring-inset ring-[color:var(--color-accent)]' : ''}
+        ${isToday && !isSelected ? "after:content-[''] after:absolute after:inset-0 after:rounded-xl after:border after:border-[color:var(--color-accent)] after:opacity-30 after:pointer-events-none" : ''}
+        ${day.has_conflicts && !isSelected ? 'ring-amber-500/40' : ''}
       `}
     >
       {/* Day number */}
@@ -271,7 +278,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // По умолчанию выбираем текущий день
   const [selectedDate, setSelectedDate] = useState<string | null>(() => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    return formatLocalDate(today);
   });
 
   // Data
@@ -306,7 +313,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     const now = new Date();
     setCurrentYear(now.getFullYear());
     setCurrentMonth(now.getMonth());
-    setSelectedDate(now.toISOString().split('T')[0]);
+    setSelectedDate(formatLocalDate(now));
   }, []);
 
   // Build calendar grid
@@ -341,7 +348,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     return grid;
   }, [currentYear, currentMonth, calendarData]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate(new Date());
 
   const flatControlClassName =
     'text-foreground bg-[color:var(--color-panel)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
