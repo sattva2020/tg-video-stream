@@ -211,7 +211,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
         
         {/* Conflict indicator */}
         {day.has_conflicts && (
-          <Tooltip content="Есть пересечения слотов">
+          <Tooltip 
+            content="Есть пересечения слотов"
+            classNames={{
+              content: "bg-amber-500 text-black font-medium px-3 py-2 shadow-lg",
+            }}
+          >
             <AlertCircle className="w-4 h-4 text-amber-500" />
           </Tooltip>
         )}
