@@ -191,12 +191,12 @@ const CalendarDayCell: React.FC<DayProps> = ({
       onClick={onClick}
       className={`
         relative min-h-[120px] p-2 rounded-xl cursor-pointer
-        bg-[color:var(--color-panel)]
+        bg-[color:var(--color-surface-muted)] dark:bg-[#1e1814]
         ring-1 ring-inset ring-[color:var(--color-outline)]
         transition-all duration-150 group hover:scale-[1.01]
-        hover:bg-[color:var(--color-surface-hover)]
-        ${isSelected ? 'ring-2 ring-inset ring-[color:var(--color-accent)]' : ''}
-        ${isToday && !isSelected ? "after:content-[''] after:absolute after:inset-0 after:rounded-xl after:border after:border-[color:var(--color-accent)] after:opacity-30 after:pointer-events-none" : ''}
+        hover:bg-[color:var(--color-panel)]
+        ${isSelected ? 'ring-2 ring-inset ring-[color:var(--color-accent)] bg-[color:var(--color-panel)]' : ''}
+        ${isToday && !isSelected ? 'today-ring' : ''}
         ${day.has_conflicts && !isSelected ? 'ring-amber-500/40' : ''}
       `}
     >
@@ -204,7 +204,7 @@ const CalendarDayCell: React.FC<DayProps> = ({
       <div className="flex items-center justify-between mb-2">
         <span className={`
           text-sm font-semibold
-          ${isToday ? 'text-[color:var(--color-accent)]' : 'text-[color:var(--color-text)]'}
+          ${isToday ? 'text-violet-500' : 'text-[color:var(--color-text)]'}
         `}>
           {dayNum}
         </span>
@@ -351,7 +351,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   const todayStr = formatLocalDate(new Date());
 
   const flatControlClassName =
-    'text-foreground bg-[color:var(--color-panel)] border border-[color:var(--color-border)] hover:bg-[color:var(--color-surface-hover)] hover:border-[color:var(--color-border-strong)] transition-colors';
+    'text-[color:var(--color-text)] bg-[color:var(--color-surface-muted)] border border-[color:var(--color-outline)] hover:bg-[color:var(--color-panel)] hover:border-[color:var(--color-accent)] transition-colors';
 
   return (
     <div className="space-y-4">

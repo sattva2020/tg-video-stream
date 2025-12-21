@@ -358,12 +358,6 @@ async def get_calendar_view(
         ScheduleSlot.is_active == True
     ).order_by(ScheduleSlot.start_time).all()
     
-    import sys
-    sys.stderr.write(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots\n")
-    sys.stderr.flush()
-    print(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots", flush=True)
-    logger.info(f"[CALENDAR DEBUG] Fetching for channel {channel_id}, {year}-{month}: found {len(slots)} active slots")
-    
     # Формируем ответ для всех дней месяца
     result = []
     current_day = first_day
@@ -452,17 +446,6 @@ async def get_calendar_view(
             has_conflicts=has_conflicts
         ))
         current_day += timedelta(days=1)
-    
-    import sys
-    total_slots_count = sum(len(d.slots) for d in result)
-    sys.stderr.write(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots: {total_slots_count}\n")
-    sys.stderr.flush()
-    print(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}", flush=True)
-    logger.info(f"[CALENDAR DEBUG] Returning {len(result)} days, total slots across all days: {total_slots_count}")
-    
-    # TEMPORARY DEBUG: Force error to see values (check channel_id type)
-    debug_msg = f"DEBUG: channel_id={channel_id} (type={type(channel_id)}), Found {len(slots)} total slots, returning {len(result)} days with {total_slots_count} total slots"
-    raise HTTPException(status_code=500, detail=debug_msg)
     
     return result
 

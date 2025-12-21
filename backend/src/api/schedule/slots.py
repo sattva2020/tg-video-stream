@@ -27,6 +27,7 @@ from .schemas import (
     ScheduleSlotUpdate,
     ScheduleSlotResponse,
     CalendarViewResponse,
+    CalendarSlotInfo,
     BulkCopyRequest,
 )
 from .utils import parse_time, format_time, check_slot_overlap
@@ -94,7 +95,7 @@ async def get_calendar_view(
     """
     Получить календарный вид расписания для месяца.
     
-    Возвращает список дней с количеством слотов и признаком конфликтов.
+    Возвращает список дней со слотами и признаком конфликтов.
     """
     from calendar import monthrange
     
@@ -109,6 +110,13 @@ async def get_calendar_view(
         ScheduleSlot.is_active == True
     ).all()
     
+    # Получаем названия плейлистов
+    playlist_ids = {slot.playlist_id for slot in slots if slot.playlist_id}
+    playlist_names = {}
+    if playlist_ids:
+        playlists = db.query(Playlist).filter(Playlist.id.in_(playlist_ids)).all()
+        playlist_names = {p.id: p.name for p in playlists}
+    
     # Группировка по дням
     days_data = {}
     for d in range(1, days_in_month + 1):
@@ -117,24 +125,33 @@ async def get_calendar_view(
     
     for slot in slots:
         if slot.start_date in days_data:
-            days_data[slot.start_date]["slots"].append(slot)
+            slot_info = CalendarSlotInfo(
+                id=str(slot.id),
+                start_time=format_time(slot.start_time),
+                end_time=format_time(slot.end_time),
+                title=slot.title,
+                playlist_id=str(slot.playlist_id) if slot.playlist_id else None,
+                playlist_name=playlist_names.get(slot.playlist_id),
+                color=slot.color
+            )
+            days_data[slot.start_date]["slots"].append(slot_info)
     
-    # Проверка конфликтов
-    for day_date, data in days_data.items():
-        day_slots = data["slots"]
-        for i, slot1 in enumerate(day_slots):
-            for slot2 in day_slots[i + 1:]:
-                # Проверяем пересечение времени
-                if not (slot1.end_time <= slot2.start_time or slot2.end_time <= slot1.start_time):
-                    data["has_conflict"] = True
+    # Проверка конфликтов (используем оригинальные слоты для сравнения времени)
+    for slot in slots:
+        if slot.start_date in days_data:
+            day_slots = [s for s in slots if s.start_date == slot.start_date]
+            for i, slot1 in enumerate(day_slots):
+                for slot2 in day_slots[i + 1:]:
+                    if not (slot1.end_time <= slot2.start_time or slot2.end_time <= slot1.start_time):
+                        days_data[slot.start_date]["has_conflict"] = True
+                        break
+                if days_data[slot.start_date]["has_conflict"]:
                     break
-            if data["has_conflict"]:
-                break
     
     return [
         CalendarViewResponse(
             date=day_date,
-            slots_count=len(data["slots"]),
+            slots=data["slots"],
             has_conflicts=data["has_conflict"]
         )
         for day_date, data in sorted(days_data.items())

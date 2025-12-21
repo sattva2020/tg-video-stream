@@ -28,6 +28,7 @@ from src.api.schedule.schemas import (
     BulkCopyRequest,
     ApplyTemplateRequest,
     CalendarViewResponse,
+    CalendarSlotInfo,
 )
 from src.api.schedule.utils import (
     parse_time,
@@ -51,6 +52,7 @@ __all__ = [
     "BulkCopyRequest",
     "ApplyTemplateRequest",
     "CalendarViewResponse",
+    "CalendarSlotInfo",
     # Utils
     "parse_time",
     "format_time",

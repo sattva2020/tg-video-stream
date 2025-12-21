@@ -196,8 +196,19 @@ class ApplyTemplateRequest(BaseModel):
     target_dates: List[date]
 
 
+class CalendarSlotInfo(BaseModel):
+    """Краткая информация о слоте для календаря."""
+    id: str
+    start_time: str
+    end_time: str
+    title: Optional[str] = None
+    playlist_id: Optional[str] = None
+    playlist_name: Optional[str] = None
+    color: str = "#3B82F6"
+
+
 class CalendarViewResponse(BaseModel):
     """Ответ для календарного представления."""
     date: date
-    slots_count: int
+    slots: List[CalendarSlotInfo] = []
     has_conflicts: bool = False
