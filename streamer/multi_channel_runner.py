@@ -36,7 +36,9 @@ log = logging.getLogger("multi_channel_runner")
 # Import Telegram clients
 try:
     from pyrogram import Client
-    from pyrogram.errors import SessionExpired, AuthKeyInvalid
+    from pyrogram.errors import SessionExpired, AuthKeyInvalid, RPCError
+    # Note: 'from pyrogram import raw' removed - not needed anymore
+    # PyTgCalls handles group call creation internally via GroupCallConfig(auto_start=True)
     PYROGRAM_AVAILABLE = True
 except ImportError:
     PYROGRAM_AVAILABLE = False
@@ -47,7 +49,8 @@ try:
     from pytgcalls import filters as fl
     from pytgcalls.types import (
         MediaStream, AudioQuality, VideoQuality, StreamEnded,
-        ChatUpdate, GroupCallParticipant, UpdatedGroupCallParticipant
+        ChatUpdate, GroupCallParticipant, UpdatedGroupCallParticipant,
+        GroupCallConfig  # For auto_start group call creation
     )
     PYTGCALLS_AVAILABLE = True
 except ImportError:
@@ -61,8 +64,46 @@ from multi_channel import MultiChannelManager
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
 stream_ended_events: Dict[int, asyncio.Event] = {}  # chat_id -> Event (signals stream ended)
+play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+
+
+def _env_truthy(name: str, default: bool = True) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return v.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _format_exception(e: BaseException) -> str:
+    msg = str(e).strip()
+    if msg:
+        return f"{type(e).__name__}: {msg}"
+    return type(e).__name__
+
+
+def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
+    """Возвращает короткую подсказку по типовым причинам вылета из видеочата."""
+    name = type(e).__name__
+    text = (str(e) or "").upper()
+
+    # Чаще всего auto_start упирается в админские права.
+    if "ADMIN" in name.upper() or "CHAT_ADMIN_REQUIRED" in text or "ADMIN" in text:
+        return (
+            "Нет прав начинать видеочат. Запустите видеочат вручную админом "
+            "или выдайте аккаунту-стримеру права/роль администратора. "
+            "Как обходной путь: установите TG_CALL_AUTO_START=0 и стартуйте видеочат вручную."
+        )
+
+    # Типичная история при сетевой блокировке звонков.
+    if "CALL" in name.upper() and ("TIMEOUT" in text or "CONNECTION" in text or "NETWORK" in text):
+        return (
+            "Похоже на сетевую проблему Telegram Calls (UDP/VoIP). Проверьте звонки 1-на-1, "
+            "попробуйте другую сеть/моб.интернет или VPN."
+        )
+
+    return None
 
 
 async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
@@ -71,9 +112,21 @@ async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
     
     Called by PyTgCalls when a stream finishes playing.
     Sets the event to signal playback loop to move to next track.
+    
+    IMPORTANT: We ignore StreamEnded events that fire during play() execution,
+    because PyTgCalls can emit a 'stale' StreamEnded from previous state.
     """
     chat_id = update.chat_id
-    log.info(f"StreamEnded event for chat {chat_id}")
+    
+    # Debug: log current state
+    is_playing = play_in_progress.get(chat_id, False)
+    log.info(f"StreamEnded event for chat {chat_id} (play_in_progress={is_playing}, known_chats={list(play_in_progress.keys())})")
+    
+    # Ignore StreamEnded if play() is still executing for this chat
+    # This prevents race condition where StreamEnded fires during play() call
+    if is_playing:
+        log.warning(f"StreamEnded IGNORED for chat {chat_id} - play() still in progress")
+        return
     
     if chat_id in stream_ended_events:
         stream_ended_events[chat_id].set()
@@ -134,6 +187,12 @@ def get_redis_url() -> str:
     if redis_url:
         return redis_url
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
+
+
+# NOTE: ensure_group_call() was removed - PyTgCalls handles this automatically!
+# When calling pytg.play() with GroupCallConfig(auto_start=True) (default),
+# PyTgCalls creates the group call if it doesn't exist.
+# See: pytgcalls/methods/stream/play.py lines 71-76
 
 
 async def start_channel_stream(config: ChannelConfig) -> bool:
@@ -200,6 +259,11 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             await client.stop()
             return False
         
+        # NOTE: We removed manual ensure_group_call() - PyTgCalls handles this automatically!
+        # When calling pytg.play() with GroupCallConfig(auto_start=True) (default),
+        # PyTgCalls will create the group call if it doesn't exist.
+        # This avoids race conditions with PyTgCalls' internal cache.
+        
         # Create PyTgCalls instance
         pytg = PyTgCalls(client)
         
@@ -224,6 +288,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         
         # Create stream ended event for this chat
         stream_ended_events[resolved_chat_id] = asyncio.Event()
+        play_in_progress[resolved_chat_id] = False  # Initialize play flag
         
         # Store channel state with resolved chat_id
         running_channels[channel_id] = {
@@ -289,6 +354,8 @@ async def stop_channel_stream(channel_id: str) -> bool:
             # Remove stream ended event for this chat
             if chat_id in stream_ended_events:
                 del stream_ended_events[chat_id]
+            if chat_id in play_in_progress:
+                del play_in_progress[chat_id]
         
         # Stop PyTgCalls
         if pytg:
@@ -417,9 +484,8 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                         
                         # Join group call and stream
                         try:
-                            # Clear any previous stream ended event
-                            if chat_id in stream_ended_events:
-                                stream_ended_events[chat_id].clear()
+                            # Note: event.clear() moved to AFTER play() succeeds
+                            # to prevent race condition with StreamEnded during play()
                             
                             # Determine audio quality from config
                             audio_quality_map = {
@@ -491,60 +557,91 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             # Check if content is audio-only
                             is_audio_only = stream_url.lower().endswith(('.flac', '.mp3', '.wav', '.ogg', '.m4a', '.aac'))
                             
-                            if stream_type == 'audio':
-                                media_kwargs["video_flags"] = MediaStream.Flags.IGNORE
-                                media = MediaStream(stream_url, **media_kwargs)
-                            else:
-                                # Video mode
-                                if is_audio_only:
-                                    # Audio content in Video mode -> Try to use placeholder
-                                    placeholder_path = None
-                                    
-                                    # 1. Try custom placeholder
-                                    custom_placeholder = getattr(config, 'placeholder_image', None)
-                                    if custom_placeholder:
-                                        # Backend stores as "data/placeholders/..."
-                                        # We need to map it to local path
-                                        # Assuming streamer is in /opt/sattva-streamer/streamer and data is in /opt/sattva-streamer/data
-                                        
-                                        # If path starts with data/, replace with ../data/
-                                        if custom_placeholder.startswith("data/"):
-                                            custom_placeholder = os.path.join("..", custom_placeholder)
-                                        
-                                        custom_path = os.path.abspath(custom_placeholder)
-                                        if os.path.exists(custom_path):
-                                            placeholder_path = custom_path
-                                            log.info(f"Using custom placeholder: {placeholder_path}")
-                                    
-                                    # 2. Fallback to default
-                                    if not placeholder_path:
-                                        placeholder_path = os.path.abspath("assets/placeholder.png")
-                                    
-                                    if os.path.exists(placeholder_path):
-                                        log.info(f"Using placeholder for audio content: {placeholder_path}")
-                                        
-                                        # Add loop and shortest flags to loop image until audio ends
-                                        extra_flags = "-loop 1 -shortest"
-                                        if "ffmpeg_parameters" in media_kwargs:
-                                            media_kwargs["ffmpeg_parameters"] += f" {extra_flags}"
-                                        else:
-                                            media_kwargs["ffmpeg_parameters"] = extra_flags
-                                        
-                                        media_kwargs["video_parameters"] = video_quality
-                                        
-                                        # Use placeholder as video source, stream_url as audio source
-                                        media = MediaStream(placeholder_path, audio_path=stream_url, **media_kwargs)
-                                    else:
-                                        log.warning(f"Placeholder not found at {placeholder_path}, streaming audio only")
-                                        media_kwargs["video_flags"] = MediaStream.Flags.IGNORE
-                                        media = MediaStream(stream_url, **media_kwargs)
+                            if stream_type == 'audio' or is_audio_only:
+                                # Audio file with video placeholder - creates VIDEO CHAT (not voice chat)
+                                # Based on official PyTgCalls example: piped_image_calls
+                                # See: https://github.com/pytgcalls/pytgcalls/blob/master/example/piped_image_calls/
+                                
+                                # Path to placeholder image - try channel-specific first, then default
+                                import os as os_check
+                                channel_placeholder = f"/opt/sattva-streamer/data/placeholder/{channel_id}.png"
+                                default_placeholder = "/opt/sattva-streamer/data/placeholder.png"
+                                
+                                placeholder_path = None
+                                if os_check.path.exists(channel_placeholder):
+                                    placeholder_path = channel_placeholder
+                                elif os_check.path.exists(default_placeholder):
+                                    placeholder_path = default_placeholder
+                                
+                                if placeholder_path:
+                                    # Use placeholder image + audio = VIDEO CHAT
+                                    # Official example uses MINIMAL params - no custom ffmpeg!
+                                    media = MediaStream(
+                                        placeholder_path,
+                                        audio_path=stream_url,
+                                        audio_parameters=audio_quality,
+                                        video_parameters=video_quality,
+                                    )
+                                    log.info(f"Channel {channel_id}: Video chat mode with placeholder '{placeholder_path}' + audio")
                                 else:
-                                    media_kwargs["video_parameters"] = video_quality
-                                    media = MediaStream(stream_url, **media_kwargs)
+                                    # Fallback to audio-only if no placeholder
+                                    media = MediaStream(
+                                        stream_url,
+                                        audio_parameters=audio_quality,
+                                        video_flags=MediaStream.Flags.IGNORE,
+                                    )
+                                    log.warning(f"Channel {channel_id}: No placeholder found, using audio-only mode")
+                            else:
+                                # Video mode - content has video
+                                media_kwargs["video_parameters"] = video_quality
+                                media = MediaStream(stream_url, **media_kwargs)
                             
-                            await pytg.play(chat_id, media)
+                            log.info(f"Channel {channel_id}: Calling pytg.play() with MediaStream('{stream_url}')")
+                            
+                            # PyTgCalls has built-in retry (4 attempts) in connect_call.py
+                            # GroupCallConfig(auto_start=True) tells PyTgCalls to create
+                            # the video chat if it doesn't exist (default behavior)
+                            auto_start = _env_truthy("TG_CALL_AUTO_START", default=True)
+                            if not auto_start:
+                                log.warning(
+                                    "Channel %s: TG_CALL_AUTO_START=0 — авто-создание видеочата отключено; "
+                                    "видеочат должен быть уже запущен в группе",
+                                    channel_id,
+                                )
+                            try:
+                                # Set flag BEFORE play() to ignore any StreamEnded during execution
+                                play_in_progress[chat_id] = True
+                                
+                                await pytg.play(
+                                    chat_id, 
+                                    media, 
+                                    config=GroupCallConfig(auto_start=auto_start)
+                                )
+                                log.info(f"Channel {channel_id}: pytg.play() completed successfully")
+                            except Exception as play_error:
+                                formatted = _format_exception(play_error)
+                                hint = _human_hint_for_telegram_error(play_error)
+                                log.exception(f"Channel {channel_id}: play() failed: {formatted}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                    )
+                                raise play_error
+                            finally:
+                                # Clear flag AFTER play() completes (success or failure)
+                                play_in_progress[chat_id] = False
                         except Exception as e:
-                            log.error(f"Channel {channel_id}: Join call failed: {e}")
+                            formatted = _format_exception(e)
+                            hint = _human_hint_for_telegram_error(e)
+                            log.exception(f"Channel {channel_id}: Join call failed: {formatted}")
+                            if command_handler:
+                                await command_handler.update_status(
+                                    channel_id,
+                                    "error",
+                                    error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                )
                             await asyncio.sleep(5)
                             continue
                         
@@ -556,6 +653,9 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                         try:
                             event = stream_ended_events.get(chat_id)
                             if event:
+                                # CRITICAL: Clear event AFTER play() succeeds, right before waiting
+                                # This prevents race condition where StreamEnded fires during play()
+                                event.clear()
                                 # Wait for StreamEnded event with timeout
                                 await asyncio.wait_for(event.wait(), timeout=max_duration)
                                 log.info(f"Channel {channel_id}: StreamEnded received, moving to next track")
