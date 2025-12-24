@@ -124,6 +124,10 @@ impl TranscodeRequest {
             return Err("source_url is required".to_string());
         }
 
+        // SSRF защита: проверка что URL безопасен
+        super::url_validation::validate_source_url(&self.source_url)
+            .map_err(|e| format!("SSRF protection: {}", e))?;
+
         // Проверка битрейта
         if let Some(bitrate) = self.bitrate {
             if bitrate < 8 || bitrate > 512 {
@@ -299,6 +303,77 @@ mod tests {
         let resp = TranscodeResponse::new(Uuid::new_v4(), "audio/ogg");
         assert_eq!(resp.content_type, "audio/ogg");
         assert_eq!(resp.status, TranscodeStatus::Processing);
+    }
+
+    // SSRF Protection Tests
+
+    #[test]
+    fn test_ssrf_file_scheme_blocked() {
+        let mut req = valid_request();
+        req.source_url = "file:///etc/passwd".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("SSRF protection"));
+        assert!(result.unwrap_err().contains("Forbidden URL scheme"));
+    }
+
+    #[test]
+    fn test_ssrf_localhost_blocked() {
+        let mut req = valid_request();
+        req.source_url = "http://localhost:8080/audio.mp3".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("localhost"));
+    }
+
+    #[test]
+    fn test_ssrf_127_0_0_1_blocked() {
+        let mut req = valid_request();
+        req.source_url = "http://127.0.0.1/audio.mp3".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("localhost"));
+    }
+
+    #[test]
+    fn test_ssrf_private_ip_10_blocked() {
+        let mut req = valid_request();
+        req.source_url = "http://10.0.0.1/audio.mp3".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("private IP"));
+    }
+
+    #[test]
+    fn test_ssrf_private_ip_192_168_blocked() {
+        let mut req = valid_request();
+        req.source_url = "http://192.168.1.1/audio.mp3".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("private IP"));
+    }
+
+    #[test]
+    fn test_ssrf_private_ip_172_16_blocked() {
+        let mut req = valid_request();
+        req.source_url = "http://172.16.0.1/audio.mp3".to_string();
+        let result = req.validate();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("private IP"));
+    }
+
+    #[test]
+    fn test_ssrf_public_url_allowed() {
+        let mut req = valid_request();
+        req.source_url = "https://cdn.example.com/audio.mp3".to_string();
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn test_ssrf_public_ip_allowed() {
+        let mut req = valid_request();
+        req.source_url = "http://8.8.8.8/audio.mp3".to_string();
+        assert!(req.validate().is_ok());
     }
 
     // AudioFilters tests

@@ -167,7 +167,7 @@
 - [ ] T052 [P] Добавить unit tests для всех enums в rust-transcoder/tests/unit_enums_test.rs
 - [ ] T053 Проверить quickstart.md — все примеры должны работать
 - [ ] T054 [P] Обновить конфигурацию Prometheus для scrape rust-transcoder:8090/metrics
-- [ ] T055 Security: проверить что source_url не позволяет SSRF (file://, internal IPs)
+- [X] T055 Security: проверить что source_url не позволяет SSRF (file://, internal IPs)
 - [ ] T056 [P] Benchmark: замерить latency старта транскодирования (SC-001: <200ms) в rust-transcoder/tests/benchmark_latency.rs
 - [ ] T057 [P] Benchmark: замерить memory usage при 10 concurrent streams (SC-002: <256MB)
 - [ ] T058 Load test: проверить 50 concurrent streams (SC-006) с k6 или wrk

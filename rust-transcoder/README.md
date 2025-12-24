@@ -217,7 +217,25 @@ cargo build --release
 - [Implementation Plan](../specs/020-ffmpeg-wrapper-rust-python-api/plan.md)
 - [Tasks](../specs/020-ffmpeg-wrapper-rust-python-api/tasks.md)
 
-## 🐛 Troubleshooting
+## � Security
+
+### SSRF Protection
+
+✅ **Implemented** - защита от Server-Side Request Forgery атак.
+
+**Блокируются:**
+- `file://` URLs
+- Приватные IP: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+- Localhost: 127.0.0.1, ::1, localhost
+- Link-local: 169.254.0.0/16
+
+**Разрешены только:**
+- HTTP/HTTPS URLs
+- Публичные IP адреса
+
+См. [API Documentation](../docs/api/rust-transcoder.md#security-considerations) для деталей.
+
+---
 
 ### Сервис не стартует
 

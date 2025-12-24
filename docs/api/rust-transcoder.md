@@ -282,12 +282,56 @@ type EqPreset = "flat" | "bass_boost" | "voice" | "treble";
 
 ### SSRF Protection
 
-⚠️ **TODO**: В текущей версии отсутствует защита от SSRF.
+✅ **Implemented** (v0.1.0+)
 
-**Планируется:**
-- Блокировка `file://` URLs
-- Блокировка internal IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-- Whitelist разрешённых доменов (опционально)
+**Protected against:**
+- ❌ `file://` URLs - blocked
+- ❌ Private IP ranges - blocked (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+- ❌ Localhost access - blocked (localhost, 127.0.0.1, ::1)
+- ❌ Link-local addresses - blocked (169.254.0.0/16)
+- ❌ Loopback addresses - blocked
+
+**Allowed:**
+- ✅ Public HTTP/HTTPS URLs
+- ✅ Public IP addresses
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "VALIDATION_FAILED",
+  "message": "SSRF protection: Access to private IP address is forbidden: 10.0.0.1"
+}
+```
+
+**Examples:**
+```bash
+# ❌ BLOCKED
+curl -X POST http://localhost:8090/transcode \
+  -d '{"source_url": "file:///etc/passwd"}'
+# Error: Forbidden URL scheme: file
+
+curl -X POST http://localhost:8090/transcode \
+  -d '{"source_url": "http://10.0.0.1/audio.mp3"}'
+# Error: Access to private IP address is forbidden: 10.0.0.1
+
+curl -X POST http://localhost:8090/transcode \
+  -d '{"source_url": "http://localhost:8080/audio.mp3"}'
+# Error: Access to localhost is forbidden
+
+# ✅ ALLOWED
+curl -X POST http://localhost:8090/transcode \
+  -d '{"source_url": "https://cdn.example.com/audio.mp3"}'
+# Success
+```
+
+**⚠️ Known Limitations:**
+- DNS rebinding attacks не защищены полностью (требует async DNS resolution)
+- Time-of-check to time-of-use (TOCTOU) возможен при DNS изменениях
+
+**Recommended Additional Security:**
+- Use network isolation (internal Docker network)
+- Implement URL whitelist (domain allowlist) if needed
+- Deploy behind reverse proxy with additional filtering
 
 ### Authentication
 
