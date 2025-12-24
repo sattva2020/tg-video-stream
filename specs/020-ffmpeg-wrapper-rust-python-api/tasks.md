@@ -168,9 +168,9 @@
 - [X] T053 Проверить quickstart.md — все примеры должны работать
 - [X] T054 [P] Обновить конфигурацию Prometheus для scrape rust-transcoder:8090/metrics
 - [X] T055 Security: проверить что source_url не позволяет SSRF (file://, internal IPs)
-- [ ] T056 [P] Benchmark: замерить latency старта транскодирования (SC-001: <200ms) в rust-transcoder/tests/benchmark_latency.rs
-- [ ] T057 [P] Benchmark: замерить memory usage при 10 concurrent streams (SC-002: <256MB)
-- [ ] T058 Load test: проверить 50 concurrent streams (SC-006) с k6 или wrk
+- [X] T056 [P] ✅ Benchmark: latency тесты в rust-transcoder/tests/benchmark_latency_test.rs (SC-001)
+- [X] T057 [P] ✅ Benchmark: memory usage в tests/benchmark_memory.sh (SC-002)
+- [X] T058 ✅ Load test: 50 concurrent streams в tests/load_test_50_streams.sh (SC-006)
 
 ---
 
