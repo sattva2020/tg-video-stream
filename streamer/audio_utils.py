@@ -83,6 +83,14 @@ def is_audio_file(url: str) -> bool:
 # Transcoding profiles: map an input shorthand to an ffmpeg profile and explanation.
 # Profiles are intentionally conservative and produce Opus (or PCM) suitable for PyTgCalls.
 # Added low-latency flags: -application lowdelay, -frame_duration 20
+#
+# NOTE: These profiles are now primarily used as fallback when rust-transcoder
+# microservice is unavailable. For production, transcode_client.py will use
+# rust-transcoder HTTP API which has its own profiles in rust-transcoder/src/transcoder/profiles.rs
+# See: specs/020-ffmpeg-wrapper-rust-python-api/ for Rust profiles documentation
+#
+# TODO (T051): Consider removing this dict once rust-transcoder is fully deployed
+# and fallback logic is stabilized. Keep only essential fallback profiles.
 TRANSCODING_PROFILES = {
     'flac': {
         'match_mime': ['audio/flac'],

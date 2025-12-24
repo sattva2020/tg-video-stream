@@ -163,10 +163,10 @@
 
 - [X] T049 [P] Обновить README.md с инструкциями по запуску Rust-сервиса
 - [X] T050 [P] Добавить документацию API в docs/api/rust-transcoder.md
-- [ ] T051 Code cleanup: убрать дублирование между profiles.rs и audio_utils.py
-- [ ] T052 [P] Добавить unit tests для всех enums в rust-transcoder/tests/unit_enums_test.rs
-- [ ] T053 Проверить quickstart.md — все примеры должны работать
-- [ ] T054 [P] Обновить конфигурацию Prometheus для scrape rust-transcoder:8090/metrics
+- [X] T051 Code cleanup: убрать дублирование между profiles.rs и audio_utils.py
+- [X] T052 [P] Добавить unit tests для всех enums в rust-transcoder/tests/unit_enums_test.rs
+- [X] T053 Проверить quickstart.md — все примеры должны работать
+- [X] T054 [P] Обновить конфигурацию Prometheus для scrape rust-transcoder:8090/metrics
 - [X] T055 Security: проверить что source_url не позволяет SSRF (file://, internal IPs)
 - [ ] T056 [P] Benchmark: замерить latency старта транскодирования (SC-001: <200ms) в rust-transcoder/tests/benchmark_latency.rs
 - [ ] T057 [P] Benchmark: замерить memory usage при 10 concurrent streams (SC-002: <256MB)
