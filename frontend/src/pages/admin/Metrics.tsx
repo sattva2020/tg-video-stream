@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi, StreamMetrics, StreamQualityResponse } from '../../api/admin';
 import StreamQualityBadge from '../../components/dashboard/StreamQualityBadge';
 import StreamQualityChart from '../../components/dashboard/StreamQualityChart';
 import StreamQualityAlertSettings from '../../components/dashboard/StreamQualityAlertSettings';
 
 const Metrics: React.FC = () => {
+  const { t } = useTranslation();
   const [metrics, setMetrics] = useState<StreamMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quality, setQuality] = useState<StreamQualityResponse | null>(null);
@@ -57,7 +59,7 @@ const Metrics: React.FC = () => {
   }, [metrics?.online, metrics?.current_stream_url]);
 
   if (error) return <div className="text-red-500">{error}</div>;
-  if (!metrics) return <div className="text-[color:var(--color-text-muted)]">Loading metrics...</div>;
+  if (!metrics) return <div className="text-[color:var(--color-text-muted)]">{t('common.loading')}...</div>;
 
   const isOnline = metrics.online;
   const sys = metrics.metrics?.system;
@@ -73,7 +75,7 @@ const Metrics: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">System Metrics</h2>
+        <h2 className="text-xl font-semibold">{t('admin.systemHealth')}</h2>
         <span
           className={`px-3 py-1 rounded-full text-sm font-semibold border ${
             isOnline
@@ -81,21 +83,21 @@ const Metrics: React.FC = () => {
               : 'bg-red-500/10 border-red-500/20 text-red-300'
           }`}
         >
-          {isOnline ? 'ONLINE' : 'OFFLINE'}
+          {isOnline ? t('admin.online').toUpperCase() : t('admin.offline').toUpperCase()}
         </span>
       </div>
 
       {metrics.metrics ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
-            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">System</h3>
+            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">{t('common.system')}</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>CPU Usage:</span>
+                <span>{t('admin.cpu')} {t('common.usage')}:</span>
                 <span className="font-mono">{formatPercent(systemCpuPercent)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Memory Usage:</span>
+                <span>{t('admin.memory')} {t('common.usage')}:</span>
                 <span className="font-mono">{formatPercent(systemMemoryPercent)}</span>
               </div>
               <div className="w-full bg-[color:var(--color-border)] rounded-full h-2.5">
@@ -108,14 +110,14 @@ const Metrics: React.FC = () => {
           </div>
 
           <div className="rounded-2xl bg-[color:var(--color-panel)] border border-[color:var(--color-border)] ring-1 ring-inset ring-[color:var(--color-border)] shadow-md shadow-black/5 p-4">
-            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">Streamer Process</h3>
+            <h3 className="font-medium text-[color:var(--color-text-muted)] mb-2">{t('admin.streamerProcess')}</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>CPU Usage:</span>
+                <span>{t('admin.cpu')} {t('common.usage')}:</span>
                 <span className="font-mono">{formatPercent(processCpuPercent)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Memory (RSS):</span>
+                <span>{t('admin.memory')} (RSS):</span>
                 <span className="font-mono">{processMemoryMb} MB</span>
               </div>
             </div>

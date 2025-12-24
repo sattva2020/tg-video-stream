@@ -40,7 +40,7 @@ class SystemMetricsResponse(BaseModel):
 class ActivityEventResponse(BaseModel):
     """Событие активности системы."""
     
-    id: UUID = Field(..., description="Уникальный ID события")
+    id: int = Field(..., description="Уникальный ID события")
     type: str = Field(..., description="Тип события")
     message: str = Field(..., description="Текст сообщения")
     user_email: Optional[str] = Field(None, description="Email пользователя (если есть)")

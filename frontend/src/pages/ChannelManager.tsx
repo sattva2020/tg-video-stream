@@ -59,6 +59,7 @@ const ChannelManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(testMode); // Авто-открытие в тестовом режиме
   const [showDialogPicker, setShowDialogPicker] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [formData, setFormData] = useState<CreateChannelData>({
     account_id: '',
@@ -135,8 +136,15 @@ const ChannelManager: React.FC = () => {
     stopChannel.mutate(id);
   };
   
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    // Минимум 800мс для полного круга анимации
+    const minDelay = new Promise(resolve => setTimeout(resolve, 800));
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.channels.all }),
+      minDelay
+    ]);
+    setIsRefreshing(false);
   };
 
   const openCreateModal = () => {
@@ -250,6 +258,11 @@ const ChannelManager: React.FC = () => {
                       >
                         {channel.status.toUpperCase()}
                       </span>
+                      {channel.status === 'error' && channel.error_message && (
+                        <div className="text-xs text-red-500 text-right max-w-[150px] break-words" title={channel.error_message}>
+                          {channel.error_message}
+                        </div>
+                      )}
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleEdit(channel)}
@@ -332,10 +345,11 @@ const ChannelManager: React.FC = () => {
                     )}
                     <button
                       onClick={handleRefresh}
-                      className="p-2 sm:p-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors"
+                      disabled={isRefreshing}
+                      className="p-2 sm:p-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors disabled:opacity-50"
                       title={t('common.refresh', 'Refresh Status')}
                     >
-                      <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${channelsLoading ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
                 </div>

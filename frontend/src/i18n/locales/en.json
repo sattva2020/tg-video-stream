@@ -174,6 +174,7 @@
   },
   "nav": {
     "analytics": "Analytics",
+    "streamQuality": "Stream Quality",
     "dashboard": "Dashboard",
     "channels": "Channels",
     "playlists": "Playlists",
@@ -226,5 +227,25 @@
     "invalidFormat": "Unsupported format",
     "playbackFailed": "Playback failed",
     "streamUnavailable": "Stream unavailable"
+  },
+  "streamQuality": {
+    "title": "Stream Quality",
+    "subtitle": "Real-time performance and stability monitoring",
+    "status": "Status",
+    "online": "Online",
+    "offline": "Offline",
+    "bitrate": "Bitrate",
+    "fps": "FPS",
+    "qualityScore": "Quality Score",
+    "lastCheck": "Last check: {{time}}",
+    "history": "Quality History",
+    "period": "Period",
+    "refresh": "Refresh",
+    "audioVideo": "Audio + Video",
+    "framesPerSecond": "Frames per second",
+    "overallRating": "Overall rating",
+    "error": "Error loading data",
+    "noData": "No data for selected period",
+    "unknown": "Unknown"
   }
 }

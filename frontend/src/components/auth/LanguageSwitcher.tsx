@@ -12,7 +12,9 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({ className })
   const { i18n } = useTranslation();
 
   const changeLanguage = (lng: string) => {
+    // React i18next автоматически обновит все компоненты с useTranslation()
     i18n.changeLanguage(lng);
+    console.log('✅ Language changed to:', lng);
   };
 
   // Get the base language code (e.g., 'en' from 'en-US')

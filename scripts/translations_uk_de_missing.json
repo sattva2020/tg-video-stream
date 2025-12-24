@@ -1,0 +1,290 @@
+{
+  "common.refresh": {
+    "uk": "Оновити",
+    "de": "Aktualisieren"
+  },
+  "auth.logout": {
+    "uk": "Вийти",
+    "de": "Abmelden"
+  },
+  "common.cancel": {
+    "uk": "Скасувати",
+    "de": "Abbrechen"
+  },
+  "channels.title": {
+    "uk": "Керування каналами",
+    "de": "Kanalverwaltung"
+  },
+  "channels.connectAccount": {
+    "uk": "Підключити обліковий запис",
+    "de": "Konto verbinden"
+  },
+  "channels.addChannel": {
+    "uk": "Додати канал",
+    "de": "Kanal hinzufügen"
+  },
+  "channels.noChannels": {
+    "uk": "Канали ще не налаштовано.",
+    "de": "Noch keine Kanäle konfiguriert."
+  },
+  "channels.connectFirst": {
+    "uk": "Спочатку підключіть обліковий запис Telegram",
+    "de": "Verbinden Sie zuerst ein Telegram-Konto"
+  },
+  "channels.createFirst": {
+    "uk": "Створіть свій перший канал",
+    "de": "Erstellen Sie Ihren ersten Kanal"
+  },
+  "channels.quality": {
+    "uk": "Якість",
+    "de": "Qualität"
+  },
+  "channels.args": {
+    "uk": "Аргументи",
+    "de": "Argumente"
+  },
+  "channels.start": {
+    "uk": "Старт",
+    "de": "Start"
+  },
+  "channels.stop": {
+    "uk": "Стоп",
+    "de": "Stop"
+  },
+  "channels.addNew": {
+    "uk": "Додати канал",
+    "de": "Neuen Kanal hinzufügen"
+  },
+  "channels.telegramAccount": {
+    "uk": "Обліковий запис Telegram",
+    "de": "Telegram-Konto"
+  },
+  "channels.selectAccount": {
+    "uk": "Оберіть обліковий запис",
+    "de": "Konto auswählen"
+  },
+  "channels.noAccounts": {
+    "uk": "Облікові записи не підключено. Спочатку підключіть обліковий запис.",
+    "de": "Keine Konten verbunden. Bitte verbinden Sie zuerst ein Konto."
+  },
+  "channels.channelName": {
+    "uk": "Назва каналу",
+    "de": "Kanalname"
+  },
+  "channels.channelNamePlaceholder": {
+    "uk": "Мій чудовий канал",
+    "de": "Mein toller Kanal"
+  },
+  "channels.chatId": {
+    "uk": "ID чату",
+    "de": "Chat-ID"
+  },
+  "channels.chatIdHint": {
+    "uk": "Введіть числовий ID каналу/чату.",
+    "de": "Geben Sie die numerische ID des Kanals/Chats ein."
+  },
+  "channels.chatIdHintWithPicker": {
+    "uk": "Введіть ID або виберіть зі списку каналів",
+    "de": "Geben Sie die ID ein oder wählen Sie aus Ihrer Kanalliste"
+  },
+  "channels.selectFromList": {
+    "uk": "Вибрати зі списку",
+    "de": "Aus Liste auswählen"
+  },
+  "channels.videoQuality": {
+    "uk": "Якість відео",
+    "de": "Videoqualität"
+  },
+  "channels.selectQuality": {
+    "uk": "Виберіть якість відео",
+    "de": "Videoqualität auswählen"
+  },
+  "channels.qualityBest": {
+    "uk": "Найкраща",
+    "de": "Beste"
+  },
+  "channels.qualityWorst": {
+    "uk": "Найгірша",
+    "de": "Schlechteste"
+  },
+  "channels.create": {
+    "uk": "Створити канал",
+    "de": "Kanal erstellen"
+  },
+  "dialogs.searchPlaceholder": {
+    "uk": "Пошук за назвою...",
+    "de": "Nach Name suchen..."
+  },
+  "dialogs.filterType": {
+    "uk": "Тип",
+    "de": "Typ"
+  },
+  "dialogs.filterAll": {
+    "uk": "Всі",
+    "de": "Alle"
+  },
+  "dialogs.filterChannels": {
+    "uk": "Канали",
+    "de": "Kanäle"
+  },
+  "dialogs.filterGroups": {
+    "uk": "Групи",
+    "de": "Gruppen"
+  },
+  "dialogs.loading": {
+    "uk": "Завантаження каналів і груп...",
+    "de": "Kanäle und Gruppen werden geladen..."
+  },
+  "dialogs.error": {
+    "uk": "Не вдалося завантажити список",
+    "de": "Liste konnte nicht geladen werden"
+  },
+  "dialogs.noResults": {
+    "uk": "Нічого не знайдено",
+    "de": "Nichts gefunden"
+  },
+  "dialogs.noDialogs": {
+    "uk": "Немає доступних каналів або груп",
+    "de": "Keine verfügbaren Kanäle oder Gruppen"
+  },
+  "dialogs.notFoundHint": {
+    "uk": "💡 Канал/група не в списку?",
+    "de": "💡 Kanal/Gruppe nicht in der Liste?"
+  },
+  "dialogs.notFoundInstruction": {
+    "uk": "Напишіть будь-яке повідомлення в потрібний чат у Telegram, потім оновіть цей список. Або введіть ID чату вручну.",
+    "de": "Senden Sie eine beliebige Nachricht in den gewünschten Chat in Telegram und aktualisieren Sie dann diese Liste. Oder geben Sie die Chat-ID manuell ein."
+  },
+  "dialogs.typeChannel": {
+    "uk": "Канал",
+    "de": "Kanal"
+  },
+  "dialogs.typeSupergroup": {
+    "uk": "Супергрупа",
+    "de": "Supergruppe"
+  },
+  "dialogs.typeGroup": {
+    "uk": "Група",
+    "de": "Gruppe"
+  },
+  "dialogs.owner": {
+    "uk": "Власник",
+    "de": "Eigentümer"
+  },
+  "dialogs.admin": {
+    "uk": "Адмін",
+    "de": "Admin"
+  },
+  "dialogs.members": {
+    "uk": "учасників",
+    "de": "Mitglieder"
+  },
+  "pagination.showing": {
+    "uk": "Показано",
+    "de": "Anzeige"
+  },
+  "pagination.of": {
+    "uk": "з",
+    "de": "von"
+  },
+  "pagination.first": {
+    "uk": "Перша сторінка",
+    "de": "Erste Seite"
+  },
+  "pagination.prev": {
+    "uk": "Попередня",
+    "de": "Vorherige"
+  },
+  "pagination.next": {
+    "uk": "Наступна",
+    "de": "Nächste"
+  },
+  "pagination.last": {
+    "uk": "Остання сторінка",
+    "de": "Letzte Seite"
+  },
+  "pagination.perPage": {
+    "uk": "На сторінці",
+    "de": "Pro Seite"
+  },
+  "admin.users": {
+    "uk": "Користувачі",
+    "de": "Benutzer"
+  },
+  "admin.userManagement": {
+    "uk": "Керування користувачами",
+    "de": "Benutzerverwaltung"
+  },
+  "admin.searchByEmail": {
+    "uk": "Пошук за email...",
+    "de": "Nach E-Mail suchen..."
+  },
+  "admin.all": {
+    "uk": "Всі",
+    "de": "Alle"
+  },
+  "admin.pending": {
+    "uk": "Очікують",
+    "de": "Ausstehend"
+  },
+  "admin.approved": {
+    "uk": "Схвалені",
+    "de": "Genehmigt"
+  },
+  "admin.rejected": {
+    "uk": "Відхилені",
+    "de": "Abgelehnt"
+  },
+  "admin.status": {
+    "uk": "СТАТУС",
+    "de": "STATUS"
+  },
+  "admin.actions": {
+    "uk": "ДІЇ",
+    "de": "AKTIONEN"
+  },
+  "admin.noUsers": {
+    "uk": "Користувачів не знайдено",
+    "de": "Keine Benutzer gefunden"
+  },
+  "admin.approve": {
+    "uk": "Схвалити",
+    "de": "Genehmigen"
+  },
+  "admin.reject": {
+    "uk": "Відхилити",
+    "de": "Ablehnen"
+  },
+  "dashboard.health.title": {
+    "uk": "Стан системи",
+    "de": "Systemzustand"
+  },
+  "dashboard.health.cpu": {
+    "uk": "CPU",
+    "de": "CPU"
+  },
+  "dashboard.health.ram": {
+    "uk": "Пам'ять",
+    "de": "Speicher"
+  },
+  "dashboard.health.disk": {
+    "uk": "Диск",
+    "de": "Festplatte"
+  },
+  "dashboard.health.latency": {
+    "uk": "Затримка",
+    "de": "Latenz"
+  },
+  "dashboard.health.dbConnections": {
+    "uk": "З'єднання БД",
+    "de": "DB-Verbindungen"
+  },
+  "dashboard.health.unavailable": {
+    "uk": "Дані тимчасово недоступні",
+    "de": "Daten vorübergehend nicht verfügbar"
+  },
+  "dashboard.activity.title": {
+    "uk": "Остання активність",
+    "de": "Letzte Aktivität"
+  }
+}

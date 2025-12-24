@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
@@ -22,26 +23,32 @@ const NotificationRulesPage = lazy(() => import('./pages/notifications/Rules'));
 const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));
 const NotificationTemplatesPage = lazy(() => import('./pages/notifications/Templates'));
 const NotificationRecipientsPage = lazy(() => import('./pages/notifications/Recipients'));
+const StreamQualityPage = lazy(() => import('./pages/admin/StreamQualityPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
 const ADMIN_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN];
 const MODERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR];
 
-const LoadingFallback = () => (
-  <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-    <div className="flex flex-col items-center gap-4">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"></div>
-      <span className="text-sm text-[color:var(--color-text-muted)]">Загрузка...</span>
+const LoadingFallback = () => {
+  const { t } = useTranslation();
+  
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent"></div>
+        <span className="text-sm text-[color:var(--color-text-muted)]">{t('common.loading', 'Загрузка...')}</span>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Suspense fallback={<LoadingFallback />}>
+    <Suspense fallback={<LoadingFallback />}>
+      <AuthProvider>
+        <Router>
+          <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage3D />} />
@@ -71,17 +78,23 @@ const App: React.FC = () => {
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin" element={<Navigate to="/settings" replace />} />
               <Route path="/users" element={<UsersPage />} />
-              <Route path="/admin/monitoring" element={<Monitoring />} />
             </Route>
             
             {/* Routes for MODERATOR and above (analytics) */}
             <Route element={<ProtectedRoute allowedRoles={MODERATOR_AND_ABOVE} />}>
               <Route path="/admin/analytics" element={<Analytics />} />
+              <Route path="/admin/monitoring" element={<Monitoring />} />
+            </Route>
+
+            {/* Routes for ADMIN and above (stream quality) */}
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
+              <Route path="/admin/stream-quality" element={<StreamQualityPage />} />
             </Route>
           </Routes>
         </Suspense>
       </Router>
     </AuthProvider>
+    </Suspense>
   );
 };
 

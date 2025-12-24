@@ -52,6 +52,22 @@ export default {
         'landing-sans': ['var(--landing-font-sans)', 'sans-serif'],
         'landing-serif': ['var(--landing-font-serif)', 'serif'],
       },
+      animation: {
+        'gradient-x': 'gradient-x 3s ease infinite',
+        'spin-slow': 'spin 2s linear infinite',
+      },
+      keyframes: {
+        'gradient-x': {
+          '0%, 100%': {
+            'background-size': '200% 200%',
+            'background-position': 'left center',
+          },
+          '50%': {
+            'background-size': '200% 200%',
+            'background-position': 'right center',
+          },
+        },
+      },
     },
   },
   plugins: [heroui()],

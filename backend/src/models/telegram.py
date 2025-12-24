@@ -29,6 +29,7 @@ class Channel(Base):
     chat_username = Column(String, nullable=True)  # Telegram chat username for peer resolution
     name = Column(String, nullable=False)
     status = Column(String, default="stopped") # stopped, running, error
+    error_message = Column(String, nullable=True) # Last error message
     
     # Configuration specific to this channel
     ffmpeg_args = Column(String, nullable=True)

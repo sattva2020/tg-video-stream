@@ -12,10 +12,19 @@ const AuthCallback: React.FC = () => {
   useEffect(() => {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
+    const status = searchParams.get('status');
 
     const handleLogin = async (token: string) => {
       try {
         await login(token);
+        
+        // Если статус pending, редиректим на страницу ожидания
+        if (status === 'pending') {
+          navigate('/pending-approval', { replace: true });
+          return;
+        }
+        
+        // Иначе редиректим на dashboard
         navigate('/dashboard', { replace: true });
       } catch (err) {
         console.error("Login failed in callback", err);

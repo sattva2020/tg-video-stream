@@ -22,6 +22,7 @@ const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   
   // Telegram auth hook
@@ -42,9 +43,28 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const errorKey = searchParams.get('error');
     const statusKey = searchParams.get('status');
+    const email = searchParams.get('email');
 
     if (statusKey === 'pending') {
       setErrorMessage('Your account is pending approval. Please wait for administrator verification.');
+      
+      // Start polling if email is present
+      if (email) {
+        const interval = setInterval(async () => {
+          try {
+            const response = await authApi.checkStatus(email);
+            if (response.status === 'approved') {
+              setErrorMessage(null);
+              setSuccessMessage('Your account has been approved! You can now sign in.');
+              clearInterval(interval);
+            }
+          } catch (err) {
+            console.error('Error checking status:', err);
+          }
+        }, 10000); // Check every 10 seconds
+
+        return () => clearInterval(interval);
+      }
     } else if (errorKey && errorMap[errorKey]) {
       setErrorMessage(errorMap[errorKey]);
     } else if (errorKey) {
@@ -60,7 +80,7 @@ const LoginPage: React.FC = () => {
   }, [telegramError]);
 
   const handleGoogleLogin = () => {
-    const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const API_URL = import.meta.env.VITE_API_BASE_URL || '';
     window.location.href = `${API_URL}/api/auth/google`;
   };
 
@@ -103,6 +123,12 @@ const LoginPage: React.FC = () => {
         {errorMessage && (
           <div className="p-3 text-sm text-center text-red-800 bg-red-100 border border-red-300 rounded-md">
             {errorMessage}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="p-3 text-sm text-center text-green-800 bg-green-100 border border-green-300 rounded-md">
+            {successMessage}
           </div>
         )}
 

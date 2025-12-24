@@ -1,0 +1,202 @@
+{
+  "dashboard": {
+    "welcome": {
+      "en": "Welcome",
+      "ru": "Добро пожаловать",
+      "uk": "Ласкаво просимо",
+      "de": "Willkommen"
+    },
+    "health": {
+      "allSystemsGo": {
+        "en": "All systems operational",
+        "ru": "Всё в норме",
+        "uk": "Все системи працюють",
+        "de": "Alle Systeme funktionieren"
+      },
+      "needsAttention": {
+        "en": "Needs attention",
+        "ru": "Требует внимания",
+        "uk": "Потребує уваги",
+        "de": "Benötigt Aufmerksamkeit"
+      },
+      "critical": {
+        "en": "Critical",
+        "ru": "Критично",
+        "uk": "Критично",
+        "de": "Kritisch"
+      },
+      "uptime": {
+        "en": "Uptime",
+        "ru": "Время работы",
+        "uk": "Час роботи",
+        "de": "Betriebszeit"
+      },
+      "active": {
+        "en": "active",
+        "ru": "активных",
+        "uk": "активних",
+        "de": "aktiv"
+      },
+      "idle": {
+        "en": "idle",
+        "ru": "простаивает",
+        "uk": "простоює",
+        "de": "inaktiv"
+      },
+      "tryAgain": {
+        "en": "Try refreshing the page",
+        "ru": "Попробуйте обновить страницу",
+        "uk": "Спробуйте оновити сторінку",
+        "de": "Versuchen Sie, die Seite zu aktualisieren"
+      }
+    },
+    "activity": {
+      "events": {
+        "en": "Events",
+        "ru": "События",
+        "uk": "Події",
+        "de": "Ereignisse"
+      },
+      "filters": {
+        "en": "Filters",
+        "ru": "Фильтры",
+        "uk": "Фільтри",
+        "de": "Filter"
+      },
+      "clearFilters": {
+        "en": "Clear filters",
+        "ru": "Очистить фильтры",
+        "uk": "Очистити фільтри",
+        "de": "Filter löschen"
+      },
+      "filterByType": {
+        "en": "Filter by type",
+        "ru": "Фильтр по типу",
+        "uk": "Фільтр за типом",
+        "de": "Nach Typ filtern"
+      },
+      "noActivity": {
+        "en": "No activity",
+        "ru": "Нет активности",
+        "uk": "Немає активності",
+        "de": "Keine Aktivität"
+      },
+      "noActivityHint": {
+        "en": "Activity will appear here when events occur",
+        "ru": "Активность появится здесь когда произойдут события",
+        "uk": "Активність з'явиться тут коли станеться подія",
+        "de": "Aktivitäten werden hier angezeigt, wenn Ereignisse auftreten"
+      },
+      "search": {
+        "en": "Search",
+        "ru": "Поиск",
+        "uk": "Пошук",
+        "de": "Suche"
+      },
+      "searchPlaceholder": {
+        "en": "Search events...",
+        "ru": "Поиск событий...",
+        "uk": "Пошук подій...",
+        "de": "Ereignisse suchen..."
+      },
+      "searchBtn": {
+        "en": "Search",
+        "ru": "Найти",
+        "uk": "Знайти",
+        "de": "Suchen"
+      },
+      "viewAll": {
+        "en": "View all",
+        "ru": "Показать все",
+        "uk": "Показати всі",
+        "de": "Alle anzeigen"
+      },
+      "more": {
+        "en": "More",
+        "ru": "Еще",
+        "uk": "Ще",
+        "de": "Mehr"
+      },
+      "openUsers": {
+        "en": "Open users",
+        "ru": "Открыть пользователей",
+        "uk": "Відкрити користувачів",
+        "de": "Benutzer öffnen"
+      },
+      "configureAuth": {
+        "en": "Configure authentication",
+        "ru": "Настроить аутентификацию",
+        "uk": "Налаштувати автентифікацію",
+        "de": "Authentifizierung konfigurieren"
+      },
+      "tryAgain": {
+        "en": "Try again",
+        "ru": "Попробовать снова",
+        "uk": "Спробувати знову",
+        "de": "Erneut versuchen"
+      },
+      "unavailable": {
+        "en": "Data temporarily unavailable",
+        "ru": "Данные временно недоступны",
+        "uk": "Дані тимчасово недоступні",
+        "de": "Daten vorübergehend nicht verfügbar"
+      }
+    }
+  },
+  "channels": {
+    "placeholder": {
+      "en": "Select a channel",
+      "ru": "Выберите канал",
+      "uk": "Оберіть канал",
+      "de": "Wählen Sie einen Kanal"
+    },
+    "currentPlaceholder": {
+      "en": "Current channel",
+      "ru": "Текущий канал",
+      "uk": "Поточний канал",
+      "de": "Aktueller Kanal"
+    },
+    "selectStreamType": {
+      "en": "Select stream type",
+      "ru": "Выберите тип трансляции",
+      "uk": "Оберіть тип трансляції",
+      "de": "Stream-Typ auswählen"
+    },
+    "streamType": {
+      "en": "Stream type",
+      "ru": "Тип трансляции",
+      "uk": "Тип трансляції",
+      "de": "Stream-Typ"
+    },
+    "typeVideo": {
+      "en": "Video",
+      "ru": "Видео",
+      "uk": "Відео",
+      "de": "Video"
+    },
+    "typeAudio": {
+      "en": "Audio only",
+      "ru": "Только аудио",
+      "uk": "Тільки аудіо",
+      "de": "Nur Audio"
+    },
+    "starting": {
+      "en": "Starting...",
+      "ru": "Запускается...",
+      "uk": "Запускається...",
+      "de": "Wird gestartet..."
+    },
+    "stopping": {
+      "en": "Stopping...",
+      "ru": "Останавливается...",
+      "uk": "Зупиняється...",
+      "de": "Wird gestoppt..."
+    },
+    "deleteConfirm": {
+      "en": "Are you sure you want to delete this channel?",
+      "ru": "Вы уверены что хотите удалить этот канал?",
+      "uk": "Ви впевнені що хочете видалити цей канал?",
+      "de": "Sind Sie sicher, dass Sie diesen Kanal löschen möchten?"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3, Bell } from 'lucide-react';
+import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
@@ -62,6 +62,12 @@ export const DesktopNav: React.FC = () => {
       icon: <BarChart3 className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/stream-quality', 
+      label: t('nav.streamQuality', 'Качество'), 
+      icon: <Signal className="w-4 h-4" />,
+      adminOnly: true,
     },
     { 
       path: '/admin', 

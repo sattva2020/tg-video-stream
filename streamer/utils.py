@@ -5,6 +5,34 @@ import audio_utils
 
 log = logging.getLogger("tg_video_streamer")
 
+# Базовый путь для локальных медиа-файлов
+# На сервере: /opt/sattva-streamer/data/music/
+# В Docker: /app/data/music/
+MEDIA_BASE_PATH = os.getenv("MEDIA_BASE_PATH", "/opt/sattva-streamer/data/music")
+
+
+def resolve_file_url(url: str) -> str:
+    """
+    Преобразует file:// URL в абсолютный путь.
+    
+    Примеры:
+        file://muzyka_dlya_meditatsii/track.mp3 -> /opt/sattva-streamer/data/music/muzyka_dlya_meditatsii/track.mp3
+        /absolute/path/file.mp3 -> /absolute/path/file.mp3
+        https://example.com/file.mp3 -> https://example.com/file.mp3
+    """
+    if url.startswith("file://"):
+        relative_path = url[7:]  # Убираем "file://"
+        absolute_path = os.path.join(MEDIA_BASE_PATH, relative_path)
+        if os.path.exists(absolute_path):
+            return absolute_path
+        else:
+            log.warning(f"File not found: {absolute_path}, trying relative path")
+            # Fallback: попробуем найти в текущей директории
+            if os.path.exists(relative_path):
+                return os.path.abspath(relative_path)
+            return absolute_path  # Вернём абсолютный путь для лучшей диагностики
+    return url
+
 async def expand_playlist(urls: List[str]) -> List[str]:
     """
     Если среди ссылок есть YouTube-плейлисты — развернуть в список видео-URL.
@@ -18,8 +46,13 @@ async def expand_playlist(urls: List[str]) -> List[str]:
         if not u:
             continue
         
-        # Check if it's a local file
-        if os.path.exists(u) or u.startswith("file://"):
+        # Check if it's a local file or file:// URL
+        if u.startswith("file://"):
+            resolved = resolve_file_url(u)
+            out.append(resolved)
+            continue
+        
+        if os.path.exists(u):
             out.append(u)
             continue
 
@@ -98,8 +131,14 @@ async def best_stream_url(youtube_url: str) -> str:
     - Конвертирует через Rust transcoder → Opus/WAV
     - Fallback на прямое использование при ошибках
     """
+    # Check if it's a file:// URL - resolve to absolute path
+    if youtube_url.startswith("file://"):
+        resolved = resolve_file_url(youtube_url)
+        log.debug(f"Resolved file:// URL: {youtube_url} -> {resolved}")
+        return resolved
+    
     # Check if it's a local file
-    if os.path.exists(youtube_url) or youtube_url.startswith("file://"):
+    if os.path.exists(youtube_url):
         return youtube_url
 
     # Check if it's a direct audio file

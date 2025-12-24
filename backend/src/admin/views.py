@@ -112,16 +112,16 @@ class UserAdmin(ModelView, model=User):
         User.email_verified,
     ]
 
-    # Исключенные из формы
-    form_excluded_columns = [
-        User.id,
-        User.google_id,
-        User.telegram_id,
-        User.hashed_password,
-        User.created_at,
-        User.updated_at,
-        User.audit_logs,
-    ]
+    # Исключенные из формы - удалено, так как используется form_columns
+    # form_excluded_columns = [
+    #     User.id,
+    #     User.google_id,
+    #     User.telegram_id,
+    #     User.hashed_password,
+    #     User.created_at,
+    #     User.updated_at,
+    #     User.audit_logs,
+    # ]
 
     # Права доступа
     can_create = True

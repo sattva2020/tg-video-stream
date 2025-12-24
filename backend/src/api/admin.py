@@ -165,7 +165,7 @@ def update_user_role(
         raise HTTPException(status_code=403, detail="Only superadmin can promote to superadmin")
         
     # Validate role
-    valid_roles = ['user', 'admin', 'superadmin']
+    valid_roles = ['user', 'admin', 'superadmin', 'moderator', 'operator']
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}")
         

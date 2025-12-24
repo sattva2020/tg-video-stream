@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Use VITE_API_BASE_URL from frontend/.env — name matches env file
-const API_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// If empty, axios will use the current origin (useful for Nginx proxy)
+const API_URL = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 
 export const client = axios.create({
   baseURL: API_URL,

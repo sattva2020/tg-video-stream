@@ -160,6 +160,7 @@
   },
   "nav": {
     "analytics": "Аналитика",
+    "streamQuality": "Качество потока",
     "dashboard": "Панель управления",
     "channels": "Каналы",
     "playlists": "Плейлисты",
@@ -226,5 +227,25 @@
     "invalidFormat": "Неподдерживаемый формат",
     "playbackFailed": "Ошибка воспроизведения",
     "streamUnavailable": "Поток недоступен"
+  },
+  "streamQuality": {
+    "title": "Качество потока",
+    "subtitle": "Мониторинг производительности и стабильности в реальном времени",
+    "status": "Статус",
+    "online": "Онлайн",
+    "offline": "Оффлайн",
+    "bitrate": "Битрейт",
+    "fps": "FPS",
+    "qualityScore": "Оценка качества",
+    "lastCheck": "Последняя проверка: {{time}}",
+    "history": "История качества",
+    "period": "Период",
+    "refresh": "Обновить",
+    "audioVideo": "Аудио + Видео",
+    "framesPerSecond": "Кадров в секунду",
+    "overallRating": "Общая оценка",
+    "error": "Ошибка загрузки данных",
+    "noData": "Нет данных за выбранный период",
+    "unknown": "Неизвестно"
   }
 }

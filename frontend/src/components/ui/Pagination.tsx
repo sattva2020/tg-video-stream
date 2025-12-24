@@ -92,6 +92,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           isDisabled={!hasPrev || isLoading}
           onPress={() => onPageChange(1)}
           aria-label={t('pagination.first', 'Первая страница')}
+          className="text-[color:var(--color-text)]"
         >
           <ChevronsLeft className="w-4 h-4" />
         </Button>
@@ -104,6 +105,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           isDisabled={!hasPrev || isLoading}
           onPress={() => onPageChange(page - 1)}
           aria-label={t('pagination.prev', 'Предыдущая')}
+          className="text-[color:var(--color-text)]"
         >
           <ChevronLeft className="w-4 h-4" />
         </Button>
@@ -123,7 +125,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                 color={p === page ? 'primary' : 'default'}
                 isDisabled={isLoading}
                 onPress={() => onPageChange(p)}
-                className="min-w-[32px]"
+                className={`min-w-[32px] ${p === page ? 'text-white' : 'text-[color:var(--color-text)]'}`}
               >
                 {p}
               </Button>
@@ -144,6 +146,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           isDisabled={!hasNext || isLoading}
           onPress={() => onPageChange(page + 1)}
           aria-label={t('pagination.next', 'Следующая')}
+          className="text-[color:var(--color-text)]"
         >
           <ChevronRight className="w-4 h-4" />
         </Button>
@@ -156,6 +159,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           isDisabled={!hasNext || isLoading}
           onPress={() => onPageChange(totalPages)}
           aria-label={t('pagination.last', 'Последняя страница')}
+          className="text-[color:var(--color-text)]"
         >
           <ChevronsRight className="w-4 h-4" />
         </Button>

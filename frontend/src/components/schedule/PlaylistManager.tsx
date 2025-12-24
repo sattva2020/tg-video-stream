@@ -33,6 +33,7 @@ import {
   Globe,
   GripVertical,
   Play,
+  Square,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -54,6 +55,7 @@ import {
   ModalFooter,
   Textarea,
 } from '@heroui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   usePlaylists,
   useCreatePlaylist,
@@ -69,6 +71,7 @@ import {
 } from '../../hooks/useScheduleQuery';
 import { useChannels } from '../../hooks/useChannelsQuery';
 import { useMediaFolders, useScanFolder } from '../../hooks/useMediaQuery';
+import useToast from '../../hooks/useToast';
 import type { Playlist, PlaylistItem, PlaylistGroup } from '../../api/schedule';
 import type { Channel } from '../../api/channels';
 import {
@@ -115,6 +118,18 @@ const PRESET_COLORS = [
   '#22C55E', '#14B8A6', '#06B6D4', '#3B82F6', '#6366F1',
 ];
 
+const DROPDOWN_MENU_CLASSNAMES: Partial<Record<'base' | 'list' | 'emptyContent', string>> = {
+  base: 'bg-[color:var(--color-panel)] border border-[color:var(--color-border)]',
+  list: 'p-1',
+  emptyContent: 'text-[color:var(--color-text-muted)]',
+};
+
+const DROPDOWN_ITEM_CLASSES: Partial<Record<'base' | 'wrapper' | 'title' | 'description' | 'shortcut' | 'selectedIcon', string>> = {
+  base: 'text-[color:var(--color-text)] data-[hover=true]:bg-[color:var(--color-surface-hover)] data-[focus=true]:bg-[color:var(--color-surface-hover)] rounded-md',
+  description: 'text-[color:var(--color-text-muted)]',
+  shortcut: 'text-[color:var(--color-text-muted)]',
+};
+
 // Get icon component by source type
 function getSourceIcon(sourceType: string) {
   switch (sourceType) {
@@ -143,11 +158,13 @@ interface DraggablePlaylistCardProps {
   channels: Channel[];
   isSelected: boolean;
   isLive: boolean;
+  liveChannelId?: string;
   onSelect?: (playlist: Playlist) => void;
   onEdit: (playlist: Playlist) => void;
   onDelete: (playlist: Playlist) => void;
   onMoveToGroup: (playlistId: string, groupId: string | undefined) => void;
   onPlayNow: (playlistId: string, channelId: string) => void;
+  onStopStream: (channelId: string) => void;
   t: any;
 }
 
@@ -157,11 +174,13 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
   channels,
   isSelected,
   isLive,
+  liveChannelId,
   onSelect,
   onEdit,
   onDelete,
   onMoveToGroup,
   onPlayNow,
+  onStopStream,
   t,
 }, forwardedRef) => {
   const [showChannelSelect, setShowChannelSelect] = useState(false);
@@ -268,17 +287,26 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                   <MoreVertical className="w-4 h-4" />
                 </Button>
               </DropdownTrigger>
-              <DropdownMenu aria-label="Действия">
-                <DropdownItem key="edit" startContent={<Edit className="w-4 h-4" />} onPress={() => onEdit(playlist)}>
+              <DropdownMenu aria-label="Действия" classNames={DROPDOWN_MENU_CLASSNAMES} itemClasses={DROPDOWN_ITEM_CLASSES}>
+                <DropdownItem 
+                  key="edit" 
+                  startContent={<Edit className="w-4 h-4" />} 
+                  onPress={() => onEdit(playlist)}
+                >
                   {t('common.edit', 'Редактировать')}
                 </DropdownItem>
-                <DropdownItem key="move" startContent={<MoveRight className="w-4 h-4" />}>
+                <DropdownItem 
+                  key="move" 
+                  startContent={<MoveRight className="w-4 h-4" />}
+                >
                   <Dropdown>
                     <DropdownTrigger>
-                      <span>{t('playlist.moveToGroup', 'Переместить в группу')}</span>
+                      <span className="w-full text-left">{t('playlist.moveToGroup', 'Переместить в группу')}</span>
                     </DropdownTrigger>
                     <DropdownMenu 
                       aria-label="Выбрать группу"
+                      classNames={DROPDOWN_MENU_CLASSNAMES}
+                      itemClasses={DROPDOWN_ITEM_CLASSES}
                       items={[
                         { id: 'ungrouped', name: 'Без группы' },
                         ...groups
@@ -295,13 +323,25 @@ const DraggablePlaylistCard = forwardRef<HTMLDivElement, DraggablePlaylistCardPr
                     </DropdownMenu>
                   </Dropdown>
                 </DropdownItem>
-                <DropdownItem 
-                  key="play-now" 
-                  startContent={<Play className="w-4 h-4" />} 
-                  onPress={() => setShowChannelSelect(true)}
-                >
-                  {t('playlist.playNow', 'Транслировать сейчас')}
-                </DropdownItem>
+                {isLive && liveChannelId ? (
+                  <DropdownItem 
+                    key="stop-stream" 
+                    className="text-warning"
+                    color="warning"
+                    startContent={<Square className="w-4 h-4" />} 
+                    onPress={() => onStopStream(liveChannelId)}
+                  >
+                    {t('playlist.stopStream', 'Остановить трансляцию')}
+                  </DropdownItem>
+                ) : (
+                  <DropdownItem 
+                    key="play-now" 
+                    startContent={<Play className="w-4 h-4" />} 
+                    onPress={() => setShowChannelSelect(true)}
+                  >
+                    {t('playlist.playNow', 'Транслировать сейчас')}
+                  </DropdownItem>
+                )}
                 <DropdownItem key="delete" className="text-danger" color="danger" startContent={<Trash2 className="w-4 h-4" />} onPress={() => onDelete(playlist)}>
                   {t('common.delete', 'Удалить')}
                 </DropdownItem>
@@ -683,7 +723,12 @@ const PlaylistEditorModal: React.FC<PlaylistEditorModalProps> = ({
                       key={folder.path}
                       onClick={() => {
                         setSelectedFolder(folder.path);
-                        setFormData(f => ({ ...f, source_url: folder.path }));
+                        const folderName = folder.path.split('/').pop() || folder.path;
+                        setFormData(f => ({ 
+                          ...f, 
+                          source_url: folder.path,
+                          name: f.name ? f.name : folderName
+                        }));
                         setAutoScan(true);
                       }}
                       className={`
@@ -815,6 +860,8 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   selectedPlaylistId,
 }) => {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const [search, setSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null);
@@ -852,6 +899,17 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       if (slot.is_active && slot.playlist_id) ids.add(slot.playlist_id);
     });
     return ids;
+  }, [slots]);
+
+  // Map playlist_id -> channel_id для остановки трансляции
+  const livePlaylistChannelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    slots.forEach(slot => {
+      if (slot.is_active && slot.playlist_id && slot.channel_id) {
+        map.set(slot.playlist_id, slot.channel_id);
+      }
+    });
+    return map;
   }, [slots]);
 
   const liveCount = livePlaylistIds.size;
@@ -952,6 +1010,21 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
     await playNowMutation.mutateAsync({ playlistId, channelId });
   };
 
+  const handleStopStream = async (channelId: string) => {
+    try {
+      const { channelsApi } = await import('../../api/channels');
+      await channelsApi.stop(channelId);
+      // Инвалидируем слоты и каналы чтобы обновить UI
+      queryClient.invalidateQueries({ queryKey: ['schedule', 'slots'] });
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      // Показываем toast
+      toast.success(t('playlist.streamStopped', 'Трансляция остановлена'));
+    } catch (error) {
+      console.error('Failed to stop stream:', error);
+      toast.error(t('playlist.stopError', 'Ошибка остановки трансляции'));
+    }
+  };
+
   // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1006,11 +1079,13 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       channels={channels}
       isSelected={selectedPlaylistId === playlist.id}
       isLive={isPlaylistActive(playlist.id)}
+      liveChannelId={livePlaylistChannelMap.get(playlist.id)}
       onSelect={onSelectPlaylist}
       onEdit={handleEdit}
       onDelete={handleDelete}
       onMoveToGroup={handleMoveToGroup}
       onPlayNow={handlePlayNow}
+      onStopStream={handleStopStream}
       t={t}
     />
   );

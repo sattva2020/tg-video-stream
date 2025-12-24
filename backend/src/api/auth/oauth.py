@@ -88,36 +88,45 @@ async def google_login(request: Request):
         raise ValueError("GOOGLE_CLIENT_ID is not set")
 
     google = OAuth2Session(GOOGLE_CLIENT_ID, scope=SCOPE, redirect_uri=REDIRECT_URI)
+    logger.info(f"OAuth initialized with REDIRECT_URI: {REDIRECT_URI}")
     authorization_url, state = google.authorization_url(
         AUTHORIZATION_URL,
         access_type="offline",
         prompt="select_account",
     )
+    logger.info(f"Generated Authorization URL: {authorization_url}")
 
     # Подписываем state для безопасной проверки без session
     signed_state = sign_state(state)
-    
-    # Определяем secure на основе redirect URI
-    is_secure = REDIRECT_URI.startswith("https://")
-    
-    # Извлекаем домен из REDIRECT_URI для cookie
-    from urllib.parse import urlparse
-    parsed = urlparse(REDIRECT_URI)
-    cookie_domain = parsed.hostname  # flowbooster.xyz
+
+    # Определяем secure и samesite
+    # Если мы за прокси (nginx/ngrok), проверяем X-Forwarded-Proto
+    forwarded_proto = request.headers.get("x-forwarded-proto", "http")
+    is_secure = forwarded_proto == "https" or request.url.scheme == "https"
     
     # Сохраняем signed state в cookie
     response = RedirectResponse(authorization_url)
-    response.set_cookie(
-        key="oauth_state",
-        value=signed_state,
-        max_age=600,  # 10 минут
-        httponly=True,
-        samesite="lax",
-        secure=is_secure,  # True для HTTPS (ngrok/production)
-        domain=cookie_domain,  # Устанавливаем домен для работы между портами
-    )
     
-    logger.info(f"Redirecting user to Google. Cookie domain={cookie_domain}, secure={is_secure}")
+    # В разработке на localhost (без https) браузеры могут блокировать Secure куки.
+    # Если REDIRECT_URI на другом домене (ngrok), кука должна быть SameSite=None и Secure,
+    # но это работает только через HTTPS.
+    
+    cookie_params = {
+        "key": "oauth_state",
+        "value": signed_state,
+        "max_age": 600,
+        "httponly": True,
+        "samesite": "lax",
+        "secure": is_secure,
+    }
+
+    # Если мы на localhost, не ставим domain, чтобы кука была привязана к текущему хосту
+    # Если REDIRECT_URI содержит домен, отличный от текущего, это все равно не будет работать
+    # без общего родительского домена.
+    
+    response.set_cookie(**cookie_params)
+    
+    logger.info(f"Redirecting user to Google. Secure={is_secure}, Proto={forwarded_proto}")
     return response
 
 
@@ -127,7 +136,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     Обрабатывает callback от Google, создаёт/получает пользователя,
     генерирует JWT и перенаправляет на фронтенд.
     """
-    frontend_url = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    frontend_url = os.getenv("FRONTEND_URL", os.getenv("FRONTEND_BASE_URL", "http://localhost:3000"))
     
     # Получаем state из callback и из cookie
     callback_state = request.query_params.get('state', '')
@@ -195,13 +204,18 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
             )
 
         # Новый пользователь — статус pending, JWT не выдаём
-        if created or getattr(user, 'status', 'approved') != 'approved':
+        # Проверяем статус: active = одобрен, pending = ожидает
+        user_status = getattr(user, 'status', 'active')
+        if created or user_status not in ('active', 'approved'):
             try:
                 from tasks.notifications import notify_admins_async
                 notify_admins_async(user.id)
             except Exception:
                 logger.exception('Failed to notify admins for new OAuth user')
-            return RedirectResponse(url=f"{frontend_url}/login?status=pending")
+            # Редиректим на страницу ожидания подтверждения
+            # Сохраняем временный токен для проверки статуса
+            temp_token = auth_service.create_jwt_for_user(user)
+            return RedirectResponse(url=f"{frontend_url}/auth/callback?token={temp_token}&status=pending")
 
         # Обновляем время последнего входа для одобренного пользователя
         try:

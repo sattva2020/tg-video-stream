@@ -15,6 +15,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  Signal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
@@ -78,6 +79,12 @@ export const MobileNav: React.FC = () => {
       icon: <BarChart3 className="w-5 h-5" />,
       adminOnly: true,
       moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/stream-quality', 
+      label: t('nav.streamQuality', 'Качество'), 
+      icon: <Signal className="w-5 h-5" />,
+      adminOnly: true,
     },
     { 
       path: '/admin', 

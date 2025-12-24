@@ -7,6 +7,13 @@ repos:
         language: script
         files: '(^|/).env$'
         stages: [commit]
+      - id: i18n-coverage-check
+        name: Check i18n coverage
+        entry: python scripts/audit_i18n.py
+        language: system
+        files: '^frontend/src/.*\.(tsx?|ts)$|^frontend/src/i18n\.ts$'
+        pass_filenames: false
+        always_run: false
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:

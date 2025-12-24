@@ -32,61 +32,9 @@ def upgrade() -> None:
     op.create_index('idx_activity_events_type_created', 'activity_events', ['type', 'created_at'], unique=False)
     op.create_index(op.f('ix_activity_events_created_at'), 'activity_events', ['created_at'], unique=False)
     op.create_index(op.f('ix_activity_events_type'), 'activity_events', ['type'], unique=False)
-    op.create_table('lyrics_cache',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('track_title', sa.String(length=500), nullable=False),
-    sa.Column('artist_name', sa.String(length=255), nullable=False),
-    sa.Column('external_id', sa.String(length=255), nullable=True),
-    sa.Column('lyrics_text', sa.Text(), nullable=False),
-    sa.Column('lyrics_html', sa.Text(), nullable=True),
-    sa.Column('synced_lyrics', sa.Text(), nullable=True),
-    sa.Column('duration_ms', sa.Integer(), nullable=True),
-    sa.Column('source_url', sa.String(length=2048), nullable=True),
-    sa.Column('source_api', sa.String(length=50), nullable=True),
-    sa.Column('fetched_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('last_accessed', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('access_count', sa.Integer(), nullable=True),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('external_id')
-    )
-    op.create_index(op.f('ix_lyrics_cache_artist_name'), 'lyrics_cache', ['artist_name'], unique=False)
-    op.create_index(op.f('ix_lyrics_cache_id'), 'lyrics_cache', ['id'], unique=False)
-    op.create_index(op.f('ix_lyrics_cache_track_title'), 'lyrics_cache', ['track_title'], unique=False)
-    op.create_table('radio_streams',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('url', sa.String(length=2048), nullable=False),
-    sa.Column('description', sa.String(length=1000), nullable=True),
-    sa.Column('genre', sa.String(length=100), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
-    sa.Column('added_by', sa.Integer(), nullable=True),
-    sa.Column('play_count', sa.Integer(), nullable=True),
-    sa.Column('last_played', sa.DateTime(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('url')
-    )
-    op.create_index(op.f('ix_radio_streams_id'), 'radio_streams', ['id'], unique=False)
-    op.create_index(op.f('ix_radio_streams_name'), 'radio_streams', ['name'], unique=False)
-    op.create_table('scheduled_playlists',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('playlist_id', sa.Integer(), nullable=False),
-    sa.Column('schedule_time', sa.String(length=5), nullable=False),
-    sa.Column('days_of_week', sa.JSON(), nullable=True),
-    sa.Column('timezone', sa.String(length=50), nullable=True),
-    sa.Column('name', sa.String(length=255), nullable=False),
-    sa.Column('description', sa.String(length=1000), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
-    sa.Column('created_by', sa.Integer(), nullable=True),
-    sa.Column('last_triggered', sa.DateTime(), nullable=True),
-    sa.Column('trigger_count', sa.Integer(), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_index(op.f('ix_scheduled_playlists_id'), 'scheduled_playlists', ['id'], unique=False)
+    # op.create_table('lyrics_cache', ... ) - REMOVED DUPLICATE
+    # op.create_table('radio_streams', ... ) - REMOVED DUPLICATE
+    # op.create_table('scheduled_playlists', ... ) - REMOVED DUPLICATE
     op.create_table('admin_audit_logs',
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=True),
@@ -107,57 +55,36 @@ def upgrade() -> None:
     op.create_index('ix_audit_logs_resource', 'admin_audit_logs', ['resource_type', 'resource_id'], unique=False)
     op.create_index('ix_audit_logs_timestamp_desc', 'admin_audit_logs', [sa.literal_column('timestamp DESC')], unique=False)
     op.create_index('ix_audit_logs_user_action', 'admin_audit_logs', ['user_id', 'action'], unique=False)
-    op.create_table('playback_settings',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.UUID(), nullable=False),
-    sa.Column('channel_id', sa.BigInteger(), server_default='0', nullable=False, comment='Telegram chat/channel identifier'),
-    sa.Column('speed', sa.Float(), nullable=True),
-    sa.Column('pitch_correction', sa.Boolean(), nullable=True),
-    sa.Column('equalizer_preset', sa.String(length=50), nullable=True),
-    sa.Column('equalizer_custom', sa.JSON(), nullable=True),
-    sa.Column('language', sa.String(length=5), nullable=True),
-    sa.Column('theme', sa.String(length=20), nullable=True),
-    sa.Column('auto_play', sa.Boolean(), nullable=True),
-    sa.Column('shuffle', sa.Boolean(), nullable=True),
-    sa.Column('repeat_mode', sa.String(length=10), nullable=True),
-    sa.Column('created_at', sa.DateTime(), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('user_id', 'channel_id', name='uq_playback_user_channel')
-    )
-    op.create_index('ix_playback_settings_channel_id', 'playback_settings', ['channel_id'], unique=False)
-    op.create_index(op.f('ix_playback_settings_id'), 'playback_settings', ['id'], unique=False)
-    op.create_index(op.f('ix_playback_settings_user_id'), 'playback_settings', ['user_id'], unique=False)
-    op.drop_index(op.f('idx_monthly_analytics_month'), table_name='monthly_analytics')
-    op.drop_constraint(op.f('uq_monthly_analytics_month'), 'monthly_analytics', type_='unique')
-    op.create_index(op.f('ix_monthly_analytics_month'), 'monthly_analytics', ['month'], unique=True)
-    op.drop_index(op.f('ix_playlist_groups_channel_id'), table_name='playlist_groups')
+    # op.create_table('playback_settings', ... ) - REMOVED DUPLICATE
+    # op.drop_index(op.f('idx_monthly_analytics_month'), table_name='monthly_analytics')
+    # op.drop_constraint(op.f('uq_monthly_analytics_month'), 'monthly_analytics', type_='unique')
+    # op.create_index(op.f('ix_monthly_analytics_month'), 'monthly_analytics', ['month'], unique=True)
+    # op.drop_index(op.f('ix_playlist_groups_channel_id'), table_name='playlist_groups')
     op.alter_column('playlists', 'items',
                existing_type=postgresql.JSON(astext_type=sa.Text()),
                nullable=False,
                existing_server_default=sa.text("'[]'::json"))
-    op.drop_index(op.f('idx_playlists_channel'), table_name='playlists')
-    op.drop_index(op.f('idx_playlists_user'), table_name='playlists')
-    op.create_index(op.f('ix_playlists_user_id'), 'playlists', ['user_id'], unique=False)
-    op.drop_column('playlists', 'play_count')
-    sa.Enum('NONE', 'DAILY', 'WEEKLY', 'WEEKDAYS', 'WEEKENDS', 'CUSTOM', name='repeattype').create(op.get_bind())
-    op.alter_column('schedule_slots', 'repeat_type', server_default=None)
-    op.alter_column('schedule_slots', 'repeat_type',
-               existing_type=sa.VARCHAR(length=20),
-               type_=sa.Enum('NONE', 'DAILY', 'WEEKLY', 'WEEKDAYS', 'WEEKENDS', 'CUSTOM', name='repeattype'),
-               existing_nullable=False,
-               server_default=sa.text("'NONE'::repeattype"), existing_server_default=sa.text("'none'::character varying"), postgresql_using="repeat_type::repeattype")
-    op.drop_index(op.f('idx_schedule_slots_channel'), table_name='schedule_slots')
-    op.drop_index(op.f('idx_schedule_slots_date'), table_name='schedule_slots')
-    op.create_index(op.f('ix_schedule_slots_channel_id'), 'schedule_slots', ['channel_id'], unique=False)
-    op.create_index(op.f('ix_schedule_slots_start_date'), 'schedule_slots', ['start_date'], unique=False)
-    op.drop_index(op.f('idx_schedule_templates_user'), table_name='schedule_templates')
-    op.create_index(op.f('ix_schedule_templates_user_id'), 'schedule_templates', ['user_id'], unique=False)
+    # op.drop_index(op.f('idx_playlists_channel'), table_name='playlists')
+    # op.drop_index(op.f('idx_playlists_user'), table_name='playlists')
+    # op.create_index(op.f('ix_playlists_user_id'), 'playlists', ['user_id'], unique=False)
+    # op.drop_column('playlists', 'play_count')
+    # sa.Enum('NONE', 'DAILY', 'WEEKLY', 'WEEKDAYS', 'WEEKENDS', 'CUSTOM', name='repeattype').create(op.get_bind())
+    # op.alter_column('schedule_slots', 'repeat_type', server_default=None)
+    # op.alter_column('schedule_slots', 'repeat_type',
+    #            existing_type=sa.VARCHAR(length=20),
+    #            type_=sa.Enum('NONE', 'DAILY', 'WEEKLY', 'WEEKDAYS', 'WEEKENDS', 'CUSTOM', name='repeattype'),
+    #            existing_nullable=False,
+    #            server_default=sa.text("'NONE'::repeattype"), existing_server_default=sa.text("'none'::character varying"), postgresql_using="repeat_type::repeattype")
+    # op.drop_index(op.f('idx_schedule_slots_channel'), table_name='schedule_slots')
+    # op.drop_index(op.f('idx_schedule_slots_date'), table_name='schedule_slots')
+    # op.create_index(op.f('ix_schedule_slots_channel_id'), 'schedule_slots', ['channel_id'], unique=False)
+    # op.create_index(op.f('ix_schedule_slots_start_date'), 'schedule_slots', ['start_date'], unique=False)
+    # op.drop_index(op.f('idx_schedule_templates_user'), table_name='schedule_templates')
+    # op.create_index(op.f('ix_schedule_templates_user_id'), 'schedule_templates', ['user_id'], unique=False)
     op.create_index(op.f('ix_track_plays_played_at'), 'track_plays', ['played_at'], unique=False)
     op.create_index(op.f('ix_track_plays_playlist_item_id'), 'track_plays', ['playlist_item_id'], unique=False)
-    op.drop_constraint(op.f('uq_users_telegram_id'), 'users', type_='unique')
-    op.drop_constraint('schedule_slots_playlist_id_fkey', 'schedule_slots', type_='foreignkey')
+    # op.drop_constraint(op.f('uq_users_telegram_id'), 'users', type_='unique')
+    # op.drop_constraint('schedule_slots_playlist_id_fkey', 'schedule_slots', type_='foreignkey')
     op.create_foreign_key(None, 'schedule_slots', 'playlists', ['playlist_id'], ['id'], ondelete='SET NULL')
     # ### end Alembic commands ###
 

@@ -11,6 +11,7 @@
   - Общая архитектура системы
   - Взаимодействие компонентов
   - Схемы данных
+  - [**TELEGRAM_CALLS_API.md**](./architecture/TELEGRAM_CALLS_API.md) — документация Telegram Calls API, PyTgCalls, E2E шифрование
 
 ### Разработка
 - [**development/**](./development/) — руководства для разработчиков

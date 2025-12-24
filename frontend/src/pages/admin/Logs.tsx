@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../api/admin';
 
 const Logs: React.FC = () => {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
@@ -33,19 +35,19 @@ const Logs: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">System Logs</h2>
+        <h2 className="text-xl font-semibold">{t('admin.systemLogs')}</h2>
         <button 
           onClick={fetchLogs} 
           disabled={loading}
           className="text-sm text-blue-600 hover:underline"
         >
-          Refresh
+          {t('common.refresh')}
         </button>
       </div>
       
       <div className="logs-container bg-gray-900 text-gray-100 p-4 rounded h-64 overflow-y-auto font-mono text-xs">
         {logs.length === 0 ? (
-          <div className="text-gray-500">No logs available.</div>
+          <div className="text-gray-500">{t('admin.noLogs')}</div>
         ) : (
           logs.map((line, i) => (
             <div key={i} className="whitespace-pre-wrap border-b border-gray-800 py-0.5">

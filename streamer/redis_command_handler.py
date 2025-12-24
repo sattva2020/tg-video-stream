@@ -257,10 +257,23 @@ class RedisCommandHandler:
             )
             
             await self.update_status(channel_id, "starting")
-            success = await self.on_start(config)
-            
-            if success:
+            result = await self.on_start(config)
+
+            # If on_start returned an error string that looks transient (resolve/start errors), retry a few times
+            if isinstance(result, str) and any(substr in result for substr in ("Could not resolve chat", "BadMsgNotification", "Failed to start", "could not initialize PyTgCalls")):
+                retry = 0
+                while retry < 3 and not (result is True):
+                    retry += 1
+                    logger.info(f"Transient start error for {channel_id} detected, retrying start (attempt {retry})")
+                    await asyncio.sleep(2 * retry)
+                    result = await self.on_start(config)
+                    if result is True:
+                        break
+
+            if result is True:
                 await self.update_status(channel_id, "running")
+            elif isinstance(result, str):
+                await self.update_status(channel_id, "error", error=result)
             else:
                 await self.update_status(channel_id, "error", error="Start failed")
                 

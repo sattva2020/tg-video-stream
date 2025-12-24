@@ -7,6 +7,7 @@ export interface Channel {
   chat_username?: string;
   name: string;
   status: 'stopped' | 'running' | 'error' | 'starting' | 'stopping' | 'unknown';
+  error_message?: string;
   ffmpeg_args?: string;
   video_quality: string;
   stream_type?: 'video' | 'audio';

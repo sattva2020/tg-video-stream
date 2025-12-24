@@ -16,7 +16,9 @@ def read_users_me(request: Request, current_user: src.models.user.User = Depends
     Fetch the current logged-in user's profile.
     """
     # If user hasn't been approved yet, return structured 403 per contract
-    if getattr(current_user, 'status', 'approved') != 'approved':
+    # Проверяем статус: active или approved = одобрен
+    user_status = getattr(current_user, 'status', 'active')
+    if user_status not in ('active', 'approved'):
         detail = format_auth_error(
             code='pending' if current_user.status == 'pending' else 'rejected',
             hint='contact_admin',

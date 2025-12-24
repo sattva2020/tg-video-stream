@@ -21,8 +21,12 @@ const AuthPage3D: React.FC = () => {
 
   // Redirect to dashboard if already authenticated (but not if pending approval)
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !isPendingApproval) {
-      navigate('/dashboard', { replace: true });
+    if (!isLoading) {
+      if (isAuthenticated && !isPendingApproval) {
+        navigate('/dashboard', { replace: true });
+      } else if (isPendingApproval) {
+        navigate('/pending-approval', { replace: true });
+      }
     }
   }, [isAuthenticated, isLoading, isPendingApproval, navigate]);
 

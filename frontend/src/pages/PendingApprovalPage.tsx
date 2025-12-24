@@ -1,14 +1,42 @@
-import React, { Suspense, lazy } from 'react';
-import { Link } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/auth/LanguageSwitcher';
 import AuthLayout from '../components/auth/AuthLayout';
+import { useAuth } from '../context/AuthContext';
 
 // Lazy load the 3D scene
 const AuthZenScene = lazy(() => import('../components/auth/ZenScene'));
 
 const PendingApprovalPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { isAuthenticated, isPendingApproval, isLoading, refreshUser } = useAuth();
+  const [isChecking, setIsChecking] = useState(false);
+
+  // Auto-redirect if approved
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !isPendingApproval) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, isPendingApproval, isLoading, navigate]);
+
+  // Polling for approval status
+  useEffect(() => {
+    if (!isPendingApproval) return;
+
+    const interval = setInterval(() => {
+      refreshUser();
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [isPendingApproval, refreshUser]);
+
+  const handleCheckStatus = async () => {
+    setIsChecking(true);
+    await refreshUser();
+    setTimeout(() => setIsChecking(false), 1000);
+  };
 
   return (
     <div
@@ -63,7 +91,7 @@ const PendingApprovalPage: React.FC = () => {
 
             {/* Message */}
             <p className="text-[#e5d9c7]/80 text-center mb-6 max-w-sm leading-relaxed">
-              {t('pending_approval_message', 'Ваш аккаунт успешно создан и ожидает подтверждения администратором. Мы уведомим вас, когда доступ будет предоставлен.')}
+              {t('pending_approval_message', 'Аккаунт создан, но ожидает подтверждения.')}
             </p>
 
             {/* Info box */}
@@ -73,13 +101,46 @@ const PendingApprovalPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Back to login link */}
-            <Link 
-              to="/login"
-              className="text-sm text-[#F7E2C6]/70 hover:text-[#F7E2C6] transition-colors duration-300 underline underline-offset-4"
-            >
-              {t('back_to_login', 'Вернуться на страницу входа')}
-            </Link>
+            {/* Action Buttons */}
+            <div className="flex flex-col w-full gap-3">
+              {/* Animated Check Status Button with border glow */}
+              <div className="relative group">
+                {/* Animated gradient border */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-[#F7E2C6] via-[#d4a574] to-[#F7E2C6] rounded-xl opacity-75 group-hover:opacity-100 blur-sm transition duration-500 animate-gradient-x"></div>
+                <button
+                  onClick={handleCheckStatus}
+                  disabled={isChecking || isLoading}
+                  className="relative w-full py-3 px-4 rounded-xl bg-[#F7E2C6] text-[#0c0a09] font-medium hover:bg-[#e5d9c7] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {/* Spinning arrows icon */}
+                  <svg 
+                    className={`w-5 h-5 transition-transform duration-300 ${isChecking ? 'animate-spin' : 'group-hover:rotate-180'}`} 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+                    />
+                  </svg>
+                  <span>{isChecking ? t('checking', 'Проверяем...') : t('check_status', 'Проверить статус')}</span>
+                </button>
+              </div>
+
+              <Link 
+                to="/login"
+                onClick={() => {
+                  // Clear token to allow logging in with another account if needed
+                  localStorage.removeItem('token');
+                }}
+                className="text-sm text-[#F7E2C6]/70 hover:text-[#F7E2C6] transition-colors duration-300 underline underline-offset-4 text-center"
+              >
+                {t('back_to_login', 'Вернуться на страницу входа')}
+              </Link>
+            </div>
           </div>
         }
       />

@@ -72,6 +72,11 @@ export const authApi = {
     localStorage.removeItem('token');
   },
   
+  checkStatus: async (email: string): Promise<{ status: string }> => {
+    const response = await client.get<{ status: string }>(`/api/auth/status?email=${encodeURIComponent(email)}`);
+    return response.data;
+  },
+  
   getMe: async (): Promise<User> => {
     const response = await client.get<User>('/api/users/me');
     return response.data;

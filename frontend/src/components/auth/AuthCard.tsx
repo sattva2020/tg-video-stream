@@ -36,7 +36,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const API_URL = useMemo(
-    () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000',
+    () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '',
     []
   );
   const enableBasicLogin = (import.meta.env.VITE_ENABLE_BASIC_LOGIN ?? 'true') !== 'false';

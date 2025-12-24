@@ -441,6 +441,20 @@ async def play_playlist_now(
     
     # Создаём временный слот на текущее время (2 часа)
     now = datetime.now(timezone.utc)
+    
+    # Деактивируем другие активные слоты для этого канала, которые идут сейчас
+    active_slots = db.query(ScheduleSlot).filter(
+        ScheduleSlot.channel_id == uuid.UUID(channel_id),
+        ScheduleSlot.is_active == True,
+        ScheduleSlot.start_date == now.date()
+    ).all()
+    
+    for active_slot in active_slots:
+        if active_slot.start_time <= now.time() <= active_slot.end_time:
+            # Only deactivate non-recurring slots
+            if active_slot.repeat_type == RepeatType.NONE:
+                active_slot.is_active = False
+    
     slot = ScheduleSlot(
         channel_id=uuid.UUID(channel_id),
         playlist_id=uuid.UUID(playlist_id),

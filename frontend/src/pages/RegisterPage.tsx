@@ -22,7 +22,7 @@ const RegisterPage: React.FC = () => {
   });
 
   const handleGoogleLogin = () => {
-    const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const API_URL = import.meta.env.VITE_API_BASE_URL || '';
     window.location.href = `${API_URL}/api/auth/google`;
   };
 
@@ -34,8 +34,10 @@ const RegisterPage: React.FC = () => {
       const response = await authApi.register(data);
       
       if (response.status === 'pending') {
-        setSuccessMessage('Registration successful! Your account is awaiting administrator approval. You will be notified once approved.');
-        // Do not redirect immediately, let the user read the message
+        setSuccessMessage('Registration successful! Redirecting to status page...');
+        setTimeout(() => {
+          navigate(`/login?status=pending&email=${encodeURIComponent(data.email)}`);
+        }, 2000);
       } else if (response.access_token) {
         localStorage.setItem('token', response.access_token);
         setSuccessMessage('Registration successful! Redirecting to dashboard...');

@@ -56,6 +56,18 @@ class EmailVerifyConfirm(BaseModel):
 # Registration
 # ============================================================================
 
+@router.get("/status")
+def check_user_status(email: EmailStr, db: Session = Depends(get_db)):
+    """
+    Публичный эндпоинт для проверки статуса аккаунта (pending/approved/rejected).
+    Используется фронтендом для поллинга после регистрации или OAuth.
+    """
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"status": user.status}
+
+
 @router.post("/register")
 def register_user(
     request: RegisterRequest,
@@ -122,11 +134,17 @@ def register_user(
         # Dev mode: возвращаем токен для тестов
         return {
             "status": "pending",
+            "email": new_user.email,
             "message": "Account created and awaiting administrator approval",
             "dev_verification_token": verify_token
         }
     else:
         auth_service.send_email_verification(new_user.email, verify_token)
+        return {
+            "status": "pending",
+            "email": new_user.email,
+            "message": "Account created. Please verify your email and wait for administrator approval."
+        }
     
     return {
         "status": "pending",

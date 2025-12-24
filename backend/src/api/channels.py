@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
 from src.models.telegram import Channel, TelegramAccount
+from src.models.schedule import ScheduleSlot, RepeatType
 from api.auth import get_current_user
 from src.services.redis_stream_controller import RedisStreamController
 from pydantic import BaseModel, ConfigDict
@@ -33,6 +34,7 @@ class ChannelResponse(BaseModel):
     chat_username: Optional[str] = None
     name: str
     status: str
+    error_message: Optional[str] = None
     ffmpeg_args: Optional[str]
     video_quality: str
     stream_type: str
@@ -55,6 +57,7 @@ def list_channels(
     
     for channel in channels:
         current_status = channel.status
+        error_message = channel.error_message
         
         # Check for transitional state timeout
         # If stopping/starting for too long, reset to stopped
@@ -78,16 +81,20 @@ def list_channels(
             "chat_username": channel.chat_username,
             "name": channel.name,
             "ffmpeg_args": channel.ffmpeg_args,
-            "video_quality": channel.video_quality,
+            "video_quality": channel.video_quality or "best",
             "stream_type": channel.stream_type or "video",
             "placeholder_image": channel.placeholder_image,
-            "status": current_status,
+            "status": current_status or "stopped",
+            "error_message": error_message,
         }
         
         # Get real-time status from Redis
         redis_status = controller.get_channel_status_sync(str(channel.id))
         if redis_status.get("status") != "unknown":
             channel_dict["status"] = redis_status.get("status", current_status)
+            # If Redis has an error message, use it
+            if redis_status.get("error"):
+                channel_dict["error_message"] = redis_status.get("error")
         
         result.append(ChannelResponse(**channel_dict))
     
@@ -173,6 +180,27 @@ def stop_channel(
         success = controller.stop_channel(str(channel_id))
         if not success:
             raise HTTPException(status_code=500, detail="Failed to send stop command")
+            
+        # Deactivate currently running slots
+        now = datetime.now(timezone.utc)
+        current_date = now.date()
+        current_time = now.time()
+        
+        active_slots = db.query(ScheduleSlot).filter(
+            ScheduleSlot.channel_id == channel_id,
+            ScheduleSlot.is_active == True,
+            ScheduleSlot.start_date == current_date
+        ).all()
+        
+        for slot in active_slots:
+            # Check if slot is currently running
+            if slot.start_time <= current_time <= slot.end_time:
+                # Only deactivate non-recurring slots (like Play Now)
+                if slot.repeat_type == RepeatType.NONE:
+                    slot.is_active = False
+                
+        db.commit()
+            
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

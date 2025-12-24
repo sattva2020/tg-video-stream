@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
+import { HeroUIProvider } from "@heroui/react";
 import App from './App';
 import { queryClient } from './lib/queryClient';
 import { ThemePreferenceProvider, useThemePreference } from './hooks/useThemePreference';
@@ -35,13 +36,23 @@ const ThemedToaster: React.FC = () => {
   );
 };
 
+const Root: React.FC = () => {
+  const { theme } = useThemePreference();
+  
+  return (
+    <HeroUIProvider className={theme}>
+      <App />
+      <ThemedToaster />
+    </HeroUIProvider>
+  );
+};
+
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemePreferenceProvider>
-          <App />
-          <ThemedToaster />
+          <Root />
         </ThemePreferenceProvider>
       </QueryClientProvider>
     </React.StrictMode>

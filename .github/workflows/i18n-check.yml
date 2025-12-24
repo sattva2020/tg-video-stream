@@ -1,0 +1,166 @@
+name: i18n Coverage Check
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/**/*.tsx'
+      - 'frontend/src/**/*.ts'
+      - 'frontend/src/i18n.ts'
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'frontend/src/**/*.tsx'
+      - 'frontend/src/**/*.ts'
+      - 'frontend/src/i18n.ts'
+
+jobs:
+  i18n-audit:
+    name: Check i18n Translation Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          
+      - name: Run i18n audit
+        id: audit
+        run: |
+          python scripts/audit_i18n.py
+          
+      - name: Parse audit results
+        id: parse
+        run: |
+          python -c "
+          import json
+          
+          data = json.load(open('docs/REPORTS/i18n-audit-report.json', 'r', encoding='utf-8'))
+          
+          total = data['total_used_keys']
+          en_found = data['coverage']['en']['total']
+          ru_found = data['coverage']['ru']['total']
+          uk_found = data['coverage']['uk']['total']
+          de_found = data['coverage']['de']['total']
+          
+          en_coverage = (en_found / total) * 100
+          ru_coverage = (ru_found / total) * 100
+          uk_coverage = (uk_found / total) * 100
+          de_coverage = (de_found / total) * 100
+          avg_coverage = (en_coverage + ru_coverage + uk_coverage + de_coverage) / 4
+          
+          print(f'Total keys: {total}')
+          print(f'EN: {en_coverage:.1f}%')
+          print(f'RU: {ru_coverage:.1f}%')
+          print(f'UK: {uk_coverage:.1f}%')
+          print(f'DE: {de_coverage:.1f}%')
+          print(f'Average: {avg_coverage:.1f}%')
+          print()
+          
+          # Проверка минимального порога
+          MIN_COVERAGE = 80.0
+          if avg_coverage < MIN_COVERAGE:
+              print(f'❌ FAILED: Average coverage {avg_coverage:.1f}% is below minimum {MIN_COVERAGE}%')
+              exit(1)
+          else:
+              print(f'✅ PASSED: Average coverage {avg_coverage:.1f}% meets minimum {MIN_COVERAGE}%')
+              
+          # Проверка каждого языка отдельно
+          MIN_LANG_COVERAGE = 70.0
+          failed_langs = []
+          
+          for lang, cov in [('EN', en_coverage), ('RU', ru_coverage), ('UK', uk_coverage), ('DE', de_coverage)]:
+              if cov < MIN_LANG_COVERAGE:
+                  failed_langs.append(f'{lang} ({cov:.1f}%)')
+                  
+          if failed_langs:
+              print(f'\\n⚠️  WARNING: Some languages below {MIN_LANG_COVERAGE}%: {', '.join(failed_langs)}')
+          "
+          
+      - name: Check coverage threshold
+        run: |
+          python -c "
+          import json
+          import sys
+          
+          data = json.load(open('docs/REPORTS/i18n-audit-report.json', 'r', encoding='utf-8'))
+          
+          total = data['total_used_keys']
+          coverages = []
+          
+          for lang in ['en', 'ru', 'uk', 'de']:
+              found = data['coverage'][lang]['total']
+              coverage = (found / total) * 100
+              coverages.append(coverage)
+          
+          avg_coverage = sum(coverages) / len(coverages)
+          
+          MIN_COVERAGE = 80.0
+          if avg_coverage < MIN_COVERAGE:
+              print(f'ERROR: Average i18n coverage {avg_coverage:.1f}% is below minimum {MIN_COVERAGE}%')
+              sys.exit(1)
+          
+          print(f'SUCCESS: i18n coverage {avg_coverage:.1f}% meets requirements')
+          "
+          
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-audit-report
+          path: docs/REPORTS/i18n-audit-report.json
+          retention-days: 30
+          
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('docs/REPORTS/i18n-audit-report.json', 'utf8'));
+            
+            const total = data.total_used_keys;
+            const en_found = data.coverage.en.total;
+            const ru_found = data.coverage.ru.total;
+            const uk_found = data.coverage.uk.total;
+            const de_found = data.coverage.de.total;
+            
+            const en_cov = ((en_found / total) * 100).toFixed(1);
+            const ru_cov = ((ru_found / total) * 100).toFixed(1);
+            const uk_cov = ((uk_found / total) * 100).toFixed(1);
+            const de_cov = ((de_found / total) * 100).toFixed(1);
+            const avg_cov = ((parseFloat(en_cov) + parseFloat(ru_cov) + parseFloat(uk_cov) + parseFloat(de_cov)) / 4).toFixed(1);
+            
+            const comment = `## 🌐 i18n Coverage Report
+            
+            **Total keys in project:** ${total}
+            
+            | Language | Coverage | Keys |
+            |----------|----------|------|
+            | 🇬🇧 EN | ${en_cov}% | ${en_found}/${total} |
+            | 🇷🇺 RU | ${ru_cov}% | ${ru_found}/${total} |
+            | 🇺🇦 UK | ${uk_cov}% | ${uk_found}/${total} |
+            | 🇩🇪 DE | ${de_cov}% | ${de_found}/${total} |
+            
+            **Average Coverage:** ${avg_cov}% ${parseFloat(avg_cov) >= 80 ? '✅' : '❌'}
+            
+            ${parseFloat(avg_cov) >= 80 ? '✅ Meets minimum coverage requirement (80%)' : '❌ Below minimum coverage requirement (80%)'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

@@ -7,6 +7,7 @@ Create Date: 2025-12-01 18:03:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from src.database import GUID
 
 
 # revision identifiers, used by Alembic.
@@ -21,7 +22,7 @@ def upgrade():
     op.create_table(
         'playback_settings',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', GUID(), nullable=False),
         sa.Column('channel_id', sa.Integer(), nullable=True),
         sa.Column('speed', sa.Float(), nullable=True, server_default='1.0'),
         sa.Column('pitch_correction', sa.Boolean(), nullable=True, server_default='true'),
@@ -34,7 +35,7 @@ def upgrade():
         sa.Column('repeat_mode', sa.String(10), nullable=True, server_default='off'),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('user_id')
     )

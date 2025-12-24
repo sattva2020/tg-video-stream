@@ -37,6 +37,7 @@ from api import users, playlist, admin, telegram_auth, channels, files, websocke
 from src.api import media, media_gdrive  # noqa: E402
 from src.api.routes import playback as playback_routes  # noqa: E402
 from src.api.routes import notifications_channels, notifications_templates, notifications_recipients, notifications_rules, notifications_events, notifications_logs  # noqa: E402
+from src.api.routes import stream_quality as stream_quality_routes  # noqa: E402
 from api.health import router as health_router  # noqa: E402
 from api.system import router as system_router  # noqa: E402
 from api.telegram_login import router as telegram_login_router  # noqa: E402
@@ -139,6 +140,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
 app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
 app.include_router(telegram_login_router, prefix="/api/auth/telegram-login", tags=["Telegram Login"])
 app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])

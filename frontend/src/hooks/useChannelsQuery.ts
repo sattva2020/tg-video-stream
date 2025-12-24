@@ -15,6 +15,7 @@ export function useChannels() {
     queryKey: queryKeys.channels.list(),
     queryFn: channelsApi.list,
     staleTime: 60 * 1000, // 1 минута
+    refetchOnWindowFocus: false, // Отключаем авто-обновление при фокусе окна
   });
 }
 
@@ -26,6 +27,7 @@ export function useTelegramAccounts() {
     queryKey: queryKeys.telegram.accounts(),
     queryFn: telegramApi.listAccounts,
     staleTime: 5 * 60 * 1000, // 5 минут — редко меняется
+    refetchOnWindowFocus: false,
   });
 }
 

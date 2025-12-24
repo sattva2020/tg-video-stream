@@ -18,10 +18,15 @@ import { useTranslation } from 'react-i18next';
 import {
   Button,
   Skeleton,
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
 } from '@heroui/react';
 import { usePaginatedUsers, useApproveUser, useRejectUser, useUpdateUserRole } from '../../hooks/useUsersQuery';
 import { useToast } from '../../hooks/useToast';
 import { Pagination } from '../ui/Pagination';
+import { UserRole } from '../../types/user';
 
 type UserStatus = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -111,17 +116,36 @@ const UserCard: React.FC<UserCardProps> = ({ user, onApprove, onReject, onUpdate
             <div className="flex items-center gap-1">
               <Shield className="w-3.5 h-3.5" />
               {onUpdateRole ? (
-                <select
-                  value={user.role || 'user'}
-                  onChange={(e) => onUpdateRole(user.id, e.target.value)}
-                  className="bg-transparent border-none p-0 text-xs font-medium text-[color:var(--color-text-muted)] focus:ring-0 cursor-pointer hover:text-[color:var(--color-text)]"
-                  disabled={isLoading}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
-                  <option value="superadmin">superadmin</option>
-                </select>
+                <Dropdown>
+                  <DropdownTrigger>
+                    <button 
+                      className="flex items-center gap-1 text-xs font-medium text-[color:var(--color-text-muted)] hover:text-[color:var(--color-text)] transition-colors outline-none"
+                      disabled={isLoading}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {user.role || 'user'}
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </DropdownTrigger>
+                  <DropdownMenu 
+                    aria-label="User Roles"
+                    onAction={(key) => onUpdateRole(user.id, key as string)}
+                    selectedKeys={new Set([user.role || 'user'])}
+                    selectionMode="single"
+                    className="text-slate-900"
+                  >
+                    <DropdownItem key={UserRole.USER} className="text-slate-900">{UserRole.USER}</DropdownItem>
+                    <DropdownItem key={UserRole.OPERATOR} className="text-slate-900">{UserRole.OPERATOR}</DropdownItem>
+                    <DropdownItem key={UserRole.MODERATOR} className="text-slate-900">{UserRole.MODERATOR}</DropdownItem>
+                    <DropdownItem key={UserRole.ADMIN} className="text-slate-900">{UserRole.ADMIN}</DropdownItem>
+                    <DropdownItem 
+                      key={UserRole.SUPERADMIN} 
+                      className="text-violet-700 font-semibold"
+                    >
+                      {UserRole.SUPERADMIN}
+                    </DropdownItem>
+                  </DropdownMenu>
+                </Dropdown>
               ) : (
                 <span>{user.role || 'user'}</span>
               )}

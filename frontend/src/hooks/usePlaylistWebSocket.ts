@@ -46,9 +46,16 @@ export function usePlaylistWebSocket({
   const reconnectDelayRef = useRef(WS_RECONNECT_DELAY);
 
   const getWebSocketUrl = useCallback(() => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
-    const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
-    const wsHost = baseUrl.replace(/^https?:\/\//, '');
+    const envBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+    
+    let wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    let wsHost = window.location.host;
+
+    if (envBaseUrl && envBaseUrl.startsWith('http')) {
+      wsProtocol = envBaseUrl.startsWith('https') ? 'wss' : 'ws';
+      wsHost = envBaseUrl.replace(/^https?:\/\//, '').split('/')[0];
+    }
+
     const params = channelId ? `?channel_id=${channelId}` : '';
     return `${wsProtocol}://${wsHost}/api/ws/playlist${params}`;
   }, [channelId]);
