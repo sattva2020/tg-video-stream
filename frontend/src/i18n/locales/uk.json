@@ -172,6 +172,48 @@
     "connectionLost": "Зʼєднання втрачено",
     "connectionRestored": "Зʼєднання відновлено"
   },
+  "nav": {
+    "analytics": "Аналітика",
+    "dashboard": "Панель керування",
+    "channels": "Канали",
+    "playlists": "Плейлісти",
+    "settings": "Налаштування"
+  },
+  "analytics": {
+    "title": "Аналітика",
+    "subtitle": "Статистика мовлення та слухачів",
+    "period": {
+      "7d": "7 днів",
+      "30d": "30 днів",
+      "90d": "90 днів",
+      "all": "Весь час"
+    },
+    "metrics": {
+      "currentListeners": "Слухачі зараз",
+      "peakToday": "Пік сьогодні: {{count}}",
+      "totalPlays": "Всього відтворень",
+      "forPeriod": "За {{period}}",
+      "broadcastTime": "Час мовлення",
+      "uniqueTracks": "Унікальних треків: {{count}}",
+      "peakWeek": "Пік за тиждень",
+      "averageWeek": "Середнє: {{avg}}"
+    },
+    "chart": {
+      "title": "Історія слухачів",
+      "listeners": "Слухачі",
+      "noData": "Немає даних за обраний період"
+    },
+    "topTracks": {
+      "title": "Топ треків",
+      "track": "Трек",
+      "plays": "Відтв.",
+      "noData": "Немає даних за обраний період"
+    },
+    "refresh": "Оновити",
+    "lastUpdated": "Останнє оновлення: {{time}}",
+    "error": "Не вдалося завантажити дані аналітики",
+    "loading": "Завантаження..."
+  },
   "errors": {
     "generic": "Сталася помилка",
     "networkError": "Помилка мережі",

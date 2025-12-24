@@ -113,9 +113,9 @@
 
 **Purpose**: Connect data source for analytics
 
-- [ ] T029 Create internal endpoint POST /api/internal/track-play in backend/src/api/analytics.py
-- [ ] T030 Implement X-Internal-Token authentication for internal endpoint
-- [ ] T031 Document streamer integration in quickstart.md or API docs
+- [X] T029 Create internal endpoint POST /api/internal/track-play in backend/src/api/analytics.py
+- [X] T030 Implement X-Internal-Token authentication for internal endpoint
+- [X] T031 Document streamer integration in quickstart.md or API docs
 
 ---
 
@@ -123,13 +123,13 @@
 
 **Purpose**: Improvements and validation
 
-- [ ] T032 [P] Add period selector (7d/30d/90d) to Analytics page
-- [ ] T033 [P] Add empty state placeholder ("Нет данных за выбранный период")
-- [ ] T034 [P] Add error state with retry button
-- [ ] T035 [P] Add loading skeleton for analytics cards
-- [ ] T036 Add i18n translations for analytics UI (nav.analytics, analytics.*)
-- [ ] T037 Run quickstart.md validation
-- [ ] T038 Update feature documentation if needed
+- [X] T032 [P] Add period selector (7d/30d/90d) to Analytics page
+- [X] T033 [P] Add empty state placeholder ("Нет данных за выбранный период")
+- [X] T034 [P] Add error state with retry button
+- [X] T035 [P] Add loading skeleton for analytics cards
+- [X] T036 Add i18n translations for analytics UI (nav.analytics, analytics.*)
+- [X] T037 Run quickstart.md validation
+- [X] T038 Update feature documentation if needed
 
 ---
 

@@ -158,6 +158,48 @@
       "addChannel": "Добавить канал"
     }
   },
+  "nav": {
+    "analytics": "Аналитика",
+    "dashboard": "Панель управления",
+    "channels": "Каналы",
+    "playlists": "Плейлисты",
+    "settings": "Настройки"
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "subtitle": "Статистика вещания и слушателей",
+    "period": {
+      "7d": "7 дней",
+      "30d": "30 дней",
+      "90d": "90 дней",
+      "all": "Всё время"
+    },
+    "metrics": {
+      "currentListeners": "Слушатели сейчас",
+      "peakToday": "Пик сегодня: {{count}}",
+      "totalPlays": "Всего воспроизведений",
+      "forPeriod": "За {{period}}",
+      "broadcastTime": "Время вещания",
+      "uniqueTracks": "Уникальных треков: {{count}}",
+      "peakWeek": "Пик за неделю",
+      "averageWeek": "Среднее: {{avg}}"
+    },
+    "chart": {
+      "title": "История слушателей",
+      "listeners": "Слушатели",
+      "noData": "Нет данных за выбранный период"
+    },
+    "topTracks": {
+      "title": "Топ треков",
+      "track": "Трек",
+      "plays": "Воспр.",
+      "noData": "Нет данных за выбранный период"
+    },
+    "refresh": "Обновить",
+    "lastUpdated": "Последнее обновление: {{time}}",
+    "error": "Не удалось загрузить данные аналитики",
+    "loading": "Загрузка..."
+  },
   "notifications": {
     "trackAdded": "Трек добавлен в очередь",
     "trackRemoved": "Трек удалён",

@@ -172,6 +172,48 @@
     "connectionLost": "Conexión perdida",
     "connectionRestored": "Conexión restaurada"
   },
+  "nav": {
+    "analytics": "Analítica",
+    "dashboard": "Panel de control",
+    "channels": "Canales",
+    "playlists": "Listas de reproducción",
+    "settings": "Configuración"
+  },
+  "analytics": {
+    "title": "Analítica",
+    "subtitle": "Estadísticas de transmisión y oyentes",
+    "period": {
+      "7d": "7 días",
+      "30d": "30 días",
+      "90d": "90 días",
+      "all": "Todo el tiempo"
+    },
+    "metrics": {
+      "currentListeners": "Oyentes actuales",
+      "peakToday": "Pico hoy: {{count}}",
+      "totalPlays": "Reproducciones totales",
+      "forPeriod": "Para {{period}}",
+      "broadcastTime": "Tiempo de transmisión",
+      "uniqueTracks": "Pistas únicas: {{count}}",
+      "peakWeek": "Pico esta semana",
+      "averageWeek": "Promedio: {{avg}}"
+    },
+    "chart": {
+      "title": "Historial de oyentes",
+      "listeners": "Oyentes",
+      "noData": "No hay datos para el período seleccionado"
+    },
+    "topTracks": {
+      "title": "Mejores pistas",
+      "track": "Pista",
+      "plays": "Reprod.",
+      "noData": "No hay datos para el período seleccionado"
+    },
+    "refresh": "Actualizar",
+    "lastUpdated": "Última actualización: {{time}}",
+    "error": "No se pudo cargar los datos analíticos",
+    "loading": "Cargando..."
+  },
   "errors": {
     "generic": "Ocurrió un error",
     "networkError": "Error de red",

@@ -172,6 +172,48 @@
     "connectionLost": "Connection lost",
     "connectionRestored": "Connection restored"
   },
+  "nav": {
+    "analytics": "Analytics",
+    "dashboard": "Dashboard",
+    "channels": "Channels",
+    "playlists": "Playlists",
+    "settings": "Settings"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "subtitle": "Broadcasting and listener statistics",
+    "period": {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      "all": "All time"
+    },
+    "metrics": {
+      "currentListeners": "Current listeners",
+      "peakToday": "Peak today: {{count}}",
+      "totalPlays": "Total plays",
+      "forPeriod": "For {{period}}",
+      "broadcastTime": "Broadcast time",
+      "uniqueTracks": "Unique tracks: {{count}}",
+      "peakWeek": "Peak this week",
+      "averageWeek": "Average: {{avg}}"
+    },
+    "chart": {
+      "title": "Listener History",
+      "listeners": "Listeners",
+      "noData": "No data for selected period"
+    },
+    "topTracks": {
+      "title": "Top Tracks",
+      "track": "Track",
+      "plays": "Plays",
+      "noData": "No data for selected period"
+    },
+    "refresh": "Refresh",
+    "lastUpdated": "Last updated: {{time}}",
+    "error": "Failed to load analytics data",
+    "loading": "Loading..."
+  },
   "errors": {
     "generic": "An error occurred",
     "networkError": "Network error",
