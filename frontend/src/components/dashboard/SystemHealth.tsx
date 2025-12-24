@@ -105,6 +105,7 @@ const MetricCard: React.FC<{
           maxValue={100}
           color={getStatusColor(status) as any}
           className="mt-2"
+          aria-label={`${label} progress: ${value}${unit}`}
         />
       )}
     </motion.div>
@@ -270,6 +271,7 @@ export const SystemHealth: React.FC<SystemHealthProps> = ({
             maxValue={maxDbConnections}
             color={getStatusColor(getStatusFromValue((dbConnections / maxDbConnections) * 100, 70, 90)) as any}
             className="mt-2"
+            aria-label={`Database connections: ${dbConnections} of ${maxDbConnections}`}
           />
         </div>
       </div>
@@ -301,6 +303,13 @@ export const SystemHealthLive: React.FC = () => {
 
   // Состояние ошибки
   if (isError) {
+    // Показываем дружественное сообщение вместо технической ошибки
+    const userFriendlyError = error instanceof Error && error.message.toLowerCase().includes('redis')
+      ? t('dashboard.health.redisConnectionError', 'Не удается подключиться к Redis')
+      : error instanceof Error 
+        ? t('dashboard.health.unavailable', 'Данные временно недоступны')
+        : t('dashboard.health.tryAgain', 'Попробуйте обновить страницу');
+    
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -314,7 +323,7 @@ export const SystemHealthLive: React.FC = () => {
             <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
               <XCircle className="w-5 h-5" />
               <span className="text-sm font-medium">
-                {t('dashboard.health.unavailable', 'Данные временно недоступны')}
+                {userFriendlyError}
               </span>
             </div>
             <button
@@ -325,9 +334,6 @@ export const SystemHealthLive: React.FC = () => {
               <RefreshCw className={`w-4 h-4 text-rose-500 ${isFetching ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          <p className="mt-2 text-xs text-[color:var(--color-text-muted)]">
-            {error instanceof Error ? error.message : t('dashboard.health.tryAgain', 'Попробуйте обновить страницу')}
-          </p>
         </div>
       </div>
     );
@@ -448,6 +454,7 @@ export const SystemHealthLive: React.FC = () => {
             maxValue={Math.max(metrics.db_connections_active + metrics.db_connections_idle, 10)}
             color={getStatusColor(getStatusFromValue((metrics.db_connections_active / 10) * 100, 70, 90)) as any}
             className="mt-2"
+            aria-label={`Database connections: ${metrics.db_connections_active} active, ${metrics.db_connections_idle} idle`}
           />
         </div>
       </div>

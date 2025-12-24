@@ -119,6 +119,54 @@ const SkeletonEvent: React.FC = () => (
 );
 
 /**
+ * Переводит сообщения событий с русского на выбранный язык
+ */
+const translateEventMessage = (message: string, t: any, language: string): string => {
+  // Паттерны для замены русских текстов
+  const patterns = [
+    { 
+      ru: /^Пользователь одобрен: (.+)$/,
+      key: 'activity.userApproved',
+      format: (match: RegExpMatchArray) => t('activity.userApproved', `User approved: ${match[1]}`, { email: match[1] })
+    },
+    {
+      ru: /^Роль пользователя (.+) изменена на (.+) — (.+)$/,
+      key: 'activity.roleChanged',
+      format: (match: RegExpMatchArray) => t('activity.roleChanged', `User ${match[1]} role changed to ${match[2]} — ${match[3]}`, { email: match[1], role: match[2], by: match[3] })
+    },
+    {
+      ru: /^Новый пользователь зарегистрирован через Google: (.+) — (.+)$/,
+      key: 'activity.userRegisteredGoogle',
+      format: (match: RegExpMatchArray) => t('activity.userRegisteredGoogle', `New user registered via Google: ${match[1]} — ${match[2]}`, { email: match[1], by: match[2] })
+    },
+    {
+      ru: /^Новый пользователь зарегистрирован через Telegram: (.+)$/,
+      key: 'activity.userRegisteredTelegram',
+      format: (match: RegExpMatchArray) => t('activity.userRegisteredTelegram', `New user registered via Telegram: ${match[1]}`, { name: match[1] })
+    },
+    {
+      ru: /^Новый пользователь зарегистрирован: (.+)$/,
+      key: 'activity.userRegistered',
+      format: (match: RegExpMatchArray) => t('activity.userRegistered', `New user registered: ${match[1]}`, { email: match[1] })
+    },
+    {
+      ru: /^Пользователь одобрен: (.+) — (.+)$/,
+      key: 'activity.userApprovedBy',
+      format: (match: RegExpMatchArray) => t('activity.userApprovedBy', `User approved: ${match[1]} — ${match[2]}`, { email: match[1], by: match[2] })
+    }
+  ];
+
+  for (const pattern of patterns) {
+    const match = message.match(pattern.ru);
+    if (match) {
+      return pattern.format(match);
+    }
+  }
+
+  return message;
+};
+
+/**
  * Форматирует детали события в читаемый вид
  * Вместо сырого JSON показывает понятные метки
  */
@@ -312,7 +360,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                 <div className="flex-1 min-w-0 space-y-1 max-w-3xl">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <p className="text-sm text-[color:var(--color-text)] leading-snug">
-                      {event.message}
+                      {translateEventMessage(event.message, t, i18n.language)}
                       {event.user && (
                         <span className="font-medium"> — {event.user}</span>
                       )}

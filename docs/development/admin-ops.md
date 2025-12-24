@@ -1,5 +1,47 @@
 # Admin Operations Guide
 
+## 🔧 Local Development Setup
+
+### ngrok Configuration
+```bash
+ngrok http --domain=isographical-shawnta-sortably.ngrok-free.dev 3000
+```
+
+⚠️ **ВАЖНО**: Порт ngrok должен совпадать с портом Vite dev server!
+- Vite по умолчанию: `localhost:3000`
+- Если порт 3000 занят, Vite выберет 3001, 3002 и т.д.
+- Проверка: `netstat -ano | findstr :3000`
+
+### Процессы и Мониторинг
+
+**Проверка запущенных сервисов:**
+```bash
+# Frontend (Vite)
+ps aux | grep vite
+netstat -ano | findstr :3000
+
+# Backend (FastAPI)
+ps aux | grep uvicorn
+netstat -ano | findstr :8000
+
+# ngrok
+ps aux | grep ngrok
+curl -s http://localhost:4040/api/tunnels
+```
+
+**Рестарт сервисов:**
+```bash
+# Frontend
+cd frontend && npm run dev &
+
+# Backend (если нужен)
+cd backend && uvicorn src.main:app --reload --port 8000 &
+
+# ngrok
+kill <ngrok_pid>
+ngrok http --domain=isographical-shawnta-sortably.ngrok-free.dev 3000 &
+```
+
 This guide describes the administrative operations available for the Telegram Video Streamer.
 
 ## Stream Control
