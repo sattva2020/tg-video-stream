@@ -141,17 +141,17 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T041 [P] [US3] Contract test для GET /health в rust-transcoder/tests/contract_health_test.rs
-- [ ] T042 [P] [US3] Contract test для GET /metrics в rust-transcoder/tests/contract_metrics_test.rs
+- [X] T041 [P] [US3] Contract test для GET /health в rust-transcoder/tests/contract_health_test.rs
+- [X] T042 [P] [US3] Contract test для GET /metrics в rust-transcoder/tests/contract_metrics_test.rs
 
 ### Implementation for User Story 3
 
-- [ ] T043 [US3] Реализовать health.rs endpoint с ServiceHealth response в rust-transcoder/src/api/health.rs
-- [ ] T044 [US3] Добавить version, uptime_seconds, ffmpeg_version в /health в rust-transcoder/src/api/health.rs
-- [ ] T045 [US3] Реализовать metrics.rs endpoint в Prometheus формате в rust-transcoder/src/api/metrics.rs
-- [ ] T046 [US3] Добавить метрики: transcode_requests_total, active_streams, transcode_latency_ms в rust-transcoder/src/api/metrics.rs
-- [ ] T047 [US3] Подключить /health и /metrics в api/mod.rs маршрутизацию в rust-transcoder/src/api/mod.rs
-- [ ] T048 [US3] Добавить graceful shutdown handling (SIGTERM) в rust-transcoder/src/main.rs
+- [X] T043 [US3] Реализовать health.rs endpoint с ServiceHealth response в rust-transcoder/src/api/health.rs
+- [X] T044 [US3] Добавить version, uptime_seconds, ffmpeg_version в /health в rust-transcoder/src/api/health.rs
+- [X] T045 [US3] Реализовать metrics.rs endpoint в Prometheus формате в rust-transcoder/src/api/metrics.rs
+- [X] T046 [US3] Добавить метрики: transcode_requests_total, active_streams, transcode_latency_ms в rust-transcoder/src/api/metrics.rs
+- [X] T047 [US3] Подключить /health и /metrics в api/mod.rs маршрутизацию в rust-transcoder/src/api/mod.rs
+- [X] T048 [US3] Добавить graceful shutdown handling (SIGTERM) в rust-transcoder/src/main.rs
 
 **Checkpoint**: Все user stories работают — можно мониторить сервис
 
@@ -161,8 +161,8 @@
 
 **Purpose**: Улучшения затрагивающие несколько user stories
 
-- [ ] T049 [P] Обновить README.md с инструкциями по запуску Rust-сервиса
-- [ ] T050 [P] Добавить документацию API в docs/api/rust-transcoder.md
+- [X] T049 [P] Обновить README.md с инструкциями по запуску Rust-сервиса
+- [X] T050 [P] Добавить документацию API в docs/api/rust-transcoder.md
 - [ ] T051 Code cleanup: убрать дублирование между profiles.rs и audio_utils.py
 - [ ] T052 [P] Добавить unit tests для всех enums в rust-transcoder/tests/unit_enums_test.rs
 - [ ] T053 Проверить quickstart.md — все примеры должны работать
