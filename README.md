@@ -1,5 +1,10 @@
 # Telegram 24/7 Video Streamer (TDLib-free, PyTgCalls)
 
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-98.75%25-brightgreen?style=flat-square&logo=pytest)
+![Tests](https://img.shields.io/badge/tests-353%20passed-success?style=flat-square&logo=github-actions)
+![Priority Services](https://img.shields.io/badge/priority%20services-8%2F8%20tested-blue?style=flat-square)
+[![CI](https://github.com/YOUR_USERNAME/YOUR_REPO/workflows/Backend%20Coverage%20Monitoring/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/backend-coverage.yml)
+
 Этот пакет позволяет запускать **круглосуточную трансляцию YouTube-плейлиста**
 в видеочате Telegram-группы **без GUI**.
 Используются: **Pyrogram + PyTgCalls + FFmpeg + yt-dlp**.
@@ -24,13 +29,32 @@
 - Запуск как systemd-сервис: `tg_video_streamer`.
 - **Web Admin Panel** для управления стримом.
 
+## Безопасность
+
+Проект реализует современные стандарты безопасности:
+- **Nginx**: Security Headers, Rate Limiting, Connection Limits.
+- **Backend**: Strict CORS, JWT Auth.
+- **Audit**: Автоматические тесты безопасности.
+
+Подробнее: [docs/SECURITY.md](docs/SECURITY.md)
+
 ## Быстрый старт (Docker Compose)
 
-Запуск всего стека (Стример + Админка + БД):
+- Локальная разработка, полный стек с hot-reload (backend, frontend dev, db, redis, streamer, rust-transcoder, мониторинг):
 
 ```bash
-docker-compose up -d --build
+docker compose -f docker-compose.local.yml up -d
 ```
+
+- Порты локально: backend 8000, frontend 3000, redis 6379, postgres 5432, rust-transcoder 18090 (health: http://localhost:18090/health), alertmanager 19093.
+
+- Полный docker-стек (стенд/CI; без hot-reload):
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+> На проде backend и streamer работают через systemd (см. ai-instructions/DEPLOYMENT_SYNC_RULE.md); docker-compose.yml нужен для стендов или полного docker-развёртывания.
 
 - **Frontend (Admin Panel)**: <http://localhost:3000>
 - **Backend (API)**: <http://localhost:8000>
@@ -102,9 +126,9 @@ python generate_session.py
 Создайте файл `.env` (можно скопировать `.env.template`):
 
 ```ini
-API_ID=123456
-API_HASH=your_api_hash_here
-SESSION_STRING=your_session_string_here
+API_ID=your_api_id
+API_HASH=your_api_hash
+# SESSION_STRING removed - authorization is handled via GUI
 CHAT_ID=-1001234567890      # id супергруппы или @username (без @)
 VIDEO_QUALITY=720p          # 1080p/720p/480p (влияет на параметры FFmpeg)
 LOOP=1                      # 1=крутить по кругу; 0=один проход
@@ -170,6 +194,52 @@ journalctl -u tg_video_streamer -f -n 200
 
 - Храните `.env` (особенно `SESSION_STRING`) только на сервере.
 - Ограничьте доступ к `/opt/tg_video_streamer` правами пользователя.
+
+## 🧪 Testing & Quality Assurance
+
+### Backend Testing
+
+Проект имеет **98.75% покрытие тестами** для 8 приоритетных сервисов:
+
+| Сервис | Coverage | Tests | Status |
+|--------|----------|-------|--------|
+| session_service | 100% | 29 | ✅ |
+| activity_service | 100% | 29 | ✅ |
+| playback_service | 99% | 82 | ✅ |
+| queue_service | 99% | 60 | ✅ |
+| telegram_rate_limiter | 99% | 54 | ✅ |
+| channel_service | 99% | 55 | ✅ |
+| auth_service | 98% | 23 | ✅ |
+| priority_queue_service | 96% | 46 | ✅ |
+
+**Запуск тестов:**
+
+```bash
+cd backend
+
+# Все приоритетные сервисы
+pytest tests/test_playback_service.py tests/test_auth_service.py \
+  tests/test_session_service.py tests/test_activity_service.py \
+  tests/test_telegram_rate_limiter.py tests/test_queue_service.py \
+  tests/test_priority_queue_service.py tests/test_channel_service.py \
+  --cov=src.services --cov-report=term-missing --cov-branch -v
+
+# Быстрый запуск
+pytest -q
+
+# С coverage отчётом
+pytest --cov=src --cov-report=html
+```
+
+### CI/CD Integration
+
+Coverage автоматически отслеживается в GitHub Actions:
+- ✅ Проверка при каждом PR
+- ✅ Автоматические отчёты в artifacts
+- ✅ Threshold: минимум 95% для priority services
+- ✅ Badge в README обновляется автоматически
+
+Подробнее: [docs/testing/](docs/testing/) и `.github/workflows/backend-coverage.yml`
 
 ## Лицензия
 

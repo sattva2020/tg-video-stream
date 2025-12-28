@@ -1,0 +1,238 @@
+name: Backend Coverage Monitoring
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/src/services/**'
+      - 'backend/tests/test_*_service.py'
+      - 'backend/requirements*.txt'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/src/services/**'
+      - 'backend/tests/test_*_service.py'
+  workflow_dispatch:
+
+jobs:
+  priority-services-coverage:
+    name: Test Priority Services (98.75% target)
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: backend
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Set up test environment
+      run: |
+        mkdir -p data/music
+        echo "TESTING=true" >> $GITHUB_ENV
+        echo "DATABASE_URL=sqlite:///:memory:" >> $GITHUB_ENV
+        echo "JWT_SECRET=test_secret_key_for_ci" >> $GITHUB_ENV
+        echo "JWT_ALGORITHM=HS256" >> $GITHUB_ENV
+        echo "JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30" >> $GITHUB_ENV
+        echo "JWT_REFRESH_TOKEN_EXPIRE_MINUTES=43200" >> $GITHUB_ENV
+        echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
+    
+    - name: Start Redis
+      uses: shogo82148/actions-setup-redis@v1
+      with:
+        redis-version: '7.x'
+        auto-start: true
+    
+    - name: Run 8 Priority Services Tests
+      run: |
+        python -m pytest \
+          tests/test_playback_service.py \
+          tests/test_auth_service.py \
+          tests/test_session_service.py \
+          tests/test_activity_service.py \
+          tests/test_telegram_rate_limiter.py \
+          tests/test_queue_service.py \
+          tests/test_priority_queue_service.py \
+          tests/test_channel_service.py \
+          --cov=src.services.playback_service \
+          --cov=src.services.auth_service \
+          --cov=src.services.session_service \
+          --cov=src.services.activity_service \
+          --cov=src.services.telegram_rate_limiter \
+          --cov=src.services.queue_service \
+          --cov=src.services.priority_queue_service \
+          --cov=src.services.channel_service \
+          --cov-report=term-missing \
+          --cov-report=html \
+          --cov-report=json \
+          --cov-branch \
+          -v
+    
+    - name: Generate Coverage Summary
+      if: always()
+      run: |
+        echo "## 🎯 Backend Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Priority Services (Target: 98.75%)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Service | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        
+        # Parse coverage from JSON
+        if [ -f coverage.json ]; then
+          python -c "
+import json
+import sys
+
+services = {
+    'src/services/playback_service.py': 'playback_service',
+    'src/services/auth_service.py': 'auth_service',
+    'src/services/session_service.py': 'session_service',
+    'src/services/activity_service.py': 'activity_service',
+    'src/services/telegram_rate_limiter.py': 'telegram_rate_limiter',
+    'src/services/queue_service.py': 'queue_service',
+    'src/services/priority_queue_service.py': 'priority_queue_service',
+    'src/services/channel_service.py': 'channel_service'
+}
+
+with open('coverage.json') as f:
+    data = json.load(f)
+
+total_percent = 0
+count = 0
+
+for file_path, name in services.items():
+    if file_path in data['files']:
+        file_data = data['files'][file_path]
+        covered = file_data['summary']['covered_lines']
+        total = file_data['summary']['num_statements']
+        percent = file_data['summary']['percent_covered']
+        
+        status = '✅' if percent >= 95 else '⚠️' if percent >= 90 else '❌'
+        print(f'| {name} | {percent:.1f}% | {status} |')
+        
+        total_percent += percent
+        count += 1
+
+if count > 0:
+    avg = total_percent / count
+    status = '🎉' if avg >= 98 else '✅' if avg >= 95 else '⚠️'
+    print(f'| **AVERAGE** | **{avg:.2f}%** | {status} |')
+" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 Full report available in artifacts" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Check Coverage Threshold
+      run: |
+        # Проверяем, что среднее покрытие >= 95%
+        python -c "
+import json
+import sys
+
+with open('coverage.json') as f:
+    data = json.load(f)
+
+services = [
+    'src/services/playback_service.py',
+    'src/services/auth_service.py',
+    'src/services/session_service.py',
+    'src/services/activity_service.py',
+    'src/services/telegram_rate_limiter.py',
+    'src/services/queue_service.py',
+    'src/services/priority_queue_service.py',
+    'src/services/channel_service.py'
+]
+
+total = sum(data['files'][s]['summary']['percent_covered'] for s in services if s in data['files'])
+avg = total / len([s for s in services if s in data['files']])
+
+print(f'Average coverage: {avg:.2f}%')
+
+if avg < 95:
+    print(f'❌ Coverage below threshold! Expected >= 95%, got {avg:.2f}%')
+    sys.exit(1)
+else:
+    print(f'✅ Coverage meets threshold: {avg:.2f}%')
+"
+    
+    - name: Upload Coverage Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-priority-services-coverage
+        path: |
+          backend/coverage.json
+          backend/htmlcov/
+        retention-days: 30
+    
+    - name: Upload to Codecov
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./backend/coverage.json
+        flags: backend-priority-services
+        name: priority-services-coverage
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
+    
+    - name: Comment PR with Coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          let coverage = 'Coverage report not found';
+          try {
+            const data = JSON.parse(fs.readFileSync('backend/coverage.json', 'utf8'));
+            const services = [
+              'src/services/playback_service.py',
+              'src/services/auth_service.py',
+              'src/services/session_service.py',
+              'src/services/activity_service.py',
+              'src/services/telegram_rate_limiter.py',
+              'src/services/queue_service.py',
+              'src/services/priority_queue_service.py',
+              'src/services/channel_service.py'
+            ];
+            
+            let total = 0;
+            let count = 0;
+            let table = '| Service | Coverage |\n|---------|----------|\n';
+            
+            services.forEach(service => {
+              if (data.files[service]) {
+                const percent = data.files[service].summary.percent_covered;
+                const name = service.split('/').pop().replace('.py', '');
+                table += `| ${name} | ${percent.toFixed(1)}% |\n`;
+                total += percent;
+                count++;
+              }
+            });
+            
+            const avg = total / count;
+            coverage = `## 🎯 Backend Coverage Report\n\n${table}\n**Average: ${avg.toFixed(2)}%**`;
+          } catch (e) {
+            console.error('Failed to parse coverage:', e);
+          }
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: coverage
+          });
