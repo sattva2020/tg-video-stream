@@ -56,7 +56,7 @@ test.describe('Backend API Health Check', () => {
     });
   });
 
-  test.afterEach(async ({ }, testInfo) => {
+  test.afterEach(async (_, testInfo) => {
     // Attach API errors to test report
     if (apiErrors.length > 0) {
       await testInfo.attach('api-errors', {

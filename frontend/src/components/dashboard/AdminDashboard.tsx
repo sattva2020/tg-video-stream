@@ -18,7 +18,7 @@ import {
 } from '@heroui/react';
 import { useToast } from '../../hooks/useToast';
 import { StreamStatusCard } from './StreamStatusCard';
-import { SkeletonStatCard, SkeletonTableRow } from '../ui/Skeleton';
+import { SkeletonStatCard, SkeletonTableRow } from '../ui/skeleton';
 import { Pagination } from '../ui/Pagination';
 import { usePaginatedUsers, useUserStats, useApproveUser, useRejectUser } from '../../hooks/useUsersQuery';
 import { useQueryClient } from '@tanstack/react-query';

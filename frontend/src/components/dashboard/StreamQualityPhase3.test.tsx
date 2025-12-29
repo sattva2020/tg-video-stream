@@ -3,10 +3,12 @@
  */
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import StreamQualityChart from './StreamQualityChart';
 import StreamQualityAlertSettings from './StreamQualityAlertSettings';
-import { QualityTrendData, QualityAlertConfigUpdate } from '../../api/admin';
+import { QualityTrendData } from '../../api/admin';
+
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 // Mock data
 const mockTrendData: QualityTrendData = {
@@ -212,7 +214,7 @@ describe('StreamQualityAlertSettings Component', () => {
 
   describe('Enable/Disable Toggle', () => {
     it('should have enable/disable toggle', () => {
-      const { container } = render(
+        const { container } = render(
         <StreamQualityAlertSettings
           streamUrl="http://stream.local"
         />
@@ -222,7 +224,7 @@ describe('StreamQualityAlertSettings Component', () => {
     });
 
     it('should be enabled by default', () => {
-      const { container } = render(
+        const { container } = render(
         <StreamQualityAlertSettings
           streamUrl="http://stream.local"
         />
@@ -232,7 +234,7 @@ describe('StreamQualityAlertSettings Component', () => {
     });
 
     it('should toggle enabled/disabled state', () => {
-      const { container } = render(
+        const { container } = render(
         <StreamQualityAlertSettings
           streamUrl="http://stream.local"
         />

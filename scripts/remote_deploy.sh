@@ -17,6 +17,59 @@ RELEASES_DIR="$APP_DIR/releases"
 CURRENT_LINK="$APP_DIR/current"
 FALLBACK_ENV="/opt/sattva-streamer/.env"
 
+ensure_env_from_sops() {
+  local base_dir="$1"
+  local enc_path="$base_dir/.env.enc"
+  local out_path="$base_dir/.env"
+
+  if [ -f "$out_path" ]; then
+    return 0
+  fi
+
+  if [ ! -f "$enc_path" ]; then
+    return 0
+  fi
+
+  if ! command -v sops >/dev/null 2>&1; then
+    echo "sops not installed, cannot decrypt $enc_path"
+    return 1
+  fi
+
+  if [ -n "${SOPS_AGE_KEY_FILE:-}" ] && [ -f "$SOPS_AGE_KEY_FILE" ]; then
+    SOPS_AGE_KEY_FILE="$SOPS_AGE_KEY_FILE" sops --decrypt --input-type dotenv --output-type dotenv "$enc_path" > "$out_path"
+  elif [ -n "${SOPS_AGE_KEY:-}" ]; then
+    SOPS_AGE_KEY="$SOPS_AGE_KEY" sops --decrypt --input-type dotenv --output-type dotenv "$enc_path" > "$out_path"
+  else
+    echo "SOPS_AGE_KEY_FILE or SOPS_AGE_KEY is required for $enc_path"
+    return 1
+  fi
+
+  chmod 600 "$out_path" || true
+  echo "Decrypted $enc_path -> $out_path"
+}
+
+split_envs() {
+  local base_dir="$1"
+  local root_env="$base_dir/.env"
+  local backend_env="$base_dir/backend/.env"
+  local frontend_env="$base_dir/frontend/.env"
+
+  if [ ! -f "$root_env" ]; then
+    echo "Root .env not found for splitting"
+    return 1
+  fi
+
+  mkdir -p "$base_dir/backend" "$base_dir/frontend"
+
+  # Backend получает все, кроме VITE_*
+  grep -Ev '^VITE_' "$root_env" > "$backend_env" || true
+  # Frontend получает только VITE_*
+  grep -E '^VITE_' "$root_env" > "$frontend_env" || true
+
+  chmod 600 "$backend_env" "$frontend_env" 2>/dev/null || true
+  echo "Generated backend/.env and frontend/.env from root .env"
+}
+
 echo "Using TAR=$TARFILE"
 
 mkdir -p "$RELEASES_DIR"
@@ -50,6 +103,16 @@ cat > "$DEST/DEPLOY_META.json" <<EOF
 }
 EOF
 
+# Расшифровываем .env, если в релизе присутствует .env.enc
+if ! ensure_env_from_sops "$DEST"; then
+  echo "Failed to decrypt $DEST/.env.enc"
+  exit 1
+fi
+if ! split_envs "$DEST"; then
+  echo "Failed to split .env into backend/frontend"
+  exit 1
+fi
+
 # Create venv under the release if missing (this avoids sharing venv across releases)
 if [ ! -d "$DEST/venv" ]; then
   if ! command -v python3 >/dev/null 2>&1; then
@@ -76,9 +139,15 @@ elif [ -f "$FALLBACK_ENV" ]; then
   PREVIOUS_ENV="$FALLBACK_ENV"
 fi
 
-if [ -n "$PREVIOUS_ENV" ] && [ ! -f "$DEST/.env" ]; then
+if [ -n "$PREVIOUS_ENV" ] && [ ! -f "$DEST/.env.enc" ] && [ ! -f "$DEST/.env" ]; then
   echo "Copying environment file from $PREVIOUS_ENV"
   cp "$PREVIOUS_ENV" "$DEST/.env"
+  split_envs "$DEST" || true
+fi
+
+if [ ! -f "$DEST/.env" ]; then
+  echo "Environment file .env is missing in release and cannot be copied. Add .env.enc with key (SOPS_AGE_KEY/_FILE) or provide .env."
+  exit 1
 fi
 
 # Create dedicated deploy user if it exists in /etc/passwd, else we'll keep current ownership (script usually run as root)

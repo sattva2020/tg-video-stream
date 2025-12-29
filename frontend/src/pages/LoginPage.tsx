@@ -38,6 +38,7 @@ const LoginPage: React.FC = () => {
     formState: { errors },
   } = useForm<LoginRequest>({
     resolver: zodResolver(LoginSchema),
+    defaultValues: { totp_code: '' },
   });
 
   useEffect(() => {
@@ -94,7 +95,14 @@ const LoginPage: React.FC = () => {
     } catch (error: any) {
       console.error('Login failed:', error);
       if (error.response?.status === 401) {
-        setErrorMessage('Invalid email or password.');
+        const detail = error.response?.data?.detail;
+        if (typeof detail === 'string' && detail.toLowerCase().includes('totp')) {
+          setErrorMessage('Введите одноразовый код 2FA из приложения.');
+        } else {
+          setErrorMessage('Invalid email or password.');
+        }
+      } else if (error.response?.status === 423) {
+        setErrorMessage('Слишком много попыток. Попробуйте позже.');
       } else if (error.response?.status === 403) {
         setErrorMessage('Your account is pending approval or has been rejected.');
       } else {
@@ -163,6 +171,27 @@ const LoginPage: React.FC = () => {
               {errors.password && (
                 <p className="mt-1 text-xs text-red-600">{errors.password.message}</p>
               )}
+            </div>
+
+            <div>
+              <label htmlFor="totp_code" className="block text-sm font-medium text-gray-700">
+                2FA code (если включён)
+              </label>
+              <input
+                id="totp_code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                {...register('totp_code')}
+              />
+              {errors.totp_code && (
+                <p className="mt-1 text-xs text-red-600">{errors.totp_code.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Введите код из приложения Google Authenticator/1Password, если включена 2FA.
+              </p>
             </div>
 
             <div>

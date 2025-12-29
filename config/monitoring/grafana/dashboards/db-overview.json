@@ -1,0 +1,76 @@
+{
+  "title": "PostgreSQL Overview",
+  "uid": "db-overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "# PostgreSQL Overview\n\npg_up, подключения, tx, cache hit"
+      },
+      "transparent": true
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "pg_up",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 3},
+      "targets": [{"refId": "A", "expr": "max(pg_up)"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Connections",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 3},
+      "targets": [{"refId": "A", "expr": "sum(pg_stat_database_numbackends)"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Tx rate (/s)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 3},
+      "targets": [{"refId": "A", "expr": "sum(rate(pg_stat_database_xact_commit[5m]) + rate(pg_stat_database_xact_rollback[5m]))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Cache hit (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 3},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (sum(rate(pg_stat_database_blks_read[5m])) / sum(rate(pg_stat_database_blks_hit[5m]) + rate(pg_stat_database_blks_read[5m]))))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Connections by DB",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
+      "targets": [{"refId": "A", "expr": "pg_stat_database_numbackends"}]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Tx rate by DB",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
+      "targets": [{"refId": "A", "expr": "rate(pg_stat_database_xact_commit[5m]) + rate(pg_stat_database_xact_rollback[5m])"}]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Cache hit vs read",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 15},
+      "targets": [
+        {"refId": "A", "expr": "rate(pg_stat_database_blks_hit[5m])"},
+        {"refId": "B", "expr": "rate(pg_stat_database_blks_read[5m])"}
+      ]
+    }
+  ]
+}

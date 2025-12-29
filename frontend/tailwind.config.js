@@ -55,6 +55,15 @@ export default {
       animation: {
         'gradient-x': 'gradient-x 3s ease infinite',
         'spin-slow': 'spin 2s linear infinite',
+        'spin-very-slow': 'spin 120s linear infinite',
+        'pulse-slow': 'pulse-slow 4s ease-in-out infinite',
+        'glow': 'glow 3s ease-in-out infinite',
+        'float': 'float 6s ease-in-out infinite',
+        'twinkle': 'twinkle 3s ease-in-out infinite',
+        'drift': 'drift 60s linear infinite',
+        'clouds': 'clouds 90s linear infinite',
+        'orbit': 'orbit 30s linear infinite',
+        'orbit-reverse': 'orbit 45s linear infinite reverse',
       },
       keyframes: {
         'gradient-x': {
@@ -65,6 +74,68 @@ export default {
           '50%': {
             'background-size': '200% 200%',
             'background-position': 'right center',
+          },
+        },
+        'pulse-slow': {
+          '0%, 100%': {
+            opacity: '0.5',
+            transform: 'scale(1)',
+          },
+          '50%': {
+            opacity: '0.8',
+            transform: 'scale(1.02)',
+          },
+        },
+        'glow': {
+          '0%, 100%': {
+            opacity: '0.3',
+            transform: 'scale(0.95)',
+          },
+          '50%': {
+            opacity: '0.7',
+            transform: 'scale(1.1)',
+          },
+        },
+        'float': {
+          '0%, 100%': {
+            transform: 'translateY(0)',
+          },
+          '50%': {
+            transform: 'translateY(-10px)',
+          },
+        },
+        'twinkle': {
+          '0%, 100%': {
+            opacity: '0.3',
+            transform: 'scale(1)',
+          },
+          '50%': {
+            opacity: '1',
+            transform: 'scale(1.2)',
+          },
+        },
+        'drift': {
+          '0%': {
+            transform: 'translateX(0) rotate(0deg)',
+          },
+          '100%': {
+            transform: 'translateX(-20px) rotate(5deg)',
+          },
+        },
+        'clouds': {
+          '0%': {
+            transform: 'translateX(0)',
+          },
+          '100%': {
+            transform: 'translateX(30px)',
+          },
+        },
+        'orbit': {
+          '0%': {
+            transform: 'rotateX(75deg) rotateZ(0deg)',
+          },
+          '100%': {
+            transform: 'rotateX(75deg) rotateZ(360deg)',
           },
         },
       },

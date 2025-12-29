@@ -1,0 +1,68 @@
+{
+  "title": "Host Overview",
+  "uid": "host-overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "# Host Overview\n\nCPU, RAM, disk (node_exporter)"
+      },
+      "transparent": true
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU usage (%)",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 3},
+      "targets": [{"refId": "A", "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Memory usage (%)",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 3},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Disk / usage (%)",
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 3},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}))"}],
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU usage by core",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
+      "targets": [{"refId": "A", "expr": "100 * (1 - rate(node_cpu_seconds_total{mode=\"idle\"}[5m]))"}]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memory available (bytes)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
+      "targets": [{"refId": "A", "expr": "node_memory_MemAvailable_bytes"}]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Disk / free vs size",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 15},
+      "targets": [
+        {"refId": "A", "expr": "node_filesystem_size_bytes{mountpoint=\"/\"}"},
+        {"refId": "B", "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"}"}
+      ]
+    }
+  ]
+}

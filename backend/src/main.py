@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import sys
 import warnings
 from contextlib import asynccontextmanager
+from prometheus_fastapi_instrumentator import Instrumentator
 
 # Add current directory (src) to sys.path to allow absolute imports from src
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +39,7 @@ from src.api import media, media_gdrive  # noqa: E402
 from src.api.routes import playback as playback_routes  # noqa: E402
 from src.api.routes import notifications_channels, notifications_templates, notifications_recipients, notifications_rules, notifications_events, notifications_logs  # noqa: E402
 from src.api.routes import stream_quality as stream_quality_routes  # noqa: E402
+from src.api.routes import playlists as user_playlists_router  # noqa: E402
 from api.health import router as health_router  # noqa: E402
 from api.system import router as system_router  # noqa: E402
 from api.telegram_login import router as telegram_login_router  # noqa: E402
@@ -86,28 +88,24 @@ app = FastAPI(
 
 
 
-# Add session middleware
+from src.core.config import settings
 
-# This is required for storing the OAuth state to prevent CSRF attacks
+# Add session middleware
+# This is required for storing the OAuth state to prevent CSRF attacks and for Admin Panel
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="admin_session",
+    max_age=3600 * 24,
+    same_site="lax",
+    https_only=settings.ENVIRONMENT == "production"
+)
 
 from fastapi.middleware.cors import CORSMiddleware
 
-# Разрешённые origins для CORS
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://127.0.0.1:3000",
-    "http://flowbooster.xyz",
-    "http://flowbooster.xyz:80",
-    "https://flowbooster.xyz",
-    "http://sattva-streamer.top",
-    "https://sattva-streamer.top",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -134,11 +132,12 @@ def read_root():
 
 # Include routers
 
-app.include_router(health_router, tags=["Health"])  # Health endpoints без prefix
+app.include_router(health_router, prefix="/api", tags=["Health"])  # /api/health
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
+app.include_router(user_playlists_router.router, prefix="/api/playlists", tags=["User Playlists"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
 app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
@@ -163,11 +162,17 @@ app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
 app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
 app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])
 app.include_router(audio_router, prefix="/api/v1", tags=["Audio Processing"])
+app.include_router(user_playlists_router.router, prefix="/api/playlists", tags=["User Playlists"])
 
 
 # Setup Prometheus middleware
 from src.middleware.prometheus import PrometheusMiddleware
 app.add_middleware(PrometheusMiddleware)
+
+# Базовые метрики FastAPI/Starlette (включая process metrics) в общий registry
+Instrumentator(
+    excluded_handlers={"/metrics", "/health", "/api/health", "/healthz"}
+).instrument(app)
 
 # Setup sliding session middleware (auto-refresh JWT tokens)
 from src.middleware.sliding_session import SlidingSessionMiddleware

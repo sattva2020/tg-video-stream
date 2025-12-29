@@ -88,6 +88,14 @@ elif [ -f "streamer/requirements.txt" ]; then
     cp streamer/requirements.txt "$BUILD_DIR/"
 fi
 
+# Copy encrypted secrets (if exists)
+if [ -f ".env.enc" ]; then
+    echo "Copying encrypted secrets (.env.enc)..."
+    cp .env.enc "$BUILD_DIR/"
+else
+    echo "Warning: .env.enc not found. Server will need .env manually or from previous release."
+fi
+
 # Create tarball
 echo "Creating tarball..."
 tar -czf "$ARTIFACT_NAME" -C "$BUILD_DIR" .

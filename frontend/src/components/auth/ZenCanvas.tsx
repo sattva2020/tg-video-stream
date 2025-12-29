@@ -23,7 +23,10 @@ const ZenCanvas: React.FC<ZenCanvasProps> = ({ scrollY }) => {
     <div data-testid="auth-zen-canvas" className="h-full w-full">
       <Suspense fallback={null}>
         {CanvasComp ? (
-          <CanvasComp camera={{ position: [0, 0, 8], fov: 45 }} gl={{ alpha: true }}>
+          <CanvasComp 
+            camera={{ position: [0, 0, 8], fov: 45, near: 0.1, far: 1000 }} 
+            gl={{ alpha: true }}
+          >
             <LazyZenScene scrollY={scrollY} />
           </CanvasComp>
         ) : null}

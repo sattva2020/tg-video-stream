@@ -34,6 +34,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
   const [showTelegramModal, setShowTelegramModal] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totpCode, setTotpCode] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const API_URL = useMemo(
     () => import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '',
@@ -51,7 +52,7 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
     setBanner(initialBanner ?? null);
   }, [initialBanner]);
 
-  const googleLabel = `${t('or_continue')} Google`;
+  const googleLabel = t('login_google');
 
   // Обработчик успешной авторизации через Telegram
   const handleTelegramSuccess = async (token?: string) => {
@@ -72,14 +73,20 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
     setFormError(null);
     setIsSubmitting(true);
     try {
-      const response = await authApi.login({ username: email, password });
+      const response = await authApi.login({ username: email, password, totp_code: totpCode || undefined });
       await authLogin(response.access_token);
       navigate('/dashboard');
     } catch (error: any) {
       const serverMessage = error?.response?.data?.message;
+      const detail = error?.response?.data?.detail;
       const status = error?.response?.status;
       if (status === 401) {
-        setFormError(t('invalid_credentials', 'Неверный email или пароль.'));
+        const isTotp = typeof detail === 'string' && detail.toLowerCase().includes('totp');
+        setFormError(
+          isTotp
+            ? t('totp_required', 'Введите одноразовый код 2FA.')
+            : t('invalid_credentials', 'Неверный email или пароль.')
+        );
       } else if (status === 403) {
         setFormError(t('account_pending_or_blocked', 'Учетная запись ожидает одобрения или заблокирована.'));
       } else {
@@ -183,6 +190,25 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
                   {formError}
                 </p>
               )}
+
+              <div className="space-y-1">
+                <label htmlFor="auth-totp" className="text-xs uppercase tracking-[0.3em] text-[#F5E6D3]/60">
+                  {t('totp_code_optional', 'Код 2FA (если включено)')}
+                </label>
+                <input
+                  id="auth-totp"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\\d{6}"
+                  autoComplete="one-time-code"
+                  placeholder="123456"
+                  className="w-full rounded-full border border-white/20 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/60 focus:outline-none"
+                  value={totpCode}
+                  onChange={(event) => setTotpCode(event.target.value)}
+                  disabled={isSubmitting}
+                  data-testid="totp-input"
+                />
+              </div>
 
               <button
                 type="submit"

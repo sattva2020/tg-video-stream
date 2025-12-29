@@ -22,6 +22,7 @@ export interface CreateChannelData {
   ffmpeg_args?: string;
   video_quality?: string;
   stream_type?: 'video' | 'audio';
+  playlist_id?: string;
 }
 
 export const channelsApi = {

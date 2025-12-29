@@ -75,6 +75,51 @@ async def _maybe_expand_gdrive_folder_items(source_type: str, source_url: Option
         )
     return items
 
+
+def _maybe_expand_local_folder_items(source_type: str, source_url: Optional[str]) -> Optional[list]:
+    """Если source_type == folder — развернуть локальную папку в список items."""
+    if (source_type or "").lower() != "folder":
+        return None
+
+    if not source_url:
+        raise HTTPException(status_code=400, detail="source_url is required for folder")
+
+    from src.services.media_scanner import scan_folder
+    
+    try:
+        # Сканируем рекурсивно, так как обычно хотят все файлы в папке
+        files = scan_folder(source_url, recursive=True)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Access denied")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    items: list = []
+    for f in files:
+        # Используем file:// протокол и абсолютный путь в контейнере
+        # MUSIC_ROOT в контейнере обычно /app/music
+        # f.path - относительный путь
+        # Но нам нужно, чтобы стример понял этот путь.
+        # Если мы настроим volume mapping одинаково, то /app/music/{f.path} будет работать.
+        
+        # Важно: f.path может содержать backslashes на Windows, но в контейнере Linux нужны forward slashes.
+        # pathlib должен справиться, но лучше убедиться.
+        rel_path = f.path.replace("\\", "/")
+        full_path = f"/app/music/{rel_path}"
+        
+        items.append(
+            {
+                "url": f"file://{full_path}",
+                "title": f.title or f.filename,
+                "artist": f.artist,
+                "duration": f.duration,
+                "type": "file",
+            }
+        )
+    return items
+
 router = APIRouter(tags=["schedule-playlists"])
 
 
@@ -130,6 +175,8 @@ async def create_playlist(
     """Создать новый плейлист."""
     # Для gdrive_folder разворачиваем source_url в items на backend
     expanded = await _maybe_expand_gdrive_folder_items(playlist_data.source_type, playlist_data.source_url)
+    if expanded is None:
+        expanded = _maybe_expand_local_folder_items(playlist_data.source_type, playlist_data.source_url)
 
     # Вычисляем статистику
     items = expanded if expanded is not None else (playlist_data.items or [])
@@ -196,9 +243,17 @@ async def update_playlist(
     # Важный нюанс: фронт для non-manual источников может не отправлять items.
     new_source_type = (update_data.get("source_type") or playlist.source_type or "").lower()
     new_source_url = update_data.get("source_url") if "source_url" in update_data else playlist.source_url
-    if new_source_type == "gdrive_folder" and ("source_url" in update_data or "source_type" in update_data) and "items" not in update_data:
-        expanded = await _maybe_expand_gdrive_folder_items(new_source_type, new_source_url)
-        update_data["items"] = expanded or []
+    
+    should_expand = ("source_url" in update_data or "source_type" in update_data) and "items" not in update_data
+    
+    if should_expand:
+        if new_source_type == "gdrive_folder":
+            expanded = await _maybe_expand_gdrive_folder_items(new_source_type, new_source_url)
+            update_data["items"] = expanded or []
+        elif new_source_type == "folder":
+            expanded = _maybe_expand_local_folder_items(new_source_type, new_source_url)
+            if expanded is not None:
+                update_data["items"] = expanded
     
     # Пересчитываем статистику при обновлении items
     if "items" in update_data:

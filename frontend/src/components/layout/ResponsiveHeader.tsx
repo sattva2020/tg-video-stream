@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LogOut, User as UserIcon } from 'lucide-react';
@@ -8,20 +8,37 @@ import { ThemeToggle } from '../auth/ThemeToggle';
 import UserBadge from '../UserBadge';
 import { MobileNav } from './MobileNav';
 import { DesktopNav } from './DesktopNav';
+import { DEFAULT_LOGO, getUserLogo, subscribeLogoChanges } from '../../utils/branding';
 
 export const ResponsiveHeader: React.FC = () => {
   const { t } = useTranslation();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [userLogo, setUserLogo] = useState<string | undefined>(() => getUserLogo(user?.id));
+
+  useEffect(() => {
+    setUserLogo(getUserLogo(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    const unsub = subscribeLogoChanges((userId, logo) => {
+      if (userId === user?.id) {
+        setUserLogo(logo);
+      }
+    });
+    return unsub;
+  }, [user?.id]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const logoSrc = useMemo(() => userLogo || DEFAULT_LOGO, [userLogo]);
+
   return (
     <header className="sticky top-0 z-40 bg-[color:var(--color-surface)] border-b border-[color:var(--color-border)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Mobile: Hamburger + Logo */}
           <div className="flex items-center gap-3">
@@ -33,7 +50,7 @@ export const ResponsiveHeader: React.FC = () => {
               className="flex items-center gap-2 text-lg font-semibold text-[color:var(--color-text)]"
             >
               <img 
-                src="/img/yantra.png?v=2" 
+                src={logoSrc}
                 alt="Sattva" 
                 className="w-9 h-9"
               />

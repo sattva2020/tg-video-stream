@@ -9,6 +9,7 @@
     "perf:auth-errors": "node tests/perf/auth-error-tti.mjs"
   },
   "dependencies": {
+    "@hello-pangea/dnd": "^18.0.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.0",
     "@types/three": "^0.181.0",

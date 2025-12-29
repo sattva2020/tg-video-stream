@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import { UserRole } from './types/user';
+import { I18nDebugPanel } from './components/debug/I18nDebugPanel';
 
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
@@ -24,6 +25,8 @@ const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));
 const NotificationTemplatesPage = lazy(() => import('./pages/notifications/Templates'));
 const NotificationRecipientsPage = lazy(() => import('./pages/notifications/Recipients'));
 const StreamQualityPage = lazy(() => import('./pages/admin/StreamQualityPage'));
+const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(module => ({ default: module.PlaylistsPage })));
+const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -44,6 +47,9 @@ const LoadingFallback = () => {
 };
 
 const App: React.FC = () => {
+  // Проверка DEBUG режима для отображения панели отладки i18n
+  const showI18nDebug = import.meta.env.DEV || localStorage.getItem('i18n_debug') === 'true';
+  
   return (
     <Suspense fallback={<LoadingFallback />}>
       <AuthProvider>
@@ -61,6 +67,8 @@ const App: React.FC = () => {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/playlist" element={<PlaylistPage />} />
+              <Route path="/user-playlists" element={<UserPlaylistsPage />} />
+              <Route path="/user-playlists/:id" element={<UserPlaylistEditor />} />
             </Route>
             
             {/* Routes for OPERATOR and above */}
@@ -94,6 +102,9 @@ const App: React.FC = () => {
         </Suspense>
       </Router>
     </AuthProvider>
+      
+      {/* Панель отладки i18n (только в режиме разработки) */}
+      {showI18nDebug && <I18nDebugPanel />}
     </Suspense>
   );
 };

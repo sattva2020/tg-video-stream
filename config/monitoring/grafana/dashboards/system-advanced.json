@@ -1,0 +1,337 @@
+{
+  "title": "System Advanced",
+  "uid": "system-advanced",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["system", "node_exporter"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "CPU Metrics",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU Usage (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "targets": [{"refId": "A", "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 70, "color": "yellow"},
+              {"value": 85, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "CPU Cores",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "targets": [{"refId": "A", "expr": "count(count by (cpu) (node_cpu_seconds_total{mode=\"idle\"}))"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Load Average (1m)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "targets": [{"refId": "A", "expr": "node_load1"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 2, "color": "yellow"},
+              {"value": 4, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Load Average (5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "targets": [{"refId": "A", "expr": "node_load5"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "CPU Usage by Mode",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "targets": [
+        {"refId": "A", "expr": "avg by (mode) (rate(node_cpu_seconds_total[5m])) * 100", "legendFormat": "{{mode}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Load Average (1m, 5m, 15m)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "targets": [
+        {"refId": "A", "expr": "node_load1", "legendFormat": "1m"},
+        {"refId": "B", "expr": "node_load5", "legendFormat": "5m"},
+        {"refId": "C", "expr": "node_load15", "legendFormat": "15m"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Memory Metrics",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 13}
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Memory Usage (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 75, "color": "yellow"},
+              {"value": 90, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Memory Total (GB)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+      "targets": [{"refId": "A", "expr": "node_memory_MemTotal_bytes / 1024 / 1024 / 1024"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "GB"}
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Memory Available (GB)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+      "targets": [{"refId": "A", "expr": "node_memory_MemAvailable_bytes / 1024 / 1024 / 1024"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "GB"}
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Swap Used (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes))"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 30, "color": "yellow"},
+              {"value": 70, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Memory Usage Breakdown",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 18},
+      "targets": [
+        {"refId": "A", "expr": "node_memory_MemTotal_bytes", "legendFormat": "Total"},
+        {"refId": "B", "expr": "node_memory_MemAvailable_bytes", "legendFormat": "Available"},
+        {"refId": "C", "expr": "node_memory_Buffers_bytes", "legendFormat": "Buffers"},
+        {"refId": "D", "expr": "node_memory_Cached_bytes", "legendFormat": "Cached"}
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "bytes"}
+      }
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Disk Metrics",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 26}
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Disk Usage (/) %",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 27},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}))"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 75, "color": "yellow"},
+              {"value": 90, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Disk Total (GB)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 27},
+      "targets": [{"refId": "A", "expr": "node_filesystem_size_bytes{mountpoint=\"/\"} / 1024 / 1024 / 1024"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "GB"}
+      }
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Disk Available (GB)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 27},
+      "targets": [{"refId": "A", "expr": "node_filesystem_avail_bytes{mountpoint=\"/\"} / 1024 / 1024 / 1024"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {"unit": "GB"}
+      }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Inodes Used (%)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 27},
+      "targets": [{"refId": "A", "expr": "100 * (1 - (node_filesystem_files_free{mountpoint=\"/\"} / node_filesystem_files{mountpoint=\"/\"}))"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 80, "color": "yellow"},
+              {"value": 95, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Disk I/O (Read/Write Bytes/s)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 31},
+      "targets": [
+        {"refId": "A", "expr": "rate(node_disk_read_bytes_total[5m])", "legendFormat": "Read {{device}}"},
+        {"refId": "B", "expr": "rate(node_disk_written_bytes_total[5m])", "legendFormat": "Write {{device}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "Bps"}
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Disk I/O Operations/s",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 31},
+      "targets": [
+        {"refId": "A", "expr": "rate(node_disk_reads_completed_total[5m])", "legendFormat": "Reads {{device}}"},
+        {"refId": "B", "expr": "rate(node_disk_writes_completed_total[5m])", "legendFormat": "Writes {{device}}"}
+      ]
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "Network Metrics",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39}
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Network Traffic (Receive/Transmit Bytes/s)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+      "targets": [
+        {"refId": "A", "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "RX {{device}}"},
+        {"refId": "B", "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])", "legendFormat": "TX {{device}}"}
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "Bps"}
+      }
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Network Errors & Drops",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+      "targets": [
+        {"refId": "A", "expr": "rate(node_network_receive_errs_total{device!=\"lo\"}[5m])", "legendFormat": "RX Errors {{device}}"},
+        {"refId": "B", "expr": "rate(node_network_transmit_errs_total{device!=\"lo\"}[5m])", "legendFormat": "TX Errors {{device}}"},
+        {"refId": "C", "expr": "rate(node_network_receive_drop_total{device!=\"lo\"}[5m])", "legendFormat": "RX Drops {{device}}"},
+        {"refId": "D", "expr": "rate(node_network_transmit_drop_total{device!=\"lo\"}[5m])", "legendFormat": "TX Drops {{device}}"}
+      ]
+    }
+  ]
+}

@@ -933,14 +933,14 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
   };
 
   // Sort function
-  const sortPlaylists = (items: Playlist[]) => {
+  const sortPlaylists = useCallback((items: Playlist[]) => {
     return [...items].sort((a, b) => {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'date') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       if (sortBy === 'duration') return b.total_duration - a.total_duration;
       return 0;
     });
-  };
+  }, [sortBy]);
 
   // Group playlists by group_id
   const groupedPlaylists = useMemo(() => {
@@ -961,7 +961,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
     });
 
     return grouped;
-  }, [playlists, groups, sortBy]);
+  }, [playlists, groups, sortPlaylists]);
 
   // Filtered playlists (for search)
   const filteredPlaylists = useMemo(() => {
@@ -971,7 +971,7 @@ export const PlaylistManager: React.FC<PlaylistManagerProps> = ({
       p.name.toLowerCase().includes(query) ||
       p.description?.toLowerCase().includes(query)
     ));
-  }, [playlists, search, sortBy]);
+  }, [playlists, search, sortPlaylists]);
 
   const handleEdit = (playlist: Playlist) => {
     setEditingPlaylist(playlist);

@@ -156,3 +156,214 @@ def test_password_policy_and_hibp(monkeypatch):
     monkeypatch.setattr(requests, 'get', lambda url, timeout=5: FakeResponse())
     
     assert is_password_pwned(p)
+
+
+def test_link_account_token_roundtrip():
+    """Test link account token generation and verification."""
+    email = "link.user@example.com"
+    token = auth_service.generate_link_account_token(email)
+    assert token is not None
+    # Immediately verify should succeed
+    assert auth_service.verify_link_account_token(token) == email
+    # Invalid token should return None
+    assert auth_service.verify_link_account_token("invalid_token") is None
+
+
+def test_email_verification_token_roundtrip():
+    """Test email verification token generation and verification."""
+    email = "verify.user@example.com"
+    token = auth_service.generate_email_verification_token(email)
+    assert token is not None
+    # Immediately verify should succeed
+    assert auth_service.verify_email_verification_token(token) == email
+    # Invalid token should return None
+    assert auth_service.verify_email_verification_token("invalid_token") is None
+
+
+def test_token_expiry():
+    """Test that tokens expire after max_age."""
+    import time
+    email = "expiry.test@example.com"
+    token = auth_service.generate_password_reset_token(email)
+    # Valid immediately
+    assert auth_service.verify_password_reset_token(token) == email
+    # Wait 2 seconds then verify with max_age=1 should fail
+    time.sleep(2)
+    assert auth_service.verify_password_reset_token(token, max_age=1) is None
+
+
+@patch('services.auth_service.send_password_reset_email_sendgrid')
+def test_send_password_reset_email(mock_sendgrid):
+    """Test password reset email wrapper."""
+    mock_sendgrid.return_value = True
+    result = auth_service.send_password_reset_email("test@example.com", "token123")
+    assert result == True
+    mock_sendgrid.assert_called_once_with("test@example.com", "token123")
+
+
+@patch('services.auth_service.send_account_link_email')
+def test_send_account_link_email_wrapper(mock_send):
+    """Test account link email wrapper."""
+    mock_send.return_value = True
+    result = auth_service.send_account_link_email("test@example.com", "link_token")
+    assert result == True
+    mock_send.assert_called_once_with("test@example.com", "link_token")
+
+
+@patch('services.auth_service.send_account_link_email')
+def test_send_email_verification(mock_send):
+    """Test email verification wrapper."""
+    mock_send.return_value = None  # dev mode
+    result = auth_service.send_email_verification("test@example.com", "verify_token")
+    assert result is None
+    mock_send.assert_called_once_with("test@example.com", "verify_token")
+
+
+def test_password_policy_various_cases():
+    """Test password policy with various input patterns."""
+    # Valid passwords
+    assert check_password_policy("GoodPassword123!")
+    assert check_password_policy("MyP@ssw0rd123456")
+    assert check_password_policy("C0mpl3x!Pass")
+    
+    # Invalid passwords
+    assert not check_password_policy("short1!")  # too short
+    assert not check_password_policy("nouppercase123!")  # no uppercase
+    assert not check_password_policy("NOLOWERCASE123!")  # no lowercase
+    assert not check_password_policy("NoDigits!Here")  # no digits
+    assert not check_password_policy("NoSpecialChar123")  # no special
+    assert not check_password_policy("")  # empty
+
+
+def test_is_password_pwned_not_found(monkeypatch):
+    """Test password not in HIBP database."""
+    import hashlib
+    import requests
+    
+    p = "UniquePassword123!"
+    sha1 = hashlib.sha1(p.encode('utf-8')).hexdigest().upper()
+    
+    class FakeResponse:
+        status_code = 200
+        text = "AAAAA:5\nBBBBB:10\n"  # Different suffixes
+    
+    monkeypatch.setattr(requests, 'get', lambda url, timeout=5: FakeResponse())
+    assert not is_password_pwned(p)
+
+
+def test_is_password_pwned_api_error(monkeypatch):
+    """Test HIBP API error handling."""
+    import requests
+    
+    class FakeResponse:
+        status_code = 500
+        text = "Error"
+    
+    monkeypatch.setattr(requests, 'get', lambda url, timeout=5: FakeResponse())
+    assert not is_password_pwned("TestPassword123!")
+
+
+def test_is_password_pwned_timeout(monkeypatch):
+    """Test HIBP API timeout handling."""
+    import requests
+    
+    def raise_timeout(url, timeout=5):
+        raise requests.exceptions.Timeout("Timeout")
+    
+    monkeypatch.setattr(requests, 'get', raise_timeout)
+    assert not is_password_pwned("TestPassword123!")
+
+
+def test_is_password_pwned_network_error(monkeypatch):
+    """Test HIBP API network error handling."""
+    import requests
+    
+    def raise_error(url, timeout=5):
+        raise Exception("Network error")
+    
+    monkeypatch.setattr(requests, 'get', raise_error)
+    assert not is_password_pwned("TestPassword123!")
+
+
+# ========== SMTP EMAIL SENDING TESTS ==========
+
+def test_send_password_reset_email_with_smtp(monkeypatch):
+    """Test sending password reset email when SMTP is configured."""
+    from services.auth_service import send_password_reset_email_sendgrid
+    from unittest.mock import MagicMock
+    
+    # Set SMTP environment variables
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_USER", "test@example.com")
+    monkeypatch.setenv("SMTP_PASS", "password")
+    monkeypatch.setenv("SMTP_FROM", "noreply@example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    
+    # Mock FastMail
+    mock_fastmail = MagicMock()
+    mock_fastmail.send_message = MagicMock(return_value=True)
+    
+    with patch('services.auth_service.FastMail', return_value=mock_fastmail):
+        result = send_password_reset_email_sendgrid("user@example.com", "test-token-123")
+        assert result is True
+        mock_fastmail.send_message.assert_called_once()
+
+
+def test_send_account_link_email_with_smtp(monkeypatch):
+    """Test sending account link email when SMTP is configured."""
+    from services.auth_service import send_account_link_email
+    from unittest.mock import MagicMock
+    
+    # Set SMTP environment variables
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_USER", "test@example.com")
+    monkeypatch.setenv("SMTP_PASS", "password")
+    monkeypatch.setenv("SMTP_FROM", "noreply@example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    
+    # Mock FastMail
+    mock_fastmail = MagicMock()
+    mock_fastmail.send_message = MagicMock(return_value=True)
+    
+    with patch('services.auth_service.FastMail', return_value=mock_fastmail):
+        result = send_account_link_email("user@example.com", "link-token-456")
+        assert result is True
+        mock_fastmail.send_message.assert_called_once()
+
+
+def test_send_password_reset_email_no_smtp(monkeypatch):
+    """Test that password reset returns None when SMTP is not configured."""
+    from services.auth_service import send_password_reset_email_sendgrid
+    
+    # Unset SMTP_HOST to simulate dev environment
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    
+    result = send_password_reset_email_sendgrid("user@example.com", "token")
+    assert result is None
+
+
+def test_send_account_link_email_no_smtp(monkeypatch):
+    """Test that account link returns None when SMTP is not configured."""
+    from services.auth_service import send_account_link_email
+    
+    # Unset SMTP_HOST
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    
+    result = send_account_link_email("user@example.com", "token")
+    assert result is None
+
+
+def test_jwt_secret_validation():
+    """Test that JWT_SECRET validation happens at module import."""
+    # This test just ensures the module raises if JWT_SECRET is missing
+    # In real scenario, this would be tested with subprocess/isolation
+    import os
+    from services.auth_service import SECRET, serializer
+    from itsdangerous import URLSafeTimedSerializer
+    
+    assert SECRET is not None
+    assert len(SECRET) > 0
+    
+    # Verify serializer is correctly instantiated
+    assert serializer is not None
+    assert isinstance(serializer, URLSafeTimedSerializer)

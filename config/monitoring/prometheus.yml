@@ -59,13 +59,23 @@ scrape_configs:
   # - job_name: 'postgres'
   #   static_configs:
   #     - targets: ['postgres_exporter:9187']
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres_exporter:9187']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'postgres'
 
   # Redis metrics (via redis_exporter if added)
   # - job_name: 'redis'
   #   static_configs:
   #     - targets: ['redis_exporter:9121']
 
-  # Node exporter for host metrics (if added)
-  # - job_name: 'node'
-  #   static_configs:
-  #     - targets: ['node_exporter:9100']
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node_exporter:9100']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'node'

@@ -121,7 +121,7 @@ const SkeletonEvent: React.FC = () => (
 /**
  * Переводит сообщения событий с русского на выбранный язык
  */
-const translateEventMessage = (message: string, t: any, language: string): string => {
+const translateEventMessage = (message: string, t: any): string => {
   // Паттерны для замены русских текстов
   const patterns = [
     { 
@@ -360,7 +360,7 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
                 <div className="flex-1 min-w-0 space-y-1 max-w-3xl">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                     <p className="text-sm text-[color:var(--color-text)] leading-snug">
-                      {translateEventMessage(event.message, t, i18n.language)}
+                      {translateEventMessage(event.message, t)}
                       {event.user && (
                         <span className="font-medium"> — {event.user}</span>
                       )}

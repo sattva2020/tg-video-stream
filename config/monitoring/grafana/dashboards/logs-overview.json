@@ -1,0 +1,267 @@
+{
+  "title": "Logs Overview",
+  "uid": "logs-overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "tags": ["logs", "loki"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Log Statistics",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Total Logs (5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({app=\"sattva-tv\"}[5m]))",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Error Logs (5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({app=\"sattva-tv\", level=\"error\"}[5m]))",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 10, "color": "yellow"},
+              {"value": 50, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Warning Logs (5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({app=\"sattva-tv\", level=\"warning\"}[5m]))",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 20, "color": "yellow"},
+              {"value": 100, "color": "orange"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Info Logs (5m)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({app=\"sattva-tv\", level=\"info\"}[5m]))",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "Log Volume by Level",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5}
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Log Rate by Level",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 6},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (level) (rate({app=\"sattva-tv\"} |= \"\" [1m]))",
+          "datasource": "Loki",
+          "legendFormat": "{{level}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Log Volume by Job",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Log Rate by Service",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job) (rate({app=\"sattva-tv\"} |= \"\" [1m]))",
+          "datasource": "Loki",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "piechart",
+      "title": "Logs Distribution by Service",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job) (count_over_time({app=\"sattva-tv\"}[5m]))",
+          "datasource": "Loki",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Recent Logs",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23}
+    },
+    {
+      "id": 12,
+      "type": "logs",
+      "title": "Error Logs (Last 100)",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 24},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{app=\"sattva-tv\", level=\"error\"}",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 13,
+      "type": "logs",
+      "title": "Warning Logs (Last 100)",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{app=\"sattva-tv\", level=\"warning\"}",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 14,
+      "type": "logs",
+      "title": "All Logs (Last 200)",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 44},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{app=\"sattva-tv\"}",
+          "datasource": "Loki"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "Top Error Messages",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 56}
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Top 20 Error Messages (1h)",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 57},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(20, sum by (message) (count_over_time({app=\"sattva-tv\", level=\"error\"} | json [1h])))",
+          "datasource": "Loki"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {},
+            "indexByName": {},
+            "renameByName": {
+              "message": "Error Message",
+              "Value": "Count"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

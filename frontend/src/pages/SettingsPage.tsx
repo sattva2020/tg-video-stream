@@ -9,17 +9,20 @@
  * - Безопасность
  * - О приложении
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { UserRole } from '../types/user';
 import { ResponsiveHeader } from '../components/layout';
 import TelegramLoginButton from '../components/TelegramLoginButton';
 import { telegramAuthApi, TelegramAuthData } from '../services/telegramAuth';
+import { totpApi, type TotpSetupResponse } from '../api/totp';
 import { 
   Sun, Moon, Monitor, Globe, Bell,
   Shield, LogOut, Info, ExternalLink,
   Mail, MessageSquare, Smartphone
 } from 'lucide-react';
+import { DEFAULT_LOGO, getUserLogo, resetUserLogo, setUserLogo } from '../utils/branding';
 
 // Версия приложения
 const APP_VERSION = '1.0.0';
@@ -31,6 +34,14 @@ const SettingsPage: React.FC = () => {
   const [isUnlinking, setIsUnlinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [totpSetup, setTotpSetup] = useState<TotpSetupResponse | null>(null);
+  const [totpCode, setTotpCode] = useState('');
+  const [totpDisableCode, setTotpDisableCode] = useState('');
+  const [totpError, setTotpError] = useState<string | null>(null);
+  const [totpSuccess, setTotpSuccess] = useState<string | null>(null);
+  const [totpLoading, setTotpLoading] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string>(() => getUserLogo(user?.id) || DEFAULT_LOGO);
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
   
   // Настройки уведомлений (локальное состояние, можно связать с API)
   const [notifications, setNotifications] = useState({
@@ -38,6 +49,8 @@ const SettingsPage: React.FC = () => {
     push: false,
     telegram: true,
   });
+
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPERADMIN;
 
   // Текущий язык
   const currentLang = i18n.resolvedLanguage?.split('-')[0] || 'ru';
@@ -125,6 +138,126 @@ const SettingsPage: React.FC = () => {
     user?.telegram_id && (user?.email || user?.google_id)
   );
 
+  const normalizeTotpError = (err: any): string => {
+    const detail = err?.response?.data?.detail;
+    if (typeof detail === 'string' && detail.length > 0) return detail;
+    return 'Не удалось выполнить действие с 2FA. Проверьте соединение и права.';
+  };
+
+  const handleTotpSetup = useCallback(async () => {
+    if (!isAdmin) return;
+    setTotpLoading(true);
+    setTotpError(null);
+    setTotpSuccess(null);
+    try {
+      const data = await totpApi.setup();
+      setTotpSetup(data);
+      setTotpSuccess('Секрет 2FA сгенерирован. Отсканируйте QR-код и подтвердите кодом из приложения.');
+    } catch (err: any) {
+      console.error('Failed to start TOTP setup', err);
+      setTotpError(normalizeTotpError(err));
+    } finally {
+      setTotpLoading(false);
+    }
+  }, [isAdmin]);
+
+  const handleTotpVerify = useCallback(async () => {
+    if (!totpCode || totpCode.trim().length < 6) {
+      setTotpError('Введите 6-значный код из приложения 2FA.');
+      return;
+    }
+    setTotpLoading(true);
+    setTotpError(null);
+    setTotpSuccess(null);
+    try {
+      await totpApi.verify(totpCode.trim());
+      setTotpSuccess('2FA включена. Держите приложение-аутентификатор под рукой.');
+      setTotpSetup(null);
+      setTotpCode('');
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (err: any) {
+      console.error('Failed to verify TOTP', err);
+      setTotpError(normalizeTotpError(err));
+    } finally {
+      setTotpLoading(false);
+    }
+  }, [totpCode, refreshUser]);
+
+  const handleTotpDisable = useCallback(async () => {
+    if (!confirm('Отключить 2FA? Вам потребуется войти заново без кода.')) {
+      return;
+    }
+    setTotpLoading(true);
+    setTotpError(null);
+    setTotpSuccess(null);
+    try {
+      await totpApi.disable(totpDisableCode.trim() || undefined);
+      setTotpSuccess('2FA отключена. Рекомендуем включить её позже.');
+      setTotpDisableCode('');
+      setTotpSetup(null);
+      setTotpCode('');
+      if (refreshUser) {
+        await refreshUser();
+      }
+    } catch (err: any) {
+      console.error('Failed to disable TOTP', err);
+      setTotpError(normalizeTotpError(err));
+    } finally {
+      setTotpLoading(false);
+    }
+  }, [totpDisableCode, refreshUser]);
+
+  // Обновляем превью при смене пользователя
+  useEffect(() => {
+    setLogoPreview(getUserLogo(user?.id) || DEFAULT_LOGO);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.totp_enabled) {
+      setTotpSetup(null);
+      setTotpCode('');
+    }
+    if (!user?.totp_enabled) {
+      setTotpDisableCode('');
+    }
+  }, [user?.totp_enabled]);
+
+  const handleLogoFile = useCallback(async (file: File) => {
+    if (!user?.id) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Можно загрузить только изображение');
+      return;
+    }
+    setIsSavingLogo(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      setUserLogo(user.id, dataUrl);
+      setLogoPreview(dataUrl);
+      setSuccess('Логотип обновлён');
+    } catch (err) {
+      console.error('Logo upload failed', err);
+      setError('Не удалось загрузить логотип');
+    } finally {
+      setIsSavingLogo(false);
+    }
+  }, [user?.id]);
+
+  const handleLogoReset = useCallback(() => {
+    if (!user?.id) return;
+    resetUserLogo(user.id);
+    setLogoPreview(DEFAULT_LOGO);
+    setSuccess('Логотип сброшен на стандартный');
+  }, [user?.id]);
+
   return (
     <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
       <ResponsiveHeader />
@@ -156,6 +289,50 @@ const SettingsPage: React.FC = () => {
                 <p className="text-sm text-[color:var(--color-text-secondary)]">
                   {user?.email || 'Email не указан'}
                 </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Branding / Logo Section */}
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2">
+            Брендинг (логотип)
+          </h2>
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              <img
+                src={logoPreview}
+                alt="Текущий логотип"
+                className="w-16 h-16 rounded-lg border border-[color:var(--color-border)] object-contain bg-white"
+              />
+              <div className="space-y-2">
+                <p className="text-sm text-[color:var(--color-text-secondary)]">Логотип, отображаемый в админке для этого пользователя. По умолчанию используется стандартный.</p>
+                <div className="flex flex-wrap gap-2">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface-muted)] text-sm cursor-pointer hover:border-[color:var(--color-accent)]">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          void handleLogoFile(file);
+                        }
+                      }}
+                    />
+                    Загрузить логотип
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleLogoReset}
+                    className="px-3 py-2 rounded-lg border border-[color:var(--color-border)] text-sm hover:border-[color:var(--color-accent)]"
+                    disabled={isSavingLogo}
+                  >
+                    Сбросить на стандартный
+                  </button>
+                </div>
+                <p className="text-xs text-[color:var(--color-text-tertiary)]">Рекомендуется квадратное изображение до 300 КБ.</p>
               </div>
             </div>
           </div>
@@ -502,6 +679,141 @@ const SettingsPage: React.FC = () => {
                   Активна
                 </span>
               </div>
+            </div>
+
+            {/* Two-Factor Auth */}
+            <div className="p-4 rounded-lg bg-[color:var(--color-panel)] border border-[color:var(--color-border)]">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-medium">Двухфакторная аутентификация (TOTP)</p>
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    Одноразовые коды из приложения-генератора
+                  </p>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    user?.totp_enabled
+                      ? 'bg-green-500/20 text-green-500'
+                      : 'bg-gray-600 text-gray-300'
+                  }`}
+                >
+                  {user?.totp_enabled ? 'Включена' : 'Выключена'}
+                </span>
+              </div>
+
+              {totpError && (
+                <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+                  {totpError}
+                </div>
+              )}
+              {totpSuccess && (
+                <div className="mt-3 p-3 rounded-lg bg-green-500/10 border border-green-500/30 text-sm text-green-400">
+                  {totpSuccess}
+                </div>
+              )}
+
+              {!isAdmin ? (
+                <p className="mt-3 text-sm text-[color:var(--color-text-secondary)]">
+                  Доступно только администраторам. Обратитесь к суперадминистратору для включения 2FA.
+                </p>
+              ) : user?.totp_enabled ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-sm text-[color:var(--color-text-secondary)]">
+                    2FA активна. Отключайте её только при смене устройства или по процедуре восстановления доступа.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2 items-start">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      placeholder="Код 2FA (опционально)"
+                      className="w-full sm:w-64 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-sm"
+                      value={totpDisableCode}
+                      onChange={(e) => setTotpDisableCode(e.target.value)}
+                      disabled={totpLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTotpDisable}
+                      disabled={totpLoading}
+                      className="px-4 py-2 rounded-lg bg-red-500/20 text-red-200 text-sm font-medium hover:bg-red-500/30 disabled:opacity-60"
+                    >
+                      Отключить 2FA
+                    </button>
+                  </div>
+                  <p className="text-xs text-[color:var(--color-text-tertiary)]">
+                    Укажите актуальный код для подтверждения (если доступен). Без кода отключение всё равно сработает, но потребует JWT c правами администратора.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3 space-y-3">
+                  {totpSetup ? (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2 items-start">
+                        <div className="flex items-center justify-center rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] p-3">
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(totpSetup.otpauth_url)}`}
+                            alt="QR-код для 2FA"
+                            className="w-40 h-40"
+                          />
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <p>1. Отсканируйте QR-код в Google Authenticator, 1Password или другом TOTP-клиенте.</p>
+                          <p>2. Если QR не сканируется, введите секрет вручную:</p>
+                          <div className="font-mono text-xs bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)] rounded-lg p-2 break-all select-all">
+                            {totpSetup.secret}
+                          </div>
+                          <p className="text-xs text-[color:var(--color-text-tertiary)]">
+                            Секрет показывается только сейчас. После подтверждения его можно будет обновить заново.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 items-start">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          placeholder="123456"
+                          className="w-full sm:w-40 rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-surface)] p-2 text-sm"
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value)}
+                          disabled={totpLoading}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleTotpVerify}
+                          disabled={totpLoading || totpCode.trim().length < 6}
+                          className="px-4 py-2 rounded-lg bg-[color:var(--color-accent)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+                        >
+                          Подтвердить код
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTotpSetup(null);
+                            setTotpCode('');
+                            setTotpError(null);
+                            setTotpSuccess(null);
+                          }}
+                          className="px-4 py-2 rounded-lg border border-[color:var(--color-border)] text-sm hover:bg-[color:var(--color-surface-muted)] disabled:opacity-60"
+                          disabled={totpLoading}
+                        >
+                          Сбросить
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleTotpSetup}
+                      disabled={totpLoading}
+                      className="px-4 py-2 rounded-lg bg-[color:var(--color-accent)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+                    >
+                      Сгенерировать QR для 2FA
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Logout from all devices */}

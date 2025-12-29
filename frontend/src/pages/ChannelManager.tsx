@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
+import { playlistsApi } from '../api/playlists';
 import { TelegramDialog } from '../api/telegram';
 import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
-import { SkeletonChannelCard } from '../components/ui/Skeleton';
+import { SkeletonChannelCard } from '../components/ui/skeleton';
 import { ResponsiveHeader } from '../components/layout';
 import { useTranslation } from 'react-i18next';
 import { 
@@ -12,12 +13,12 @@ import {
   useTelegramAccounts, 
   useCreateChannel, 
   useStartChannel, 
-  useStopChannel,
-  useDeleteChannel,
-  useUpdateChannel,
-  useUploadPlaceholder
+  useStopChannel, 
+  useDeleteChannel, 
+  useUpdateChannel, 
+  useUploadPlaceholder 
 } from '../hooks/useChannelsQuery';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 
 const ChannelManager: React.FC = () => {
@@ -27,6 +28,11 @@ const ChannelManager: React.FC = () => {
   // React Query hooks
   const { data: channels = [], isLoading: channelsLoading } = useChannels();
   const { data: accounts = [], isLoading: accountsLoading } = useTelegramAccounts();
+  const { data: playlists = [] } = useQuery({
+    queryKey: ['playlists'],
+    queryFn: () => playlistsApi.getMyPlaylists(),
+  });
+
   const createChannel = useCreateChannel();
   const startChannel = useStartChannel();
   const stopChannel = useStopChannel();
@@ -61,13 +67,14 @@ const ChannelManager: React.FC = () => {
   const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-  const [formData, setFormData] = useState<CreateChannelData>({
+  const [formData, setFormData] = useState<CreateChannelData & { playlist_id?: string }>({
     account_id: '',
     chat_id: 0,
     chat_username: '',
     name: '',
     video_quality: 'best',
     stream_type: 'video',
+    playlist_id: '',
   });
 
   const handleDialogSelect = (dialog: TelegramDialog) => {
@@ -104,7 +111,7 @@ const ChannelManager: React.FC = () => {
     setIsModalOpen(false);
     setEditingChannel(null);
     setSelectedFile(null);
-    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video' });
+    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video', playlist_id: '' });
   };
 
   const handleEdit = (channel: Channel) => {
@@ -118,6 +125,7 @@ const ChannelManager: React.FC = () => {
       video_quality: channel.video_quality,
       ffmpeg_args: channel.ffmpeg_args,
       stream_type: channel.stream_type as 'video' | 'audio' || 'video',
+      playlist_id: '', // Reset playlist_id when editing, as we don't support changing it here yet
     });
     setIsModalOpen(true);
   };
@@ -149,7 +157,7 @@ const ChannelManager: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingChannel(null);
-    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video' });
+    setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video', playlist_id: '' });
     setIsModalOpen(true);
   };
 
@@ -463,6 +471,29 @@ const ChannelManager: React.FC = () => {
                         ? t('channels.chatIdHintWithPicker', 'Введите ID или выберите из списка ваших каналов')
                         : t('channels.chatIdHint', 'Enter the numeric ID of the channel/chat.')
                       }
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                      {t('channels.defaultPlaylist', 'Default Playlist')}
+                    </label>
+                    <select
+                      title={t('channels.selectPlaylist', 'Select Default Playlist')}
+                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                      value={formData.playlist_id || ''}
+                      onChange={(e) => setFormData({ ...formData, playlist_id: e.target.value })}
+                      disabled={!!editingChannel}
+                    >
+                      <option value="">{t('channels.noPlaylist', 'No Default Playlist')}</option>
+                      {playlists.map((pl) => (
+                        <option key={pl.id} value={pl.id}>
+                          {pl.name} ({pl.items_count} items)
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
+                      {t('channels.playlistHint', 'Select a playlist to play automatically when the channel starts.')}
                     </p>
                   </div>
 

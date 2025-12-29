@@ -1,4 +1,19 @@
 {
+  "zenscene_access": "ДОСТУП К ZENSCENE",
+  "sattva": "sattva",
+  "common": {
+    "loading": "Загрузка..."
+  },
+  "enter_stream": "Войдите в поток",
+  "choose_auth_method": "Выберите способ входа",
+  "password": "Пароль",
+  "logging_in": "Входим…",
+  "login": "Войти",
+  "qa_login_hint": "Для QA и Playwright тестов",
+  "or": "или",
+  "login_telegram": "Войти через Telegram",
+  "login_google": "Продолжить с Google",
+  "or_continue": "Или продолжить с",
   "audio": {
     "player": {
       "title": "Плеер",
@@ -159,11 +174,16 @@
     }
   },
   "nav": {
-    "analytics": "Аналитика",
-    "streamQuality": "Качество потока",
-    "dashboard": "Панель управления",
+    "dashboard": "Главная",
     "channels": "Каналы",
-    "playlists": "Плейлисты",
+    "playlist": "Плейлист",
+    "myPlaylists": "Мои треки",
+    "schedule": "График",
+    "notifications": "Уведомления",
+    "users": "Юзеры",
+    "monitoring": "Монитор",
+    "analytics": "Статистика",
+    "streamQuality": "Качество",
     "settings": "Настройки"
   },
   "analytics": {

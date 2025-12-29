@@ -42,6 +42,30 @@ log_info() {
 
 log_section "PHASE 1: Валидация окружения"
 
+# Check for encrypted secrets and decrypt if needed
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+if [ -f "$PROJECT_ROOT/.env.enc" ]; then
+  log_info "Обнаружен зашифрованный файл секретов (.env.enc)"
+  
+  # Check if decryption is possible
+  if [ -n "${SOPS_AGE_KEY_FILE:-}" ] || [ -n "${SOPS_AGE_KEY:-}" ] || [ -f "$PROJECT_ROOT/.internal/age.key" ]; then
+    log_info "Расшифровка секретов..."
+    if "$SCRIPT_DIR/decrypt-secrets.sh" --force 2>/dev/null; then
+      log_ok "Секреты расшифрованы"
+    else
+      log_err "Ошибка расшифровки секретов"
+      exit 1
+    fi
+  else
+    log_err "Ключ age не найден. Установите SOPS_AGE_KEY_FILE или SOPS_AGE_KEY"
+    exit 1
+  fi
+else
+  log_info "Файл .env.enc не найден, пропускаем расшифровку"
+fi
+
 # Check SSH key
 if [ ! -f "$SSH_KEY" ]; then
   log_err "SSH ключ не найден: $SSH_KEY"
@@ -89,6 +113,24 @@ if ! ssh $SSH_OPTS -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "hostname" >/dev/
   exit 1
 fi
 log_ok "Подключение к $REMOTE_HOST успешно"
+
+# Check for age key on remote server (required for sops decryption)
+AGE_KEY_PATH="/opt/tg_video_streamer/.age.key"
+AGE_KEY_CHECK=$(ssh $SSH_OPTS -p $REMOTE_PORT "$REMOTE_USER@$REMOTE_HOST" "[ -f '$AGE_KEY_PATH' ] && echo 'EXISTS' || echo 'MISSING'" 2>&1)
+
+if [ "$AGE_KEY_CHECK" = "EXISTS" ]; then
+  log_ok "Age ключ найден на сервере: $AGE_KEY_PATH"
+else
+  log_err "Age ключ НЕ найден на сервере: $AGE_KEY_PATH"
+  log_info "Передайте ключ командой:"
+  log_info "  scp -i $SSH_KEY .internal/age.key $REMOTE_USER@$REMOTE_HOST:$AGE_KEY_PATH"
+  log_info "  ssh -i $SSH_KEY $REMOTE_USER@$REMOTE_HOST 'chmod 600 $AGE_KEY_PATH'"
+  
+  read -p "Продолжить без ключа? (y/N): " CONTINUE_NO_KEY
+  if [ "$CONTINUE_NO_KEY" != "y" ] && [ "$CONTINUE_NO_KEY" != "Y" ]; then
+    exit 1
+  fi
+fi
 
 # Verify prerequisites
 log_info "Проверка предусловий на удаленном сервере..."
@@ -193,8 +235,14 @@ log_ok "Все systemd units передачи"
 
 log_section "PHASE 5: Выполнение удаленного развёртывания"
 
-DEPLOY_RESULT=$(ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" bash -s <<'EOFDEPLOY'
+# Prepare age key path for remote deploy
+REMOTE_AGE_KEY="/opt/tg_video_streamer/.age.key"
+
+DEPLOY_RESULT=$(ssh $SSH_OPTS "$REMOTE_USER@$REMOTE_HOST" bash -s <<EOFDEPLOY
 set -euo pipefail
+
+# Set age key for sops decryption
+export SOPS_AGE_KEY_FILE="$REMOTE_AGE_KEY"
 
 # Execute remote_deploy.sh
 echo "→ Распаковка и установка приложения..."

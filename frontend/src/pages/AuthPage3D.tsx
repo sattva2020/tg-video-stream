@@ -35,18 +35,18 @@ const AuthPage3D: React.FC = () => {
     const error = searchParams.get('error');
 
     if (status === 'pending') {
-      setBanner({ tone: 'success', message: t('account_pending') });
+      setBanner({ tone: 'success', message: t('auth.account_pending') });
       return;
     }
 
     if (error) {
       const friendlyMap: Record<string, string> = {
-        state_mismatch: t('Authentication failed. State mismatch (CSRF protection). Please try again.'),
-        token_fetch_failed: t('Could not verify authentication with Google. Please try again.'),
-        user_info_failed: t('Could not fetch your user profile from Google. Please try again.'),
-        auth_process_failed: t('An error occurred during the authentication process. Please try again.'),
-        invalid_callback: t('Invalid callback request. Please initiate login from this page.'),
-        callback_no_token: t('Authentication callback from server did not contain a token.'),
+        state_mismatch: t('auth.state_mismatch', 'Authentication failed. State mismatch (CSRF protection). Please try again.'),
+        token_fetch_failed: t('auth.token_fetch_failed', 'Could not verify authentication with Google. Please try again.'),
+        user_info_failed: t('auth.user_info_failed', 'Could not fetch your user profile from Google. Please try again.'),
+        auth_process_failed: t('auth.auth_process_failed', 'An error occurred during the authentication process. Please try again.'),
+        invalid_callback: t('auth.invalid_callback', 'Invalid callback request. Please initiate login from this page.'),
+        callback_no_token: t('auth.callback_no_token', 'Authentication callback from server did not contain a token.'),
       };
 
       setBanner({ tone: 'error', message: friendlyMap[error] ?? t(error) ?? error });

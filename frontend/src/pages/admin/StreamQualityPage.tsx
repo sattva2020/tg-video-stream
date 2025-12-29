@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,7 +48,7 @@ export const StreamQualityPage: React.FC = () => {
   const [historyData, setHistoryData] = useState<QualityHistoryPoint[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Fetch current status
@@ -95,14 +95,14 @@ export const StreamQualityPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [period, t, toast]);
 
   useEffect(() => {
     fetchData();
-    // Poll every 30 seconds
+    // Poll every 30 секунд
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [period]);
+  }, [period, fetchData]);
 
   // Calculate aggregate metrics for widget
   const bitrate = currentQuality?.performance?.bitrate_kbps || 

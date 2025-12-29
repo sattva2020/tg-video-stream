@@ -1,0 +1,204 @@
+# Application-Specific Alert Rules for 24/7 TV Telegram
+# Alerts specific to streaming, Telegram API, and business logic
+
+groups:
+  - name: application
+    rules:
+      # Stream Health
+      - alert: StreamQualityDegraded
+        expr: |
+          stream_bitrate_actual / stream_bitrate_target < 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Stream quality degraded on channel {{ $labels.channel_id }}"
+          description: "Actual bitrate is below 80% of target. Current: {{ $value }}%"
+
+      - alert: StreamBufferUnderrun
+        expr: |
+          rate(buffer_underruns_total[5m]) > 0.5
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stream buffer underrun detected"
+          description: "More than 0.5 buffer underruns per second. Stream may freeze or stutter."
+
+      - alert: AudioTranscodingFailed
+        expr: |
+          rate(transcoding_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Audio transcoding errors detected"
+          description: "More than 0.1 transcoding errors per second. Check rust-transcoder logs."
+
+      # Telegram API Issues
+      - alert: TelegramAPIHighLatency
+        expr: |
+          histogram_quantile(0.95, rate(telegram_api_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on Telegram API"
+          description: "95th percentile Telegram API latency is above 5s. Current: {{ $value }}s"
+
+      - alert: TelegramAPIRateLimited
+        expr: |
+          rate(telegram_api_errors_total{error_type="rate_limit"}[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Telegram API rate limit hit"
+          description: "Application is being rate limited by Telegram API. Reduce request frequency."
+
+      - alert: TelegramAPIUnauthorized
+        expr: |
+          rate(telegram_api_errors_total{error_type="unauthorized"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Telegram API unauthorized errors"
+          description: "Application credentials are invalid or expired. Check BOT_TOKEN and API_ID/API_HASH."
+
+      # Channel Management
+      - alert: NoActiveChannels
+        expr: |
+          count(channel_status{status="active"}) == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No active channels"
+          description: "All channels are inactive for 10 minutes. Service may be down."
+
+      - alert: ChannelStreamingFailed
+        expr: |
+          channel_status{status="error"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Channel {{ $labels.channel_id }} streaming failed"
+          description: "Channel is in error state. Check channel logs for details."
+
+      # User Authentication Issues
+      - alert: HighAuthFailureRate
+        expr: |
+          rate(auth_failures_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High authentication failure rate"
+          description: "More than 5 failed login attempts per second. Possible brute-force attack."
+
+      - alert: SessionExpiredHigh
+        expr: |
+          rate(session_expired_total[5m]) > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of expired sessions"
+          description: "More than 10 sessions expiring per second. Check session TTL configuration."
+
+      # Playlist Issues
+      - alert: PlaylistEmpty
+        expr: |
+          playlist_tracks_count == 0 and channel_status{status="active"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Playlist is empty on channel {{ $labels.channel_id }}"
+          description: "Channel is active but playlist has no tracks. Stream will stop soon."
+
+      - alert: PlaylistLowTracks
+        expr: |
+          playlist_tracks_count < 5 and channel_status{status="active"} == 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Playlist has low track count on channel {{ $labels.channel_id }}"
+          description: "Only {{ $value }} tracks in playlist. Consider adding more to avoid repetition."
+
+      # Rust Transcoder Health
+      - alert: TranscoderDown
+        expr: |
+          up{job="rust-transcoder"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Rust transcoder service is down"
+          description: "Transcoder is unreachable. Audio streaming will fail."
+
+      - alert: TranscoderHighCPU
+        expr: |
+          rate(process_cpu_seconds_total{job="rust-transcoder"}[5m]) * 100 > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rust transcoder high CPU usage"
+          description: "Transcoder CPU usage above 90% for 10 minutes. May impact audio quality."
+
+      # WebSocket Connection Issues
+      - alert: WebSocketConnectionsHigh
+        expr: |
+          websocket_connections_active > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of WebSocket connections"
+          description: "More than 1000 active WebSocket connections. Server may be overloaded."
+
+      - alert: WebSocketDisconnectsHigh
+        expr: |
+          rate(websocket_disconnects_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High WebSocket disconnect rate"
+          description: "More than 10 disconnects per second. Network or server issues."
+
+      # Background Job Queue
+      - alert: JobQueueBacklog
+        expr: |
+          job_queue_length > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job queue has large backlog"
+          description: "More than 1000 jobs in queue for 10 minutes. Background processing is slow."
+
+      - alert: JobFailureRateHigh
+        expr: |
+          rate(job_failures_total[5m]) / rate(job_executions_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High job failure rate"
+          description: "More than 10% of background jobs are failing. Check worker logs."
+
+      # TOTP 2FA Issues
+      - alert: TOTPVerificationFailures
+        expr: |
+          rate(totp_verification_failures_total[5m]) > 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High TOTP verification failure rate"
+          description: "More than 5 TOTP failures per second. Users may have clock sync issues."

@@ -4,13 +4,16 @@ Email/Password аутентификация: регистрация, логин,
 import os
 import logging
 
-from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi import APIRouter, Request, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
+import pyotp
 
 from database import get_db
 from src.models.user import User
 from services.auth_service import auth_service, check_password_policy, is_password_pwned
+from src.services.session_service import session_service
+from src.api.auth.dependencies import get_current_user
 from src.services.activity_service import ActivityService
 from tasks.notifications import notify_admins_async
 from .dependencies import make_rate_limit_dep, _check_rate_limit
@@ -33,6 +36,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str | None = None
 
 
 class PasswordResetRequest(BaseModel):
@@ -42,6 +46,10 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     token: str
     password: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class EmailVerifyRequest(BaseModel):
@@ -78,6 +86,13 @@ def register_user(
     Регистрация нового пользователя по email/password.
     Новые пользователи получают статус 'pending' и ждут одобрения админа.
     """
+    # Проверяем политику пароля
+    if not check_password_policy(request.password):
+        raise HTTPException(status_code=400, detail="Password does not meet complexity requirements")
+
+    if os.getenv("HIBP_ENABLED", "false").lower() == "true" and is_password_pwned(request.password):
+        raise HTTPException(status_code=400, detail="Password found in breach database")
+
     existing_user = db.query(User).filter(User.email == request.email).first()
     
     if existing_user:
@@ -177,7 +192,8 @@ async def login_user(
             form = await fastapi_request.form()
             parsed = {
                 'email': form.get('username') or form.get('email'),
-                'password': form.get('password')
+                'password': form.get('password'),
+                'totp_code': form.get('totp') or form.get('totp_code') or form.get('otp')
             }
         else:
             # Пробуем JSON, потом form
@@ -187,7 +203,8 @@ async def login_user(
                 form = await fastapi_request.form()
                 parsed = {
                     'email': form.get('username') or form.get('email'),
-                    'password': form.get('password')
+                    'password': form.get('password'),
+                    'totp_code': form.get('totp') or form.get('totp_code') or form.get('otp')
                 }
     except Exception as e:
         logger.warning(f"Login payload parse error: {e}")
@@ -200,9 +217,14 @@ async def login_user(
         logger.warning(f"Login validation error: {e}")
         raise HTTPException(status_code=422, detail='Invalid login payload')
 
+    # Lockout check
+    if session_service.is_locked(login_data.email):
+        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail="Too many failed attempts. Try later.")
+
     user = db.query(User).filter(User.email == login_data.email).first()
     
     if not user or not user.hashed_password:
+        session_service.register_failure(login_data.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Проверка статуса аккаунта
@@ -225,7 +247,21 @@ async def login_user(
         raise HTTPException(status_code=403, detail=detail)
     
     if not auth_service.verify_password(login_data.password, user.hashed_password):
+        session_service.register_failure(login_data.email)
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 2FA: требуем TOTP, если включено
+    if getattr(user, 'totp_enabled', False):
+        if not user.totp_secret:
+            raise HTTPException(status_code=401, detail="TOTP misconfigured")
+        code = login_data.totp_code
+        if not code:
+            session_service.register_failure(login_data.email)
+            raise HTTPException(status_code=401, detail="TOTP code required")
+        totp = pyotp.TOTP(user.totp_secret)
+        if not totp.verify(code, valid_window=1):
+            session_service.register_failure(login_data.email)
+            raise HTTPException(status_code=401, detail="Invalid TOTP code")
 
     # Обновляем время последнего входа
     try:
@@ -236,8 +272,38 @@ async def login_user(
     except Exception:
         logger.exception('Failed to update last_login')
 
-    token = auth_service.create_jwt_for_user(user)
-    return {"access_token": token, "token_type": "bearer"}
+    # Сбрасываем счётчик неудачных попыток
+    session_service.clear_failures(login_data.email)
+
+    # Выдаём пару access/refresh и сохраняем refresh в Redis
+    tokens = session_service.issue_tokens(user)
+
+    return {
+        "access_token": tokens.access_token,
+        "refresh_token": tokens.refresh_token,
+        "token_type": "bearer",
+    }
+
+
+@router.post("/refresh")
+def refresh_tokens(body: RefreshRequest):
+    tokens = session_service.rotate_refresh(body.refresh_token)
+    return {
+        "access_token": tokens.access_token,
+        "refresh_token": tokens.refresh_token,
+        "token_type": "bearer",
+    }
+
+
+@router.get("/sessions")
+def list_sessions(current_user: User = Depends(get_current_user)):
+    return {"sessions": session_service.list_active_sessions(current_user.id)}
+
+
+@router.post("/logout/all")
+def logout_all_sessions(current_user: User = Depends(get_current_user)):
+    session_service.revoke_all(current_user.id)
+    return {"status": "revoked"}
 
 
 # ============================================================================
@@ -287,8 +353,11 @@ def password_reset_confirm(data: PasswordResetConfirm, db: Session = Depends(get
         raise HTTPException(status_code=400, detail="Invalid or expired token")
 
     # Валидация сложности пароля
-    if len(data.password) < 12:
+    if not check_password_policy(data.password):
         raise HTTPException(status_code=400, detail="Password does not meet complexity requirements")
+
+    if os.getenv("HIBP_ENABLED", "false").lower() == "true" and is_password_pwned(data.password):
+        raise HTTPException(status_code=400, detail="Password found in breach database")
 
     user = db.query(User).filter(User.email == email).first()
     if not user:

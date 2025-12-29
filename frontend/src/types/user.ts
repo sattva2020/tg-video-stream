@@ -18,4 +18,5 @@ export interface User {
   google_id?: string;
   telegram_id?: number;
   telegram_username?: string;
+  totp_enabled?: boolean;
 }

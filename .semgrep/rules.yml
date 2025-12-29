@@ -1,0 +1,196 @@
+# Semgrep Custom Rules for Sattva Project
+# 
+# Дополнительные правила безопасности специфичные для проекта
+# Документация: https://semgrep.dev/docs/writing-rules/overview
+
+rules:
+  # ========================================
+  # Python/FastAPI Security Rules
+  # ========================================
+  
+  - id: hardcoded-secret-in-code
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "...$SECRET..."
+          - pattern: $VAR = '...$SECRET...'
+    pattern-regex: (password|secret|api_key|token|credential)\s*=\s*["'][^"']{8,}["']
+    message: Potential hardcoded secret detected
+    languages: [python, javascript, typescript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+      owasp: A3:2017
+
+  - id: telegram-session-string-exposure
+    pattern: SESSION_STRING = "$SESSION"
+    message: Telegram session string should not be hardcoded
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-798
+
+  - id: fastapi-no-rate-limit
+    patterns:
+      - pattern: |
+          @app.post("$ENDPOINT")
+          async def $FUNC(...):
+            ...
+      - pattern-not-inside: |
+          @limiter.limit(...)
+          ...
+    message: API endpoint missing rate limiting
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-770
+
+  - id: sqlalchemy-raw-query
+    patterns:
+      - pattern-either:
+          - pattern: text("...")
+          - pattern: execute("...")
+          - pattern: $DB.execute($RAW_SQL)
+    message: Raw SQL query detected - ensure proper parameterization
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-89
+
+  - id: jwt-weak-algorithm
+    patterns:
+      - pattern: jwt.encode(..., algorithm="HS256", ...)
+      - pattern: jwt.decode(..., algorithms=["HS256"], ...)
+    message: Consider using RS256 or ES256 for production JWT
+    languages: [python]
+    severity: INFO
+    metadata:
+      category: security
+
+  # ========================================
+  # React/TypeScript Security Rules
+  # ========================================
+
+  - id: react-dangerouslysetinnerhtml
+    pattern: dangerouslySetInnerHTML={{ __html: $DATA }}
+    message: dangerouslySetInnerHTML can lead to XSS vulnerabilities
+    languages: [typescript, javascript, tsx, jsx]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-79
+      owasp: A7:2017
+
+  - id: localStorage-sensitive-data
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem("$KEY", $TOKEN)
+          - pattern: sessionStorage.setItem("$KEY", $TOKEN)
+    pattern-regex: (token|password|secret|session|credential)
+    message: Storing sensitive data in browser storage is not recommended
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      cwe: CWE-922
+
+  - id: eval-usage
+    patterns:
+      - pattern: eval($CODE)
+      - pattern: new Function($CODE)
+    message: Avoid using eval() or Function() constructor
+    languages: [typescript, javascript]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-95
+
+  - id: insecure-random
+    pattern: Math.random()
+    message: Math.random() is not cryptographically secure
+    languages: [typescript, javascript]
+    severity: INFO
+    metadata:
+      category: security
+
+  # ========================================
+  # Docker Security Rules
+  # ========================================
+
+  - id: docker-run-as-root
+    patterns:
+      - pattern-not: USER $USER
+    message: Container should not run as root
+    languages: [dockerfile]
+    severity: WARNING
+    paths:
+      include:
+        - "**/Dockerfile"
+    metadata:
+      category: security
+      cwe: CWE-250
+
+  - id: docker-latest-tag
+    pattern: FROM $IMAGE:latest
+    message: Avoid using :latest tag - use specific versions
+    languages: [dockerfile]
+    severity: WARNING
+    metadata:
+      category: security
+
+  # ========================================
+  # Infrastructure Security Rules
+  # ========================================
+
+  - id: exposed-port-binding
+    pattern: ports: ... - "0.0.0.0:$PORT:$INTERNAL" ...
+    message: Binding to 0.0.0.0 exposes port to all interfaces
+    languages: [yaml]
+    paths:
+      include:
+        - "**/docker-compose*.yml"
+    severity: INFO
+    metadata:
+      category: security
+
+  - id: env-file-in-compose
+    pattern: env_file: .env
+    message: Ensure .env file is not committed to repository
+    languages: [yaml]
+    paths:
+      include:
+        - "**/docker-compose*.yml"
+    severity: INFO
+    metadata:
+      category: security
+
+  # ========================================
+  # Sattva-specific Rules
+  # ========================================
+
+  - id: pyrogram-session-logging
+    patterns:
+      - pattern-either:
+          - pattern: logger.info(..., $SESSION, ...)
+          - pattern: print(..., session_string, ...)
+          - pattern: logging.info(..., SESSION_STRING, ...)
+    message: Do not log Telegram session strings
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      custom: sattva
+
+  - id: ffmpeg-command-injection
+    patterns:
+      - pattern: subprocess.run(f"ffmpeg {$INPUT}", ...)
+      - pattern: os.system(f"ffmpeg {$INPUT}")
+    message: Potential command injection in FFmpeg call
+    languages: [python]
+    severity: ERROR
+    metadata:
+      category: security
+      cwe: CWE-78

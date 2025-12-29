@@ -1,0 +1,130 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Backend application logs (JSON format)
+  - job_name: backend
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: backend
+          app: sattva-tv
+          __path__: /app/backend/logs/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            message: message
+            logger: logger
+            module: module
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+      - labels:
+          level:
+          logger:
+      - output:
+          source: message
+
+  # Frontend application logs
+  - job_name: frontend
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: frontend
+          app: sattva-tv
+          __path__: /app/frontend/logs/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            timestamp: timestamp
+            level: level
+            message: message
+      - timestamp:
+          source: timestamp
+          format: RFC3339
+      - labels:
+          level:
+      - output:
+          source: message
+
+  # Docker container logs
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            output: log
+            stream: stream
+            time: time
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      - labels:
+          stream:
+      - output:
+          source: output
+
+  # System logs (syslog)
+  - job_name: syslog
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: syslog
+          __path__: /var/log/syslog
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\w+\s+\d+\s+\d+:\d+:\d+)\s+(?P<hostname>\S+)\s+(?P<service>\S+?)(\[(?P<pid>\d+)\])?:\s+(?P<message>.*)$'
+      - labels:
+          service:
+          hostname:
+      - timestamp:
+          source: timestamp
+          format: Jan 2 15:04:05
+      - output:
+          source: message
+
+  # Nginx access logs
+  - job_name: nginx-access
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: access
+          __path__: /var/log/nginx/access.log
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[\w\-]+) \[(?P<time_local>.*)\] "(?P<method>\w+) (?P<request>.*) (?P<protocol>[\w/\.]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>.*)" "(?P<http_user_agent>.*)"'
+      - labels:
+          method:
+          status:
+      - timestamp:
+          source: time_local
+          format: 02/Jan/2006:15:04:05 -0700
+
+  # Nginx error logs
+  - job_name: nginx-error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          log_type: error
+          __path__: /var/log/nginx/error.log

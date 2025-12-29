@@ -1,0 +1,172 @@
+# OpenTelemetry Collector Configuration
+# Центральный коллектор для сбора трейсов, метрик и логов
+# 
+# Архитектура:
+# [Backend/Frontend/Rust] -> [OTEL Collector] -> [Tempo/Prometheus/Loki]
+
+receivers:
+  # OTLP - основной протокол для приёма telemetry
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:3000"
+            - "http://localhost:8000"
+            - "https://flowbooster.xyz"
+            - "https://*.flowbooster.xyz"
+          allowed_headers:
+            - "*"
+          max_age: 7200
+
+  # Jaeger для совместимости с legacy системами
+  jaeger:
+    protocols:
+      thrift_http:
+        endpoint: 0.0.0.0:14268
+      grpc:
+        endpoint: 0.0.0.0:14250
+
+  # Zipkin для совместимости
+  zipkin:
+    endpoint: 0.0.0.0:9411
+
+  # Prometheus metrics scraping
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['localhost:8888']
+
+processors:
+  # Batch processing для оптимизации
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+    send_batch_max_size: 1500
+
+  # Memory limiter для защиты от OOM
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # Добавление ресурсных атрибутов
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: production
+        action: upsert
+      - key: service.namespace
+        value: sattva-tv
+        action: upsert
+
+  # Фильтрация нежелательных spans
+  filter:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["http.route"] == "/health"'
+        - 'attributes["http.route"] == "/metrics"'
+        - 'name == "healthcheck"'
+
+  # Tail sampling для снижения объёма данных
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 100000
+    expected_new_traces_per_sec: 100
+    policies:
+      # Всегда сохраняем ошибки
+      - name: errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      # Всегда сохраняем медленные запросы
+      - name: slow-traces
+        type: latency
+        latency:
+          threshold_ms: 1000
+      # Семплируем остальное
+      - name: probabilistic
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+exporters:
+  # Экспорт в Tempo
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Экспорт метрик в Prometheus
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: otel
+    const_labels:
+      exporter: otel-collector
+
+  # Экспорт логов в Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    labels:
+      resource:
+        service.name: "service_name"
+        service.namespace: "service_namespace"
+      attributes:
+        level: ""
+        severity: ""
+
+  # Debug экспортер для разработки
+  debug:
+    verbosity: detailed
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+extensions:
+  # Health check endpoint
+  health_check:
+    endpoint: 0.0.0.0:13133
+    path: /health
+    
+  # pprof profiler
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  # zpages для отладки
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  
+  pipelines:
+    # Traces pipeline
+    traces:
+      receivers: [otlp, jaeger, zipkin]
+      processors: [memory_limiter, resource, filter, tail_sampling, batch]
+      exporters: [otlp/tempo]
+
+    # Metrics pipeline  
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+
+    # Logs pipeline
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [loki]
+
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888

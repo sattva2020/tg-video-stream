@@ -1,0 +1,109 @@
+version: '3.9'
+
+# Self-hosted Glitchtip (Open-source Sentry alternative)
+# Error tracking and APM for backend and frontend
+
+services:
+  glitchtip-web:
+    image: glitchtip/glitchtip:latest
+    container_name: sattva-glitchtip-web
+    environment:
+      - DATABASE_URL=postgres://postgres:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass_2025}@glitchtip-db:5432/glitchtip
+      - REDIS_URL=redis://glitchtip-redis:6379/0
+      - SECRET_KEY=${GLITCHTIP_SECRET_KEY:-change_this_secret_key_in_production_12345}
+      - PORT=8000
+      - EMAIL_URL=consolemail://  # Логи вместо реальной почты (можно настроить SMTP)
+      - GLITCHTIP_DOMAIN=${GLITCHTIP_DOMAIN:-http://localhost:8080}
+      - DEFAULT_FROM_EMAIL=noreply@sattva-tv.local
+      - CELERY_WORKER_AUTOSCALE=1,3
+      - CELERY_WORKER_MAX_TASKS_PER_CHILD=10000
+    ports:
+      - "8080:8000"
+    depends_on:
+      - glitchtip-db
+      - glitchtip-redis
+    networks:
+      - glitchtip
+      - external
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    restart: unless-stopped
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: sattva-glitchtip-worker
+    command: celery -A glitchtip worker -l INFO
+    environment:
+      - DATABASE_URL=postgres://postgres:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass_2025}@glitchtip-db:5432/glitchtip
+      - REDIS_URL=redis://glitchtip-redis:6379/0
+      - SECRET_KEY=${GLITCHTIP_SECRET_KEY:-change_this_secret_key_in_production_12345}
+      - EMAIL_URL=consolemail://
+      - GLITCHTIP_DOMAIN=${GLITCHTIP_DOMAIN:-http://localhost:8080}
+    depends_on:
+      - glitchtip-db
+      - glitchtip-redis
+    networks:
+      - glitchtip
+    restart: unless-stopped
+
+  glitchtip-beat:
+    image: glitchtip/glitchtip:latest
+    container_name: sattva-glitchtip-beat
+    command: celery -A glitchtip beat -l INFO
+    environment:
+      - DATABASE_URL=postgres://postgres:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass_2025}@glitchtip-db:5432/glitchtip
+      - REDIS_URL=redis://glitchtip-redis:6379/0
+      - SECRET_KEY=${GLITCHTIP_SECRET_KEY:-change_this_secret_key_in_production_12345}
+      - EMAIL_URL=consolemail://
+      - GLITCHTIP_DOMAIN=${GLITCHTIP_DOMAIN:-http://localhost:8080}
+    depends_on:
+      - glitchtip-db
+      - glitchtip-redis
+    networks:
+      - glitchtip
+    restart: unless-stopped
+
+  glitchtip-migrate:
+    image: glitchtip/glitchtip:latest
+    container_name: sattva-glitchtip-migrate
+    command: ./manage.py migrate
+    environment:
+      - DATABASE_URL=postgres://postgres:${GLITCHTIP_DB_PASSWORD:-glitchtip_pass_2025}@glitchtip-db:5432/glitchtip
+      - REDIS_URL=redis://glitchtip-redis:6379/0
+      - SECRET_KEY=${GLITCHTIP_SECRET_KEY:-change_this_secret_key_in_production_12345}
+    depends_on:
+      - glitchtip-db
+    networks:
+      - glitchtip
+    restart: "no"
+
+  glitchtip-db:
+    image: postgres:15-alpine
+    container_name: sattva-glitchtip-db
+    environment:
+      - POSTGRES_DB=glitchtip
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${GLITCHTIP_DB_PASSWORD:-glitchtip_pass_2025}
+    volumes:
+      - glitchtip_pg_data:/var/lib/postgresql/data
+    networks:
+      - glitchtip
+    restart: unless-stopped
+
+  glitchtip-redis:
+    image: redis:7-alpine
+    container_name: sattva-glitchtip-redis
+    networks:
+      - glitchtip
+    restart: unless-stopped
+
+networks:
+  glitchtip:
+    driver: bridge
+    internal: true
+  external:
+    driver: bridge
+
+volumes:
+  glitchtip_pg_data:
+  glitchtip_uploads:

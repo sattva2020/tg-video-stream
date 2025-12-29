@@ -76,6 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 google_id: userData.google_id,
                 telegram_id: userData.telegram_id,
                 telegram_username: userData.telegram_username,
+                totp_enabled: userData.totp_enabled,
             };
             setUser(userWithRole);
             setIsAuthenticated(true);

@@ -10,23 +10,23 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
     tabindex="-1"
   >
     <div
-      class="z-10 w-full justify-start shrink-0 overflow-inherit color-inherit subpixel-antialiased flex flex-col items-center gap-3 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg"
+      class="z-10 w-full justify-start shrink-0 overflow-inherit color-inherit subpixel-antialiased rounded-t-large flex flex-col items-center gap-3 rounded-[32px] bg-[#F5E6D3]/10 backdrop-blur-md border border-[#F5E6D3]/30 p-6 mb-6 shadow-lg"
     >
       <p
         class="text-xs uppercase tracking-[0.45em] text-[#F5E6D3]/60 [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
       >
-        ZENSTREAM ACCESS
+        zenscene_access
       </p>
       <h2
         class="font-landing-serif text-3xl text-[#F5E6D3] [text-shadow:1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]"
         data-testid="auth-headline"
       >
-        SATTVA
+        sattva
       </h2>
       <p
         class="text-sm text-[#F5E6D3]/70"
       >
-        Enter the stream of consciousness
+        enter_stream
       </p>
     </div>
     <div
@@ -35,7 +35,7 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
       <p
         class="text-center text-sm text-[#F5E6D3]/70"
       >
-        Choose login method
+        Выберите способ входа
       </p>
       <form
         class="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-4"
@@ -67,7 +67,7 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
             class="text-xs uppercase tracking-[0.3em] text-[#F5E6D3]/60"
             for="auth-password"
           >
-            Password
+            Пароль
           </label>
           <input
             autocomplete="current-password"
@@ -76,6 +76,27 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
             id="auth-password"
             required=""
             type="password"
+            value=""
+          />
+        </div>
+        <div
+          class="space-y-1"
+        >
+          <label
+            class="text-xs uppercase tracking-[0.3em] text-[#F5E6D3]/60"
+            for="auth-totp"
+          >
+            Код 2FA (если включено)
+          </label>
+          <input
+            autocomplete="one-time-code"
+            class="w-full rounded-full border border-white/20 bg-black/20 px-4 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/60 focus:outline-none"
+            data-testid="totp-input"
+            id="auth-totp"
+            inputmode="numeric"
+            pattern="\\\\d{6}"
+            placeholder="123456"
+            type="text"
             value=""
           />
         </div>
@@ -121,7 +142,7 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
         <span
           class="tracking-wide"
         >
-          Continue with Google
+          login_google
         </span>
       </button>
       <div
@@ -141,7 +162,7 @@ exports[`AuthCard visual fidelity > renders the login snapshot 1`] = `
           <span
             class="bg-transparent px-3 text-white/60"
           >
-            or
+            или
           </span>
         </div>
       </div>

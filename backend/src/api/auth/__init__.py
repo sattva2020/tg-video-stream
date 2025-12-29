@@ -9,6 +9,7 @@ from .oauth import router as oauth_router
 from .email_password import router as email_password_router
 from .linking import router as linking_router
 from .telegram_widget import router as telegram_widget_router
+from .totp import router as totp_router
 
 # Re-export dependencies for external usage
 from .dependencies import (
@@ -30,6 +31,7 @@ router.include_router(oauth_router)           # /google, /google/callback
 router.include_router(email_password_router)  # /register, /login, /password-reset/*, /email-verify/*
 router.include_router(linking_router)         # /link-account/*
 router.include_router(telegram_widget_router) # /telegram-widget, /telegram-widget/link, /telegram-widget/unlink
+router.include_router(totp_router)            # /totp/*
 
 
 @router.post("/logout")

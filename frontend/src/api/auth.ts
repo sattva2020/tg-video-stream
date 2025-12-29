@@ -6,6 +6,12 @@ import { User } from '../types/user';
 export const LoginSchema = z.object({
   username: z.string().email(), // OAuth2PasswordRequestForm uses 'username' for email
   password: z.string().min(1, "Password is required"),
+  totp_code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, "Введите 6-значный код 2FA")
+    .optional()
+    .or(z.literal('')),
 });
 
 export const RegisterSchema = z.object({
@@ -48,7 +54,11 @@ export const authApi = {
     // Use JSON { email, password } so backend pydantic model (email,password)
     // validates correctly. The UI login field is named `username` in forms,
     // we map it to `email` here.
-    const payload = { email: data.username, password: data.password };
+    const payload = {
+      email: data.username,
+      password: data.password,
+      totp_code: data.totp_code?.trim() || undefined,
+    };
     const response = await client.post<AuthResponse>('/api/auth/login', payload);
     return response.data;
   },

@@ -1,0 +1,15 @@
+apiVersion: 1
+
+# Провиженинг дашбордов из каталога dashboards
+# Grafana будет сканировать каталог каждые 30 секунд
+
+providers:
+  - name: sattva-dashboards
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards

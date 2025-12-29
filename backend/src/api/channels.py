@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
 from src.models.telegram import Channel, TelegramAccount
-from src.models.schedule import ScheduleSlot, RepeatType
+from src.models.schedule import ScheduleSlot, RepeatType, Playlist
 from api.auth import get_current_user
 from src.services.redis_stream_controller import RedisStreamController
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time, date
 import uuid
 import shutil
 import os
@@ -26,6 +26,7 @@ class ChannelCreate(BaseModel):
     ffmpeg_args: Optional[str] = None
     video_quality: Optional[str] = "best"
     stream_type: Optional[str] = "video"
+    playlist_id: Optional[uuid.UUID] = None
 
 class ChannelResponse(BaseModel):
     id: uuid.UUID
@@ -138,6 +139,31 @@ def create_channel(
     db.add(new_channel)
     db.commit()
     db.refresh(new_channel)
+
+    # If playlist_id is provided, create a default schedule slot
+    if channel_in.playlist_id:
+        # Verify playlist exists and belongs to user
+        playlist = db.query(Playlist).filter(
+            Playlist.id == channel_in.playlist_id,
+            Playlist.user_id == current_user.id
+        ).first()
+
+        if playlist:
+            default_slot = ScheduleSlot(
+                channel_id=new_channel.id,
+                playlist_id=playlist.id,
+                start_date=datetime.now(timezone.utc).date(),
+                start_time=time(0, 0),
+                end_time=time(23, 59, 59),
+                repeat_type=RepeatType.DAILY,
+                title="Default Playlist",
+                priority=0,
+                is_active=True,
+                created_by=current_user.id
+            )
+            db.add(default_slot)
+            db.commit()
+
     return new_channel
 
 @router.post("/{channel_id}/start")

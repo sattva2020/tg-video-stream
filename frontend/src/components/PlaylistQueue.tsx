@@ -4,7 +4,7 @@ import type { PlaylistItem } from '../services/playlist'
 import * as playlistService from '../services/playlist'
 import { usePlaylistWebSocket } from '../hooks/usePlaylistWebSocket'
 import { useToast } from '../hooks/useToast'
-import { SkeletonPlaylistQueue } from './ui/Skeleton'
+import { SkeletonPlaylistQueue } from './ui/skeleton'
 
 export const POLL_INTERVAL_MS = 5000 // Increased from 3s to 5s
 const MAX_CONSECUTIVE_ERRORS = 3

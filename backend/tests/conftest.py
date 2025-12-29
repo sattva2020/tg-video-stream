@@ -2,10 +2,21 @@ import os
 import sys
 import warnings
 
+# ==================== КРИТИЧЕСКИ ВАЖНО: Установить env переменные ПЕРВЫМ ДЕЛОМ ====================
+# Это ДОЛЖНО быть ДО любых импортов, включая pytest
+# FIXED KEY для тестов (совпадает с pytest.ini)
+os.environ["SESSION_ENCRYPTION_KEY"] = "TnaLffqg0O5jccqqyQdSKT4JEnf6O2IMalnuECbHv0A="
+os.environ["JWT_SECRET"] = "test_jwt_secret_key_for_testing_only"
+os.environ["TESTING"] = "true"
+
+# Force-disable external Redis to avoid async limiter in tests
+os.environ.pop("REDIS_URL", None)
+# ===================================================================================================
+
+# Теперь можно импортировать pytest и другие модули
 import pytest
 import redis
 import redis.asyncio as redis_async
-from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 from fakeredis import FakeRedis, FakeServer
 from fakeredis import aioredis as fakeredis_aioredis
@@ -13,20 +24,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Set encryption key for tests
-if not os.getenv("SESSION_ENCRYPTION_KEY"):
-    os.environ["SESSION_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
-
-# Set JWT secret for tests
-if not os.getenv("JWT_SECRET"):
-    os.environ["JWT_SECRET"] = "test_jwt_secret_key_for_testing_only"
-
 # Add backend/src and project root to sys.path so tests can import all packages
 backend_root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
 project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), '..', '..'))
+src_root = os.path.join(backend_root, 'src')
 sys.path.insert(0, backend_root)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+if src_root not in sys.path:
+    sys.path.insert(0, src_root)
 
 # Third-party dependency noise (Python 3.12 deprecates audioop but shazamio/pydub still import it)
 warnings.filterwarnings(
@@ -274,6 +280,33 @@ def client(db_session):
 
     # Override the get_db dependency directly
     app.dependency_overrides[get_db] = _override_get_db
+
+    # Подавляем внешний Redis, но оставляем URL чтобы сессии/refresh использовали fakeredis
+    os.environ["REDIS_URL"] = "redis://localhost:6379/0"
+
+    # Глушим зависимости fastapi-limiter на авторизации
+    try:
+        from api.auth.dependencies import make_rate_limit_dep
+        app.dependency_overrides[make_rate_limit_dep('login')] = lambda: None
+        app.dependency_overrides[make_rate_limit_dep('password-reset')] = lambda: None
+    except Exception:
+        pass
+
+    # Патчим RateLimiter чтобы он не требовал init
+    try:
+        from fastapi_limiter.depends import RateLimiter
+
+        async def _noop(request=None, redis=None):
+            return None
+
+        RateLimiter.__call__ = _noop  # type: ignore
+    except Exception:
+        pass
+
+    # Отключаем тяжёлые middleware (rate limiter, прометей, sliding session) для юнит-тестов
+    disabled_mw = {"RateLimiterMiddleware", "PrometheusMiddleware", "SlidingSessionMiddleware"}
+    app.user_middleware = [m for m in app.user_middleware if m.cls.__name__ not in disabled_mw]
+    app.middleware_stack = app.build_middleware_stack()
 
     try:
         with TestClient(app) as client:

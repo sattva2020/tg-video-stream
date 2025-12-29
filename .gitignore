@@ -197,3 +197,4 @@ ChatGPT Image*.png
 mcp-test/snapshots/
 mcp-test/node_modules/
 mcp-test/*.log
+data/music/

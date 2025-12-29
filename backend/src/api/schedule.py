@@ -9,7 +9,7 @@ API endpoints для управления расписанием трансля�
 """
 
 import uuid
-from datetime import date, time, datetime, timedelta
+from datetime import date, time, datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -1414,4 +1414,86 @@ async def move_playlist_to_group(
         is_shuffled=playlist.is_shuffled,
         created_at=playlist.created_at
     )
+
+
+@router.get("/playlists/channel/{channel_id}/active")
+def get_active_channel_playlist(
+    channel_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the currently active playlist for a channel based on schedule.
+    Used by the streamer to know what to play.
+    """
+    # Use UTC for server consistency
+    now = datetime.now(timezone.utc)
+    current_date = now.date()
+    current_time = now.time()
+    
+    # 1. Find potential slots
+    # We look for slots that cover the current time of day
+    # And are active
+    
+    try:
+        channel_uuid = uuid.UUID(channel_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid channel ID")
+
+    slots = db.query(ScheduleSlot).filter(
+        ScheduleSlot.channel_id == channel_uuid,
+        ScheduleSlot.is_active == True,
+        ScheduleSlot.start_time <= current_time,
+        ScheduleSlot.end_time >= current_time
+    ).order_by(ScheduleSlot.priority.desc()).all()
+    
+    active_slot = None
+    
+    for slot in slots:
+        # Check date validity (start_date is the first occurrence)
+        if slot.start_date > current_date:
+            continue
+            
+        if slot.repeat_until and slot.repeat_until < current_date:
+            continue
+            
+        # Check recurrence
+        if slot.repeat_type == RepeatType.NONE:
+            if slot.start_date != current_date:
+                continue
+        elif slot.repeat_type == RepeatType.DAILY:
+            pass # Always matches if date range is valid
+        elif slot.repeat_type == RepeatType.WEEKLY:
+            if slot.start_date.weekday() != current_date.weekday():
+                continue
+        elif slot.repeat_type == RepeatType.WEEKDAYS:
+            if current_date.weekday() > 4: # 0-4 is Mon-Fri
+                continue
+        elif slot.repeat_type == RepeatType.WEEKENDS:
+            if current_date.weekday() < 5: # 5-6 is Sat-Sun
+                continue
+        elif slot.repeat_type == RepeatType.CUSTOM:
+            # Assuming repeat_days is a list of ints [0, 1, ...]
+            # repeat_days might be stored as JSON, so it comes out as list
+            if slot.repeat_days and current_date.weekday() not in slot.repeat_days:
+                continue
+                
+        # If we got here, the slot matches
+        active_slot = slot
+        break
+        
+    if not active_slot or not active_slot.playlist_id:
+        return {"items": [], "source": "none"}
+        
+    playlist = db.query(Playlist).filter(Playlist.id == active_slot.playlist_id).first()
+    if not playlist:
+        return {"items": [], "source": "none"}
+        
+    return {
+        "items": playlist.items,
+        "playlist_name": playlist.name,
+        "is_shuffled": playlist.is_shuffled,
+        "source": "schedule",
+        "slot_id": str(active_slot.id)
+    }
+
 

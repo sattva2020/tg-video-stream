@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
+import type { Formatter } from 'recharts/types/component/DefaultTooltipContent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -50,6 +51,14 @@ export const StreamQualityHistoryChart: React.FC<StreamQualityHistoryChartProps>
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
+  const tooltipFormatter: Formatter<number, string | number> = (value, name) => {
+    const safeValue = (value as number | undefined) ?? 0;
+    return [
+      name === 'bitrate_kbps' ? `${Math.round(safeValue)} kbps` : safeValue.toFixed(1),
+      name === 'bitrate_kbps' ? 'Bitrate' : 'FPS'
+    ];
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -77,10 +86,7 @@ export const StreamQualityHistoryChart: React.FC<StreamQualityHistoryChartProps>
               <YAxis yAxisId="right" orientation="right" label={{ value: 'FPS', angle: 90, position: 'insideRight' }} />
               <Tooltip 
                 labelFormatter={(label) => new Date(label).toLocaleString()}
-                formatter={(value: number, name: string) => [
-                  name === 'bitrate_kbps' ? `${Math.round(value)} kbps` : value.toFixed(1),
-                  name === 'bitrate_kbps' ? 'Bitrate' : 'FPS'
-                ]}
+                formatter={tooltipFormatter}
               />
               <Legend />
               <Line

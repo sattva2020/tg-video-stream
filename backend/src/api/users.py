@@ -40,4 +40,5 @@ def read_users_me(request: Request, current_user: src.models.user.User = Depends
         "telegram_username": current_user.telegram_username,
         "created_at": current_user.created_at,
         "last_login": getattr(current_user, 'last_login', None),
+        "totp_enabled": getattr(current_user, 'totp_enabled', False),
     }

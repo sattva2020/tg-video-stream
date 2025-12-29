@@ -7,7 +7,6 @@ import {
   X, 
   Home, 
   Tv, 
-  ListMusic, 
   Users, 
   Settings,
   LogOut,
@@ -16,6 +15,7 @@ import {
   BarChart3,
   Bell,
   Signal,
+  Library,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
@@ -34,61 +34,61 @@ export const MobileNav: React.FC = () => {
   const navItems: NavItem[] = [
     { 
       path: '/dashboard', 
-      label: t('nav.dashboard', 'Дашборд'), 
+      label: t('nav.dashboard', 'Головна'), 
       icon: <Home className="w-5 h-5" /> 
     },
     { 
       path: '/channels', 
-      label: t('nav.channels', 'Каналы'), 
+      label: t('nav.channels', 'Канали'), 
       icon: <Tv className="w-5 h-5" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
-      path: '/playlist', 
-      label: t('nav.playlist', 'Плейлист'), 
-      icon: <ListMusic className="w-5 h-5" /> 
+      path: '/user-playlists', 
+      label: t('nav.myPlaylists', 'Мої плейлисти'), 
+      icon: <Library className="w-5 h-5" /> 
     },
     { 
       path: '/schedule', 
-      label: t('nav.schedule', 'Расписание'), 
+      label: t('nav.schedule', 'Розклад'), 
       icon: <CalendarDays className="w-5 h-5" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
       path: '/notifications/rules', 
-      label: t('nav.notifications', 'Оповещения'), 
+      label: t('nav.notifications', 'Сповіщення'), 
       icon: <Bell className="w-5 h-5" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
-      path: '/admin/pending', 
-      label: t('nav.pendingUsers', 'Ожидающие'), 
+      path: '/users', 
+      label: t('nav.users', 'Користувачі'), 
       icon: <Users className="w-5 h-5" />,
       adminOnly: true 
     },
     { 
       path: '/admin/monitoring', 
-      label: t('nav.monitoring', 'Мониторинг'), 
+      label: t('nav.monitoring', 'Моніторинг'), 
       icon: <Activity className="w-5 h-5" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
     { 
       path: '/admin/analytics', 
-      label: t('nav.analytics', 'Аналитика'), 
+      label: t('nav.analytics', 'Аналітика'), 
       icon: <BarChart3 className="w-5 h-5" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
     { 
       path: '/admin/stream-quality', 
-      label: t('nav.streamQuality', 'Качество'), 
+      label: t('nav.streamQuality', 'Якість'), 
       icon: <Signal className="w-5 h-5" />,
       adminOnly: true,
     },
     { 
       path: '/admin', 
-      label: t('nav.settings', 'Настройки'), 
+      label: t('nav.settings', 'Налаштування'), 
       icon: <Settings className="w-5 h-5" />,
       adminOnly: true 
     },

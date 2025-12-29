@@ -1,9 +1,16 @@
 # generate_session_and_list_dialogs.py
 import asyncio
+import os
 from pyrogram import Client
 
-API_ID = 37831214
-API_HASH = "1a10843db60c599ce2ec67bc6a55f1c2"
+# Try to get from env, otherwise use placeholders
+API_ID = int(os.getenv("API_ID", "0"))
+API_HASH = os.getenv("API_HASH", "")
+
+if not API_ID or not API_HASH:
+    print("Error: API_ID and API_HASH must be set in environment variables.")
+    print("Example: API_ID=12345 API_HASH=abcdef... python generate_session_and_list_dialogs.py")
+    exit(1)
 
 async def main():
     print("Будем генерировать StringSession; вам потребуется ввести номер телефона и код из Telegram.")

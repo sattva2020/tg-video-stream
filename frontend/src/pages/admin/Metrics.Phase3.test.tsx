@@ -286,9 +286,8 @@ describe('Metrics Dashboard - Phase 3 Integration', () => {
       await renderMetricsAndWaitReady();
       
       // Other sections should still be visible
-      // Assuming there are other sections like system metrics
-      // This depends on actual Metrics component structure
-      expect(screen.getByText(/System Metrics/i)).toBeInTheDocument();
+      expect(screen.getByText(/System Health/i)).toBeInTheDocument();
+      expect(screen.getByText(/Stream Quality/i)).toBeInTheDocument();
     });
   });
 

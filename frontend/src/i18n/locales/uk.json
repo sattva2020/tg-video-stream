@@ -1,4 +1,19 @@
 {
+  "zenscene_access": "ДОСТУП ДО ZENSCENE",
+  "sattva": "sattva",
+  "enter_stream": "Увійдіть до потоку",
+  "common": {
+    "loading": "Завантаження..."
+  },
+  "choose_auth_method": "Оберіть спосіб входу",
+  "password": "Пароль",
+  "logging_in": "Входимо…",
+  "login": "Увійти",
+  "qa_login_hint": "Для QA та Playwright тестів",
+  "or": "або",
+  "login_telegram": "Увійти через Telegram",
+  "login_google": "Продовжити з Google",
+  "or_continue": "Або продовжити з",
   "audio": {
     "player": {
       "title": "Плеєр",
@@ -173,10 +188,16 @@
     "connectionRestored": "Зʼєднання відновлено"
   },
   "nav": {
-    "analytics": "Аналітика",
-    "dashboard": "Панель керування",
+    "dashboard": "Головна",
     "channels": "Канали",
-    "playlists": "Плейлісти",
+    "playlist": "Плейлист",
+    "myPlaylists": "Мої треки",
+    "schedule": "Розклад",
+    "notifications": "Сповіщення",
+    "users": "Юзери",
+    "monitoring": "Монітор",
+    "analytics": "Статистика",
+    "streamQuality": "Якість",
     "settings": "Налаштування"
   },
   "analytics": {
@@ -213,6 +234,33 @@
     "lastUpdated": "Останнє оновлення: {{time}}",
     "error": "Не вдалося завантажити дані аналітики",
     "loading": "Завантаження..."
+  },
+  "admin": {
+    "dashboard": "Панель керування",
+    "totalUsers": "Всього користувачів",
+    "pendingApproval": "Очікують схвалення",
+    "approvedUsers": "Активних",
+    "streamStatus": "Трансляція",
+    "online": "В ефірі",
+    "offline": "Офлайн",
+    "uptime": "Аптайм",
+    "thisWeek": "за тиждень",
+    "thisMonth": "за місяць",
+    "requiresAction": "Потребує дії",
+    "overview": "Огляд",
+    "stream": "Трансляція",
+    "liveNow": "В ефірі",
+    "streamStarted": "Трансляція запущена",
+    "streamStopped": "Трансляція зупинена",
+    "streamRestarted": "Трансляція перезапущена",
+    "streamStartError": "Не вдалося запустити трансляцію",
+    "streamStopError": "Не вдалося зупинити трансляцію",
+    "streamRestartError": "Не вдалося перезапустити трансляцію",
+    "confirmStop": "Ви впевнені, що хочете зупинити трансляцію?",
+    "confirmRestart": "Перезапустити трансляцію? Це перерве поточне відтворення."
+  },
+  "dashboard": {
+    "welcome": "Ласкаво просимо"
   },
   "errors": {
     "generic": "Сталася помилка",

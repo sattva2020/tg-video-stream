@@ -30,6 +30,8 @@ RUN npm run build
 FROM nginx:alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY security-headers.conf /etc/nginx/includes/security-headers.conf
+COPY rate-limit.conf /etc/nginx/includes/rate-limit.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Expose port 80

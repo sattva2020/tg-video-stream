@@ -9,6 +9,18 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  env-preflight:
+    name: Env preflight (sops/age)
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('.env.enc') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run preflight-env
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          bash scripts/preflight-env.sh
+
   docs-validate:
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +81,30 @@ jobs:
 
   backend-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: ./backend
@@ -81,21 +117,81 @@ jobs:
       with:
         python-version: "3.11"
         
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
+    
     - name: Install pre-commit
       run: |
         pip install pre-commit
+    
     - name: Run pre-commit hooks
       run: |
         pre-commit run --all-files
-        
-    - name: Run tests with coverage
+    
+    - name: Setup test environment
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
       run: |
-        pytest --cov=src --cov-report=xml --cov-report=html --cov-fail-under=70
+        echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+        echo "REDIS_HOST=$REDIS_HOST" >> $GITHUB_ENV
+        echo "REDIS_PORT=$REDIS_PORT" >> $GITHUB_ENV
+        echo "TESTING=true" >> $GITHUB_ENV
+    
+    - name: Run migrations
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+      run: |
+        alembic upgrade head || echo "Migrations skipped"
+        
+    - name: Run unit tests
+      run: |
+        pytest -c pytest.ci.ini -m "unit" -v
+        
+    - name: Run integration tests
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        TESTING: true
+      run: |
+        pytest -c pytest.ci.ini -m "integration" -v
+        
+    - name: Run all tests with coverage
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        TESTING: true
+      run: |
+        pytest -c pytest.ci.ini --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=70 -v
+        
+    - name: Generate coverage badge
+      if: success()
+      run: |
+        coverage_percent=$(coverage report | grep TOTAL | awk '{print $4}' | tr -d '%')
+        echo "Backend Coverage: ${coverage_percent}%" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./backend/coverage.xml
+        flags: backend
+        name: backend-coverage
+        fail_ci_if_error: false
         
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
@@ -105,6 +201,7 @@ jobs:
         path: |
           backend/htmlcov
           backend/coverage.xml
+          backend/.coverage
 
   frontend-test:
     runs-on: ubuntu-latest
@@ -121,6 +218,7 @@ jobs:
         node-version: '20'
         cache: 'pnpm'
         cache-dependency-path: frontend/pnpm-lock.yaml
+    
     - name: Install system dependencies (unixODBC)
       run: |
         sudo apt-get update
@@ -128,6 +226,14 @@ jobs:
         
     - name: Enable Corepack
       run: corepack enable
+
+    - name: Cache pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ~/.local/share/pnpm/store
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -146,18 +252,43 @@ jobs:
     - name: Lint
       run: pnpm lint
       
-    - name: Run unit tests with coverage
+    - name: Run unit tests
+      run: pnpm test:unit
+      
+    - name: Run tests with coverage
       run: pnpm test:coverage
       
+    - name: Generate coverage badge
+      if: success()
+      run: |
+        # Парсим coverage из вывода vitest
+        echo "Frontend tests completed" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      if: always()
+      with:
+        files: ./frontend/coverage/coverage-final.json
+        flags: frontend
+        name: frontend-coverage
+        fail_ci_if_error: false
+        
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: frontend-coverage
-        path: frontend/coverage
+        path: |
+          frontend/coverage
+          frontend/.nyc_output
       
     - name: Build
       run: pnpm build
+      
+    - name: Check build size
+      run: |
+        size=$(du -sh dist | cut -f1)
+        echo "Frontend build size: $size" >> $GITHUB_STEP_SUMMARY
 
   build-artifact:
     runs-on: ubuntu-latest

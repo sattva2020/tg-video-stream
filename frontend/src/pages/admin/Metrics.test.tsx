@@ -78,7 +78,7 @@ describe('Metrics Component with Stream Quality', () => {
       render(<Metrics />);
       
       await waitFor(() => {
-        expect(screen.getByText(/System Metrics/i)).toBeInTheDocument();
+        expect(screen.getByText(/System Health/i)).toBeInTheDocument();
       });
     });
 
@@ -100,8 +100,9 @@ describe('Metrics Component with Stream Quality', () => {
 
       render(<Metrics />);
 
-      expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 3, name: /^System$/i })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { level: 3, name: /^System$/i })).toBeInTheDocument();
+      });
       expect(screen.getByText('45.5%')).toBeInTheDocument();
     });
 
@@ -112,9 +113,9 @@ describe('Metrics Component with Stream Quality', () => {
       render(<Metrics />);
       
       await waitFor(() => {
-        expect(screen.getByText(/Memory Usage/i)).toBeInTheDocument();
-        expect(screen.getByText(/62.3%/)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { level: 3, name: /^System$/i })).toBeInTheDocument();
       });
+      expect(screen.getByText(/62.3%/)).toBeInTheDocument();
     });
 
     it('should display process metrics', async () => {
@@ -123,10 +124,12 @@ describe('Metrics Component with Stream Quality', () => {
 
       render(<Metrics />);
 
-      expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText(/System Health/i)).toBeInTheDocument();
+      });
       const expectedMb = bytesToMbRounded(mockMetrics.metrics.process.memory_rss);
 
-      expect(screen.getByRole('heading', { level: 3, name: /Streamer Process/i })).toBeInTheDocument();
+      expect(screen.getByText(/admin\.streamerProcess/i)).toBeInTheDocument();
       expect(screen.getByText('12.5%')).toBeInTheDocument();
       expect(screen.getByText(new RegExp(`${expectedMb}\\s*MB`, 'i'))).toBeInTheDocument();
     });
@@ -226,7 +229,7 @@ describe('Metrics Component with Stream Quality', () => {
         render(<Metrics />);
 
         // Дождаться первичной загрузки метрик (после чего стартует polling качества)
-        expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+        expect(await screen.findByText(/System Health/i)).toBeInTheDocument();
 
         await waitFor(() => {
           expect(adminApi.adminApi.getStreamQuality).toHaveBeenCalledTimes(1);
@@ -268,7 +271,7 @@ describe('Metrics Component with Stream Quality', () => {
 
         render(<Metrics />);
 
-        expect(await screen.findByText(/System Metrics/i)).toBeInTheDocument();
+        expect(await screen.findByText(/System Health/i)).toBeInTheDocument();
 
         await waitFor(() => {
           expect(adminApi.adminApi.getMetrics).toHaveBeenCalledTimes(1);

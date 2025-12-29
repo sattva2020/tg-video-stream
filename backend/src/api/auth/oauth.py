@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 from database import get_db
 from services.auth_service import auth_service
-from src.services.activity_service import ActivityService
+from services.activity_service import ActivityService
 
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), '.env'))
@@ -94,39 +94,20 @@ async def google_login(request: Request):
         access_type="offline",
         prompt="select_account",
     )
-    logger.info(f"Generated Authorization URL: {authorization_url}")
-
-    # Подписываем state для безопасной проверки без session
+    
+    # Подписываем state для безопасной проверки без session/cookie
     signed_state = sign_state(state)
-
-    # Определяем secure и samesite
-    # Если мы за прокси (nginx/ngrok), проверяем X-Forwarded-Proto
-    forwarded_proto = request.headers.get("x-forwarded-proto", "http")
-    is_secure = forwarded_proto == "https" or request.url.scheme == "https"
     
-    # Сохраняем signed state в cookie
-    response = RedirectResponse(authorization_url)
+    # Заменяем state в URL на signed_state, чтобы он вернулся от Google
+    # и мы могли верифицировать его без cookie
+    authorization_url_with_signed_state = authorization_url.replace(
+        f"state={state}", 
+        f"state={signed_state}"
+    )
     
-    # В разработке на localhost (без https) браузеры могут блокировать Secure куки.
-    # Если REDIRECT_URI на другом домене (ngrok), кука должна быть SameSite=None и Secure,
-    # но это работает только через HTTPS.
+    logger.info(f"Generated Authorization URL with signed state")
     
-    cookie_params = {
-        "key": "oauth_state",
-        "value": signed_state,
-        "max_age": 600,
-        "httponly": True,
-        "samesite": "lax",
-        "secure": is_secure,
-    }
-
-    # Если мы на localhost, не ставим domain, чтобы кука была привязана к текущему хосту
-    # Если REDIRECT_URI содержит домен, отличный от текущего, это все равно не будет работать
-    # без общего родительского домена.
-    
-    response.set_cookie(**cookie_params)
-    
-    logger.info(f"Redirecting user to Google. Secure={is_secure}, Proto={forwarded_proto}")
+    response = RedirectResponse(authorization_url_with_signed_state)
     return response
 
 
@@ -136,40 +117,73 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     Обрабатывает callback от Google, создаёт/получает пользователя,
     генерирует JWT и перенаправляет на фронтенд.
     """
+    print(f"\n\n========== CALLBACK FUNCTION CALLED ==========")
+    print(f"Request URL: {request.url}")
+    print(f"Request path: {request.url.path}")
+    print(f"Query params: {dict(request.query_params)}")
+    print(f"=========================================\n\n")
+    
     frontend_url = os.getenv("FRONTEND_URL", os.getenv("FRONTEND_BASE_URL", "http://localhost:3000"))
     
-    # Получаем state из callback и из cookie
-    callback_state = request.query_params.get('state', '')
-    cookie_signed_state = request.cookies.get('oauth_state', '')
+    # Получаем signed_state из URL (теперь state в URL уже подписан)
+    signed_state = request.query_params.get('state', '')
     
-    # Проверяем подписанный state из cookie
-    is_valid, original_state = verify_state(cookie_signed_state)
+    print(f"[1] Callback received. signed_state={signed_state[:30] if signed_state else 'EMPTY'}...")
     
-    if not is_valid or original_state != callback_state:
-        logger.warning(f"OAuth state mismatch. Cookie valid: {is_valid}, States match: {original_state == callback_state}")
+    # Верифицируем подписанный state напрямую из URL (без cookie)
+    is_valid, original_state = verify_state(signed_state)
+    
+    print(f"[2] State verification: is_valid={is_valid}, original_state={original_state[:20] if original_state else 'EMPTY'}...")
+    
+    if not is_valid:
+        print(f"[ERROR] OAuth state verification failed!")
+        logger.warning(f"OAuth state verification failed. is_valid={is_valid}")
         return RedirectResponse(url=f'{frontend_url}/login?error=state_mismatch')
+    
+    print(f"[3] State verified successfully!")
 
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        print(f"[ERROR] Google client credentials missing!")
         logger.error("Google client credentials are not set.")
         raise ValueError("Google client credentials are not set")
 
+    # Создаём OAuth2Session БЕЗ state чтобы отключить проверку oauthlib
+    # (мы уже сами проверили signed_state выше)
     google = OAuth2Session(
         GOOGLE_CLIENT_ID,
-        state=callback_state,
         redirect_uri=REDIRECT_URI
     )
+
+    print(f"[4] OAuth2Session created with REDIRECT_URI={REDIRECT_URI}")
 
     # Allow insecure transport for ngrok and localhost dev
     if 'localhost' in REDIRECT_URI or '127.0.0.1' in REDIRECT_URI or 'ngrok' in REDIRECT_URI:
         os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-        os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
+    # Строим правильный URL используя REDIRECT_URI (с правильным host)
+    # и query параметрами из request (но со original_state вместо signed_state)
+    query_params = dict(request.query_params)
+    query_params['state'] = original_state  # Заменяем signed_state на original_state
+    
+    # Формируем query string
+    query_string = '&'.join([f"{k}={v}" for k, v in query_params.items()])
+    
+    # Строим полный URL используя REDIRECT_URI
+    original_url = f"{REDIRECT_URI}?{query_string}"
+    
+    print(f"[5] Constructed auth response URL: {original_url[:100]}...")
+    logger.info(f"Constructed auth response URL with original_state")
+    
     try:
+        print(f"[6] Calling fetch_token...")
+        # Передаём state=original_state для oauthlib проверки
         google.fetch_token(
             TOKEN_URL,
             client_secret=GOOGLE_CLIENT_SECRET,
-            authorization_response=str(request.url)
+            authorization_response=original_url,
+            state=original_state  # Явно передаём для oauthlib
         )
+        print(f"[7] Successfully fetched token from Google!")
         logger.info("Successfully fetched token from Google.")
     except Exception as e:
         logger.error(f"Error fetching token from Google: {e}", exc_info=True)
@@ -229,8 +243,10 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         jwt_token = auth_service.create_jwt_for_user(user)
         logger.info(f"Successfully processed user and generated JWT for user ID: {user.id}")
     except Exception as e:
-        logger.error(f"Error during user processing for email {user_info.get('email')}: {e}")
-        return RedirectResponse(url=f'{frontend_url}/login?error=auth_process_failed')
+        import traceback
+        traceback.print_exc()
+        logger.exception(f"Error during user processing for email {user_info.get('email')}: {e}")
+        return RedirectResponse(url=f'{frontend_url}/login?error=auth_process_failed&details={str(e)}')
 
     # Редирект на фронтенд с токеном
     frontend_callback_url = f"{frontend_url}/auth/callback?token={jwt_token}"

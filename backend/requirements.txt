@@ -15,8 +15,9 @@ aiogram>=2.25
 slack_sdk>=3.21
 twilio>=8.5
 
-passlib[bcrypt]
-bcrypt<5.0
+passlib[bcrypt]>=1.7.4
+# Pin bcrypt to 4.0.1 because newer 4.1.x убирает __about__ и спамит предупреждениями в passlib
+bcrypt==4.0.1
 fastapi-mail>=1.4
 fastapi-limiter>=0.1
 redis>=4.2.0
@@ -24,12 +25,17 @@ jinja2>=3.1
 docker>=7.0.0
 celery>=5.3.0
 yt-dlp>=2024.1.0
+pyotp>=2.9.0
+
+# Logging (structured logging for Loki)
+structlog>=23.3.0
 
 # Admin panel (sqladmin for FastAPI)
 sqladmin>=0.16.0
 
 # Prometheus metrics
 prometheus_client>=0.17.0
+prometheus-fastapi-instrumentator>=7.0.0
 
 # Audio streaming enhancements (Feature 017)
 lyricsgenius>=3.0.0

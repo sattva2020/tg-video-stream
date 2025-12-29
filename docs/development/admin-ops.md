@@ -2,15 +2,56 @@
 
 ## 🔧 Local Development Setup
 
-### ngrok Configuration
+
+### ngrok и Vite: предотвращение конфликтов портов
 ```bash
+# 1. Перед запуском убедитесь, что НЕТ других процессов Vite или ngrok!
+netstat -ano | findstr :3000
+netstat -ano | findstr :3001
+tasklist | findstr ngrok
+tasklist | findstr node
+
+# 2. Если порт 3000 занят — определите PID процесса:
+netstat -ano | findstr :3000
+# Завершите процесс (замените <PID> на нужный):
+taskkill /PID <PID> /F
+
+# 3. Запускайте только ОДИН экземпляр Vite и ngrok!
+cd frontend && npm run dev &
 ngrok http --domain=isographical-shawnta-sortably.ngrok-free.dev 3000
 ```
 
-⚠️ **ВАЖНО**: Порт ngrok должен совпадать с портом Vite dev server!
+#### Вариант: прогон через прод-frontend (nginx) для security headers
+```bash
+# Остановите dev Vite, если он запущен
+
+# Соберите/запустите прод-фронт без бэкенда (он уже работает отдельно)
+VITE_API_BASE_URL=http://localhost:8000 \
+VITE_API_URL=http://localhost:8000 \
+VITE_ENABLE_BASIC_LOGIN=false \
+VITE_TELEGRAM_BOT_USERNAME=SattvaStreamerAuth_bot \
+  docker compose -f docker-compose.yml up -d --no-deps frontend
+
+# Пробросьте ngrok на порт 3000 (nginx фронта)
+ngrok http --domain=isographical-shawnta-sortably.ngrok-free.dev 3000
+
+# Проверка заголовков локально (должны быть HSTS, CSP, X-Frame-Options и др.)
+curl -I http://localhost:3000
+# Ожидаемый набор: CSP без unsafe-inline/eval, HSTS preload, X-Frame-Options DENY,
+# X-Content-Type-Options nosniff, Referrer-Policy strict-origin-when-cross-origin,
+# Permissions-Policy geolocation/microphone/camera=(), COOP same-origin,
+# COEP require-corp, CORP same-origin, Server без версии (server_tokens off).
+# Разрешённые внешние источники для CSP/COEP: challenges.cloudflare.com (Turnstile),
+# cdnjs.cloudflare.com (Remixicon CSS/шрифты). При добавлении новых внешних ресурсов
+# обязательно добавить их в CSP и убедиться, что они отдают CORS/CORP.
+```
+В этом режиме отвечает nginx из прод-образа (включены security-headers.conf и rate-limit.conf), поэтому securityheaders.com даст оценку A/A+.
+
+⚠️ **ВАЖНО**: Никогда не запускайте несколько окон с Vite/ngrok одновременно — это приведёт к конфликту портов и ошибкам (например, появится Grafana или другой сервис вместо фронтенда).
+
 - Vite по умолчанию: `localhost:3000`
 - Если порт 3000 занят, Vite выберет 3001, 3002 и т.д.
-- Проверка: `netstat -ano | findstr :3000`
+- Проверяйте занятость портов перед запуском!
 
 ### Процессы и Мониторинг
 

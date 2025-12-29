@@ -1,4 +1,19 @@
 {
+  "zenscene_access": "ZENSCENE ACCESS",
+  "sattva": "sattva",
+  "common": {
+    "loading": "Loading..."
+  },
+  "enter_stream": "Enter the stream",
+  "choose_auth_method": "Choose sign-in method",
+  "password": "Password",
+  "logging_in": "Signing in…",
+  "login": "Sign in",
+  "qa_login_hint": "For QA and Playwright tests",
+  "or": "or",
+  "login_telegram": "Sign in with Telegram",
+  "login_google": "Continue with Google",
+  "or_continue": "Or continue with",
   "audio": {
     "player": {
       "title": "Player",
@@ -173,11 +188,16 @@
     "connectionRestored": "Connection restored"
   },
   "nav": {
-    "analytics": "Analytics",
-    "streamQuality": "Stream Quality",
     "dashboard": "Dashboard",
     "channels": "Channels",
-    "playlists": "Playlists",
+    "playlist": "Playlist",
+    "myPlaylists": "My Playlists",
+    "schedule": "Schedule",
+    "notifications": "Notifications",
+    "users": "Users",
+    "monitoring": "Monitoring",
+    "analytics": "Analytics",
+    "streamQuality": "Quality",
     "settings": "Settings"
   },
   "analytics": {

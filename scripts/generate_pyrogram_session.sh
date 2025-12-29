@@ -11,8 +11,10 @@ if [ -z "$PHONE" ]; then
     exit 1
 fi
 
-API_ID=37831214
-API_HASH="1a10843db60c599ce2ec67bc6a55f1c2"
+# Telegram API credentials
+# Получите их на https://my.telegram.org/apps
+API_ID=${API_ID:-"YOUR_API_ID"}
+API_HASH=${API_HASH:-"YOUR_API_HASH"}
 RELEASE_DIR="/opt/tg_video_streamer/current"
 
 echo "[*] Connecting to remote server..."

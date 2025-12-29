@@ -7,6 +7,7 @@ load_dotenv()
 class Settings:
     PROJECT_NAME: str = "Telegram Broadcast API"
     VERSION: str = "0.1.0"
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
     # Stream Controller Configuration
     STREAM_CONTROLLER_TYPE: str = os.getenv("STREAM_CONTROLLER_TYPE", "systemd")
@@ -38,6 +39,7 @@ class Settings:
     
     # Security
     JWT_SECRET: str = os.getenv("JWT_SECRET", "change_this_secure_jwt_secret")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", JWT_SECRET) # Alias for admin panel
     SESSION_ENCRYPTION_KEY: str = os.getenv("SESSION_ENCRYPTION_KEY", "change_this_secure_session_encryption_key")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
@@ -62,5 +64,8 @@ class Settings:
     
     # Audio Processing (rust-transcoder)
     RUST_TRANSCODER_URL: str = os.getenv("RUST_TRANSCODER_URL", "http://rust-transcoder:8090")
+
+    # CORS
+    ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
 settings = Settings()

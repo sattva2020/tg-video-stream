@@ -1,0 +1,165 @@
+version: '3.8'
+
+# Docker Compose для тестирования
+# Использование: docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+services:
+  # PostgreSQL для тестов
+  postgres-test:
+    image: postgres:17-alpine
+    container_name: sattva-postgres-test
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
+    ports:
+      - "5433:5432"  # Другой порт, чтобы не конфликтовать с dev БД
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Redis для тестов
+  redis-test:
+    image: redis:7-alpine
+    container_name: sattva-redis-test
+    ports:
+      - "6380:6379"  # Другой порт
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-test-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # Backend тесты
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sattva-backend-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    environment:
+      # Database
+      DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/test_db
+      
+      # Redis
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      
+      # Testing mode
+      TESTING: "true"
+      ENVIRONMENT: test
+      
+      # JWT (dummy for tests)
+      JWT_SECRET: test_secret_key_12345678901234567890
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 30
+      
+      # OAuth (dummy for tests)
+      GOOGLE_CLIENT_ID: test_google_client_id
+      GOOGLE_CLIENT_SECRET: test_google_secret
+      GOOGLE_REDIRECT_URI: http://localhost:8000/api/auth/google/callback
+      
+      # Telegram (dummy for tests)
+      TELEGRAM_BOT_TOKEN: 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+      TELEGRAM_API_ID: "12345678"
+      TELEGRAM_API_HASH: test_api_hash_1234567890abcdef
+      
+      # Monitoring (отключено для тестов)
+      ENABLE_SENTRY: "false"
+      ENABLE_LOKI: "false"
+      
+    command: >
+      sh -c "
+        echo '=== Waiting for DB ===' &&
+        sleep 5 &&
+        echo '=== Running migrations ===' &&
+        alembic upgrade head &&
+        echo '=== Running pytest ===' &&
+        pytest --cov=src --cov-report=term-missing --cov-report=html --cov-report=json --cov-fail-under=70 -v
+      "
+    volumes:
+      - ./backend:/app
+      - backend-test-coverage:/app/htmlcov
+    networks:
+      - test-network
+
+  # Frontend тесты
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: sattva-frontend-test
+    environment:
+      NODE_ENV: test
+      VITE_API_URL: http://backend-test:8000
+      CI: "true"
+    command: >
+      sh -c "
+        echo '=== Installing dependencies ===' &&
+        npm ci &&
+        echo '=== Running vitest ===' &&
+        npm run test:coverage
+      "
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - frontend-test-coverage:/app/coverage
+    networks:
+      - test-network
+
+  # Integration тесты (опционально)
+  integration-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sattva-integration-test
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/test_db
+      REDIS_HOST: redis-test
+      REDIS_PORT: 6379
+      TESTING: "true"
+      ENVIRONMENT: test
+    command: >
+      sh -c "
+        echo '=== Running integration tests ===' &&
+        pytest tests/integration/ -v --tb=short
+      "
+    volumes:
+      - ./backend:/app
+    networks:
+      - test-network
+    profiles:
+      - integration
+
+volumes:
+  postgres-test-data:
+  redis-test-data:
+  backend-test-coverage:
+  frontend-test-coverage:
+
+networks:
+  test-network:
+    driver: bridge

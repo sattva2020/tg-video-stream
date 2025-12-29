@@ -1,15 +1,46 @@
-# Feature 022 Phase 3: Deployment Checklist
+# Production Deployment Checklist
 
-**Date**: December 16, 2025  
-**Feature**: Feature 022 Phase 3 (Advanced Stream Quality Monitoring)  
+**Last Updated**: December 27, 2025  
 **Status**: ✅ Ready for Deployment  
 **Estimated Time**: 30-45 minutes
+
+---
+
+## 🔐 Prerequisites: Secrets Management
+
+### Перед первым деплоем на сервер
+
+1. **Убедитесь, что `.env.enc` актуален**:
+   ```bash
+   # Локально: зашифровать секреты
+   SOPS_AGE_KEY_FILE=.internal/age.key ./scripts/encrypt-secrets.sh .env.master
+   ```
+
+2. **Передайте age ключ на сервер** (один раз, безопасным каналом):
+   ```bash
+   # Скопировать приватный ключ на сервер
+   scp -i ~/.ssh/id_rsa_n8n .internal/age.key root@37.53.91.144:/opt/tg_video_streamer/.age.key
+   chmod 600 /opt/tg_video_streamer/.age.key
+   ```
+
+3. **Настройте переменную окружения на сервере**:
+   ```bash
+   # Добавить в /etc/environment или ~/.bashrc
+   export SOPS_AGE_KEY_FILE=/opt/tg_video_streamer/.age.key
+   ```
+
+### Проверка перед деплоем
+```bash
+# Локально: убедиться что секреты расшифровываются
+SOPS_AGE_KEY_FILE=.internal/age.key ./scripts/preflight-env.sh
+```
 
 ---
 
 ## ✅ Pre-Deployment (10 minutes)
 
 ### Code Review
+- [ ] Secrets encrypted: `.env.enc` exists and up-to-date
 - [ ] Read: `docs/development/phase3/PHASE3_QUICK_START.md` (executive summary)
 - [ ] Review: Backend service layer in IDE
 - [ ] Review: Frontend components in IDE
@@ -227,6 +258,33 @@ Expected:
 ---
 
 ## 🚨 Troubleshooting
+
+### Issue: Secrets Decryption Fails
+**Solution**:
+```bash
+# Проверить наличие ключа age на сервере
+ls -la /opt/tg_video_streamer/.age.key
+
+# Проверить переменную окружения
+echo $SOPS_AGE_KEY_FILE
+
+# Проверить расшифровку вручную
+SOPS_AGE_KEY_FILE=/opt/tg_video_streamer/.age.key sops --decrypt --input-type dotenv --output-type dotenv .env.enc
+
+# Если ключ потерян — получить заново из безопасного хранилища
+# и повторить передачу на сервер
+```
+
+### Issue: .env Missing After Deploy
+**Solution**:
+```bash
+# Проверить что .env.enc есть в артефакте
+tar -tzf telegram-deploy-*.tar.gz | grep .env.enc
+
+# Вручную расшифровать
+cd /opt/tg_video_streamer/current
+SOPS_AGE_KEY_FILE=/opt/tg_video_streamer/.age.key ./scripts/decrypt-secrets.sh --force
+```
 
 ### Issue: Migration Fails
 **Solution**:

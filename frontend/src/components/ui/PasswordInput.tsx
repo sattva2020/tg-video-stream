@@ -29,23 +29,23 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     };
 
     // Merge refs: forwardedRef from forwardRef and ref from props (e.g., from react-hook-form register)
+    const propsRef = (props as any).ref;
+
     const mergedRef = useCallback(
       (node: HTMLInputElement | null) => {
-        // Handle forwardedRef
         if (typeof forwardedRef === 'function') {
           forwardedRef(node);
         } else if (forwardedRef) {
           forwardedRef.current = node;
         }
-        // Handle ref from props (react-hook-form register passes ref in props)
-        const propsRef = (props as any).ref;
+
         if (typeof propsRef === 'function') {
           propsRef(node);
         } else if (propsRef) {
           propsRef.current = node;
         }
       },
-      [forwardedRef, (props as any).ref]
+      [forwardedRef, propsRef]
     );
 
     // Remove ref from props to avoid passing it twice

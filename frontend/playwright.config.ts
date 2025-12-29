@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.BASE_URL || 'http://localhost:3000';
-const webServerCommand = process.env.PLAYWRIGHT_WEB_COMMAND || 'npm run dev';
+const port = process.env.PLAYWRIGHT_PORT || '4173';
+const baseURL = process.env.BASE_URL || `http://localhost:${port}`;
+const webServerCommand = process.env.PLAYWRIGHT_WEB_COMMAND || `npm run dev -- --host 0.0.0.0 --port ${port}`;
 
 export default defineConfig({
   // Изолируем e2e от vitest-спеков, чтобы не подмешивались jest-matchers
@@ -26,7 +27,10 @@ export default defineConfig({
   webServer: {
     command: webServerCommand,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
+    env: {
+      VITE_ENABLE_BASIC_LOGIN: 'true',
+    },
     timeout: 120 * 1000,
   },
 });

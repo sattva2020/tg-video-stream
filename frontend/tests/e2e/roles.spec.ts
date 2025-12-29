@@ -30,16 +30,6 @@ const TEST_USERS = {
 
 type UserRole = keyof typeof TEST_USERS;
 
-// Страницы и их требуемые роли
-const PAGES = {
-  dashboard: { path: '/dashboard', minRole: 'USER' },
-  playlist: { path: '/playlist', minRole: 'USER' },
-  schedule: { path: '/schedule', minRole: 'OPERATOR' },
-  channels: { path: '/channels', minRole: 'OPERATOR' },
-  monitoring: { path: '/admin/monitoring', minRole: 'ADMIN' },
-  users: { path: '/admin/users', minRole: 'ADMIN' },
-} as const;
-
 // Иерархия ролей (от высшей к низшей)
 const ROLE_HIERARCHY: UserRole[] = ['SUPERADMIN', 'ADMIN', 'MODERATOR', 'OPERATOR', 'USER'];
 

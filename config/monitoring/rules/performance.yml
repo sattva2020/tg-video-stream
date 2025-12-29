@@ -1,0 +1,159 @@
+# Performance Alert Rules for 24/7 TV Telegram
+# Monitoring performance degradation before it becomes critical
+
+groups:
+  - name: performance
+    rules:
+      # Backend Response Time Degradation
+      - alert: BackendResponseTimeDegraded
+        expr: |
+          histogram_quantile(0.95, rate(sattva_http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend p95 latency degraded"
+          description: "95th percentile response time is above 500ms for 10 minutes. Current: {{ $value }}s"
+
+      - alert: BackendResponseTimeCritical
+        expr: |
+          histogram_quantile(0.95, rate(sattva_http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend p95 latency critical"
+          description: "95th percentile response time is above 2s for 5 minutes. Current: {{ $value }}s"
+
+      # Database Query Performance
+      - alert: DatabaseSlowQueries
+        expr: |
+          rate(pg_stat_statements_mean_exec_time[5m]) > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database queries are slow"
+          description: "Average query execution time is above 1000ms. Current: {{ $value }}ms"
+
+      # Database Connection Pool Saturation
+      - alert: DatabasePoolSaturated
+        expr: |
+          db_connections_active{pool="default"} / db_pool_size{pool="default"} > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connection pool is saturated"
+          description: "More than 80% of connection pool is in use. Consider increasing pool size."
+
+      - alert: DatabasePoolExhausted
+        expr: |
+          db_connections_active{pool="default"} / db_pool_size{pool="default"} >= 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool exhausted"
+          description: "All connections in the pool are in use. New requests will be blocked."
+
+      # High CPU Usage by Backend Process
+      - alert: BackendHighCPU
+        expr: |
+          rate(process_cpu_seconds_total{job="backend"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend process using high CPU"
+          description: "Backend CPU usage is above 80% for 10 minutes. Current: {{ $value }}%"
+
+      # High Memory Usage by Backend Process
+      - alert: BackendHighMemory
+        expr: |
+          process_resident_memory_bytes{job="backend"} / 1024 / 1024 > 1024
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend process using high memory"
+          description: "Backend memory usage is above 1GB for 10 minutes. Current: {{ $value }}MB. Possible memory leak."
+
+      # Too Many In-Progress Requests
+      - alert: TooManyInProgressRequests
+        expr: |
+          sattva_http_requests_in_progress > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Too many in-progress requests"
+          description: "More than 50 concurrent requests for 5 minutes. Backend may be overloaded."
+
+      # PostgreSQL Cache Hit Ratio Low
+      - alert: PostgreSQLLowCacheHitRatio
+        expr: |
+          100 * sum(pg_stat_database_blks_hit) / (sum(pg_stat_database_blks_hit) + sum(pg_stat_database_blks_read)) < 90
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL cache hit ratio is low"
+          description: "Cache hit ratio is below 90% for 15 minutes. Current: {{ $value }}%. Consider increasing shared_buffers."
+
+      # PostgreSQL Too Many Connections
+      - alert: PostgreSQLTooManyConnections
+        expr: |
+          sum(pg_stat_database_numbackends) / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL has too many connections"
+          description: "More than 80% of max_connections are in use. Current: {{ $value }}%"
+
+      # Disk I/O Saturation
+      - alert: DiskIOSaturated
+        expr: |
+          rate(node_disk_io_time_seconds_total[5m]) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk I/O is saturated"
+          description: "Disk is busy more than 90% of the time for 10 minutes. Storage may be a bottleneck."
+
+      # Network Bandwidth Saturation
+      - alert: NetworkBandwidthHigh
+        expr: |
+          rate(node_network_receive_bytes_total{device!="lo"}[5m]) > 100000000
+          or
+          rate(node_network_transmit_bytes_total{device!="lo"}[5m]) > 100000000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Network bandwidth usage is high"
+          description: "Network traffic exceeds 100MB/s for 10 minutes on {{ $labels.device }}. Current: {{ $value }}B/s"
+
+      # Redis (if used) High Memory
+      - alert: RedisHighMemory
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis is using more than 90% of allocated memory for 10 minutes. Current: {{ $value }}%"
+
+      # File Descriptor Exhaustion Warning
+      - alert: FileDescriptorsLow
+        expr: |
+          process_open_fds / process_max_fds > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "File descriptors running low"
+          description: "More than 80% of file descriptors are in use. Current: {{ $value }}%"

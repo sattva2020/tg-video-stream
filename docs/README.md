@@ -65,9 +65,21 @@ npm run dev
 
 ### Docker Compose
 
+- Локальная разработка (полный стек: backend с hot-reload, frontend dev, db, redis, streamer, rust-transcoder, мониторинг):
+
 ```bash
-docker compose up -d
+docker compose -f docker-compose.local.yml up -d
 ```
+
+- Порты локального стека: backend 8000, frontend 3000, redis 6379, postgres 5432, rust-transcoder 18090 (health: http://localhost:18090/health), alertmanager 19093.
+
+- Полное docker-развёртывание (без hot-reload; включает мониторинг):
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+> На проде backend и streamer запускаются через systemd (см. ai-instructions/DEPLOYMENT_SYNC_RULE.md); docker-compose.yml используется для полного docker-стека или стендов.
 
 ---
 

@@ -45,16 +45,6 @@ async def setup_admin(app: "FastAPI", engine: "AsyncEngine") -> None:
     from src.admin.views import ALL_MODEL_VIEWS
     from src.config import settings
 
-    # Добавляем middleware для сессий (нужен для sqladmin аутентификации)
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=settings.SECRET_KEY,
-        session_cookie="admin_session",
-        max_age=3600 * 24,  # 24 часа
-        same_site="lax",
-        https_only=settings.ENVIRONMENT == "production"
-    )
-
     # Создаём экземпляр Admin с аутентификацией
     admin = Admin(
         app,

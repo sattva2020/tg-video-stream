@@ -50,7 +50,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         // API v1 routes
         .nest("/api/v1", api::routes(state.clone()))
         .layer(cors)
-        .layer(axum::Extension(state))
+        .with_state(state)
 }
 
 #[cfg(test)]

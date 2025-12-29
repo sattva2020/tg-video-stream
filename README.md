@@ -1,8 +1,11 @@
 # Telegram 24/7 Video Streamer (TDLib-free, PyTgCalls)
 
-![Backend Coverage](https://img.shields.io/badge/backend%20coverage-98.75%25-brightgreen?style=flat-square&logo=pytest)
-![Tests](https://img.shields.io/badge/tests-353%20passed-success?style=flat-square&logo=github-actions)
-![Priority Services](https://img.shields.io/badge/priority%20services-8%2F8%20tested-blue?style=flat-square)
+![Backend Coverage](https://img.shields.io/badge/backend%20coverage-98.70%25-brightgreen?style=flat-square&logo=pytest)
+![Backend Tests](https://img.shields.io/badge/backend%20tests-353%20passed-success?style=flat-square&logo=pytest)
+![Integration Tests](https://img.shields.io/badge/integration%20tests-19%20passed-success?style=flat-square&logo=fastapi)
+![Frontend Tests](https://img.shields.io/badge/frontend%20tests-289%20passed-success?style=flat-square&logo=vitest)
+![E2E Tests](https://img.shields.io/badge/e2e%20tests-36%20specs-blue?style=flat-square&logo=playwright)
+![CI/CD](https://img.shields.io/badge/ci%2Fcd-github%20actions-blue?style=flat-square)
 [![CI](https://github.com/YOUR_USERNAME/YOUR_REPO/workflows/Backend%20Coverage%20Monitoring/badge.svg)](https://github.com/YOUR_USERNAME/YOUR_REPO/actions/workflows/backend-coverage.yml)
 
 Этот пакет позволяет запускать **круглосуточную трансляцию YouTube-плейлиста**

@@ -40,6 +40,9 @@ class User(Base):
     # New for user approval workflow: 'pending' | 'approved' | 'rejected'
     status = Column(String, nullable=False, server_default="pending", default="pending")
     email_verified = Column(Boolean, default=False)
+    # 2FA (TOTP)
+    totp_secret = Column(String, nullable=True)
+    totp_enabled = Column(Boolean, nullable=False, server_default=text('false'), default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

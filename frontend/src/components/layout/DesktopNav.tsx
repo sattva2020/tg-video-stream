@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, ListMusic, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal } from 'lucide-react';
+import { Home, Tv, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal, Library } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
@@ -17,63 +17,62 @@ export const DesktopNav: React.FC = () => {
   const navItems: NavItem[] = [
     { 
       path: '/dashboard', 
-      label: t('nav.dashboard', 'Дашборд'), 
+      label: t('nav.dashboard', 'Головна'), 
       icon: <Home className="w-4 h-4" /> 
     },
     { 
       path: '/channels', 
-      label: t('nav.channels', 'Каналы'), 
+      label: t('nav.channels', 'Канали'), 
       icon: <Tv className="w-4 h-4" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
-      path: '/playlist', 
-      label: t('nav.playlist', 'Плейлист'), 
-      icon: <ListMusic className="w-4 h-4" /> 
+      path: '/user-playlists', 
+      label: t('nav.myPlaylists', 'Мої плейлисти'), 
+      icon: <Library className="w-4 h-4" /> 
     },
     { 
       path: '/schedule', 
-      label: t('nav.schedule', 'Расписание'), 
+      label: t('nav.schedule', 'Розклад'), 
       icon: <CalendarDays className="w-4 h-4" />,
       allowedRoles: OPERATOR_AND_ABOVE
     },
     { 
-      path: '/notifications/rules', 
-      label: t('nav.notifications', 'Оповещения'), 
-      icon: <Bell className="w-4 h-4" />,
-      allowedRoles: OPERATOR_AND_ABOVE
+      path: '/users', 
+      label: t('nav.users', 'Користувачі'), 
+      icon: <Users className="w-4 h-4" />,
+      adminOnly: true
     },
     { 
-      path: '/users', 
-      label: t('nav.users', 'Пользователи'), 
-      icon: <Users className="w-4 h-4" />,
-      adminOnly: true 
+      path: '/notifications/rules', 
+      label: t('nav.notifications', 'Сповіщення'), 
+      icon: <Bell className="w-4 h-4" />,
+      adminOnly: true
     },
     { 
       path: '/admin/monitoring', 
-      label: t('nav.monitoring', 'Мониторинг'), 
+      label: t('nav.monitoring', 'Моніторинг'), 
       icon: <Activity className="w-4 h-4" />,
       adminOnly: true,
       moderatorAllowed: true,
     },
     { 
       path: '/admin/analytics', 
-      label: t('nav.analytics', 'Аналитика'), 
+      label: t('nav.analytics', 'Аналітика'), 
       icon: <BarChart3 className="w-4 h-4" />,
-      adminOnly: true,
-      moderatorAllowed: true,
+      adminOnly: true
     },
     { 
       path: '/admin/stream-quality', 
-      label: t('nav.streamQuality', 'Качество'), 
+      label: t('nav.streamQuality', 'Якість'), 
       icon: <Signal className="w-4 h-4" />,
-      adminOnly: true,
+      adminOnly: true
     },
     { 
       path: '/admin', 
-      label: t('nav.settings', 'Настройки'), 
+      label: t('nav.settings', 'Налаштування'), 
       icon: <Settings className="w-4 h-4" />,
-      adminOnly: true 
+      adminOnly: true
     },
   ];
 
@@ -82,20 +81,21 @@ export const DesktopNav: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="hidden lg:flex items-center gap-1">
+    <nav className="hidden lg:flex items-center gap-0.5">
       {filteredNavItems.map((item) => (
         <Link
           key={item.path}
           to={item.path}
           data-testid={`nav-${item.path.replace(/\//g, '')}`}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 whitespace-nowrap ${
             isActive(item.path)
               ? 'bg-[color:var(--color-accent)]/20 text-[color:var(--color-accent)]'
               : 'text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] hover:text-[color:var(--color-text)]'
           }`}
+          title={item.label}
         >
           {item.icon}
-          <span className="hidden xl:inline">{item.label}</span>
+          <span className="hidden 2xl:inline whitespace-nowrap">{item.label}</span>
         </Link>
       ))}
     </nav>

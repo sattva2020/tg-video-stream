@@ -2,7 +2,7 @@
 //!
 //! Предоставляет /health, /health/ready и /health/live эндпоинты.
 
-use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Serialize;
 use std::process::Command;
 use std::sync::Arc;
@@ -48,7 +48,7 @@ fn get_ffmpeg_version() -> Option<String> {
 }
 
 /// GET /health - базовая проверка здоровья с расширенной информацией
-pub async fn health_check(Extension(state): Extension<Arc<AppState>>) -> impl IntoResponse {
+pub async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let uptime = START_TIME
         .elapsed()
         .ok()

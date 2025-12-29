@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardBody, Chip, Skeleton, Button } from '@heroui/react';
 import { Activity, Music, Video, RefreshCw, AlertTriangle, Gauge } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +22,7 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
 
-  const analyzeStream = async (force = false) => {
+  const analyzeStream = useCallback(async (force = false) => {
     if (!streamUrl) return;
     
     setLoading(true);
@@ -45,13 +45,13 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [streamUrl, toast, t]);
 
   useEffect(() => {
     if (autoAnalyze && streamUrl && streamUrl !== analyzedUrl) {
       analyzeStream(false);
     }
-  }, [streamUrl, autoAnalyze, analyzedUrl]);
+  }, [streamUrl, autoAnalyze, analyzedUrl, analyzeStream]);
 
   const getQualityColor = (q: string) => {
     switch (q?.toLowerCase()) {
