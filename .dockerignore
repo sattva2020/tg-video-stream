@@ -1,0 +1,7 @@
+tg-engine/AyuGramDesktop/.git
+tg-engine/AyuGramDesktop/out
+tg-engine/AyuGramDesktop/build
+node_modules
+.git
+.venv
+__pycache__
