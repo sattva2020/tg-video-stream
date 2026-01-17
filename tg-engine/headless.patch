@@ -13,7 +13,7 @@ index 58d5fe8..c8bf48f 100644
 +	// Force offscreen platform for headless operation
 +	pushArgument(argv[0]);
 +	pushArgument("-platform");
-+	pushArgument("offscreen");
++	pushArgument("xcb");
  
 -#if defined Q_OS_WIN || defined Q_OS_MAC
 -	if (OptionFreeType.value()) {
