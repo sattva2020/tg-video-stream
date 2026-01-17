@@ -23,15 +23,16 @@ RUN if [ -z "$TDESKTOP_API_ID" ] || [ -z "$TDESKTOP_API_HASH" ]; then \
     exit 1; \
     fi
 
-WORKDIR /usr/src
+USER root
+WORKDIR /build
 
 # Clone AyuGram with all submodules
 RUN git clone --recursive --depth 1 https://github.com/AyuGram/AyuGramDesktop.git tdesktop
 
-WORKDIR /usr/src/tdesktop
+WORKDIR /build/tdesktop
 
 # Build AyuGram Desktop
-RUN /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
+RUN /build/tdesktop/Telegram/build/docker/centos_env/build.sh \
     -D TDESKTOP_API_ID=${TDESKTOP_API_ID} \
     -D TDESKTOP_API_HASH=${TDESKTOP_API_HASH}
 
@@ -60,7 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/sattva-tg-engine
 
 # Copy built binary from builder stage
-COPY --from=builder /usr/src/tdesktop/out/Release/Telegram ./sattva-tg-engine
+COPY --from=builder /build/tdesktop/out/Release/Telegram ./sattva-tg-engine
 
 # Note: Telegram Desktop is mostly statically linked, no additional .so files needed
 # Create lib directory for future extensions
