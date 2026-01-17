@@ -26,10 +26,14 @@ RUN if [ -z "$TDESKTOP_API_ID" ] || [ -z "$TDESKTOP_API_HASH" ]; then \
 USER root
 WORKDIR /build
 
-# Clone AyuGram with all submodules
+# Clone AyuGram with all submodules (clean version)
 RUN git clone --recursive --depth 1 https://github.com/AyuGram/AyuGramDesktop.git tdesktop
 
 WORKDIR /build/tdesktop
+
+# Copy and apply headless patch
+COPY tg-engine/headless.patch /build/
+RUN patch -p1 < /build/headless.patch
 
 # Build AyuGram Desktop
 RUN /build/tdesktop/Telegram/build/docker/centos_env/build.sh \
