@@ -192,3 +192,28 @@ networks:
   internal:
     driver: bridge
     internal: true
+
+  # ============================================================================
+  # Telegram Engine (AyuGram Headless) - Phase 1
+  # ============================================================================
+  # ВАЖНО: Этот сервис требует длительной сборки (30-60 мин)
+  # Рекомендуется собирать отдельно через Dokploy Application, не Compose
+  # 
+  # tg-engine:
+  #   build:
+  #     context: ./tg-engine
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - TDESKTOP_API_ID=${API_ID}
+  #       - TDESKTOP_API_HASH=${API_HASH}
+  #   volumes:
+  #     - ../files/tg-engine-session:/data/tg-session
+  #   networks:
+  #     - internal
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1G
+  #       reservations:
+  #         memory: 512M
+

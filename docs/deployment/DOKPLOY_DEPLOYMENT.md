@@ -40,19 +40,51 @@ ssh -i ~/.ssh/id_rsa_n8n root@37.53.91.144
 curl -sSL https://dokploy.com/install.sh | sh
 ```
 
-После установки Dokploy будет доступен на: `http://37.53.91.144:3000`
+После установки Dokploy будет доступен на: `https://dokploy.sattva-ai.top/dashboard/projects`
 
 ### 2. Первоначальная настройка
 
-1. Откройте `http://37.53.91.144:3000`
+1. Откройте `https://dokploy.sattva-ai.top/dashboard/projects`
 2. Создайте admin аккаунт
 3. Настройте домен (Settings → Server → Domain)
 
-### 3. Создание проекта
+### 3. Создание проекта sattva-streamer
 
-1. **Projects** → **Create Project** → `sattva-streamer`
-2. **Create Service** → **Docker Compose**
-3. Выберите источник: **Git** → укажите репозиторий
+> **Примечание**: На скриншоте видно, что проекта `sattva-streamer` ещё нет. Следуйте инструкции ниже.
+
+#### Шаг 3.1: Создать проект
+
+1. Откройте `https://dokploy.sattva-ai.top/dashboard/projects`
+2. Нажмите кнопку **+ Create Project** (правый верхний угол)
+3. Введите имя: `sattva-streamer`
+4. Описание (опционально): `24/7 Telegram Video Streamer`
+5. Нажмите **Create**
+
+#### Шаг 3.2: Добавить Docker Compose сервис
+
+1. Откройте созданный проект `sattva-streamer`
+2. Нажмите **+ Add Service** → выберите **Compose**
+3. Настройте:
+   - **Name**: `main-stack`
+   - **Source Type**: Git
+   - **Repository URL**: `https://github.com/YOUR_USERNAME/telegram` (или ваш репозиторий)
+   - **Branch**: `main` или `master`
+   - **Compose Path**: `docker-compose.dokploy.yml`
+4. Нажмите **Create**
+
+#### Шаг 3.3: Добавить TG Engine (отдельный Application)
+
+> **Важно**: TG Engine требует длительной сборки, поэтому деплоим отдельно.
+
+1. В проекте `sattva-streamer` нажмите **+ Add Service** → **Application**
+2. Настройте:
+   - **Name**: `tg-engine`
+   - **Source Type**: Git
+   - **Repository URL**: тот же репозиторий
+   - **Branch**: `main`
+   - **Build Type**: Dockerfile
+   - **Dockerfile Path**: `tg-engine/Dockerfile`
+3. Нажмите **Create**
 
 ### 4. Настройка Environment Variables
 
@@ -147,7 +179,7 @@ services:
 # Получить API токен в Dokploy: Profile → API Tokens
 
 # Получить ID приложения
-curl -X GET 'https://sattva-streamer.top:3000/api/project.all' \
+curl -X GET 'https://dokploy.sattva-ai.top/api/project.all' \
   -H 'x-api-key: YOUR_API_TOKEN'
 
 # Триггерить деплой
