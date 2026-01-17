@@ -61,7 +61,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /opt/sattva-tg-engine
 
 # Copy built binary from builder stage
-COPY --from=builder /build/tdesktop/out/Release/Telegram ./sattva-tg-engine
+COPY --from=builder /build/tdesktop/out/Release/AyuGram ./sattva-tg-engine
 
 # Note: Telegram Desktop is mostly statically linked, no additional .so files needed
 # Create lib directory for future extensions
