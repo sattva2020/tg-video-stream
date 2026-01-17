@@ -50,7 +50,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
-# Install runtime dependencies and locales
+# Install runtime dependencies, locales and Xvfb for virtual display
 RUN apt-get update && apt-get install -y --no-install-recommends \
     locales \
     libpulse0 \
@@ -80,6 +80,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libdbus-1-3 \
     ffmpeg \
     ca-certificates \
+    xvfb \
     && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -89,13 +90,9 @@ WORKDIR /opt/sattva-tg-engine
 # Copy built binary from builder stage
 COPY --from=builder /build/tdesktop/out/Release/AyuGram ./sattva-tg-engine
 
-# Copy Qt platform plugins if they exist separately
-COPY --from=builder /build/tdesktop/out/Release/platforms/ ./platforms/
+# Note: Using xvfb-run instead of native offscreen for maximum compatibility
+ENV QT_QPA_PLATFORM=xcb
 
-# Force offscreen platform at environment level
-ENV QT_QPA_PLATFORM=offscreen
-
-# Note: Telegram Desktop is mostly statically linked, no additional .so files needed
 # Create lib directory for future extensions
 RUN mkdir -p ./lib/
 
@@ -105,12 +102,12 @@ RUN mkdir -p /data/tg-session
 # Volume for persistent session data
 VOLUME ["/data/tg-session"]
 
-# Health check placeholder (will be implemented in Phase 3)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD test -f /opt/sattva-tg-engine/sattva-tg-engine || exit 1
 
-# Default command (will be replaced with headless RPC server in Phase 2)
-ENTRYPOINT ["/opt/sattva-tg-engine/sattva-tg-engine"]
+# Launch using Xvfb virtual frame buffer
+ENTRYPOINT ["xvfb-run", "-a", "/opt/sattva-tg-engine/sattva-tg-engine"]
 
 # Labels
 LABEL org.opencontainers.image.title="Sattva TG Engine"
