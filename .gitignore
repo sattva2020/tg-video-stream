@@ -160,7 +160,6 @@ frontend/tmp.css
 .eslintcache
 
 # Docker (when needed)
-.dockerignore
 *.dockerfile
 
 # Supabase
