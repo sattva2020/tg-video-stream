@@ -32,7 +32,7 @@ RUN git clone --recursive --depth 1 https://github.com/AyuGram/AyuGramDesktop.gi
 WORKDIR /build/tdesktop
 
 # Copy and apply headless patch
-COPY tg-engine/headless.patch /build/
+COPY headless.patch /build/
 RUN patch -p1 < /build/headless.patch
 
 # Build AyuGram Desktop
