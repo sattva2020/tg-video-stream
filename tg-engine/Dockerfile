@@ -45,20 +45,42 @@ RUN /build/tdesktop/Telegram/build/docker/centos_env/build.sh \
 # =============================================================================
 FROM ubuntu:22.04 AS runtime
 
-# Install runtime dependencies
+# Set environment variables for non-interactive install
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+# Install runtime dependencies and locales
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales \
     libpulse0 \
     libasound2 \
     libxcb1 \
     libxkbcommon0 \
+    libxkbcommon-x11-0 \
     libssl3 \
     libfontconfig1 \
     libfreetype6 \
     libjpeg62 \
     libpng16-16 \
     libwebp7 \
+    libglib2.0-0 \
+    libx11-xcb1 \
+    libxcb-keysyms1 \
+    libxcb-image0 \
+    libxcb-shm0 \
+    libxcb-icccm4 \
+    libxcb-sync1 \
+    libxcb-render-util0 \
+    libxcb-render0 \
+    libxcb-shape0 \
+    libxcb-xfixes0 \
+    libxcb-randr0 \
+    libxcb-xkb1 \
+    libdbus-1-3 \
     ffmpeg \
     ca-certificates \
+    && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
@@ -66,6 +88,12 @@ WORKDIR /opt/sattva-tg-engine
 
 # Copy built binary from builder stage
 COPY --from=builder /build/tdesktop/out/Release/AyuGram ./sattva-tg-engine
+
+# Copy Qt platform plugins if they exist separately
+COPY --from=builder /build/tdesktop/out/Release/platforms/ ./platforms/
+
+# Force offscreen platform at environment level
+ENV QT_QPA_PLATFORM=offscreen
 
 # Note: Telegram Desktop is mostly statically linked, no additional .so files needed
 # Create lib directory for future extensions
