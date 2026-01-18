@@ -85,7 +85,7 @@ export const PlaylistForm: React.FC<PlaylistFormProps> = ({
             {playlist ? 'Update playlist details.' : 'Create a new collection of tracks.'}
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -96,7 +96,7 @@ export const PlaylistForm: React.FC<PlaylistFormProps> = ({
             />
             {errors.name && <span className="text-sm text-red-500">{errors.name.message}</span>}
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -109,7 +109,7 @@ export const PlaylistForm: React.FC<PlaylistFormProps> = ({
           <div className="space-y-2">
             <Label>Source Type</Label>
             <Select
-              onValueChange={(value) => setValue('source_type', value)}
+              onValueChange={(value: string) => setValue('source_type', value as 'manual' | 'folder')}
               value={sourceType}
             >
               <SelectTrigger>
@@ -137,7 +137,7 @@ export const PlaylistForm: React.FC<PlaylistFormProps> = ({
               </div>
             </div>
           )}
-          
+
           <div className="flex items-center justify-between space-x-2">
             <Label htmlFor="is_public" className="flex flex-col space-y-1">
               <span>Public Playlist</span>
@@ -148,10 +148,10 @@ export const PlaylistForm: React.FC<PlaylistFormProps> = ({
             <Switch
               id="is_public"
               checked={isPublic}
-              onCheckedChange={(checked) => setValue('is_public', checked)}
+              onCheckedChange={(checked: boolean) => setValue('is_public', checked)}
             />
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="color">Color</Label>
             <div className="flex gap-2">
