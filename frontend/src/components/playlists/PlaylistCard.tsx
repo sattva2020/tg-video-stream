@@ -1,8 +1,8 @@
 import React from 'react';
 import { Playlist } from '../../api/playlists';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 import { Clock, List, MoreVertical, Play, Copy, Trash, Edit, Share2, Sparkles } from 'lucide-react';
 import { formatDuration } from '../../utils/format';
 import {
@@ -10,7 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../ui/DropdownMenu';
 
 interface PlaylistCardProps {
   playlist: Playlist;

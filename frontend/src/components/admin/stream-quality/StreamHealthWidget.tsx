@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity, Wifi, WifiOff, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 interface StreamHealthWidgetProps {

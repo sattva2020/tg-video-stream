@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FolderInfo, getFolders, scanFolder, MediaFile } from '../../api/media';
-import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
-import { ScrollArea } from '../ui/scroll-area';
+import { Button } from '../ui/Button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/Dialog';
+import { ScrollArea } from '../ui/ScrollArea';
 import { Folder, Music, Loader2, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 

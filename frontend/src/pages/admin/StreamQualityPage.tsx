@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/Button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { StreamHealthWidget } from '@/components/admin/stream-quality/StreamHealthWidget';
 import { StreamQualityHistoryChart } from '@/components/admin/stream-quality/StreamQualityHistoryChart';
 import { useToast } from '@/components/ui/use-toast';

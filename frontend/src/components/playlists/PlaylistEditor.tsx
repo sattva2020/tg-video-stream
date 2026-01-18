@@ -4,12 +4,12 @@ import { DragDropContext, Droppable, Draggable, DropResult, DroppableProps } fro
 import { Playlist, PlaylistEntry, playlistsApi } from '../../api/playlists';
 import { FileBrowser } from '../media/FileBrowser';
 import { MediaFile } from '../../api/media';
-import { Button } from '../ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
 import { ArrowLeft, GripVertical, Trash2, Play, Plus, Download } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
-import { Badge } from '../ui/badge';
+import { Badge } from '../ui/Badge';
 
 export const PlaylistEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlaylistList } from '../../components/playlists/PlaylistList';
 import { PlaylistForm } from '../../components/playlists/PlaylistForm';
-import { Button } from '../../components/ui/button';
+import { Button } from '../../components/ui/Button';
 import { Plus, Upload, Library, Sparkles } from 'lucide-react';
 import { Playlist, PlaylistCreate, PlaylistUpdate, playlistsApi } from '../../api/playlists';
 import { useToast } from '../../components/ui/use-toast';

@@ -1,18 +1,18 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { Playlist, PlaylistCreate, PlaylistUpdate } from '../../api/playlists';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Textarea } from '../ui/textarea';
-import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
+import { Textarea } from '../ui/Textarea';
+import { Switch } from '../ui/Switch';
+import { Label } from '../ui/Label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "../ui/Select";
 import { FileBrowser } from '../media/FileBrowser';
 import {
   Dialog,
@@ -21,7 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '../ui/dialog';
+} from '../ui/Dialog';
 
 interface PlaylistFormProps {
   open: boolean;

@@ -10,7 +10,7 @@ import {
   Legend
 } from 'recharts';
 import type { Formatter } from 'recharts/types/component/DefaultTooltipContent';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 interface QualityHistoryPoint {
