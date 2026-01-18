@@ -6,7 +6,7 @@ import {
   SkeletonCard,
   SkeletonPlaylistItem,
   SkeletonPlaylistQueue,
-} from "./skeleton";
+} from "./Skeleton";
 
 // Meta for base Skeleton
 const meta: Meta<typeof Skeleton> = {

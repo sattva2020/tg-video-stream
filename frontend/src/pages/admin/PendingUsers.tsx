@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { adminApi } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
-import { Skeleton } from '../../components/ui/skeleton';
-import { ResponsiveHeader } from '../../components/layout/ResponsiveHeader';
+import { Skeleton } from '../../components/ui/Skeleton';
+import { AppLayout } from '../../components/layout';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, UserCheck, UserX, Clock, Mail, RefreshCw } from 'lucide-react';
 
@@ -96,10 +96,9 @@ const PendingUsers: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)]">
-      <ResponsiveHeader />
-      
-      <main className="max-w-4xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
+        <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
@@ -221,8 +220,9 @@ const PendingUsers: React.FC = () => {
             ))}
           </div>
         )}
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppLayout>
   );
 };
 

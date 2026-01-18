@@ -188,6 +188,110 @@ services:
       - loki
     restart: unless-stopped
 
+  # Grafana Agent - лёгкая альтернатива Prometheus + Promtail
+  # Может заменить prometheus, promtail и otel-collector одним сервисом
+  grafana-agent:
+    image: grafana/agent:v0.40.0
+    container_name: sattva-grafana-agent
+    volumes:
+      - ./config/monitoring/grafana-agent-config.yml:/etc/agent/agent.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+      - ./backend/logs:/app/logs:ro
+      - grafana_agent_data:/tmp
+    command:
+      - "-config.file=/etc/agent/agent.yaml"
+      - "-config.expand-env=true"
+    ports:
+      - "12345:12345"  # HTTP API
+      - "4320:4317"    # OTLP gRPC (альтернативный порт)
+      - "4321:4318"    # OTLP HTTP (альтернативный порт)
+    networks:
+      - monitoring
+      - internal
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:12345/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Anomaly Detection Service - ML для предсказания проблем
+  anomaly-detector:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.anomaly
+    container_name: sattva-anomaly-detector
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+      - ALERTMANAGER_URL=http://alertmanager:9093
+      - TELEGRAM_BOT_TOKEN=${ALERTMANAGER_TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${ALERTMANAGER_TELEGRAM_CHAT_ID:-}
+      - DETECTION_INTERVAL=60
+      - TRAINING_HOURS=24
+    volumes:
+      - anomaly_models:/app/models
+    networks:
+      - internal
+      - monitoring
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ChatOps Bot Enhanced - Telegram бот с расширенными AI возможностями
+  # Возможности:
+  # - Анализ метрик и логов через AI (7 провайдеров)
+  # - RAG поиск по логам (/rag)
+  # - Предиктивный анализ с Prophet (/predict)
+  # - Генерация Grafana дашбордов (/dashboard)
+  # - Автоматические аннотации при аномалиях (/annotate)
+  chatops-bot:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.chatops-enhanced
+    container_name: sattva-chatops-bot
+    environment:
+      - TELEGRAM_BOT_TOKEN=${CHATOPS_BOT_TOKEN:-}
+      - PROMETHEUS_URL=http://prometheus:9090
+      - LOKI_URL=http://loki:3100
+      - GRAFANA_URL=http://grafana:3000
+      - GRAFANA_EXTERNAL_URL=${GRAFANA_EXTERNAL_URL:-https://grafana.sattva-streamer.top}
+      - GRAFANA_API_KEY=${GRAFANA_API_KEY:-}
+      # AI провайдеры (достаточно одного ключа)
+      - AI_PROVIDER=${AI_PROVIDER:-openai}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - QWEN_API_KEY=${QWEN_API_KEY:-}
+      - ZAI_API_KEY=${ZAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ALLOWED_USERS=${CHATOPS_ALLOWED_USERS:-}
+    volumes:
+      - prophet_models:/app/models
+    networks:
+      - internal
+      - external
+    depends_on:
+      - prometheus
+      - loki
+      - grafana
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
 networks:
   external:
     driver: bridge
@@ -204,3 +308,6 @@ volumes:
   alertmanager_data:
   loki_data:
   tempo_data:
+  grafana_agent_data:
+  anomaly_models:
+  prophet_models:

@@ -7,6 +7,7 @@ import { StreamHealthWidget } from '@/components/admin/stream-quality/StreamHeal
 import { StreamQualityHistoryChart } from '@/components/admin/stream-quality/StreamQualityHistoryChart';
 import { useToast } from '@/components/ui/use-toast';
 import { api } from '@/lib/api';
+import { AppLayout } from '@/components/layout';
 
 // Types matching backend response
 interface StreamQualityData {
@@ -114,6 +115,7 @@ export const StreamQualityPage: React.FC = () => {
   const qualityScore = (currentQuality?.video?.quality || currentQuality?.audio?.quality || 'unknown') as any;
 
   return (
+    <AppLayout>
     <div className="space-y-6 p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -156,6 +158,7 @@ export const StreamQualityPage: React.FC = () => {
         period={period}
       />
     </div>
+    </AppLayout>
   );
 };
 

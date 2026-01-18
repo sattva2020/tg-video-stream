@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ResponsiveHeader } from '../../components/layout';
+import { AppLayout } from '../../components/layout';
 import { NotificationsNav } from '../../components/notifications/NotificationsNav';
 import {
   parseSeverityFilter,
@@ -182,9 +182,8 @@ const RulesPage: React.FC = () => {
   // ===============================================
   if (viewMode === 'wizard') {
     return (
-      <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-        <ResponsiveHeader />
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <AppLayout>
+        <div className="mx-auto max-w-7xl">
           {/* Кнопка закрытия и заголовок */}
           <div className="flex items-center justify-between mb-6">
             <div>
@@ -217,7 +216,7 @@ const RulesPage: React.FC = () => {
             />
           </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -225,9 +224,8 @@ const RulesPage: React.FC = () => {
   // LIST MODE - список правил с тестом
   // ===============================================
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-      <ResponsiveHeader />
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
         <NotificationsNav />
         <div className="flex flex-col gap-2 mb-6">
           <h1 className="text-2xl font-semibold">Оповещения: правила маршрутизации</h1>
@@ -419,7 +417,7 @@ const RulesPage: React.FC = () => {
           </div>
         </section>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

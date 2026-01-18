@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: '127.0.0.1', // Force IPv4 to avoid ngrok connection issues
+    host: '0.0.0.0', // Listen on all interfaces for Docker/domain access
     port: 3000,
     allowedHosts: [
       'localhost',
@@ -27,6 +27,10 @@ export default defineConfig({
       'flowbooster.xyz',  // Продакшн домен
       '.flowbooster.xyz', // Поддомены flowbooster.xyz
       '.ngrok-free.dev',  // Разрешаем все ngrok домены
+      'sattva-streamer.top', // Production domain
+      '.sattva-streamer.top', // All subdomains
+      'api.sattva-streamer.top',
+      'grafana.sattva-streamer.top',
     ],
     proxy: {
       // Проксируем API запросы на локальный бэкенд

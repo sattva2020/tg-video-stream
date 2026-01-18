@@ -16,14 +16,16 @@ from sqlalchemy import (
     Float,
     String,
     Boolean,
-    JSON,
     ForeignKey,
     DateTime,
     UniqueConstraint,
     BigInteger,
     Index,
+    CheckConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime, timezone
 
 from src.database import Base, GUID
@@ -43,9 +45,11 @@ class PlaybackSettings(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "channel_id", name="uq_playback_user_channel"),
         Index("ix_playback_settings_channel_id", "channel_id"),
+        CheckConstraint('speed >= 0.5 AND speed <= 2.0', name='ck_playback_speed_range'),
+        CheckConstraint('volume >= 0.0 AND volume <= 2.0', name='ck_playback_volume_range'),
     )
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     channel_id = Column(
         BigInteger,
@@ -61,7 +65,7 @@ class PlaybackSettings(Base):
     
     # Equalizer (US6)
     equalizer_preset = Column(String(50), default="flat")  # flat, rock, jazz, pop, etc.
-    equalizer_custom = Column(JSON, nullable=True)  # [dB, dB, dB, dB, dB, dB, dB, dB, dB, dB]
+    equalizer_custom = Column(JSONB, nullable=True)  # [dB, dB, dB, dB, dB, dB, dB, dB, dB, dB]
     
     # UI Preferences
     language = Column(String(5), default="ru")  # ru, en, uk, es
@@ -73,8 +77,8 @@ class PlaybackSettings(Base):
     repeat_mode = Column(String(10), default="off")  # off, one, all
     
     # Timestamps
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
     user = relationship("User", back_populates="playback_settings")

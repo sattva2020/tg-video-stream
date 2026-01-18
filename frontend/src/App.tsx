@@ -2,10 +2,12 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
+import { LogCollectorProvider } from './context/LogCollectorContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import { UserRole } from './types/user';
 import { I18nDebugPanel } from './components/debug/I18nDebugPanel';
+import ReportBugButton from './components/ReportBugButton';
 
 // Lazy load pages
 const AuthPage3D = lazy(() => import('./pages/AuthPage3D'));
@@ -27,6 +29,8 @@ const NotificationRecipientsPage = lazy(() => import('./pages/notifications/Reci
 const StreamQualityPage = lazy(() => import('./pages/admin/StreamQualityPage'));
 const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(module => ({ default: module.PlaylistsPage })));
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
+const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -52,10 +56,11 @@ const App: React.FC = () => {
   
   return (
     <Suspense fallback={<LoadingFallback />}>
-      <AuthProvider>
-        <Router>
-          <Suspense fallback={<LoadingFallback />}>
-          <Routes>
+      <LogCollectorProvider>
+        <AuthProvider>
+          <Router>
+            <Suspense fallback={<LoadingFallback />}>
+            <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage3D />} />
             <Route path="/login" element={<AuthPage3D />} />
@@ -98,10 +103,24 @@ const App: React.FC = () => {
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin/stream-quality" element={<StreamQualityPage />} />
             </Route>
+
+            {/* Routes for MODERATOR and above (incidents) */}
+            <Route element={<ProtectedRoute allowedRoles={MODERATOR_AND_ABOVE} />}>
+              <Route path="/admin/incidents" element={<IncidentsPage />} />
+            </Route>
+
+            {/* Routes for ADMIN only (settings) */}
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
+            </Route>
           </Routes>
         </Suspense>
+        
+        {/* Плавающая кнопка "Сообщить о проблеме" */}
+        <ReportBugButton variant="floating" showOnError={true} />
       </Router>
     </AuthProvider>
+      </LogCollectorProvider>
       
       {/* Панель отладки i18n (только в режиме разработки) */}
       {showI18nDebug && <I18nDebugPanel />}

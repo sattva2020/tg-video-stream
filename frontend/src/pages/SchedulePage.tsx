@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button, Card, Tooltip, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Select, SelectItem, Skeleton } from '@heroui/react';
 import { CalendarDays, List, Copy, ChevronDown, Plus, RefreshCw } from 'lucide-react';
 
-import { ResponsiveHeader } from '@/components/layout';
+import { AppLayout } from '@/components/layout';
 import { ScheduleCalendar, PlaylistManager, SlotEditorModal, CopyScheduleModal } from '@/components/schedule';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { useScheduleTemplates, useApplyTemplate, usePlaylists } from '@/hooks/useScheduleQuery';
@@ -96,9 +96,8 @@ export default function SchedulePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
-      <ResponsiveHeader />
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -382,7 +381,7 @@ export default function SchedulePage() {
           sourceDate={selectedDate || new Date()}
         />
       </div>
-    </div>
+    </AppLayout>
   );
 }
 

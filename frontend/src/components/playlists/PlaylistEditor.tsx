@@ -6,7 +6,7 @@ import { FileBrowser } from '../media/FileBrowser';
 import { MediaFile } from '../../api/media';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '../ui/Skeleton';
 import { ArrowLeft, GripVertical, Trash2, Play, Plus, Download } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
 import { Badge } from '../ui/badge';

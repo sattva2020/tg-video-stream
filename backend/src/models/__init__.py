@@ -23,6 +23,28 @@ from .lyrics_cache import LyricsCache
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
 
+# Support & Incidents (Feature 024)
+from .incident import (
+    Incident,
+    IncidentLog,
+    IncidentComment,
+    IncidentSolution,
+    IncidentEmbedding,
+    IncidentStatus,
+    IncidentPriority,
+    IncidentCategory,
+)
+
+# App Settings (Feature 025)
+from .app_settings import (
+    AppSetting,
+    SettingAuditLog,
+    SettingCategory,
+)
+
+# Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
+from .stream import Stream, StreamStatus
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -48,5 +70,21 @@ __all__ = [
     # Analytics
     "TrackPlay",
     "MonthlyAnalytics",
+    # Support & Incidents
+    "Incident",
+    "IncidentLog",
+    "IncidentComment",
+    "IncidentSolution",
+    "IncidentEmbedding",
+    "IncidentStatus",
+    "IncidentPriority",
+    "IncidentCategory",
+    # App Settings
+    "AppSetting",
+    "SettingAuditLog",
+    "SettingCategory",
+    # Clean Architecture Phase 6
+    "Stream",
+    "StreamStatus",
 ]
 

@@ -9,7 +9,7 @@ Caches lyrics retrieved from external APIs (Genius):
 Database: PostgreSQL (sqlalchemy ORM)
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float
+from sqlalchemy import Column, BigInteger, String, Text, DateTime, Float
 from datetime import datetime, timedelta, timezone
 
 from src.database import Base
@@ -25,7 +25,7 @@ class LyricsCache(Base):
     
     __tablename__ = "lyrics_cache"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     
     # Track identification
     track_title = Column(String(500), nullable=False, index=True)
@@ -38,7 +38,7 @@ class LyricsCache(Base):
     
     # Sync metadata (for timing)
     synced_lyrics = Column(Text, nullable=True)  # JSON with [time, line] pairs
-    duration_ms = Column(Integer, nullable=True)
+    duration_ms = Column(BigInteger, nullable=True)
     
     # Source info
     source_url = Column(String(2048), nullable=True)
@@ -48,7 +48,7 @@ class LyricsCache(Base):
     fetched_at = Column(DateTime(timezone=True), default=utcnow)
     expires_at = Column(DateTime(timezone=True), default=lambda: utcnow() + timedelta(days=7))
     last_accessed = Column(DateTime(timezone=True), default=utcnow)
-    access_count = Column(Integer, default=0)
+    access_count = Column(BigInteger, default=0)
     
     def __repr__(self):
         return f"<LyricsCache {self.artist_name} - {self.track_title}>"

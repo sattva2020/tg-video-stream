@@ -5,18 +5,18 @@ import { TelegramDialog } from '../api/telegram';
 import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
-import { SkeletonChannelCard } from '../components/ui/skeleton';
-import { ResponsiveHeader } from '../components/layout';
+import { SkeletonChannelCard } from '../components/ui/Skeleton';
+import { AppLayout } from '../components/layout';
 import { useTranslation } from 'react-i18next';
-import { 
-  useChannels, 
-  useTelegramAccounts, 
-  useCreateChannel, 
-  useStartChannel, 
-  useStopChannel, 
-  useDeleteChannel, 
-  useUpdateChannel, 
-  useUploadPlaceholder 
+import {
+  useChannels,
+  useTelegramAccounts,
+  useCreateChannel,
+  useStartChannel,
+  useStopChannel,
+  useDeleteChannel,
+  useUpdateChannel,
+  useUploadPlaceholder
 } from '../hooks/useChannelsQuery';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
@@ -24,7 +24,7 @@ import { queryKeys } from '../lib/queryClient';
 const ChannelManager: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  
+
   // React Query hooks
   const { data: channels = [], isLoading: channelsLoading } = useChannels();
   const { data: accounts = [], isLoading: accountsLoading } = useTelegramAccounts();
@@ -46,22 +46,22 @@ const ChannelManager: React.FC = () => {
     const hasTransitionalStatus = channels.some(
       ch => ch.status === 'starting' || ch.status === 'stopping'
     );
-    
+
     if (hasTransitionalStatus) {
       const interval = setInterval(() => {
         queryClient.invalidateQueries({ queryKey: queryKeys.channels.all });
       }, 2000); // Poll every 2 seconds
-      
+
       return () => clearInterval(interval);
     }
   }, [channels, queryClient]);
-  
+
   const loading = channelsLoading || accountsLoading;
-  
+
   // DEV: Авто-открытие модального окна в тестовом режиме (?test2fa=1)
   const urlParams = new URLSearchParams(window.location.search);
   const testMode = urlParams.get('test2fa') === '1';
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(testMode); // Авто-открытие в тестовом режиме
   const [showDialogPicker, setShowDialogPicker] = useState(false);
@@ -96,18 +96,18 @@ const ChannelManager: React.FC = () => {
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     let channelId = editingChannel?.id;
-    
+
     if (editingChannel) {
       await updateChannel.mutateAsync({ id: editingChannel.id, data: formData });
     } else {
       const newChannel = await createChannel.mutateAsync(formData);
       channelId = newChannel.id;
     }
-    
+
     if (selectedFile && channelId) {
       await uploadPlaceholder.mutateAsync({ channelId, file: selectedFile });
     }
-    
+
     setIsModalOpen(false);
     setEditingChannel(null);
     setSelectedFile(null);
@@ -143,7 +143,7 @@ const ChannelManager: React.FC = () => {
   const handleStop = (id: string) => {
     stopChannel.mutate(id);
   };
-  
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     // Минимум 800мс для полного круга анимации
@@ -163,9 +163,8 @@ const ChannelManager: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[color:var(--color-surface)]">
-        <ResponsiveHeader />
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+      <AppLayout>
+        <div className="mx-auto max-w-7xl">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 text-[color:var(--color-text)]">
               <Tv className="w-6 h-6 sm:w-8 sm:h-8" />
@@ -178,22 +177,20 @@ const ChannelManager: React.FC = () => {
             <SkeletonChannelCard />
           </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)]">
-      <ResponsiveHeader />
-      
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
         {/* Header with actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2 text-[color:var(--color-text)]">
             <Tv className="w-6 h-6 sm:w-8 sm:h-8" />
             {t('channels.title', 'Channel Manager')}
           </h1>
-          
+
           {/* Action buttons - stack on mobile */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
             <button
@@ -220,7 +217,7 @@ const ChannelManager: React.FC = () => {
               {t('channels.noChannels', 'No channels configured yet.')}
             </p>
             {accounts.length === 0 ? (
-               <button
+              <button
                 onClick={() => setIsAuthModalOpen(true)}
                 className="mt-4 text-[color:var(--color-accent)] hover:underline text-sm sm:text-base"
               >
@@ -238,8 +235,8 @@ const ChannelManager: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {channels.map((channel) => (
-              <div 
-                key={channel.id} 
+              <div
+                key={channel.id}
                 className="bg-[color:var(--color-panel)] rounded-xl shadow-sm border border-[color:var(--color-border)] overflow-hidden"
               >
                 <div className="p-4 sm:p-5">
@@ -254,15 +251,14 @@ const ChannelManager: React.FC = () => {
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <span
-                        className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                          channel.status === 'running'
+                        className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${channel.status === 'running'
                             ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
                             : channel.status === 'error'
-                            ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                            : channel.status === 'starting' || channel.status === 'stopping'
-                            ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                            : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-muted)]'
-                        }`}
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                              : channel.status === 'starting' || channel.status === 'stopping'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text-muted)]'
+                          }`}
                       >
                         {channel.status.toUpperCase()}
                       </span>
@@ -289,7 +285,7 @@ const ChannelManager: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm text-[color:var(--color-text-muted)] mb-4 sm:mb-6">
                     <div className="flex justify-between">
                       <span>{t('channels.streamType', 'Type')}:</span>
@@ -322,7 +318,7 @@ const ChannelManager: React.FC = () => {
                         disabled={startChannel.isPending || stopChannel.isPending}
                         className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
-                        <Play className="w-4 h-4" /> 
+                        <Play className="w-4 h-4" />
                         <span className="hidden xs:inline">{t('channels.start', 'Старт')}</span>
                       </button>
                     ) : channel.status === 'stopping' ? (
@@ -330,7 +326,7 @@ const ChannelManager: React.FC = () => {
                         disabled
                         className="flex-1 bg-yellow-600 disabled:opacity-70 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                       >
-                        <RefreshCw className="w-4 h-4 animate-spin" /> 
+                        <RefreshCw className="w-4 h-4 animate-spin" />
                         <span className="hidden xs:inline">{t('channels.stopping', 'Остановка...')}</span>
                       </button>
                     ) : channel.status === 'starting' ? (
@@ -338,7 +334,7 @@ const ChannelManager: React.FC = () => {
                         disabled
                         className="flex-1 bg-yellow-600 disabled:opacity-70 text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 text-sm"
                       >
-                        <RefreshCw className="w-4 h-4 animate-spin" /> 
+                        <RefreshCw className="w-4 h-4 animate-spin" />
                         <span className="hidden xs:inline">{t('channels.starting', 'Запуск...')}</span>
                       </button>
                     ) : (
@@ -347,7 +343,7 @@ const ChannelManager: React.FC = () => {
                         disabled={stopChannel.isPending}
                         className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2 sm:py-2.5 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-sm"
                       >
-                        <Square className="w-4 h-4" /> 
+                        <Square className="w-4 h-4" />
                         <span className="hidden xs:inline">{t('channels.stop', 'Стоп')}</span>
                       </button>
                     )}
@@ -372,7 +368,7 @@ const ChannelManager: React.FC = () => {
             <div className="bg-[color:var(--color-panel)] rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl sm:text-2xl font-bold text-[color:var(--color-text)]">
-                  {showDialogPicker 
+                  {showDialogPicker
                     ? t('channels.selectFromList', 'Выберите канал или группу')
                     : t('channels.addNew', 'Add New Channel')
                   }
@@ -390,7 +386,7 @@ const ChannelManager: React.FC = () => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               {/* DialogPicker или форма */}
               {showDialogPicker && formData.account_id ? (
                 <DialogPicker
@@ -399,173 +395,173 @@ const ChannelManager: React.FC = () => {
                   onCancel={() => setShowDialogPicker(false)}
                 />
               ) : (
-              <form onSubmit={handleCreateOrUpdate}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.telegramAccount', 'Telegram Account')}
-                    </label>
-                    <select
-                      required
-                      title={t('channels.selectAccount', 'Select Telegram Account')}
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.account_id}
-                      onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
-                      disabled={!!editingChannel}
-                    >
-                      <option value="">{t('channels.selectAccount', 'Select Account')}</option>
-                      {accounts.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.first_name || acc.phone} ({acc.phone})
-                        </option>
-                      ))}
-                    </select>
-                    {accounts.length === 0 && (
-                      <p className="text-xs text-red-500 mt-1">
-                        {t('channels.noAccounts', 'No accounts connected. Please connect an account first.')}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.channelName', 'Channel Name')}
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder={t('channels.channelNamePlaceholder', 'My Awesome Channel')}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.chatId', 'Chat ID')}
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
+                <form onSubmit={handleCreateOrUpdate}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.telegramAccount', 'Telegram Account')}
+                      </label>
+                      <select
                         required
-                        className="flex-1 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                        value={formData.chat_id || ''}
-                        onChange={(e) => setFormData({ ...formData, chat_id: Number(e.target.value) })}
-                        placeholder="-1001234567890"
+                        title={t('channels.selectAccount', 'Select Telegram Account')}
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.account_id}
+                        onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
                         disabled={!!editingChannel}
-                      />
-                      {formData.account_id && !editingChannel && (
-                        <button
-                          type="button"
-                          onClick={() => setShowDialogPicker(true)}
-                          className="px-3 py-2 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg hover:bg-[color:var(--color-surface-muted)] transition-colors"
-                          title={t('channels.selectFromList', 'Выбрать из списка')}
-                        >
-                          <List className="w-5 h-5" />
-                        </button>
+                      >
+                        <option value="">{t('channels.selectAccount', 'Select Account')}</option>
+                        {accounts.map((acc) => (
+                          <option key={acc.id} value={acc.id}>
+                            {acc.first_name || acc.phone} ({acc.phone})
+                          </option>
+                        ))}
+                      </select>
+                      {accounts.length === 0 && (
+                        <p className="text-xs text-red-500 mt-1">
+                          {t('channels.noAccounts', 'No accounts connected. Please connect an account first.')}
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                      {formData.account_id 
-                        ? t('channels.chatIdHintWithPicker', 'Введите ID или выберите из списка ваших каналов')
-                        : t('channels.chatIdHint', 'Enter the numeric ID of the channel/chat.')
-                      }
-                    </p>
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.defaultPlaylist', 'Default Playlist')}
-                    </label>
-                    <select
-                      title={t('channels.selectPlaylist', 'Select Default Playlist')}
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.playlist_id || ''}
-                      onChange={(e) => setFormData({ ...formData, playlist_id: e.target.value })}
-                      disabled={!!editingChannel}
-                    >
-                      <option value="">{t('channels.noPlaylist', 'No Default Playlist')}</option>
-                      {playlists.map((pl) => (
-                        <option key={pl.id} value={pl.id}>
-                          {pl.name} ({pl.items_count} items)
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                      {t('channels.playlistHint', 'Select a playlist to play automatically when the channel starts.')}
-                    </p>
-                  </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.channelName', 'Channel Name')}
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder={t('channels.channelNamePlaceholder', 'My Awesome Channel')}
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.videoQuality', 'Video Quality')}
-                    </label>
-                    <select
-                      title={t('channels.selectQuality', 'Select Video Quality')}
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.video_quality}
-                      onChange={(e) => setFormData({ ...formData, video_quality: e.target.value })}
-                    >
-                      <option value="best">{t('channels.qualityBest', 'Best')}</option>
-                      <option value="worst">{t('channels.qualityWorst', 'Worst')}</option>
-                      <option value="720p">720p</option>
-                      <option value="480p">480p</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.streamType', 'Stream Type')}
-                    </label>
-                    <select
-                      title={t('channels.selectStreamType', 'Select Stream Type')}
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                      value={formData.stream_type || 'video'}
-                      onChange={(e) => setFormData({ ...formData, stream_type: e.target.value as 'video' | 'audio' })}
-                    >
-                      <option value="video">{t('channels.typeVideo', 'Video Chat')}</option>
-                      <option value="audio">{t('channels.typeAudio', 'Voice Chat')}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
-                      {t('channels.placeholder', 'Placeholder Image (for Audio Mode)')}
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
-                    />
-                    {editingChannel?.placeholder_image && (
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.chatId', 'Chat ID')}
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          required
+                          className="flex-1 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                          value={formData.chat_id || ''}
+                          onChange={(e) => setFormData({ ...formData, chat_id: Number(e.target.value) })}
+                          placeholder="-1001234567890"
+                          disabled={!!editingChannel}
+                        />
+                        {formData.account_id && !editingChannel && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDialogPicker(true)}
+                            className="px-3 py-2 border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg hover:bg-[color:var(--color-surface-muted)] transition-colors"
+                            title={t('channels.selectFromList', 'Выбрать из списка')}
+                          >
+                            <List className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
-                        {t('channels.currentPlaceholder', 'Current: ')} {editingChannel.placeholder_image.split('/').pop()}
+                        {formData.account_id
+                          ? t('channels.chatIdHintWithPicker', 'Введите ID или выберите из списка ваших каналов')
+                          : t('channels.chatIdHint', 'Enter the numeric ID of the channel/chat.')
+                        }
                       </p>
-                    )}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsModalOpen(false);
-                      setEditingChannel(null);
-                    }}
-                    className="w-full sm:w-auto px-4 py-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors"
-                  >
-                    {t('common.cancel', 'Cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-4 py-2.5 bg-[color:var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
-                  >
-                    {editingChannel ? t('common.save', 'Save Changes') : t('channels.create', 'Create Channel')}
-                  </button>
-                </div>
-              </form>
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.defaultPlaylist', 'Default Playlist')}
+                      </label>
+                      <select
+                        title={t('channels.selectPlaylist', 'Select Default Playlist')}
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.playlist_id || ''}
+                        onChange={(e) => setFormData({ ...formData, playlist_id: e.target.value })}
+                        disabled={!!editingChannel}
+                      >
+                        <option value="">{t('channels.noPlaylist', 'No Default Playlist')}</option>
+                        {playlists.map((pl) => (
+                          <option key={pl.id} value={pl.id}>
+                            {pl.name} ({pl.items_count} items)
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
+                        {t('channels.playlistHint', 'Select a playlist to play automatically when the channel starts.')}
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.videoQuality', 'Video Quality')}
+                      </label>
+                      <select
+                        title={t('channels.selectQuality', 'Select Video Quality')}
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.video_quality}
+                        onChange={(e) => setFormData({ ...formData, video_quality: e.target.value })}
+                      >
+                        <option value="best">{t('channels.qualityBest', 'Best')}</option>
+                        <option value="worst">{t('channels.qualityWorst', 'Worst')}</option>
+                        <option value="720p">720p</option>
+                        <option value="480p">480p</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.streamType', 'Stream Type')}
+                      </label>
+                      <select
+                        title={t('channels.selectStreamType', 'Select Stream Type')}
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                        value={formData.stream_type || 'video'}
+                        onChange={(e) => setFormData({ ...formData, stream_type: e.target.value as 'video' | 'audio' })}
+                      >
+                        <option value="video">{t('channels.typeVideo', 'Video Chat')}</option>
+                        <option value="audio">{t('channels.typeAudio', 'Voice Chat')}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
+                        {t('channels.placeholder', 'Placeholder Image (for Audio Mode)')}
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="w-full border border-[color:var(--color-border)] bg-[color:var(--color-surface)] text-[color:var(--color-text)] rounded-lg p-2.5 text-sm"
+                      />
+                      {editingChannel?.placeholder_image && (
+                        <p className="text-xs text-[color:var(--color-text-muted)] mt-1">
+                          {t('channels.currentPlaceholder', 'Current: ')} {editingChannel.placeholder_image.split('/').pop()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        setEditingChannel(null);
+                      }}
+                      className="w-full sm:w-auto px-4 py-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors"
+                    >
+                      {t('common.cancel', 'Cancel')}
+                    </button>
+                    <button
+                      type="submit"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-[color:var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
+                    >
+                      {editingChannel ? t('common.save', 'Save Changes') : t('channels.create', 'Create Channel')}
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           </div>
@@ -575,13 +571,13 @@ const ChannelManager: React.FC = () => {
         {isAuthModalOpen && (
           <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
             <div className="bg-[color:var(--color-panel)] rounded-t-xl sm:rounded-xl p-5 sm:p-6 w-full sm:max-w-md max-h-[90vh] overflow-y-auto relative">
-              <button 
+              <button
                 onClick={() => setIsAuthModalOpen(false)}
                 className="absolute top-4 right-4 p-2 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
-              <TelegramLogin 
+              <TelegramLogin
                 apiPrefix="/api/auth/telegram"
                 onSuccess={() => {
                   setIsAuthModalOpen(false);
@@ -590,13 +586,13 @@ const ChannelManager: React.FC = () => {
                   setTimeout(() => {
                     openCreateModal();
                   }, 500);
-                }} 
+                }}
               />
             </div>
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

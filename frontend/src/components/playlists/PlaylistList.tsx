@@ -1,7 +1,7 @@
 import React from 'react';
 import { Playlist } from '../../api/playlists';
 import { PlaylistCard } from './PlaylistCard';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '../ui/Skeleton';
 
 interface PlaylistListProps {
   playlists: Playlist[];

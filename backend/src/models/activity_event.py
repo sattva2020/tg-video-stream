@@ -6,7 +6,7 @@ Spec: 015-real-system-monitoring
 Используется для отображения в ActivityTimeline на Dashboard.
 """
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, Index, func, JSON
+from sqlalchemy import Column, BigInteger, String, Text, DateTime, Index, func, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator
 from src.database import Base
@@ -41,7 +41,7 @@ class ActivityEvent(Base):
     
     __tablename__ = "activity_events"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     type = Column(String(50), nullable=False, index=True)
     message = Column(Text, nullable=False)
     user_email = Column(String(255), nullable=True)

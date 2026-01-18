@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Switch } from '../switch';
-import { Skeleton } from '../skeleton';
+import { Skeleton } from '../Skeleton';
 
 describe('Switch', () => {
   it('рендерит switch элемент', () => {

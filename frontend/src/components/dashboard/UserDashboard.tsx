@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Tv, Radio, Music, Clock, Settings, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePlaylistWebSocket } from '../../hooks/usePlaylistWebSocket';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '../ui/Skeleton';
 import { WelcomeCardContent } from './WelcomeCardContent';
 
 type QuickAction = {

@@ -21,8 +21,27 @@
 ## Структура проекта
 
 - `streamer/` - Скрипты стриминга (Pyrogram + PyTgCalls)
-- `backend/` - API сервер (FastAPI)
+- `backend/` - API сервер (FastAPI, Clean Architecture)
 - `frontend/` - Веб-интерфейс (React Admin Panel)
+
+### Архитектура Backend (Clean Architecture)
+
+Backend следует принципам **Clean Architecture** для обеспечения тестируемости и независимости от фреймворков:
+
+```
+backend/src/
+├── domain/              # Ядро: Entities, Value Objects, Domain Events
+├── application/         # Use Cases, DTOs, Ports (интерфейсы)
+├── infrastructure/      # Адаптеры: Repositories, External Services
+└── frameworks/          # HTTP Controllers, Middleware, Admin
+```
+
+**Ключевые принципы:**
+- **Dependency Rule**: Зависимости направлены только внутрь (frameworks → infrastructure → application → domain)
+- **Ports & Adapters**: Application layer определяет интерфейсы, Infrastructure реализует
+- **Testability**: Domain и Application слои тестируются без внешних зависимостей
+
+Подробнее: [docs/architecture/clean-architecture.md](docs/architecture/clean-architecture.md)
 
 ## Возможности
 

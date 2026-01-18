@@ -7,7 +7,7 @@ class TelegramAccount(Base):
     __tablename__ = "telegram_accounts"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     phone = Column(String, nullable=False)
     encrypted_session = Column(String, nullable=False)
     tg_user_id = Column(BigInteger, nullable=True) # Telegram User ID (64-bit)
@@ -24,7 +24,7 @@ class Channel(Base):
     __tablename__ = "channels"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    account_id = Column(GUID(), ForeignKey("telegram_accounts.id"), nullable=False)
+    account_id = Column(GUID(), ForeignKey("telegram_accounts.id"), nullable=False, index=True)
     chat_id = Column(BigInteger, nullable=False) # Telegram Chat ID (64-bit)
     chat_username = Column(String, nullable=True)  # Telegram chat username for peer resolution
     name = Column(String, nullable=False)

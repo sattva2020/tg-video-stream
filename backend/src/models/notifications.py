@@ -7,12 +7,13 @@ from sqlalchemy import (
     Integer,
     Text,
     ForeignKey,
-    JSON,
     UniqueConstraint,
     Index,
     Table,
     func,
+    BigInteger,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -44,14 +45,14 @@ class NotificationChannel(Base):
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     type = Column(String(50), nullable=False)
-    config = Column(JSON, nullable=False, default=dict)
+    config = Column(JSONB, nullable=False, default=dict)
     enabled = Column(Boolean, nullable=False, default=True)
     status = Column(String(32), nullable=False, default="ok")
     test_at = Column(DateTime(timezone=True), nullable=True)
-    concurrency_limit = Column(Integer, nullable=True)
-    retry_attempts = Column(Integer, nullable=False, default=3)
-    retry_interval_sec = Column(Integer, nullable=False, default=30)
-    timeout_sec = Column(Integer, nullable=False, default=10)
+    concurrency_limit = Column(BigInteger, nullable=True)
+    retry_attempts = Column(BigInteger, nullable=False, default=3)
+    retry_interval_sec = Column(BigInteger, nullable=False, default=30)
+    timeout_sec = Column(BigInteger, nullable=False, default=10)
     is_primary = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -76,7 +77,7 @@ class NotificationTemplate(Base):
     locale = Column(String(5), nullable=False, default="en")
     subject = Column(String(255), nullable=True)
     body = Column(Text, nullable=False)
-    variables = Column(JSON, nullable=True)
+    variables = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -95,7 +96,7 @@ class NotificationRecipient(Base):
     type = Column(String(50), nullable=False)
     address = Column(String(255), nullable=False)
     status = Column(String(32), nullable=False, default="active")
-    silence_windows = Column(JSON, nullable=True)
+    silence_windows = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -116,15 +117,15 @@ class NotificationRule(Base):
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     enabled = Column(Boolean, nullable=False, default=True)
-    severity_filter = Column(JSON, nullable=True)
-    tag_filter = Column(JSON, nullable=True)
-    host_filter = Column(JSON, nullable=True)
-    failover_timeout_sec = Column(Integer, nullable=False, default=30)
-    silence_windows = Column(JSON, nullable=True)
-    rate_limit = Column(JSON, nullable=True)
-    dedup_window_sec = Column(Integer, nullable=False, default=0)
+    severity_filter = Column(JSONB, nullable=True)
+    tag_filter = Column(JSONB, nullable=True)
+    host_filter = Column(JSONB, nullable=True)
+    failover_timeout_sec = Column(BigInteger, nullable=False, default=30)
+    silence_windows = Column(JSONB, nullable=True)
+    rate_limit = Column(JSONB, nullable=True)
+    dedup_window_sec = Column(BigInteger, nullable=False, default=0)
     template_id = Column(GUID(), ForeignKey("notification_templates.id", ondelete="SET NULL"), nullable=True)
-    test_channel_ids = Column(JSON, nullable=True)
+    test_channel_ids = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -151,9 +152,9 @@ class DeliveryLog(Base):
     channel_id = Column(GUID(), ForeignKey("notification_channels.id", ondelete="SET NULL"), nullable=True)
     recipient_id = Column(GUID(), ForeignKey("notification_recipients.id", ondelete="SET NULL"), nullable=True)
     status = Column(String(32), nullable=False)
-    attempt = Column(Integer, nullable=False, default=1)
-    latency_ms = Column(Integer, nullable=True)
-    response_code = Column(Integer, nullable=True)
+    attempt = Column(BigInteger, nullable=False, default=1)
+    latency_ms = Column(BigInteger, nullable=True)
+    response_code = Column(BigInteger, nullable=True)
     response_body = Column(Text, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

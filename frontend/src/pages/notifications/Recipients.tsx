@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ResponsiveHeader } from '../../components/layout';
+import { AppLayout } from '../../components/layout';
 import { NotificationsNav } from '../../components/notifications/NotificationsNav';
 import {
   useNotificationRecipients,
@@ -60,9 +60,8 @@ const NotificationRecipientsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-      <ResponsiveHeader />
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
         <NotificationsNav />
         <div className="flex flex-col gap-2 mb-6">
           <h1 className="text-2xl font-semibold">Получатели уведомлений</h1>
@@ -229,7 +228,7 @@ const NotificationRecipientsPage: React.FC = () => {
           </form>
         </section>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

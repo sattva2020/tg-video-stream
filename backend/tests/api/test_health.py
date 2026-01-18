@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
-from src.api.health import DependencyHealth
+from src.frameworks.http.controllers.health_controller import DependencyHealth
 
 
 class TestHealthEndpoint:
@@ -31,7 +31,7 @@ class TestHealthEndpoint:
     @pytest.mark.xfail(reason="Mock не работает с уже загруженным app - требуется DI рефакторинг")
     def test_health_returns_503_when_database_down(self, client):
         """GET /health возвращает 503 когда БД недоступна."""
-        with patch('src.api.health.check_database') as mock_db:
+        with patch('src.frameworks.http.controllers.health_controller.check_database') as mock_db:
             mock_db.return_value = DependencyHealth(
                 name="database",
                 status="down",
@@ -91,7 +91,7 @@ class TestLivenessProbe:
     def test_liveness_does_not_check_dependencies(self, client):
         """GET /health/live не проверяет зависимости."""
         # Даже если БД недоступна, liveness должен возвращать 200
-        with patch('src.api.health.check_database') as mock_db:
+        with patch('src.frameworks.http.controllers.health_controller.check_database') as mock_db:
             mock_db.side_effect = Exception("DB connection failed")
             response = client.get("/health/live")
             assert response.status_code == 200
@@ -111,7 +111,7 @@ class TestReadinessProbe:
     @pytest.mark.xfail(reason="Mock не работает с уже загруженным app - требуется DI рефакторинг")
     def test_readiness_returns_503_when_db_down(self, client):
         """GET /health/ready возвращает 503 когда БД недоступна."""
-        with patch('src.api.health.check_database') as mock_db:
+        with patch('src.frameworks.http.controllers.health_controller.check_database') as mock_db:
             mock_db.return_value = DependencyHealth(
                 name="database",
                 status="down",
@@ -149,7 +149,7 @@ class TestDependencyHealth:
     @pytest.mark.xfail(reason="Mock не работает с уже загруженным app - требуется DI рефакторинг")
     def test_degraded_status_on_high_latency(self, client):
         """Статус degraded при высокой latency."""
-        with patch('src.api.health.check_redis') as mock_redis:
+        with patch('src.frameworks.http.controllers.health_controller.check_redis') as mock_redis:
             mock_redis.return_value = DependencyHealth(
                 name="redis",
                 status="degraded",
@@ -157,7 +157,7 @@ class TestDependencyHealth:
                 message="High latency detected",
                 last_check=datetime.now(timezone.utc).isoformat()
             )
-            with patch('src.api.health.check_database') as mock_db:
+            with patch('src.frameworks.http.controllers.health_controller.check_database') as mock_db:
                 mock_db.return_value = DependencyHealth(
                     name="database",
                     status="up",

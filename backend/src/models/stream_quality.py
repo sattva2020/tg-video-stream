@@ -5,7 +5,8 @@ Feature 022 Phase 3: Stream Quality History and Alert Models
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON, Text
+from sqlalchemy import Column, Integer, BigInteger, String, Float, DateTime, Boolean, ForeignKey, Text, CheckConstraint, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from src.database import Base
 
@@ -21,7 +22,14 @@ class StreamQualityHistory(Base):
     """
     __tablename__ = "stream_quality_history"
     
-    id = Column(Integer, primary_key=True, index=True)
+    __table_args__ = (
+        CheckConstraint(
+            "overall_quality IN ('low', 'medium', 'high', 'lossless', 'ultra')",
+            name='ck_sqh_overall_quality'
+        ),
+    )
+    
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     
     # Идентификация потока
     stream_url = Column(String(500), index=True, nullable=False)
@@ -50,12 +58,12 @@ class StreamQualityHistory(Base):
     success = Column(Boolean, default=True)  # Успешен ли анализ
     error_message = Column(Text, nullable=True)  # Сообщение об ошибке, если есть
     
-    # Время
-    analyzed_at = Column(DateTime, default=datetime.utcnow, index=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Время (timezone-aware timestamps)
+    analyzed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    # JSON backup исходных данных (на случай изменения структуры)
-    raw_data = Column(JSON, nullable=True)
+    # JSONB backup исходных данных (на случай изменения структуры)
+    raw_data = Column(JSONB, nullable=True)
 
 
 class QualityAlertConfig(Base):
@@ -69,7 +77,7 @@ class QualityAlertConfig(Base):
     """
     __tablename__ = "quality_alert_configs"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     
     # Идентификация
     stream_url = Column(String(500), unique=True, index=True, nullable=False)
@@ -94,17 +102,17 @@ class QualityAlertConfig(Base):
     notify_on_recovery = Column(Boolean, default=True)  # Отправлять alert при восстановлении
     consecutive_failures = Column(Integer, default=3)  # Сколько раз подряд нужно упасть для alert
     
-    # Контакты для уведомлений
-    alert_channels = Column(JSON, default={})  # {"telegram": [123, 456], "email": ["admin@example.com"]}
+    # Контакты для уведомлений (JSONB с GIN index)
+    alert_channels = Column(JSONB, default={})  # {"telegram": [123, 456], "email": ["admin@example.com"]}
     
     # История alerts
     last_alert_at = Column(DateTime, nullable=True)
     last_alert_type = Column(String(50), nullable=True)  # "degradation", "recovery", "offline"
     consecutive_failures_count = Column(Integer, default=0)  # Текущий счётчик
     
-    # Meta
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Meta (timezone-aware timestamps)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class QualityTrendSnapshot(Base):
@@ -115,13 +123,13 @@ class QualityTrendSnapshot(Base):
     """
     __tablename__ = "quality_trend_snapshots"
     
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True, autoincrement=True)
     
     # Идентификация потока
     stream_url = Column(String(500), index=True, nullable=False)
     
-    # Час (например, 2025-12-16 14:00:00)
-    hour = Column(DateTime, index=True, nullable=False)
+    # Час (например, 2025-12-16 14:00:00) - timezone-aware
+    hour = Column(DateTime(timezone=True), index=True, nullable=False)
     
     # Агрегированные метрики за час
     audio_quality_avg = Column(String(20), nullable=True)
@@ -144,8 +152,8 @@ class QualityTrendSnapshot(Base):
     samples_count = Column(Integer, default=0)  # Сколько sample'ов в этом часу
     success_rate = Column(Float, default=1.0)  # % успешных анализов (0-1)
     
-    # Время создания
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Время создания (timezone-aware)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     __table_args__ = (
         # Не может быть двух снимков для одного потока в одном часу

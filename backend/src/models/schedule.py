@@ -9,10 +9,9 @@ from enum import Enum as PyEnum
 from sqlalchemy import (
     Column, String, DateTime, Date, Time, 
     ForeignKey, Boolean, Enum, Integer, Text,
-    func
+    func, BigInteger
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.sqlite import JSON
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -56,7 +55,7 @@ class ScheduleSlot(Base):
         default=RepeatType.NONE,
         nullable=False
     )
-    repeat_days = Column(JSON, nullable=True)  # [0,1,2,3,4] для пн-пт (0=понедельник)
+    repeat_days = Column(JSONB, nullable=True)  # [0,1,2,3,4] для пн-пт (0=понедельник)
     repeat_until = Column(Date, nullable=True)  # До какой даты повторять
     
     # Метаданные для отображения
@@ -66,7 +65,7 @@ class ScheduleSlot(Base):
     
     # Управление
     is_active = Column(Boolean, default=True, nullable=False)
-    priority = Column(Integer, default=0)  # Приоритет при пересечении (выше = важнее)
+    priority = Column(BigInteger, default=0)  # Приоритет при пересечении (выше = важнее)
     
     # Аудит
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -109,7 +108,7 @@ class ScheduleTemplate(Base):
     #   {"start_time": "09:00", "end_time": "12:00", "playlist_id": "uuid", "title": "...", "color": "#..."},
     #   ...
     # ]
-    slots = Column(JSON, nullable=False, default=list)
+    slots = Column(JSONB, nullable=False, default=list)
     
     # Флаги
     is_public = Column(Boolean, default=False)  # Доступен другим пользователям
@@ -152,7 +151,7 @@ class PlaylistGroup(Base):
     icon = Column(String(50), default="folder")   # Иконка группы
     
     # Порядок сортировки
-    position = Column(Integer, default=0)
+    position = Column(BigInteger, default=0)
     
     # Флаги
     is_expanded = Column(Boolean, default=True)   # Развёрнута ли группа в UI
@@ -192,7 +191,7 @@ class Playlist(Base):
     group_id = Column(GUID(), ForeignKey("playlist_groups.id", ondelete="SET NULL"), nullable=True, index=True)
     
     # Порядок сортировки внутри группы
-    position = Column(Integer, default=0)
+    position = Column(BigInteger, default=0)
     
     # Метаданные
     name = Column(String(255), nullable=False)
@@ -208,11 +207,11 @@ class Playlist(Base):
     #   {"url": "...", "title": "...", "duration": 180, "type": "youtube"},
     #   ...
     # ]
-    items = Column(JSON, nullable=False, default=list)
+    items = Column(JSONB, nullable=False, default=list)
     
     # Статистика
-    total_duration = Column(Integer, default=0)  # Общая длительность в секундах
-    items_count = Column(Integer, default=0)     # Количество элементов
+    total_duration = Column(BigInteger, default=0)  # Общая длительность в секундах
+    items_count = Column(BigInteger, default=0)     # Количество элементов
     
     # Флаги
     is_active = Column(Boolean, default=True)

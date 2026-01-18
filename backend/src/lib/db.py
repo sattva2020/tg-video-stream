@@ -198,3 +198,7 @@ async def close_db() -> None:
     """Close database connections on application shutdown."""
     if _db_manager and _db_manager.engine:
         await _db_manager.engine.dispose()
+
+
+# Alias for backward compatibility
+get_db = get_db_session

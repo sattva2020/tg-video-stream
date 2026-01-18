@@ -59,3 +59,56 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.importlinter]
+root_package = "src"
+include_external_packages = true
+
+# Contract 1: Domain layer cannot import from other layers
+[[tool.importlinter.contracts]]
+name = "Domain Layer Independence (FR-005, FR-007)"
+type = "forbidden"
+source_modules = ["src.domain"]
+forbidden_modules = [
+    "src.application",
+    "src.infrastructure",
+    "src.frameworks",
+    "fastapi",
+    "sqlalchemy",
+    "celery",
+    "pydantic",
+    "redis",
+]
+
+# Contract 2: Application layer cannot import Infrastructure or Frameworks
+# NOTE: Закомментировано до Phase 6 (когда будет создан src/application/)
+# [[tool.importlinter.contracts]]
+# name = "Application Layer Independence (FR-005)"
+# type = "forbidden"
+# source_modules = ["src.application"]
+# forbidden_modules = [
+#     "src.infrastructure",
+#     "src.frameworks",
+#     "sqlalchemy",
+#     "fastapi",
+#     "celery",
+# ]
+
+# Contract 3: Infrastructure cannot import Frameworks
+[[tool.importlinter.contracts]]
+name = "Infrastructure Layer Independence (FR-005)"
+type = "forbidden"
+source_modules = ["src.infrastructure"]
+forbidden_modules = ["src.frameworks"]
+
+# Contract 4: Dependency Rule direction
+# NOTE: Закомментировано до Phase 6 (когда будет создан src/application/)
+# [[tool.importlinter.contracts]]
+# name = "Dependency Rule: Frameworks → Infrastructure → Application → Domain"
+# type = "layers"
+# layers = [
+#     "src.frameworks",
+#     "src.infrastructure",
+#     "src.application",
+#     "src.domain",
+# ]

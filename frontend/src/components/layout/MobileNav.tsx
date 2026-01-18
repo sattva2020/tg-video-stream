@@ -16,7 +16,11 @@ import {
   Bell,
   Signal,
   Library,
+  BookOpen,
+  ExternalLink,
+  MessageSquareWarning,
 } from 'lucide-react';
+import { DOCS_URL } from '../../config/docs';
 import { useAuth } from '../../context/AuthContext';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { isAdminLike } from '../../utils';
@@ -85,6 +89,19 @@ export const MobileNav: React.FC = () => {
       label: t('nav.streamQuality', 'Якість'), 
       icon: <Signal className="w-5 h-5" />,
       adminOnly: true,
+    },
+    { 
+      path: '/admin/incidents', 
+      label: t('nav.incidents', 'Інциденти'), 
+      icon: <MessageSquareWarning className="w-5 h-5" />,
+      adminOnly: true,
+      moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/settings', 
+      label: t('nav.appSettings', 'API ключі'), 
+      icon: <Settings className="w-5 h-5" />,
+      adminOnly: true 
     },
     { 
       path: '/admin', 
@@ -188,8 +205,21 @@ export const MobileNav: React.FC = () => {
                 ))}
               </nav>
 
-              {/* Footer / Logout */}
-              <div className="p-4 border-t border-[color:var(--color-outline)]">
+              {/* Footer: Документация + Logout */}
+              <div className="p-4 border-t border-[color:var(--color-outline)] space-y-1">
+                {/* Ссылка на документацию */}
+                <a
+                  href={DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-3 w-full px-4 py-3 rounded-lg text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 transition-colors group"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  <span className="font-medium flex-1">{t('nav.docs', 'Документация')}</span>
+                  <ExternalLink className="w-4 h-4 opacity-50 group-hover:opacity-100" />
+                </a>
+                
                 <button
                   onClick={() => {
                     setIsOpen(false);

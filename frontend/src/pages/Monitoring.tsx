@@ -8,7 +8,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { ResponsiveHeader } from '../components/layout';
+import { AppLayout } from '../components/layout';
 import { useMonitoringWebSocket } from '../hooks/useMonitoringWebSocket';
 import { StreamCard } from '../components/StreamCard';
 import type { StreamState, AutoEndWarning } from '../hooks/useMonitoringWebSocket';
@@ -126,9 +126,8 @@ export const Monitoring: React.FC = () => {
   }, [lastUpdate]);
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
-      <ResponsiveHeader />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -256,8 +255,8 @@ export const Monitoring: React.FC = () => {
           </details>
         </div>
       )}
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 

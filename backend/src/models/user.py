@@ -62,6 +62,13 @@ class User(Base):
         uselist=True,
         cascade="all, delete-orphan"
     )
+    # Phase 6: Clean Architecture - Stream ownership
+    streams = relationship(
+        "src.models.stream.Stream",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<User(email='{self.email}', telegram_id={self.telegram_id})>"

@@ -7,13 +7,14 @@
  * - Внешний вид (тема, язык)
  * - Уведомления
  * - Безопасность
+ * - AI/LLM настройки (только SuperAdmin)
  * - О приложении
  */
 import React, { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/user';
-import { ResponsiveHeader } from '../components/layout';
+import { AppLayout } from '../components/layout';
 import TelegramLoginButton from '../components/TelegramLoginButton';
 import { telegramAuthApi, TelegramAuthData } from '../services/telegramAuth';
 import { totpApi, type TotpSetupResponse } from '../api/totp';
@@ -23,6 +24,7 @@ import {
   Mail, MessageSquare, Smartphone
 } from 'lucide-react';
 import { DEFAULT_LOGO, getUserLogo, resetUserLogo, setUserLogo } from '../utils/branding';
+import AISettingsSection from '../components/settings/AISettingsSection';
 
 // Версия приложения
 const APP_VERSION = '1.0.0';
@@ -259,17 +261,16 @@ const SettingsPage: React.FC = () => {
   }, [user?.id]);
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)] transition-colors duration-300">
-      <ResponsiveHeader />
-
-      {/* Header */}
-      <div className="border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/30">
-        <div className="mx-auto max-w-3xl px-4 py-3 sm:px-6 lg:px-8">
-          <h1 className="text-xl font-semibold">Настройки</h1>
+    <AppLayout>
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/30 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="mx-auto max-w-3xl py-3">
+            <h1 className="text-xl font-semibold">Настройки</h1>
+          </div>
         </div>
-      </div>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-3xl py-6 sm:py-8">
         {/* Profile Section */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2">
@@ -838,6 +839,11 @@ const SettingsPage: React.FC = () => {
           </div>
         </section>
 
+        {/* AI/LLM Settings - SuperAdmin Only */}
+        {user?.role === UserRole.SUPERADMIN && (
+          <AISettingsSection />
+        )}
+
         {/* About Section */}
         <section className="mb-8">
           <h2 className="text-lg font-semibold mb-4 border-b border-[color:var(--color-border)] pb-2 flex items-center gap-2">
@@ -869,8 +875,9 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
         </section>
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppLayout>
   );
 };
 

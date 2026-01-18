@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ResponsiveHeader } from '../../components/layout';
+import { AppLayout } from '../../components/layout';
 import { NotificationsNav } from '../../components/notifications/NotificationsNav';
 import {
   useNotificationChannels,
@@ -114,9 +114,8 @@ const NotificationsChannelsPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
-      <ResponsiveHeader />
-      <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <AppLayout>
+      <div className="max-w-7xl mx-auto">
         <NotificationsNav />
         <div className="flex flex-col gap-2 mb-6">
           <h1 className="text-2xl font-semibold">Каналы уведомлений</h1>
@@ -404,7 +403,7 @@ const NotificationsChannelsPage: React.FC = () => {
           </div>
         </section>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

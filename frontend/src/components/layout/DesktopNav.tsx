@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal, Library } from 'lucide-react';
+import { Home, Tv, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal, Library, BookOpen, ExternalLink, MessageSquareWarning } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { DOCS_URL } from '../../config/docs';
 import { filterNavItems } from '../../utils/navigationHelpers';
 import { NavItem } from '../../types/navigation';
 import { UserRole } from '../../types/user';
@@ -69,6 +70,19 @@ export const DesktopNav: React.FC = () => {
       adminOnly: true
     },
     { 
+      path: '/admin/incidents', 
+      label: t('nav.incidents', 'Інциденти'), 
+      icon: <MessageSquareWarning className="w-4 h-4" />,
+      adminOnly: true,
+      moderatorAllowed: true,
+    },
+    { 
+      path: '/admin/settings', 
+      label: t('nav.appSettings', 'API ключі'), 
+      icon: <Settings className="w-4 h-4" />,
+      adminOnly: true
+    },
+    { 
       path: '/admin', 
       label: t('nav.settings', 'Налаштування'), 
       icon: <Settings className="w-4 h-4" />,
@@ -98,6 +112,19 @@ export const DesktopNav: React.FC = () => {
           <span className="hidden 2xl:inline whitespace-nowrap">{item.label}</span>
         </Link>
       ))}
+      
+      {/* Ссылка на документацию */}
+      <a
+        href={DOCS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 whitespace-nowrap text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] hover:text-[color:var(--color-text)] group"
+        title={t('nav.docs', 'Документация')}
+      >
+        <BookOpen className="w-4 h-4" />
+        <span className="hidden 2xl:inline whitespace-nowrap">{t('nav.docs', 'Документация')}</span>
+        <ExternalLink className="w-3 h-3 opacity-50 group-hover:opacity-100" />
+      </a>
     </nav>
   );
 };

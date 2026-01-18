@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import type { Formatter } from 'recharts/types/component/DefaultTooltipContent';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface QualityHistoryPoint {
   timestamp: string;

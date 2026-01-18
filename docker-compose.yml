@@ -205,6 +205,26 @@ services:
       retries: 3
     restart: unless-stopped
 
+  # Documentation site (MkDocs Material)
+  docs:
+    build:
+      context: ./docs
+      target: production
+    ports:
+      - "8080:8080"
+    networks:
+      - external
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docs.rule=Host(`docs.${DOMAIN:-sattva.app}`)"
+      - "traefik.http.services.docs.loadbalancer.server.port=8080"
+
 networks:
   # Публичная сеть - только для сервисов с внешним доступом (frontend, grafana)
   external:

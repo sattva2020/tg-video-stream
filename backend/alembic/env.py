@@ -30,7 +30,8 @@ from src.database import Base
 # Import all models to ensure they are registered with Base.metadata
 from src.models import (
     User, TelegramAccount, Channel, PlaylistItem,
-    PlaybackSettings, RadioStream, ScheduledPlaylist, LyricsCache
+    PlaybackSettings, RadioStream, ScheduledPlaylist, LyricsCache,
+    Stream, StreamStatus  # Phase 6: Clean Architecture
 )
 
 target_metadata = Base.metadata

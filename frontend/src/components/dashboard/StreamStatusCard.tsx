@@ -4,7 +4,7 @@ import { Play, Pause, Radio, Clock, Music, AlertCircle, RefreshCw, HelpCircle } 
 import { adminApi, StreamStatus } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { usePlaylistWebSocket } from '../../hooks/usePlaylistWebSocket';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton } from '../ui/Skeleton';
 import { useTranslation } from 'react-i18next';
 
 interface StreamStatusCardProps {

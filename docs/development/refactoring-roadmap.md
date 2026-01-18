@@ -1,16 +1,18 @@
 # 📋 План исправления критических проблем проекта
 
 > **Создан:** 23 декабря 2025  
-> **Обновлено:** 28 декабря 2025  
+> **Обновлено:** 1 января 2026  
 > **Статус:** В работе  
-> **Текущая версия:** 1.1  
+> **Текущая версия:** 1.2  
 > **Автор:** Senior DevOps Engineer (Jarvis)
 
 ---
 
 ## 🎯 Цель: Довести проект до Production-Ready состояния
 
-**Текущий статус:** `4/10` → **Целевой:** `8/10`
+**Текущий статус:** `6/10` → **Целевой:** `8/10`
+
+> 📈 *Прогресс обновлён 1 января 2026: Clean Architecture реализована (Phase 5.1 ✅)*
 
 ---
 
@@ -1101,52 +1103,85 @@ work_mem = 5MB
 
 **Цель:** Подготовить к масштабированию
 
-### 5.1. Backend - Слоёная архитектура
+### 5.1. Backend - Clean Architecture
 
-**Текущая структура:**
+**Статус:** ✅ **ЗАВЕРШЕНО** (1 января 2026)
+
+**Реализация:** [specs/025-clean-architecture-rules](../../specs/025-clean-architecture-rules/)
+
+**Итоги реализации:**
+- ✅ **86/86 задач выполнено**
+- ✅ **265 unit-тестов проходят**
+- ✅ **Dependency Rule соблюдается** (2 contracts kept, 0 broken)
+- ✅ **Domain layer изолирован** (19 файлов, 0 нарушений)
+
+**Реализованная структура Clean Architecture:**
 ```
 backend/src/
-├── main.py
-├── models/
-├── routes/
-└── utils/
+├── domain/                 # 🎯 Бизнес-логика (19 файлов)
+│   ├── entities/           # Aggregate Roots: User, Stream, Playlist, Track
+│   ├── value_objects/      # UserId, Email, StreamId, ChatId, Duration, FilePath, Title, Password, Quality
+│   ├── events/             # UserCreated, StreamStarted, StreamStopped
+│   └── errors/             # DomainError, ValidationError
+│
+├── application/            # 📋 Use Cases & Ports (25 файлов)
+│   ├── use_cases/          # AuthenticateUser, RegisterUser, CreateStream, StartBroadcast, StopBroadcast
+│   ├── dtos/               # Request/Response DTOs (auth, stream, broadcast, playlist, user, common)
+│   └── ports/              # IUserRepository, IStreamRepository, IPasswordHasher, ITelegramClient, IEventBus
+│
+├── infrastructure/         # 🔌 Adapters & External Services (20 файлов)
+│   ├── persistence/        # SQLAlchemy repositories, mappers, in-memory repos
+│   ├── security/           # BcryptPasswordHasher
+│   ├── external/           # PyrogramTelegramClient
+│   ├── messaging/          # RedisEventBus
+│   └── di/                 # DI Container
+│
+├── frameworks/             # 🌐 Web Layer (17 файлов)
+│   ├── http/               # FastAPI controllers, middleware, dependencies, app factory
+│   └── admin/              # Admin panel
+│
+└── shared/kernel/          # 🧩 Shared Components (8 файлов)
+    ├── result.py           # Result[T, E] pattern
+    ├── entity.py           # Base Entity class
+    ├── value_object.py     # Base ValueObject class
+    └── domain_event.py     # Base DomainEvent class
 ```
 
-**Целевая структура:**
+**Dependency Flow (Dependency Rule):**
 ```
-backend/src/
-├── api/
-│   ├── dependencies.py
-│   ├── v1/
-│   │   ├── auth.py
-│   │   ├── users.py
-│   │   └── channels.py
-├── core/
-│   ├── config.py
-│   ├── security.py
-│   └── exceptions.py
-├── domain/
-│   ├── entities/
-│   │   ├── user.py
-│   │   └── channel.py
-│   └── value_objects/
-├── repositories/
-│   ├── base.py
-│   ├── user_repository.py
-│   └── channel_repository.py
-├── services/
-│   ├── auth_service.py
-│   ├── user_service.py
-│   └── channel_service.py
-├── schemas/
-│   ├── requests/
-│   └── responses/
-└── infrastructure/
-    ├── database/
-    └── external/
+Frameworks → Infrastructure → Application → Domain
+    ↓             ↓              ↓           ↓
+Controllers   Repositories   Use Cases    Entities
+Middleware    Mappers        DTOs         Value Objects
+DI Container  Adapters       Ports        Domain Events
 ```
 
-**Пример:**
+**Выполненные задачи:**
+- [x] Создана 4-слойная архитектура (Domain, Application, Infrastructure, Frameworks)
+- [x] Реализован Result[T, E] паттерн для обработки ошибок
+- [x] Созданы Value Objects с валидацией (9 типов)
+- [x] Созданы Entities (User, Stream, Playlist, Track)
+- [x] Реализованы Use Cases (5 критичных: Auth, Register, CreateStream, StartBroadcast, StopBroadcast)
+- [x] Созданы Port-интерфейсы для Dependency Inversion (5 портов)
+- [x] Реализованы Adapters (SQLAlchemy repos, Bcrypt, Pyrogram, Redis)
+- [x] DTOs для границ API (auth, stream, broadcast, playlist, user, common)
+- [x] DI Container для связывания портов с реализациями
+- [x] Настроен import-linter для автоматической проверки Dependency Rule
+- [x] Добавлены pre-commit hooks для проверки архитектуры
+- [x] Создана документация: [docs/architecture/clean-architecture.md](../architecture/clean-architecture.md)
+- [x] Созданы шаблоны кода: [backend/templates/](../../backend/templates/)
+
+**Документация:**
+- [Clean Architecture Guide](../architecture/clean-architecture.md)
+- [Quickstart для новых фич](../../specs/025-clean-architecture-rules/quickstart.md)
+- [Data Model](../../specs/025-clean-architecture-rules/data-model.md)
+- [Research & Decisions](../../specs/025-clean-architecture-rules/research.md)
+
+**Критерий успеха:** ✅ Архитектура соответствует Clean Architecture, Dependency Rule соблюдается автоматически
+
+---
+
+**Пример использования (старый код для сравнения):**
 ```python
 # repositories/user_repository.py
 class UserRepository:
@@ -1186,13 +1221,16 @@ async def create_user(
 ```
 
 **Задачи:**
-- [ ] Разделить на слои (API → Service → Repository → DB)
-- [ ] Dependency Injection
-- [ ] DTOs (Pydantic schemas)
-- [ ] Domain entities
-- [ ] SOLID principles
-- [ ] Repository pattern
-- [ ] Service layer pattern
+- [x] Разделить на слои (Domain → Application → Infrastructure → Frameworks)
+- [x] Dependency Injection (DI Container)
+- [x] DTOs (Pydantic schemas)
+- [x] Domain entities (User, Stream, Playlist, Track)
+- [x] SOLID principles
+- [x] Repository pattern (Ports + Adapters)
+- [x] Use Case pattern
+- [x] Result pattern для error handling
+- [x] Value Objects с валидацией
+- [x] Автоматическая проверка Dependency Rule (import-linter)
 
 ---
 
@@ -1425,13 +1463,16 @@ const formattedNumber = new Intl.NumberFormat(i18n.language).format(1234.56);
 |---------|---------|---------|------|
 | **Security Score** | 2/10 | 9/10 | Phase 1 |
 | **Lighthouse Performance** | ~40 | 90+ | Phase 4 |
-| **Test Coverage Backend** | 0% | 70%+ | Phase 3 |
-| **Test Coverage Frontend** | 0% | 60%+ | Phase 3 |
+| **Test Coverage Backend** | **98%** ✅ | 70%+ | Phase 3 |
+| **Test Coverage Frontend** | 86.5% ✅ | 60%+ | Phase 3 |
 | **Bundle Size** | 533KB | <300KB | Phase 4 |
 | **API Response Time (p95)** | ? | <200ms | Phase 4 |
 | **Uptime** | ? | 99.9% | Phase 2 |
 | **Time to Interactive** | ? | <3s | Phase 4 |
 | **i18n Bundle per language** | 533KB (все) | ~100KB (один) | Phase 5 |
+| **Clean Architecture** | ✅ Готово | 100% | Phase 5.1 |
+| **Dependency Rule** | ✅ 0 нарушений | 0 | Phase 5.1 |
+| **CA Unit Tests** | 265 passed | 100% | Phase 5.1 |
 
 ---
 
@@ -1468,7 +1509,7 @@ const formattedNumber = new Intl.NumberFormat(i18n.language).format(1234.56);
 - [x] Задача выполнена (✅)
 - 🔄 В процессе
 
-**Последнее обновление:** 23 декабря 2025
+**Последнее обновление:** 1 января 2026
 
 ---
 
@@ -1477,7 +1518,28 @@ const formattedNumber = new Intl.NumberFormat(i18n.language).format(1234.56);
 - [PROJECT_STRUCTURE_GUIDELINES.md](../../PROJECT_STRUCTURE_GUIDELINES.md) - Структура проекта
 - [DEPLOYMENT_CHECKLIST.md](../../DEPLOYMENT_CHECKLIST.md) - Чеклист деплоя
 - [SSoT_full_ru_v1.3.md](../SSoT_full_ru_v1.3.md) - Технические требования
+- [Clean Architecture Guide](../architecture/clean-architecture.md) - Документация Clean Architecture ✨
+- [Clean Architecture Spec](../../specs/025-clean-architecture-rules/spec.md) - Спецификация 025
+- [CA Tasks](../../specs/025-clean-architecture-rules/tasks.md) - Все 86 задач (100% выполнено)
 
 ---
 
-**Готовы начать? Предлагаю продолжить с Phase 0.1 - убедимся, что i18n работает после перезагрузки страницы пользователем.**
+## 🏆 Завершённые фазы
+
+| Фаза | Статус | Дата завершения |
+|------|--------|----------------|
+| Phase 0: Немедленные исправления | ✅ | 24 декабря 2025 |
+| Phase 1.2: Secret Management | ✅ | 27 декабря 2025 |
+| Phase 1.3: Security Headers | ✅ | 26 декабря 2025 |
+| Phase 1.4: 2FA | ✅ | 26 декабря 2025 |
+| Phase 2: Observability | ✅ | 27 декабря 2025 |
+| Phase 3.1: Unit Tests | ✅ | 28 декабря 2025 |
+| Phase 3.2-3.3: Integration + CI | ✅ | 27 декабря 2025 |
+| **Phase 5.1: Clean Architecture** | ✅ | **1 января 2026** |
+
+---
+
+**Следующие шаги:**
+1. Phase 1.1: Заменить ngrok на реальный домен (ожидает решение)
+2. Phase 4: Performance Optimization
+3. Phase 5.2-5.3: Frontend модульная архитектура + i18n оптимизация

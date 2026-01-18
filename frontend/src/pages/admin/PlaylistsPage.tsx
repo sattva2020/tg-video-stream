@@ -8,6 +8,7 @@ import { Playlist, PlaylistCreate, PlaylistUpdate, playlistsApi } from '../../ap
 import { useToast } from '../../components/ui/use-toast';
 import { useAuth } from '../../context/AuthContext';
 import { formatDuration } from '../../utils/format';
+import { AppLayout } from '../../components/layout';
 
 export const PlaylistsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -129,6 +130,7 @@ export const PlaylistsPage: React.FC = () => {
   const totalDuration = safePlaylists.reduce((acc, p) => acc + (p.total_duration || 0), 0);
 
   return (
+    <AppLayout>
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
       <div className="relative overflow-hidden rounded-3xl border bg-gradient-to-r from-indigo-50 via-white to-emerald-50 p-6 shadow-sm dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/30">
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.12),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(16,185,129,0.12),transparent_25%)]" />
@@ -222,5 +224,6 @@ export const PlaylistsPage: React.FC = () => {
         onSubmit={editingPlaylist ? handleUpdate : handleCreate}
       />
     </div>
+    </AppLayout>
   );
 };

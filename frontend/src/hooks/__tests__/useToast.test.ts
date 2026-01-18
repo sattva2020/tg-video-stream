@@ -7,7 +7,7 @@
  * - Promise-based уведомления
  * - Закрытие уведомлений
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useToast } from '../useToast';
 import { toast } from 'sonner';
@@ -21,7 +21,10 @@ vi.mock('sonner', () => ({
     info: vi.fn(),
     loading: vi.fn(() => 'mock-toast-id'),
     dismiss: vi.fn(),
-    promise: vi.fn((promise) => Promise.resolve({ unwrap: () => promise })),
+    promise: vi.fn((promise) => {
+      const actualPromise = typeof promise === 'function' ? promise() : promise;
+      return actualPromise.then((val: any) => ({ unwrap: () => Promise.resolve(val) }));
+    }),
   },
 }));
 
@@ -202,9 +205,10 @@ describe('useToast', () => {
       const mockPromise = Promise.reject(new Error('Test error'));
 
       // Mock для обработки rejected promise
-      vi.mocked(toast.promise).mockImplementationOnce((promise) =>
-        promise.catch(() => ({ unwrap: () => Promise.reject() }))
-      );
+      vi.mocked(toast.promise).mockImplementationOnce((p: any) => {
+        const actualPromise = typeof p === 'function' ? p() : p;
+        return actualPromise.catch(() => ({ unwrap: () => Promise.reject() }));
+      });
 
       try {
         await act(async () => {
