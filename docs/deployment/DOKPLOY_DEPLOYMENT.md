@@ -209,19 +209,32 @@ services:
 ```yaml
 db:
   ports:
-    - "127.0.0.1:5432:5432"
+    - "127.0.0.1:${DB_HOST_PORT:-5432}:5432"
 
 redis:
   ports:
-    - "127.0.0.1:6379:6379"
+    - "127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"
 ```
 
 Переменные backend:
 
 ```env
-DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@127.0.0.1:5432/telegram_db
-REDIS_URL=redis://127.0.0.1:6379
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@127.0.0.1:<DB_HOST_PORT>/telegram_db
+REDIS_URL=redis://127.0.0.1:<REDIS_HOST_PORT>
+PLAYLIST_PATH=/opt/sattva-streamer/backend/data/playlist.txt
+SESSION_ENCRYPTION_KEY=<FERNET_KEY_BASE64>
+SETTINGS_ENCRYPTION_KEY=<FERNET_KEY_BASE64>
 ```
+
+Если используете нестандартные порты, добавьте в Dokploy Environment:
+
+```env
+DB_HOST_PORT=54321
+REDIS_HOST_PORT=63791
+```
+
+> Ключи `SESSION_ENCRYPTION_KEY` и `SETTINGS_ENCRYPTION_KEY` должны быть 32 байта в url-safe base64.
+> Сгенерировать: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
 
 Если нужно добавить новый домен:
 
