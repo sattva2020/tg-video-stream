@@ -167,6 +167,7 @@ telegram/
 - [docs/bugfixes/FRONTEND_SCHEDULE_SOFT_OUTLINES_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_SOFT_OUTLINES_FIX.md) — /schedule: смягчение рамок и сетки календаря
 - [docs/bugfixes/FRONTEND_SCHEDULE_DAY_CARDS_TODAY_HIGHLIGHT_FIX.md](../docs/bugfixes/FRONTEND_SCHEDULE_DAY_CARDS_TODAY_HIGHLIGHT_FIX.md) — /schedule: «светлее» карточки дней + выделение текущего дня
 - [docs/bugfixes/NGINX_INDEX_HTML_NO_STORE_CACHE_FIX.md](../docs/bugfixes/NGINX_INDEX_HTML_NO_STORE_CACHE_FIX.md) — Nginx: запрещаем кэширование index.html (устранение эффекта «старой версии»)
+- [docs/bugfixes/FRONTEND_HEROUI_PROVIDER_SAFE_LOAD_FIX.md](../docs/bugfixes/FRONTEND_HEROUI_PROVIDER_SAFE_LOAD_FIX.md) — Frontend: безопасная загрузка HeroUIProvider (исправление пустого экрана)
 - [ai-instructions/BUGFIX_DOCUMENTATION_RULES.md](BUGFIX_DOCUMENTATION_RULES.md) — **ПРАВИЛА документирования багфиксов**
 - [OUTSTANDING_TASKS_REPORT.md](../OUTSTANDING_TASKS_REPORT.md) — текущие задачи
 - [specs/012-project-improvements/](../specs/012-project-improvements/) — план улучшений

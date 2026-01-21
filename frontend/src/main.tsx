@@ -1,15 +1,15 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './i18n/index';  // Initialize i18n before anything else
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'sonner';
-import { HeroUIProvider } from "@heroui/react";
+import HeroUIProviderSafe from './components/providers/HeroUIProviderSafe';
 import App from './App';
 import { queryClient } from './lib/queryClient';
 import { ThemePreferenceProvider, useThemePreference } from './hooks/useThemePreference';
-import { initSentry } from './instrumentation/sentry';  // ← Добавлено
+import { initSentry } from './instrumentation/sentry';
 import './styles/tokens.css';
 import './index.css';
-import './i18n/index';  // Явно указываем путь к новому файлу i18n
 
 // Инициализировать Sentry ПЕРЕД рендерингом приложения
 initSentry();
@@ -17,7 +17,7 @@ initSentry();
 // Компонент-обёртка для Toaster с учётом темы
 const ThemedToaster: React.FC = () => {
   const { theme } = useThemePreference();
-  
+
   return (
     <Toaster
       theme={theme}
@@ -40,16 +40,12 @@ const ThemedToaster: React.FC = () => {
   );
 };
 
-const Root: React.FC = () => {
-  const { theme } = useThemePreference();
-  
-  return (
-    <HeroUIProvider className={theme}>
-      <App />
-      <ThemedToaster />
-    </HeroUIProvider>
-  );
-};
+const Root: React.FC = () => (
+  <HeroUIProviderSafe>
+    <App />
+    <ThemedToaster />
+  </HeroUIProviderSafe>
+);
 
 try {
   ReactDOM.createRoot(document.getElementById('root')!).render(
