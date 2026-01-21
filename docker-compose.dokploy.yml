@@ -51,17 +51,6 @@ services:
     networks:
       - dokploy-network
     
-    labels:
-      # Traefik configuration
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-sattva-streamer.top}`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend.service=frontend"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
-      # Priority - backend API routes have higher priority
-      - "traefik.http.routers.frontend.priority=1"
-    
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
