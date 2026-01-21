@@ -221,60 +221,31 @@ docker compose --profile docker-streamer up -d streamer
 
 ---
 
-## 🌐 ВАЖНО: Frontend деплой — внешний nginx!
+## 🌐 ВАЖНО: Frontend деплой — через Traefik (Dokploy)
 
-### Проблема
+### Текущая схема
 
-Docker контейнер `sattva-streamer-frontend-1` имеет свой nginx, но **внешний nginx** обслуживает файлы из **другой директории**.
-
-### Конфигурация внешнего nginx
-
-Файл: `/etc/nginx/sites-enabled/sattva-streamer` (или `/etc/nginx/conf.d/*.conf`)
-
-```nginx
-root /opt/tg_video_streamer/current/frontend/dist;
-```
+- **Traefik (Dokploy)** обслуживает домен и SSL
+- **Frontend контейнер** отдаёт статические файлы напрямую Traefik
+- **Внешний Nginx больше не используется**
 
 ### ✅ Правильный деплой frontend
 
 ```bash
-# 1. Билд в Docker контейнере
-cd /opt/sattva-streamer
-docker compose build frontend
-
-# 2. Перезапуск контейнера (обновит файлы внутри)
-docker compose up -d frontend
-
-# 3. КРИТИЧНО: Копирование в директорию внешнего nginx!
-docker cp sattva-streamer-frontend-1:/usr/share/nginx/html/. /opt/tg_video_streamer/current/frontend/dist/
-
-# 4. Перезагрузка nginx
-nginx -s reload
+# 1) Локально: git commit + git push
+# 2) В Dokploy: Autodeploy (On Push) или кнопка Deploy
+# 3) Проверить https://sattva-streamer.top
 ```
 
-### ❌ Ошибка (так делать НЕЛЬЗЯ!)
+### ⚠️ Если внешний nginx ещё включён
+
+Он будет конфликтовать с Traefik на 80/443. Нужно отключить:
 
 ```bash
-# Это обновит только Docker контейнер, а внешний nginx продолжит
-# раздавать старые файлы из /opt/tg_video_streamer/current/frontend/dist/
-docker compose build frontend
-docker compose up -d frontend
-# БЕЗ docker cp ← ОШИБКА!
+systemctl stop nginx
+systemctl disable nginx
 ```
 
-### Скрипт для быстрого деплоя
-
-```bash
-#!/bin/bash
-# /opt/sattva-streamer/deploy-frontend.sh
-cd /opt/sattva-streamer
-docker compose build frontend
-docker compose up -d frontend
-docker cp sattva-streamer-frontend-1:/usr/share/nginx/html/. /opt/tg_video_streamer/current/frontend/dist/
-nginx -s reload
-echo "✅ Frontend deployed!"
-```
-
-**Дата добавления**: 21 декабря 2025  
-**Причина**: AI-агент обновлял Docker контейнер, но изменения не появлялись на сайте, т.к. внешний nginx обслуживает `/opt/tg_video_streamer/current/frontend/dist/`.
+**Дата обновления**: 21 января 2026  
+**Причина**: миграция на Traefik как единственный веб‑сервер для фронтенда.
 

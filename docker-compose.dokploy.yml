@@ -14,83 +14,25 @@
 
 services:
   # ============================================================================
-  # Backend API (FastAPI)
+  # Backend proxy (Traefik → systemd backend на хосте)
   # ============================================================================
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      # Database
-      - DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@db:5432/telegram_db
-      - REDIS_URL=redis://redis:6379
-      
-      # JWT (из Dokploy Environment)
-      - JWT_SECRET=${JWT_SECRET}
-      - SESSION_ENCRYPTION_KEY=${SESSION_ENCRYPTION_KEY}
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
-      
-      # Telegram
-      - API_ID=${API_ID}
-      - API_HASH=${API_HASH}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
-      
-      # Google OAuth
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-https://sattva-streamer.top/api/auth/google/callback}
-      
-      # URLs
-      - FRONTEND_URL=${FRONTEND_URL:-https://sattva-streamer.top}
-      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-https://sattva-streamer.top}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://sattva-streamer.top}
-      
-      # Misc
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - TOTP_ISSUER=${TOTP_ISSUER:-TelegramBroadcast}
-    
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    
-    volumes:
-      - ../files/backend_data:/app/data
-      - ../files/music:/app/music:ro
-    
+  backend-proxy:
+    image: alpine:3.19
+    command: ["sh", "-c", "sleep infinity"]
     networks:
       - dokploy-network
-      - internal
-    
     labels:
       # Traefik configuration
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`${DOMAIN:-sattva-streamer.top}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
-      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      - "traefik.http.routers.backend.service=backend"
+      - "traefik.http.services.backend.loadbalancer.server.url=http://172.17.0.1:8000"
+      - "traefik.http.routers.backend.priority=10"
       # Health check
       - "traefik.http.services.backend.loadbalancer.healthcheck.path=/api/health"
       - "traefik.http.services.backend.loadbalancer.healthcheck.interval=30s"
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    
-    command: uvicorn src.main:app --host 0.0.0.0 --port 8000
-    
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
 
   # ============================================================================
   # Frontend (Nginx + Vite build)
@@ -106,9 +48,6 @@ services:
         - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY:-}
         - VITE_ENABLE_BASIC_LOGIN=${VITE_ENABLE_BASIC_LOGIN:-false}
     
-    depends_on:
-      - backend
-    
     networks:
       - dokploy-network
     
@@ -118,10 +57,10 @@ services:
       - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-sattva-streamer.top}`)"
       - "traefik.http.routers.frontend.entrypoints=websecure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.frontend.service=frontend"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
       # Priority - backend API routes have higher priority
       - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.routers.backend.priority=10"
     
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]

@@ -48,59 +48,92 @@ curl -sSL https://dokploy.com/install.sh | sh
 2. Создайте admin аккаунт
 3. Настройте домен (Settings → Server → Domain)
 
-### 3. Создание проекта sattva-streamer
+### 3. Создание проекта tg-streamer
 
-> **Примечание**: На скриншоте видно, что проекта `sattva-streamer` ещё нет. Следуйте инструкции ниже.
+> **Статус**: ✅ Проект уже развёрнут и работает
 
-#### Шаг 3.1: Создать проект
+#### Текущая структура проекта
+
+**Проект**: `tg-streamer` (production environment)
+
+**Сервисы**:
+
+1. ✅ **sattva-app** (Compose) — основной стек приложения
+  - GitHub: `github.com/sattva2020/tg-video-stream.git`
+  - Branch: `main`
+  - Compose Path: `docker-compose.dokploy.yml`
+  - Домен: `sattva-streamer.top`
+  - Включает: frontend, PostgreSQL, Redis, backend-proxy (Traefik → systemd backend)
+
+2. ✅ **tg-engine** (Application) — Telegram engine
+   - GitHub: `github.com/sattva2020/tg-video-stream.git`
+   - Branch: `main`
+   - Build Path: `/tg-engine`
+   - Dockerfile: `tg-engine/Dockerfile`
+   - Описание: AyuGram headless Telegram engine
+
+#### Если нужно создать проект с нуля:
+
+<details>
+<summary>Развернуть инструкцию</summary>
+
+##### Шаг 1: Создать проект
 
 1. Откройте `https://dokploy.sattva-ai.top/dashboard/projects`
-2. Нажмите кнопку **+ Create Project** (правый верхний угол)
-3. Введите имя: `sattva-streamer`
-4. Описание (опционально): `24/7 Telegram Video Streamer`
+2. Нажмите кнопку **+ Create Project**
+3. Введите имя: `tg-streamer`
+4. Описание: `24/7 Telegram Video Streamer`
 5. Нажмите **Create**
 
-#### Шаг 3.2: Добавить Docker Compose сервис
+##### Шаг 2: Добавить Docker Compose сервис (sattva-app)
 
-1. Откройте созданный проект `sattva-streamer`
+1. Откройте проект `tg-streamer`
 2. Нажмите **+ Add Service** → выберите **Compose**
 3. Настройте:
-   - **Name**: `main-stack`
+   - **Name**: `sattva-app`
    - **Source Type**: Git
-   - **Repository URL**: `https://github.com/YOUR_USERNAME/telegram` (или ваш репозиторий)
-   - **Branch**: `main` или `master`
-   - **Compose Path**: `docker-compose.dokploy.yml`
+   - **Repository**: ваш репозиторий
+   - **Branch**: `main`
+   - **Compose Path**: `docker-compose.dokploy.yml` ⚠️ **ВАЖНО!**
 4. Нажмите **Create**
 
-#### Шаг 3.3: Добавить TG Engine (отдельный Application)
+##### Шаг 3: Добавить TG Engine (отдельный Application)
 
 > **Важно**: TG Engine требует длительной сборки, поэтому деплоим отдельно.
 
-1. В проекте `sattva-streamer` нажмите **+ Add Service** → **Application**
+1. В проекте нажмите **+ Add Service** → **Application**
 2. Настройте:
    - **Name**: `tg-engine`
    - **Source Type**: Git
-   - **Repository URL**: тот же репозиторий
+   - **Repository**: тот же репозиторий
    - **Branch**: `main`
    - **Build Type**: Dockerfile
+   - **Build Path**: `/tg-engine`
    - **Dockerfile Path**: `tg-engine/Dockerfile`
 3. Нажмите **Create**
 
+</details>
+
 ### 4. Настройка Environment Variables
+
+> **Статус**: ✅ Переменные уже настроены в Dokploy UI
 
 В Dokploy секреты хранятся безопасно в UI:
 
-1. Откройте проект → **Environment**
-2. Добавьте переменные:
+1. Откройте проект → сервис **sattva-app** → вкладка **Environment**
+2. Текущие переменные (уже настроены):
 
 ```env
+# Domain (автоматически устанавливается Dokploy)
+DOMAIN=${project.DOMAIN}
+
 # Database
-DB_PASSWORD=sattva_db_pass_2025_9f3c0f
+DB_PASSWORD=$4dQ*yKSpTK6E^CNz7*b
 DATABASE_URL=postgresql://postgres:${DB_PASSWORD}@db:5432/telegram_db
 
 # JWT
 JWT_SECRET=IvAInkSqEEzbi7DfVfhtu5MEpDKn61ly
-SESSION_ENCRYPTION_KEY=639n3cZMDnZyU7plIZqbgUmxFORHw8hBlD6WzqXNmO0=
+SESSION_ENCRYPTION_KEY=YyPjZWReBsJZlYxV4cKj-prBjJJtqGcGWODTzj9dERs=
 
 # Telegram
 API_ID=37831214
@@ -111,10 +144,12 @@ TELEGRAM_BOT_TOKEN=8431060192:AAEBOCf9BEu4H3YhTt8Aj8-cvIeoCie1lsA
 GOOGLE_CLIENT_ID=134449806518-tavv2bfsrjnndmivp6tgiithcphcs997.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=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
 
-# URLs (Dokploy автоматически подставит домен)
+# URLs (используют переменную DOMAIN из Dokploy)
 FRONTEND_URL=https://sattva-streamer.top
 BACKEND_URL=https://sattva-streamer.top
 ```
+
+⚠️ **Важно**: После изменения Environment Variables нажмите **Save**, затем сделайте **Redeploy**!
 
 ### 5. Настройка Docker Compose
 
@@ -125,18 +160,13 @@ BACKEND_URL=https://sattva-streamer.top
 version: '3.8'
 
 services:
-  backend:
-    build: ./backend
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - db
-      - redis
+  backend-proxy:
+    image: alpine:3.19
+    command: ["sh", "-c", "sleep infinity"]
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`sattva-streamer.top`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.url=http://172.17.0.1:8000"
 
   frontend:
     build: ./frontend
@@ -160,9 +190,30 @@ services:
 
 ### 6. Настройка домена
 
-1. **Domains** → **Add Domain**
-2. Введите: `sattva-streamer.top`
-3. Dokploy автоматически настроит SSL через Let's Encrypt
+> **Статус**: ✅ Домен уже настроен
+
+**Текущая конфигурация**:
+
+- **Host**: `sattva-streamer.top`
+- **SSL**: Автоматически через Let's Encrypt (Traefik)
+- **Services**:
+  - `frontend` → `/` (Container Port: 80)
+  - `backend-proxy` → `/api` (Traefik → systemd backend)
+
+> ⚠️ Внешний Nginx на хосте должен быть отключён, иначе будет конфликт портов 80/443.
+
+Если нужно добавить новый домен:
+
+1. Откройте сервис → вкладка **Domains**
+2. Нажмите **Add Domain**
+3. Настройте:
+   - **Service Name**: `frontend` или `backend`
+   - **Host**: `your-domain.com`
+   - **Path**: `/` (для frontend) или `/api` (для backend)
+   - **Container Port**: `80` (frontend) или `8000` (backend)
+   - **HTTPS**: включить
+4. Нажмите **Save**
+5. Traefik автоматически получит SSL сертификат
 
 ### 7. Auto Deploy (CI/CD)
 
