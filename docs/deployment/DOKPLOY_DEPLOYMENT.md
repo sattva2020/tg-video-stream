@@ -202,6 +202,27 @@ services:
 
 > ⚠️ Внешний Nginx на хосте должен быть отключён, иначе будет конфликт портов 80/443.
 
+### 6.1 Доступ backend (systemd) к Postgres/Redis
+
+Так как backend запускается на хосте, Postgres и Redis публикуются на localhost:
+
+```yaml
+db:
+  ports:
+    - "127.0.0.1:5432:5432"
+
+redis:
+  ports:
+    - "127.0.0.1:6379:6379"
+```
+
+Переменные backend:
+
+```env
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@127.0.0.1:5432/telegram_db
+REDIS_URL=redis://127.0.0.1:6379
+```
+
 Если нужно добавить новый домен:
 
 1. Откройте сервис → вкладка **Domains**

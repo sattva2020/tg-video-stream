@@ -84,6 +84,8 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=telegram_db
     command: ["postgres", "-c", "listen_addresses=*"]
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       # Используем ../files/ для персистентности в Dokploy
       - ../files/postgres_data:/var/lib/postgresql/data
@@ -106,6 +108,8 @@ services:
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:6379:6379"
     volumes:
       - ../files/redis_data:/data
     networks:

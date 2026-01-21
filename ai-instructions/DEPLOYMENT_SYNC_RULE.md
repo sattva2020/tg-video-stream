@@ -154,6 +154,27 @@ location /api/ {
 
 **172.17.0.1** — IP адрес docker0 интерфейса, через который Docker-контейнеры обращаются к хосту.
 
+### Доступ backend к DB/Redis
+
+Так как backend работает на хосте, Postgres и Redis публикуются только на localhost:
+
+```yaml
+db:
+  ports:
+    - "127.0.0.1:5432:5432"
+
+redis:
+  ports:
+    - "127.0.0.1:6379:6379"
+```
+
+И в backend переменных указываются локальные адреса:
+
+```env
+DATABASE_URL=postgresql://postgres:<DB_PASSWORD>@127.0.0.1:5432/telegram_db
+REDIS_URL=redis://127.0.0.1:6379
+```
+
 ### Systemd сервисы
 
 Файлы в `/etc/systemd/system/`:
