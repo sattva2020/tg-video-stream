@@ -74,47 +74,9 @@ export default defineConfig({
       output: {
         // Manual chunks для оптимального code splitting
         manualChunks: (id) => {
-          // Vendor chunks - разделяем крупные библиотеки
+          // Vendor chunks - один общий чанк для исключения циклических зависимостей
           if (id.includes('node_modules')) {
-            // React ecosystem (включая критические зависимости для avoid циклов чанков)
-            if (
-              id.includes('/node_modules/react/') ||
-              id.includes('/node_modules/react-dom/') ||
-              id.includes('/node_modules/react-router/') ||
-              id.includes('/node_modules/react-router-dom/') ||
-              id.includes('/node_modules/scheduler/') ||
-              id.includes('/node_modules/use-sync-external-store/')
-            ) {
-              return 'vendor-react';
-            }
-            
-            // 3D библиотеки - отдельный большой chunk (lazy loaded)
-            if (id.includes('@react-three') || id.includes('three') || id.includes('postprocessing')) {
-              return 'vendor-three';
-            }
-            
-            // UI библиотеки
-            if (id.includes('@radix-ui') || id.includes('@heroui') || id.includes('framer-motion')) {
-              return 'vendor-ui';
-            }
-            
-            // Утилиты
-            if (id.includes('lodash') || id.includes('date-fns') || id.includes('zod')) {
-              return 'vendor-utils';
-            }
-            
-            // i18n
-            if (id.includes('i18next') || id.includes('react-i18next')) {
-              return 'vendor-i18n';
-            }
-            
-            // Query/State management
-            if (id.includes('@tanstack') || id.includes('zustand') || id.includes('axios')) {
-              return 'vendor-data';
-            }
-            
-            // Остальные мелкие библиотеки
-            return 'vendor-misc';
+            return 'vendor';
           }
           
           // Application chunks

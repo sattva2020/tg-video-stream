@@ -20,7 +20,7 @@ TypeError: Cannot read properties of undefined (reading 'useState')
 Из‑за циклической зависимости между чанками экспорт React не успевал инициализироваться, и `useState` читался у `undefined`.
 
 ## ✅ Решение
-Скорректировано правило `manualChunks`, чтобы ключевые зависимости React (`use-sync-external-store`, `scheduler`, `react-dom`, `react-router`) попадали в один чанк `vendor-react` и не образовывали цикл между чанками.
+Упрощено правило `manualChunks`: все зависимости из `node_modules` собираются в один общий чанк `vendor`, чтобы полностью исключить циклические зависимости между vendor-чанками.
 
 ## 📁 Изменённые файлы
 - [frontend/vite.config.ts](../../frontend/vite.config.ts) — уточнён список пакетов React-экосистемы для `vendor-react`.
