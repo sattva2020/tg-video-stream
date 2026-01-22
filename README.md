@@ -43,6 +43,10 @@ backend/src/
 
 Подробнее: [docs/architecture/clean-architecture.md](docs/architecture/clean-architecture.md)
 
+## Документация багфиксов
+
+- [docs/bugfixes/FRONTEND_VENDOR_REACT_CHUNK_CYCLE_FIX.md](docs/bugfixes/FRONTEND_VENDOR_REACT_CHUNK_CYCLE_FIX.md) — Frontend: устранение циклической зависимости vendor-react/vendor-misc (пустой экран)
+
 ## Возможности
 
 - Крутит **YouTube-плейлист** по кругу (файл `streamer/playlist.txt`).
