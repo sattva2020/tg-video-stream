@@ -22,8 +22,14 @@ from src.schemas.stream_quality import (
 )
 from src.services.stream_quality_service import get_stream_quality_service, StreamQualityService
 from src.services.quality_trends_service import get_quality_trends_service, QualityTrendsService
+from src.api.admin.saml_config import router as saml_config_router
 
 router = APIRouter()
+
+# ============================================================================
+# Feature 025: SAML Configuration Management
+# ============================================================================
+router.include_router(saml_config_router, prefix="/saml", tags=["SAML Config"])
 
 
 class PlaylistUpdate(BaseModel):
