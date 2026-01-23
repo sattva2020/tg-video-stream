@@ -11,6 +11,7 @@ Services модуль для обработки бизнес-логики.
 - BackupService: автоматизированные резервные копии
 - ChannelService: управление мульти-канальной трансляцией
 - RTMPIngestService: управление RTMP/SRT live stream ingestion (Feature 019)
+- WebRTCSignalingService: управление WebRTC сигналингом для guest co-hosting (Feature 019)
 """
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "BackupService",
     "ChannelService",
     "RTMPIngestService",
+    "WebRTCSignalingService",
 ]

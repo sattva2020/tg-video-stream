@@ -458,5 +458,300 @@ async def notify_listeners_update(channel_id: int, listeners_count: int):
     await manager.broadcast_to_channel(None, message)
 
 
+# === WebRTC Signaling (Feature 019 - Guest Co-hosting) ===
+
+
+class WebRTCConnectionManager:
+    """Менеджер WebRTC соединений для guest co-hosting."""
+
+    def __init__(self):
+        # live_stream_id -> {user_id -> websocket}
+        self.stream_connections: Dict[str, Dict[int, WebSocket]] = {}
+        self._lock = asyncio.Lock()
+
+    async def connect_to_stream(
+        self,
+        websocket: WebSocket,
+        live_stream_id: str,
+        user_id: int
+    ):
+        """Подключить WebSocket к live stream для WebRTC."""
+        await websocket.accept()
+
+        async with self._lock:
+            if live_stream_id not in self.stream_connections:
+                self.stream_connections[live_stream_id] = {}
+            self.stream_connections[live_stream_id][user_id] = websocket
+
+        log.info(f"WebRTC connected: stream={live_stream_id}, user={user_id}")
+
+    async def disconnect_from_stream(
+        self,
+        live_stream_id: str,
+        user_id: int
+    ):
+        """Отключить WebSocket от live stream."""
+        async with self._lock:
+            if live_stream_id in self.stream_connections:
+                self.stream_connections[live_stream_id].pop(user_id, None)
+
+                if not self.stream_connections[live_stream_id]:
+                    del self.stream_connections[live_stream_id]
+
+        log.info(f"WebRTC disconnected: stream={live_stream_id}, user={user_id}")
+
+    async def send_to_user(
+        self,
+        live_stream_id: str,
+        user_id: int,
+        message: dict
+    ):
+        """Отправить сообщение конкретному пользователю в stream."""
+        async with self._lock:
+            websocket = self.stream_connections.get(live_stream_id, {}).get(user_id)
+
+        if not websocket:
+            return
+
+        try:
+            data = json.dumps(message, default=str)
+            await websocket.send_text(data)
+        except Exception as e:
+            log.warning(f"Failed to send WebRTC message to user {user_id}: {e}")
+            await self.disconnect_from_stream(live_stream_id, user_id)
+
+    async def broadcast_to_stream(
+        self,
+        live_stream_id: str,
+        message: dict,
+        exclude_user_id: Optional[int] = None
+    ):
+        """Отправить сообщение всем в stream (опционально исключая отправителя)."""
+        async with self._lock:
+            connections = self.stream_connections.get(live_stream_id, {}).copy()
+
+        for user_id, websocket in connections.items():
+            if exclude_user_id and user_id == exclude_user_id:
+                continue
+
+            try:
+                data = json.dumps(message, default=str)
+                await websocket.send_text(data)
+            except Exception as e:
+                log.warning(f"Failed to broadcast to user {user_id}: {e}")
+                await self.disconnect_from_stream(live_stream_id, user_id)
+
+
+# Глобальный менеджер WebRTC соединений
+webrtc_manager = WebRTCConnectionManager()
+
+
+@router.websocket("/webrtc")
+async def websocket_webrtc(
+    websocket: WebSocket,
+    live_stream_id: str = Query(...),
+    user_id: int = Query(...),
+    role: str = Query("guest")
+):
+    """
+    WebSocket endpoint для WebRTC сигналинга при guest co-hosting.
+
+    Query params:
+        - live_stream_id: ID live stream (обязательно)
+        - user_id: ID пользователя (обязательно)
+        - role: Роль ("host" или "guest", по умолчанию "guest")
+
+    Сообщения от клиента:
+        - {"type": "offer", "to_user_id": int, "sdp": {...}} - SDP offer
+        - {"type": "answer", "to_user_id": int, "sdp": {...}} - SDP answer
+        - {"type": "ice_candidate", "to_user_id": int, "candidate": {...}} - ICE candidate
+        - {"type": "quality_update", "bitrate": int, "packet_loss": float, "rtt": int} - Метрики качества
+
+    Сообщения от сервера:
+        - {"type": "offer", "from_user_id": int, "sdp": {...}} - Входящий offer
+        - {"type": "answer", "from_user_id": int, "sdp": {...}} - Входящий answer
+        - {"type": "ice_candidate", "from_user_id": int, "candidate": {...}} - Входящий ICE candidate
+        - {"type": "user_joined", "user_id": int} - Новый пользователь подключился
+        - {"type": "user_left", "user_id": int} - Пользователь отключился
+        - {"type": "error", "message": str} - Ошибка
+    """
+    from src.services.webrtc_signaling_service import WebRTCSignalingService
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        # Инициализируем signaling service
+        signaling_service = WebRTCSignalingService(db)
+
+        # Регистрируем соединение
+        connection_id = await signaling_service.register_connection(
+            live_stream_id=live_stream_id,
+            user_id=user_id,
+            role=role
+        )
+
+        # Подключаем WebSocket
+        await webrtc_manager.connect_to_stream(websocket, live_stream_id, user_id)
+
+        # Уведомляем всех о новом участнике
+        await webrtc_manager.broadcast_to_stream(
+            live_stream_id,
+            {
+                "type": "user_joined",
+                "user_id": user_id,
+                "role": role,
+                "connection_id": connection_id,
+                "timestamp": _get_timestamp()
+            },
+            exclude_user_id=user_id
+        )
+
+        # Отправляем список активных участников
+        active_connections = await signaling_service.get_active_connections(live_stream_id)
+        await websocket.send_text(json.dumps({
+            "type": "active_connections",
+            "connections": [
+                {"user_id": uid, "connection_id": conn_id}
+                for uid, conn_id in active_connections.items()
+                if int(uid) != user_id
+            ],
+            "timestamp": _get_timestamp()
+        }, default=str))
+
+        # Обрабатываем сообщения
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                message = json.loads(data)
+
+                msg_type = message.get("type")
+
+                if msg_type == "offer":
+                    # Передаем offer целевому пользователю
+                    to_user_id = message.get("to_user_id")
+                    if to_user_id:
+                        signaling_message = await signaling_service.handle_offer(
+                            live_stream_id=live_stream_id,
+                            from_user_id=user_id,
+                            to_user_id=to_user_id,
+                            offer_sdp=message.get("sdp")
+                        )
+                        await webrtc_manager.send_to_user(live_stream_id, to_user_id, signaling_message)
+
+                elif msg_type == "answer":
+                    # Передаем answer целевому пользователю
+                    to_user_id = message.get("to_user_id")
+                    if to_user_id:
+                        signaling_message = await signaling_service.handle_answer(
+                            live_stream_id=live_stream_id,
+                            from_user_id=user_id,
+                            to_user_id=to_user_id,
+                            answer_sdp=message.get("sdp")
+                        )
+                        await webrtc_manager.send_to_user(live_stream_id, to_user_id, signaling_message)
+
+                elif msg_type == "ice_candidate":
+                    # Передаем ICE candidate целевому пользователю
+                    to_user_id = message.get("to_user_id")
+                    if to_user_id:
+                        signaling_message = await signaling_service.handle_ice_candidate(
+                            live_stream_id=live_stream_id,
+                            from_user_id=user_id,
+                            to_user_id=to_user_id,
+                            candidate=message.get("candidate")
+                        )
+                        await webrtc_manager.send_to_user(live_stream_id, to_user_id, signaling_message)
+
+                elif msg_type == "quality_update":
+                    # Обновляем метрики качества
+                    await signaling_service.update_connection_quality(
+                        connection_id=connection_id,
+                        bitrate=message.get("bitrate", 0),
+                        packet_loss=message.get("packet_loss", 0.0),
+                        rtt=message.get("rtt", 0)
+                    )
+
+                elif msg_type == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+
+            except asyncio.TimeoutError:
+                # Ping для keepalive
+                try:
+                    await websocket.send_text(json.dumps({"type": "ping"}))
+                except Exception:
+                    break
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                }))
+            except Exception as e:
+                log.error(f"WebRTC message handling error: {e}")
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": str(e)
+                }))
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        log.error(f"WebRTC WebSocket error: {e}")
+    finally:
+        # Отрегистрируем соединение
+        try:
+            signaling_service = WebRTCSignalingService(db)
+            await signaling_service.unregister_connection(
+                connection_id=connection_id,
+                live_stream_id=live_stream_id,
+                user_id=user_id,
+                role=role
+            )
+
+            await webrtc_manager.disconnect_from_stream(live_stream_id, user_id)
+
+            # Уведомляем об отключении
+            await webrtc_manager.broadcast_to_stream(
+                live_stream_id,
+                {
+                    "type": "user_left",
+                    "user_id": user_id,
+                    "timestamp": _get_timestamp()
+                }
+            )
+        except Exception as e:
+            log.error(f"Error during WebRTC cleanup: {e}")
+        finally:
+            db.close()
+
+
+# === Helper functions для WebRTC (вызываются из других модулей) ===
+
+async def notify_webrtc_user_joined(
+    live_stream_id: str,
+    user_id: int,
+    role: str = "guest"
+):
+    """Уведомить всех участников о подключении нового пользователя."""
+    await webrtc_manager.broadcast_to_stream(live_stream_id, {
+        "type": "user_joined",
+        "user_id": user_id,
+        "role": role,
+        "timestamp": _get_timestamp()
+    })
+
+
+async def notify_webrtc_user_left(
+    live_stream_id: str,
+    user_id: int
+):
+    """Уведомить всех участников об отключении пользователя."""
+    await webrtc_manager.broadcast_to_stream(live_stream_id, {
+        "type": "user_left",
+        "user_id": user_id,
+        "timestamp": _get_timestamp()
+    })
+
+
 # Экспорт connection_manager для использования в других модулях
 connection_manager = manager
+webrtc_connection_manager = webrtc_manager
