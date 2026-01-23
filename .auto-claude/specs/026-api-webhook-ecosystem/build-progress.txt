@@ -720,3 +720,32 @@ Subtask 7-3: Implement Go SDK methods for all API resources
 
 === END SESSION 16 ===
 
+Session 17 (2026-01-23):
+Subtask 9-1: Create API key management page with create, list, and revoke functionality
+- Status: COMPLETED
+- Files created:
+  * frontend/src/api/apiKeys.ts: API client with TypeScript interfaces (APIKey, CreateAPIKeyData, APIKeyResponse)
+  * frontend/src/components/api-keys/ApiKeyList.tsx: Full-featured component (636 lines)
+  * frontend/src/pages/api-keys.tsx: Main page with security notice and doc links
+  * Modified: frontend/src/App.tsx (added ApiKeysPage lazy load and /api-keys route)
+- Features implemented:
+  * API client: list, create, get, update, delete, revoke methods using axios
+  * Create dialog: name input, 10 scope checkboxes with descriptions, rate limit (requests/window), expiration date picker
+  * Key list: display all keys with status badges (active/expired/revoked), scopes, rate limits, creation/expiration/last-used timestamps
+  * Security features: show/hide key toggle, copy button with feedback, one-time key display warning
+  * Actions: revoke (soft delete, sets is_active=false) and delete (permanent) with confirmation dialogs
+  * Error handling: try/catch blocks, user-friendly error messages from backend API
+  * Responsive design: mobile-friendly grid layouts, proper CSS variable usage
+  * Loading states: spinner during load, disabled states during create/delete operations
+  * Empty state: friendly message when no keys exist
+- Scopes available: read:streams, write:streams, read:playlists, write:playlists, read:channels, write:channels, read:webhooks, write:webhooks, read:analytics, admin
+- Pattern followed: frontend/src/pages/UsersPage.tsx (AppLayout, page structure), frontend/src/pages/SettingsPage.tsx (form patterns, state management)
+- Icons used: Key, Plus, Trash2, Shield, Clock, Calendar, CheckCircle, XCircle, Copy, Eye, EyeOff, AlertCircle, Lock (all from lucide-react)
+- Route added: /api-keys accessible to all authenticated users (no role restrictions)
+- Page includes: header with Key icon, title, subtitle; security notice banner with Lock icon; ApiKeyList component; documentation link section
+- API integration: uses frontend/src/api/client.ts axios instance with JWT authentication interceptors
+- Verification: Files created and committed, route registered in App.tsx
+- Total lines of code: 644 lines across 4 files
+- Commit: 05efbb0b - auto-claude: subtask-9-1 - Create API key management page with create, list, and revoke functionality
+
+=== END SESSION 17 ===

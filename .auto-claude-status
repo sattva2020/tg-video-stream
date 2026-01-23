@@ -3,23 +3,23 @@
   "spec": "026-api-webhook-ecosystem",
   "state": "building",
   "subtasks": {
-    "completed": 38,
+    "completed": 45,
     "total": 55,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Go SDK",
+    "current": "Developer Portal UI",
     "id": null,
-    "total": 4
+    "total": 5
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 40,
+    "number": 47,
     "started_at": "2026-01-23T12:19:43.753309"
   },
-  "last_update": "2026-01-23T16:22:00.025164"
+  "last_update": "2026-01-23T17:28:21.828106"
 }
