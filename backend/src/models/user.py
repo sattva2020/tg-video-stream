@@ -58,6 +58,13 @@ class User(Base):
         back_populates="members",
         lazy="select"
     )
+    organization_memberships = relationship(
+        "OrganizationUser",
+        foreign_keys="OrganizationUser.user_id",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="dynamic"
+    )
     audit_logs = relationship(
         "AdminAuditLog",
         back_populates="user",

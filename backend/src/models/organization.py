@@ -25,6 +25,18 @@ class Organization(Base):
         back_populates="organization",
         lazy="select"
     )
+    roles = relationship(
+        "OrganizationRole",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
+    organization_users = relationship(
+        "OrganizationUser",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="dynamic"
+    )
 
     def __repr__(self):
         return f"<Organization(id='{self.id}', name='{self.name}')>"

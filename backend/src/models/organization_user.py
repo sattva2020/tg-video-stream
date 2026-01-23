@@ -27,6 +27,18 @@ class OrganizationRole(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Relationships
+    organization = relationship(
+        "Organization",
+        back_populates="roles",
+        lazy="select"
+    )
+    users = relationship(
+        "OrganizationUser",
+        back_populates="role",
+        lazy="dynamic"
+    )
+
     def __repr__(self):
         return f"<OrganizationRole(id='{self.id}', name='{self.name}', organization_id='{self.organization_id}')>"
 
@@ -50,6 +62,29 @@ class OrganizationUser(Base):
     joined_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    organization = relationship(
+        "Organization",
+        back_populates="organization_users",
+        lazy="select"
+    )
+    user = relationship(
+        "User",
+        foreign_keys=[user_id],
+        back_populates="organization_memberships",
+        lazy="select"
+    )
+    role = relationship(
+        "OrganizationRole",
+        back_populates="users",
+        lazy="select"
+    )
+    inviter = relationship(
+        "User",
+        foreign_keys=[invited_by],
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<OrganizationUser(id='{self.id}', organization_id='{self.organization_id}', user_id='{self.user_id}')>"
