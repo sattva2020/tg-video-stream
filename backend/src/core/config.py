@@ -68,4 +68,23 @@ class Settings:
     # CORS
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
+    # CDN Configuration
+    CDN_ENABLED: bool = os.getenv("CDN_ENABLED", "false").lower() == "true"
+    CDN_PROVIDER: str = os.getenv("CDN_PROVIDER", "none")  # cloudflare, cloudfront, fastly, none
+
+    # Cloudflare CDN
+    CLOUDFLARE_API_TOKEN: str = os.getenv("CLOUDFLARE_API_TOKEN", "")
+    CLOUDFLARE_ZONE_ID: str = os.getenv("CLOUDFLARE_ZONE_ID", "")
+    CLOUDFLARE_ACCOUNT_ID: str = os.getenv("CLOUDFLARE_ACCOUNT_ID", "")
+
+    # AWS CloudFront CDN
+    AWS_ACCESS_KEY_ID: str = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
+    CLOUDFRONT_DISTRIBUTION_ID: str = os.getenv("CLOUDFRONT_DISTRIBUTION_ID", "")
+
+    # Fastly CDN
+    FASTLY_API_TOKEN: str = os.getenv("FASTLY_API_TOKEN", "")
+    FASTLY_SERVICE_ID: str = os.getenv("FASTLY_SERVICE_ID", "")
+
 settings = Settings()
