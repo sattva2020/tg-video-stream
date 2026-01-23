@@ -1125,7 +1125,9 @@
             "command": "cd backend && pytest tests/integration/test_webhooks.py -v",
             "expected": "passed"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Created comprehensive integration tests for webhook delivery and retry logic. Tests cover: webhook creation/management (5 tests), delivery (4 tests), retry logic with exponential backoff (5 tests), signature generation/verification (5 tests), deduplication (1 test), statistics (1 test), and security (3 tests). Total 24 tests following test_api_keys.py pattern with proper fixtures, mocking, and verification.",
+          "updated_at": "2026-01-23T18:50:00.000000+00:00"
         },
         {
           "id": "subtask-10-3",
@@ -1440,6 +1442,6 @@
   "qa_signoff": null,
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-01-23T16:04:25.692Z",
+  "updated_at": "2026-01-23T16:10:08.737Z",
   "last_updated": "2026-01-23T13:01:46.603507+00:00"
 }
