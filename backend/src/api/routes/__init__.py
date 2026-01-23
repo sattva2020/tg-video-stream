@@ -17,4 +17,5 @@ __all__ = [
     "alerts_rules",
     "alerts_instances",
     "alerts_test",
+    "alerts_groups",
 ]
