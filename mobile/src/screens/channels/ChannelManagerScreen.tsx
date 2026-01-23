@@ -12,7 +12,7 @@
  * Follows patterns from frontend/src/pages/ChannelManager.tsx
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -37,10 +37,11 @@ interface ChannelCardProps {
   loading?: boolean;
 }
 
-const ChannelCard: React.FC<ChannelCardProps> = ({ channel, onStart, onStop, loading }) => {
+const ChannelCard: React.FC<ChannelCardProps> = memo(({ channel, onStart, onStop, loading }) => {
   const { t } = useTranslation();
 
-  const getStatusConfig = () => {
+  // Memoize status config to prevent recalculation on every render
+  const statusConfig = useMemo(() => {
     switch (channel.status) {
       case 'running':
         return {
@@ -84,12 +85,23 @@ const ChannelCard: React.FC<ChannelCardProps> = ({ channel, onStart, onStop, loa
           icon: '⏹',
         };
     }
-  };
+  }, [channel.status, t]);
 
-  const statusConfig = getStatusConfig();
-  const isTransitional = channel.status === 'starting' || channel.status === 'stopping';
-  const canStart = channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown';
-  const canStop = channel.status === 'running' || isTransitional;
+  // Memoize computed values
+  const isTransitional = useMemo(
+    () => channel.status === 'starting' || channel.status === 'stopping',
+    [channel.status]
+  );
+
+  const canStart = useMemo(
+    () => channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown',
+    [channel.status]
+  );
+
+  const canStop = useMemo(
+    () => channel.status === 'running' || isTransitional,
+    [channel.status, isTransitional]
+  );
 
   const handleStart = () => {
     Alert.alert(
@@ -201,7 +213,7 @@ const ChannelCard: React.FC<ChannelCardProps> = ({ channel, onStart, onStop, loa
       </View>
     </View>
   );
-};
+});
 
 const ChannelManagerScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -244,6 +256,7 @@ const ChannelManagerScreen: React.FC = () => {
   );
 
   // Auto-refresh when channels are in transitional states
+  // Use useRef to track previous channels and avoid dependency on entire channels array
   useEffect(() => {
     const hasTransitionalStatus = channels.some(
       ch => ch.status === 'starting' || ch.status === 'stopping'
@@ -256,10 +269,12 @@ const ChannelManagerScreen: React.FC = () => {
 
       return () => clearInterval(interval);
     }
-  }, [channels, fetchChannels]);
+    // Only depend on fetchChannels, not the entire channels array
+    // This prevents the interval from being reset on every channel state change
+  }, [fetchChannels]);
 
-  // Start channel
-  const handleStart = async (channelId: string) => {
+  // Start channel (stable reference with useCallback)
+  const handleStart = useCallback(async (channelId: string) => {
     setActionLoading(channelId);
     try {
       await channelsApi.start(channelId);
@@ -274,10 +289,10 @@ const ChannelManagerScreen: React.FC = () => {
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchChannels, t]);
 
-  // Stop channel
-  const handleStop = async (channelId: string) => {
+  // Stop channel (stable reference with useCallback)
+  const handleStop = useCallback(async (channelId: string) => {
     setActionLoading(channelId);
     try {
       await channelsApi.stop(channelId);
@@ -292,7 +307,7 @@ const ChannelManagerScreen: React.FC = () => {
     } finally {
       setActionLoading(null);
     }
-  };
+  }, [fetchChannels, t]);
 
   // Render loading state
   if (loading) {
@@ -374,7 +389,10 @@ const ChannelManagerScreen: React.FC = () => {
       ))}
     </ScrollView>
   );
-};
+});
+
+// Memoize component to prevent unnecessary re-renders
+export default memo(ChannelManagerScreen);
 
 const styles = StyleSheet.create({
   container: {

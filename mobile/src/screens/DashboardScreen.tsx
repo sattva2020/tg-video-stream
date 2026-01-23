@@ -11,7 +11,7 @@
  * - Mobile-friendly layout with proper touch targets (44x44px minimum)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -54,9 +54,16 @@ const DashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // Determine permissions based on role
-  const canControlStream = ['superadmin', 'admin', 'operator', 'moderator'].includes(userRole);
-  const canViewSystemStats = ['superadmin', 'admin'].includes(userRole);
+  // Determine permissions based on role (memoized to prevent recalculation)
+  const canControlStream = useMemo(
+    () => ['superadmin', 'admin', 'operator', 'moderator'].includes(userRole),
+    [userRole]
+  );
+
+  const canViewSystemStats = useMemo(
+    () => ['superadmin', 'admin'].includes(userRole),
+    [userRole]
+  );
 
   // Fetch stream status
   const fetchStreamStatus = useCallback(async () => {
@@ -86,14 +93,18 @@ const DashboardScreen: React.FC = () => {
   // Fetch statistics
   const fetchStats = useCallback(async () => {
     if (!canViewSystemStats) {
-      // Set basic stats for all users
-      if (streamData) {
-        setStats({
-          total_listeners: streamData.listener_count || 0,
-          total_streams: streamData.online ? 1 : 0,
-          active_channels: streamData.online ? 1 : 0,
-        });
-      }
+      // Set basic stats for all users using functional update to avoid streamData dependency
+      setStats((currentStats) => {
+        const currentStreamData = streamData;
+        if (currentStreamData) {
+          return {
+            total_listeners: currentStreamData.listener_count || 0,
+            total_streams: currentStreamData.online ? 1 : 0,
+            active_channels: currentStreamData.online ? 1 : 0,
+          };
+        }
+        return currentStats;
+      });
       return;
     }
 
@@ -103,15 +114,19 @@ const DashboardScreen: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch stats:', error);
       // Fallback to stream data for basic stats
-      if (streamData) {
-        setStats({
-          total_listeners: streamData.listener_count || 0,
-          total_streams: streamData.online ? 1 : 0,
-          active_channels: streamData.online ? 1 : 0,
-        });
-      }
+      setStats((currentStats) => {
+        const currentStreamData = streamData;
+        if (currentStreamData) {
+          return {
+            total_listeners: currentStreamData.listener_count || 0,
+            total_streams: currentStreamData.online ? 1 : 0,
+            active_channels: currentStreamData.online ? 1 : 0,
+          };
+        }
+        return currentStats;
+      });
     }
-  }, [canViewSystemStats, streamData, t]);
+  }, [canViewSystemStats, t]);
 
   // Load all data
   const loadData = useCallback(async () => {
@@ -193,8 +208,8 @@ const DashboardScreen: React.FC = () => {
     );
   };
 
-  // Build stat cards
-  const getStatCards = () => {
+  // Build stat cards (memoized to prevent recalculation on every render)
+  const statCards = useMemo(() => {
     const cards: Array<{
       title: string;
       value: string | number;
@@ -234,10 +249,10 @@ const DashboardScreen: React.FC = () => {
     });
 
     return cards;
-  };
+  }, [canViewSystemStats, stats, streamData, t]);
 
-  // Quick actions
-  const getQuickActions = () => {
+  // Quick actions (memoized to prevent recalculation on every render)
+  const quickActions = useMemo(() => {
     const actions = [];
 
     if (canControlStream) {
@@ -274,10 +289,7 @@ const DashboardScreen: React.FC = () => {
     }
 
     return actions;
-  };
-
-  const statCards = getStatCards();
-  const quickActions = getQuickActions();
+  }, [canControlStream, streamData, actionLoading, handleStopStream, handleStartStream, handleRestartStream, t]);
 
   return (
     <ScrollView
@@ -362,9 +374,10 @@ const DashboardScreen: React.FC = () => {
       )}
     </ScrollView>
   );
-};
+});
 
-const styles = StyleSheet.create({
+// Memoize component to prevent unnecessary re-renders
+export default memo(DashboardScreen);
   container: {
     flex: 1,
     backgroundColor: '#f9fafb',
