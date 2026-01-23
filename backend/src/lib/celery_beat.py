@@ -110,6 +110,24 @@ class CeleryBeatConfig:
                 "args": (),
                 "kwargs": {},
                 "options": {"queue": "reporting"}
+            },
+
+            # Chat message aggregation - run every 5 minutes
+            "aggregate-chat-messages": {
+                "task": "backend.src.tasks.chat_tasks.aggregate_chat_messages",
+                "schedule": 300.0,  # Every 5 minutes
+                "args": (),
+                "kwargs": {},
+                "options": {"queue": "chat"}
+            },
+
+            # Chat message cleanup - run daily at 1 AM (keep 7 days)
+            "cleanup-old-chat-messages": {
+                "task": "backend.src.tasks.chat_tasks.cleanup_old_chat_messages",
+                "schedule": crontab(minute=0, hour=1),  # 1 AM daily
+                "args": (7,),  # Keep messages for 7 days
+                "kwargs": {},
+                "options": {"queue": "chat"}
             }
         }
 
