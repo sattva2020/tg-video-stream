@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import Column, String, DateTime, func, BigInteger
+from sqlalchemy import Column, String, DateTime, func, BigInteger, ForeignKey
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -24,7 +24,7 @@ class ResourceQuota(Base):
     )
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(GUID(), nullable=False)
+    organization_id = Column(GUID(), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False)
     quota_type = Column(String(50), nullable=False)
     limit = Column(BigInteger, nullable=False)
     current_usage = Column(BigInteger, nullable=False, default=0, server_default='0')
@@ -32,6 +32,13 @@ class ResourceQuota(Base):
     reset_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    organization = relationship(
+        "Organization",
+        back_populates="quotas",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<ResourceQuota(id='{self.id}', org_id='{self.organization_id}', type='{self.quota_type}', limit={self.limit})>"

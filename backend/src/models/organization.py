@@ -37,6 +37,12 @@ class Organization(Base):
         cascade="all, delete-orphan",
         lazy="dynamic"
     )
+    quotas = relationship(
+        "ResourceQuota",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<Organization(id='{self.id}', name='{self.name}')>"
