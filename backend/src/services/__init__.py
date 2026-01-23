@@ -14,6 +14,7 @@ Services модуль для обработки бизнес-логики.
 - BackupService: автоматизированные резервные копии
 - ChannelService: управление мульти-канальной трансляцией
 - InteractionAnalyticsService: аналитика взаимодействий (polls, Q&A, reactions, chat)
+- TelegramChatService: интеграция Telegram чата с stream overlay
 """
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "BackupService",
     "ChannelService",
     "InteractionAnalyticsService",
+    "TelegramChatService",
 ]
