@@ -162,7 +162,7 @@ async def get_stream_health(
             )
 
         # Получаем информацию о circuit breaker
-        circuit_breaker_info = await monitor.get_circuit_breaker_info(str(stream_id))
+        circuit_breaker_info = monitor.get_circuit_breaker_info(str(stream_id))
 
         response_data = {
             "stream_id": health_status.stream_id,
