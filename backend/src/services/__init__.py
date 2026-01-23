@@ -13,6 +13,7 @@ Services модуль для обработки бизнес-логики.
 - SchedulerService: запланированное воспроизведение плейлистов
 - BackupService: автоматизированные резервные копии
 - ChannelService: управление мульти-канальной трансляцией
+- InteractionAnalyticsService: аналитика взаимодействий (polls, Q&A, reactions, chat)
 """
 
 __all__ = [
@@ -27,4 +28,5 @@ __all__ = [
     "SchedulerService",
     "BackupService",
     "ChannelService",
+    "InteractionAnalyticsService",
 ]
