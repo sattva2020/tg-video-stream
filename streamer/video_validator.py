@@ -19,8 +19,6 @@ from enum import Enum
 
 from streamer.ffprobe_utils import (
     analyze_stream_quality,
-    AudioMetadata,
-    VideoMetadata,
     _normalize_codec
 )
 
