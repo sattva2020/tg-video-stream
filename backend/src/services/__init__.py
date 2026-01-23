@@ -12,6 +12,7 @@ Services модуль для обработки бизнес-логики.
 - ChannelService: управление мульти-канальной трансляцией
 - AlertService: CRUD операции для правил, экземпляров и групп алертов
 - StreamAlertIntegrationService: интеграция мониторинга отказов с алертами
+- ViewerAlertIntegrationService: интеграция мониторинга зрителей с алертами
 """
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "ChannelService",
     "AlertService",
     "StreamAlertIntegrationService",
+    "ViewerAlertIntegrationService",
 ]
