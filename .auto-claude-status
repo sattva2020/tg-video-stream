@@ -3,23 +3,23 @@
   "spec": "025-advanced-security-compliance-features",
   "state": "building",
   "subtasks": {
-    "completed": 16,
+    "completed": 22,
     "total": 47,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "2FA Enforcement & IP Whitelisting",
+    "current": "Compliance Services & Enhanced Audit",
     "id": null,
-    "total": 7
+    "total": 6
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 18,
+    "number": 24,
     "started_at": "2026-01-23T12:18:44.678944"
   },
-  "last_update": "2026-01-23T14:09:41.327735"
+  "last_update": "2026-01-23T14:54:17.080083"
 }
