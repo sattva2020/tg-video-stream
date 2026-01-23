@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from src.models.user import User
+from src.models.api_key import APIKey
 from src.services.playback_service import PlaybackService
+from src.services.api_key_service import APIKeyService
 from auth import jwt
 
 logger = logging.getLogger(__name__)
@@ -66,6 +68,61 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="The user doesn't have enough privileges",
         )
     return current_user
+
+
+def get_api_key(request: Request, db: Session = Depends(get_db)) -> APIKey:
+    """
+    Извлекает API ключ из заголовка X-API-Key.
+    """
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate API key",
+        headers={"WWW-Authenticate": "ApiKey"},
+    )
+
+    # Extract API key from header
+    api_key_header = request.headers.get("X-API-Key")
+    if api_key_header is None:
+        logger.warning("API key header missing")
+        raise credentials_exception
+
+    # Validate the API key using the service
+    api_key_service = APIKeyService(db)
+    api_key = api_key_service.validate_key(api_key_header)
+
+    if api_key is None:
+        logger.warning(f"API key validation failed")
+        raise credentials_exception
+
+    return api_key
+
+
+def require_scope(required_scope: str):
+    """
+    Зависимость: требует определённый scope у API ключа.
+    """
+    def _scope_checker(api_key: APIKey = Depends(get_api_key)) -> APIKey:
+        if not api_key.has_scope(required_scope):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"The API key doesn't have the required scope: {required_scope}",
+            )
+        return api_key
+    return _scope_checker
+
+
+def require_any_scope(*required_scopes: str):
+    """
+    Зависимость: требует хотя бы один из указанных scopes у API ключа.
+    """
+    def _scope_checker(api_key: APIKey = Depends(get_api_key)) -> APIKey:
+        if not api_key.has_any_scope(list(required_scopes)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"The API key doesn't have any of the required scopes: {', '.join(required_scopes)}",
+            )
+        return api_key
+    return _scope_checker
 
 
 def get_playback_service(db: Session = Depends(get_db)) -> PlaybackService:
