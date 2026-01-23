@@ -13,4 +13,5 @@ __all__ = [
     "notifications_rules",
     "notifications_events",
     "notifications_logs",
+    "stream_health",
 ]

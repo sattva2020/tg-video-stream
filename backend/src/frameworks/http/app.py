@@ -162,6 +162,7 @@ def create_app() -> FastAPI:
     )
     from src.api.routes import stream_quality as stream_quality_routes
     from src.api.routes import playlists as user_playlists_router
+    from src.api.routes import stream_health as stream_health_routes
     from api.telegram_login import router as telegram_login_router
     from api.queue import router as queue_router
     from src.api.analytics import router as analytics_router, internal_router as analytics_internal_router
@@ -185,6 +186,7 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/api/users", tags=["Users"])
     app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
     app.include_router(user_playlists_router.router, prefix="/api/playlists", tags=["User Playlists"])
+    app.include_router(stream_health_routes.router, prefix="/api/streams", tags=["Stream Health"])
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
     app.include_router(ai_settings.router, prefix="/api/admin", tags=["AI Settings"])
     app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
