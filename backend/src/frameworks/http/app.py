@@ -171,6 +171,7 @@ def create_app() -> FastAPI:
     from src.api.settings import router as settings_router
     from src.api.streaming_platforms import router as streaming_platforms_router
     from src.api.broadcast_destinations import router as broadcast_destinations_router
+    from src.api.social_media import router as social_media_router
 
     # Root endpoint
     @app.get("/")
@@ -215,5 +216,6 @@ def create_app() -> FastAPI:
     app.include_router(settings_router, prefix="/api/admin", tags=["Settings"])
     app.include_router(streaming_platforms_router, prefix="/api/streaming-platforms", tags=["Streaming Platforms"])
     app.include_router(broadcast_destinations_router, prefix="/api/broadcast-destinations", tags=["Broadcast Destinations"])
+    app.include_router(social_media_router, prefix="/api", tags=["Social Media"])
 
     return app
