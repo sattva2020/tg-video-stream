@@ -7,6 +7,7 @@ Services модуль для обработки бизнес-логики.
 - QueueService: приоритетные очереди (Redis sorted sets)
 - PollService: управление интерактивными опросами
 - QAService: управление вопросами и ответами (Q&A сессии)
+- ModerationService: фильтрация контента и модерация
 - LyricsService: получение текстов песен (Genius API)
 - ShazamService: распознавание музыки
 - SchedulerService: запланированное воспроизведение плейлистов
@@ -20,6 +21,7 @@ __all__ = [
     "QueueService",
     "PollService",
     "QAService",
+    "ModerationService",
     "LyricsService",
     "ShazamService",
     "SchedulerService",
