@@ -72,22 +72,87 @@ export default defineConfig({
     // Performance budget: оптимизация bundle splitting
     rollupOptions: {
       output: {
-        // Manual chunks для оптимального code splitting
+        // Manual chunks для оптимального code splitting и предотвращения циклических зависимостей
         manualChunks: (id) => {
-          // Vendor chunks - один общий чанк для исключения циклических зависимостей
+          // Vendor chunks - стратегическое разделение для оптимизации кэширования
           if (id.includes('node_modules')) {
+            // React core framework (редко меняется)
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+              return 'react-vendor';
+            }
+
+            // Routing (меняется независимо от React)
+            if (id.includes('react-router')) {
+              return 'router-vendor';
+            }
+
+            // Data fetching and state management
+            if (id.includes('@tanstack/react-query') || id.includes('axios') || id.includes('zustand')) {
+              return 'query-vendor';
+            }
+
+            // UI libraries (@heroui, @radix-ui, framer-motion, etc.)
+            if (id.includes('@heroui') ||
+                id.includes('@radix-ui') ||
+                id.includes('framer-motion') ||
+                id.includes('lucide-react') ||
+                id.includes('sonner') ||
+                id.includes('aceternity-ui') ||
+                id.includes('magic-ui')) {
+              return 'ui-vendor';
+            }
+
+            // Drag and drop libraries
+            if (id.includes('@dnd-kit') || id.includes('@hello-pangea/dnd')) {
+              return 'dnd-vendor';
+            }
+
+            // Form handling and validation
+            if (id.includes('react-hook-form') ||
+                id.includes('@hookform/resolvers') ||
+                id.includes('zod')) {
+              return 'form-vendor';
+            }
+
+            // Internationalization
+            if (id.includes('i18next') || id.includes('react-i18next')) {
+              return 'i18n-vendor';
+            }
+
+            // Three.js and 3D rendering
+            if (id.includes('three') ||
+                id.includes('@react-three')) {
+              return 'three-vendor';
+            }
+
+            // Charts and visualization
+            if (id.includes('recharts')) {
+              return 'charts-vendor';
+            }
+
+            // Utility libraries
+            if (id.includes('date-fns') ||
+                id.includes('clsx') ||
+                id.includes('class-variance-authority') ||
+                id.includes('tailwind-merge') ||
+                id.includes('jwt-decode') ||
+                id.includes('@sentry/react')) {
+              return 'utils-vendor';
+            }
+
+            // Catch-all for other vendor dependencies
             return 'vendor';
           }
-          
-          // Application chunks
+
+          // Application chunks - feature-based splitting
           if (id.includes('/pages/admin/')) {
             return 'pages-admin';
           }
-          
+
           if (id.includes('/pages/notifications/')) {
             return 'pages-notifications';
           }
-          
+
           if (id.includes('/components/auth/')) {
             return 'components-auth';
           }
