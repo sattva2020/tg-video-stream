@@ -359,10 +359,13 @@ jobs:
   # ========================================
   # Security Report Summary
   # ========================================
-  
+
   security-report:
     name: Security Report
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     needs: [semgrep, codeql, dependency-audit, trivy-scan, secret-scan]
     if: always()
     steps:
@@ -379,7 +382,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Scanner | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check each job status
           echo "| Semgrep SAST | ${{ needs.semgrep.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CodeQL | ${{ needs.codeql.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
@@ -388,6 +391,159 @@ jobs:
           echo "| Secret Scan | ${{ needs.secret-scan.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📁 Detailed reports available in workflow artifacts" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR with security results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Overall status
+            const semgrepStatus = '${{ needs.semgrep.result }}';
+            const codeqlStatus = '${{ needs.codeql.result }}';
+            const depAuditStatus = '${{ needs.dependency-audit.result }}';
+            const trivyStatus = '${{ needs.trivy-scan.result }}';
+            const secretScanStatus = '${{ needs.secret-scan.result }}';
+
+            // Determine overall security status
+            const hasFailures = [semgrepStatus, codeqlStatus, depAuditStatus, trivyStatus, secretScanStatus]
+              .some(status => status === 'failure');
+            const allPassed = [semgrepStatus, codeqlStatus, depAuditStatus, trivyStatus, secretScanStatus]
+              .every(status => status === 'success');
+
+            let emoji = hasFailures ? '🚨' : (allPassed ? '✅' : '⚠️');
+            let statusText = hasFailures ? 'Security Issues Found' : (allPassed ? 'All Checks Passed' : 'Warnings Present');
+
+            // Build comment
+            let comment = `## ${emoji} Security Scan Results\n\n`;
+            comment += `**Overall Status:** ${statusText}\n\n`;
+
+            // Scanner results table
+            comment += `### Scanner Results\n\n`;
+            comment += `| Scanner | Status | Details |\n`;
+            comment += `|---------|--------|----------|\n`;
+
+            comment += `| Semgrep SAST | ${semgrepStatus === 'success' ? '✅ Passed' : '❌ Failed'} | Static code analysis for security vulnerabilities |\n`;
+            comment += `| CodeQL | ${codeqlStatus === 'success' ? '✅ Passed' : '❌ Failed'} | Deep semantic analysis for code security |\n`;
+            comment += `| Dependency Audit | ${depAuditStatus === 'success' ? '✅ Passed' : '⚠️ Issues'} | Python & npm dependency vulnerabilities |\n`;
+            comment += `| Trivy Container | ${trivyStatus === 'success' ? '✅ Passed' : '❌ Failed'} | Container & image security scanning |\n`;
+            comment += `| Secret Scan | ${secretScanStatus === 'success' ? '✅ Passed' : '❌ Failed'} | Secrets & credentials detection |\n\n`;
+
+            // Actionable recommendations based on failures
+            if (hasFailures) {
+              comment += `### 🔧 Recommended Actions\n\n`;
+
+              if (semgrepStatus === 'failure') {
+                comment += `#### Semgrep Issues\n`;
+                comment += `- **Review the SARIF report** in workflow artifacts for specific findings\n`;
+                comment += `- **Common fixes:**\n`;
+                comment += `  - Use parameterized queries to prevent SQL injection\n`;
+                comment += `  - Validate and sanitize user input\n`;
+                comment += `  - Use secure authentication libraries\n`;
+                comment += `  - Avoid hardcoded secrets and credentials\n`;
+                comment += `- **Action:** Check \`semgrep-results\` artifact for details\n\n`;
+              }
+
+              if (codeqlStatus === 'failure') {
+                comment += `#### CodeQL Issues\n`;
+                comment += `- **Review Security tab** in GitHub for detailed CodeQL alerts\n`;
+                comment += `- **Common fixes:**\n`;
+                comment += `  - Fix type confusion and null pointer issues\n`;
+                comment += `  - Implement proper error handling\n`;
+                comment += `  - Use secure coding practices for detected issues\n`;
+                comment += `- **Action:** View alerts in the Security tab of this repository\n\n`;
+              }
+
+              if (depAuditStatus === 'failure') {
+                comment += `#### Dependency Vulnerabilities\n`;
+                comment += `- **Update dependencies** to patched versions\n`;
+                comment += `- **For Python:**\n`;
+                comment += `  - Run \`pip install --upgrade <package>\` in backend\n`;
+                comment += `  - Review pinned versions in requirements.txt\n`;
+                comment += `- **For JavaScript:**\n`;
+                comment += `  - Run \`pnpm update <package>\` in frontend\n`;
+                comment += `  - Check if overrides are needed for transitive dependencies\n`;
+                comment += `- **Action:** Review audit reports and update vulnerable packages\n\n`;
+              }
+
+              if (trivyStatus === 'failure') {
+                comment += `#### Container Security Issues\n`;
+                comment += `- **Update base images** to latest patched versions\n`;
+                comment += `- **Common fixes:**\n`;
+                comment += `  - Use specific version tags instead of \`latest\`\n`;
+                comment += `  - Run \`docker build --no-cache\` after updates\n`;
+                comment += `  - Minimize layers and remove unnecessary packages\n`;
+                comment += `- **Action:** Review Dockerfiles and update base images\n\n`;
+              }
+
+              if (secretScanStatus === 'failure') {
+                comment += `#### 🔴 Secrets Detected\n`;
+                comment += `- **CRITICAL:** Remove any committed secrets immediately\n`;
+                comment += `- **Immediate actions:**\n`;
+                comment += `  - Rotate exposed credentials (API keys, tokens, passwords)\n`;
+                comment += `  - Remove secrets from git history using \`git filter-repo\` or BFG\n`;
+                comment += `  - Add secrets to .gitignore and use environment variables\n`;
+                comment += `  - Consider this commit compromised and rotate ALL exposed credentials\n`;
+                comment += `- **Action:** Review \`gitleaks-report\` artifact for locations\n\n`;
+              }
+
+              comment += `### 📚 Resources\n\n`;
+              comment += `- [OWASP Top 10](https://owasp.org/www-project-top-ten/) - Most critical security risks\n`;
+              comment += `- [GitHub Security Documentation](https://docs.github.com/en/code-security)\n`;
+              comment += `- [Semgrep Rules](https://semgrep.dev/explore) - Learn about security rules\n\n`;
+            } else if (!allPassed) {
+              comment += `### ⚠️ Warnings\n\n`;
+              comment += `Some scans completed with warnings. Review the detailed reports in workflow artifacts.\n\n`;
+            } else {
+              comment += `### ✅ All Security Checks Passed\n\n`;
+              comment += `No critical security issues detected. Continue to follow security best practices:\n`;
+              comment += `- Regularly update dependencies\n`;
+              comment += `- Review code changes for security implications\n`;
+              comment += `- Keep base Docker images updated\n`;
+              comment += `- Use environment variables for secrets\n\n`;
+            }
+
+            // Workflow artifacts link
+            const runUrl = context.payload.repository.html_url + `/actions/runs/${context.runId}`;
+            comment += `### 📋 Detailed Reports\n\n`;
+            comment += `View full scan results and artifacts in the [workflow run](${runUrl}).\n\n`;
+            comment += `<details>\n`;
+            comment += `<summary>Available Artifacts</summary>\n\n`;
+            comment += `- \`semgrep-results\` - SARIF format SAST findings\n`;
+            comment += `- \`trivy-results\` - Container vulnerability reports\n`;
+            comment += `- \`gitleaks-report\` - Secret detection results\n`;
+            comment += `- CodeQL results available in Security tab\n`;
+            comment += `</details>\n`;
+
+            // Post or update comment
+            const commentMarker = '<!-- SECURITY_SCAN_REPORT -->';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => comment.body.includes(commentMarker));
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment + '\n\n' + commentMarker
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment + '\n\n' + commentMarker
+              });
+            }
 
       - name: Upload combined report
         uses: actions/upload-artifact@v4
