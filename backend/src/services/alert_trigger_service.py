@@ -190,29 +190,80 @@ class AlertTriggerService:
         # Подготовка контекста для шаблона
         template_context = self._prepare_template_context(instance, result)
 
-        # TODO: Интеграция с Celery задачами уведомлений (subtask-5-2)
-        # Сейчас только логируем, полную интеграцию сделаем в фазе worker
+        # Интеграция с Celery задачами уведомлений (subtask-5-2)
+        try:
+            from src.tasks.alerts import trigger_alert
 
-        notification_results = {
-            "channels": list(notification_channels.keys()),
-            "success": True,
-            "errors": [],
-        }
+            # Trigger async notification via Celery
+            notification_queued = trigger_alert(
+                instance_id=str(instance.id),
+                rule_id=str(rule.id),
+                rule_name=rule.name,
+                alert_type=result.alert_type,
+                severity=result.severity,
+                subject=subject,
+                body=body,
+                context=template_context,
+                notification_channels=notification_channels,
+            )
 
-        # Логирование факта отправки
-        logger.info(
-            f"Alert notifications prepared: {rule.name}",
-            extra={
-                "instance_id": str(instance.id),
-                "event_id": event_id,
-                "channels": notification_results["channels"],
-            },
-        )
+            if notification_queued:
+                logger.info(
+                    f"Alert notification queued: {rule.name}",
+                    extra={
+                        "instance_id": str(instance.id),
+                        "event_id": event_id,
+                        "channels": list(notification_channels.keys()),
+                    },
+                )
+            else:
+                logger.warning(
+                    f"Failed to queue alert notification: {rule.name}",
+                    extra={"instance_id": str(instance.id)},
+                )
 
-        # Обновление статуса уведомления в экземпляре
-        instance.notification_sent = notification_results["success"]
-        instance.notification_channels = notification_results
-        self.db.commit()
+        except ImportError:
+            logger.warning(
+                "Alert trigger task not available, falling back to direct notification"
+            )
+            # Fallback: queue notification directly via Celery
+            try:
+                from src.celery_app import celery_app
+
+                if celery_app:
+                    notification_payload = {
+                        "instance_id": str(instance.id),
+                        "event_id": event_id,
+                        "rule_id": str(rule.id),
+                        "rule_name": rule.name,
+                        "alert_type": result.alert_type,
+                        "severity": result.severity,
+                        "subject": subject,
+                        "body": body,
+                        "context": template_context,
+                        "notification_channels": notification_channels,
+                    }
+
+                    celery_app.send_task("alerts.trigger", args=[notification_payload])
+                    logger.info(
+                        f"Alert notification queued via celery_app: {rule.name}",
+                        extra={
+                            "instance_id": str(instance.id),
+                            "event_id": event_id,
+                        },
+                    )
+                else:
+                    logger.error("Celery not configured, cannot send alert notification")
+                    instance.notification_sent = False
+                    self.db.commit()
+
+            except Exception as exc:
+                logger.exception(
+                    "Failed to queue notification via celery_app",
+                    extra={"instance_id": str(instance.id), "error": str(exc)},
+                )
+                instance.notification_sent = False
+                self.db.commit()
 
     def _send_recovery_notification(self, instance: AlertInstance, rule: AlertRule) -> None:
         """Отправить уведомление о восстановлении.
