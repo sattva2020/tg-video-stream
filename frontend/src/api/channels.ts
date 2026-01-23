@@ -12,6 +12,11 @@ export interface Channel {
   video_quality: string;
   stream_type?: 'video' | 'audio';
   placeholder_image?: string;
+  video_codec?: string;
+  audio_codec?: string;
+  video_bitrate?: number;
+  audio_bitrate?: number;
+  resolution?: string;
 }
 
 export interface CreateChannelData {
@@ -23,6 +28,11 @@ export interface CreateChannelData {
   video_quality?: string;
   stream_type?: 'video' | 'audio';
   playlist_id?: string;
+  video_codec?: string;
+  audio_codec?: string;
+  video_bitrate?: number;
+  audio_bitrate?: number;
+  resolution?: string;
 }
 
 export const channelsApi = {
