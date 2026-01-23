@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "006-automated-testing-ci-cd-pipeline",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
+    "completed": 4,
+    "total": 27,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
+    "current": "Test Infrastructure Improvements",
     "id": null,
-    "total": 3
+    "total": 5
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 6,
+    "started_at": "2026-01-23T20:42:01.181288"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-23T21:25:28.487620"
 }
