@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Any
 from datetime import datetime
 import uuid
+from enum import Enum
 
 class PlaylistEntry(BaseModel):
     """Item inside a playlist (stored in JSON)."""
@@ -17,6 +18,8 @@ class PlaylistBase(BaseModel):
     is_public: bool = False
     color: str = "#8B5CF6"
     icon: str = "folder"
+    repeat_mode: RepeatMode = RepeatMode.NONE
+    repeat_count: Optional[int] = None
 
 class PlaylistCreate(PlaylistBase):
     items: List[PlaylistEntry] = []
@@ -28,6 +31,8 @@ class PlaylistUpdate(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     items: Optional[List[PlaylistEntry]] = None
+    repeat_mode: Optional[RepeatMode] = None
+    repeat_count: Optional[int] = None
 
 class PlaylistResponse(PlaylistBase):
     id: uuid.UUID
@@ -167,3 +172,20 @@ class BulkOperationResponse(BaseModel):
     success_count: int
     failed_count: int
     errors: List[str] = []
+
+# Repeat Mode Schemas
+class RepeatMode(str, Enum):
+    """Repeat mode for playlist playback."""
+    NONE = "none"
+    ONE = "one"
+    ALL = "all"
+
+class PlaylistRepeatSettings(BaseModel):
+    """Repeat settings for a playlist."""
+    mode: RepeatMode = RepeatMode.NONE
+    repeat_count: Optional[int] = None  # For limited repeats (None = infinite)
+
+class PlaylistRepeatUpdate(BaseModel):
+    """Request schema for updating playlist repeat settings."""
+    mode: Optional[RepeatMode] = None
+    repeat_count: Optional[int] = None
