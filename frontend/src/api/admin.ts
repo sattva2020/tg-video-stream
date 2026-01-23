@@ -248,4 +248,82 @@ export const adminApi = {
     const response = await client.get(`/api/admin/stream/quality/alert/config/${encodeURIComponent(streamUrl)}`);
     return response.data;
   },
+
+  // Feature 025: IP Whitelist Management
+  getIPWhitelistEntries: async (params?: { active_only?: boolean; ipv4_only?: boolean; ipv6_only?: boolean }): Promise<IPWhitelistEntry[]> => {
+    const response = await client.get('/api/admin/ip-whitelist/entries', { params });
+    return response.data;
+  },
+
+  getIPWhitelistInfo: async (): Promise<IPWhitelistInfo> => {
+    const response = await client.get('/api/admin/ip-whitelist/entries/info');
+    return response.data;
+  },
+
+  getIPWhitelistEntry: async (entryId: string): Promise<IPWhitelistEntry> => {
+    const response = await client.get(`/api/admin/ip-whitelist/entries/${entryId}`);
+    return response.data;
+  },
+
+  createIPWhitelistEntry: async (data: IPWhitelistCreate): Promise<IPWhitelistEntry> => {
+    const response = await client.post('/api/admin/ip-whitelist/entries', data);
+    return response.data;
+  },
+
+  updateIPWhitelistEntry: async (entryId: string, data: IPWhitelistUpdate): Promise<IPWhitelistEntry> => {
+    const response = await client.put(`/api/admin/ip-whitelist/entries/${entryId}`, data);
+    return response.data;
+  },
+
+  deleteIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.delete(`/api/admin/ip-whitelist/entries/${entryId}`);
+    return response.data;
+  },
+
+  activateIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.post(`/api/admin/ip-whitelist/entries/${entryId}/activate`);
+    return response.data;
+  },
+
+  deactivateIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.post(`/api/admin/ip-whitelist/entries/${entryId}/deactivate`);
+    return response.data;
+  },
+
+  checkIPWhitelist: async (ip: string) => {
+    const response = await client.post('/api/admin/ip-whitelist/check', null, { params: { ip } });
+    return response.data;
+  },
 };
+
+// Feature 025: IP Whitelist Types
+export interface IPWhitelistEntry {
+  id: string;
+  cidr: string;
+  description: string | null;
+  is_active: boolean;
+  is_ipv4: boolean;
+  is_ipv6: boolean;
+  created_by_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface IPWhitelistInfo {
+  total_entries: number;
+  active_entries: number;
+  inactive_entries: number;
+  ipv4_entries: number;
+  ipv6_entries: number;
+}
+
+export interface IPWhitelistCreate {
+  cidr: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface IPWhitelistUpdate {
+  description?: string;
+  is_active?: boolean;
+}
