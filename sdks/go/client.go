@@ -130,12 +130,12 @@ func NewClient(apiKey string, opts ...ClientOption) *Client {
 		},
 	}
 
-	// Initialize resources (will be implemented in subtask 7-3)
-	// client.Streams = newStreamsResource(client)
-	// client.Channels = newChannelsResource(client)
-	// client.Playlists = newPlaylistsResource(client)
-	// client.Webhooks = newWebhooksResource(client)
-	// client.APIKeys = newAPIKeysResource(client)
+	// Initialize resources
+	client.Streams = newStreamsResource(client)
+	client.Channels = newChannelsResource(client)
+	client.Playlists = newPlaylistsResource(client)
+	client.Webhooks = newWebhooksResource(client)
+	client.APIKeys = newAPIKeysResource(client)
 
 	return client
 }
