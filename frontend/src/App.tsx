@@ -33,6 +33,7 @@ const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const ApiKeysPage = lazy(() => import('./pages/api-keys'));
 const WebhooksPage = lazy(() => import('./pages/webhooks'));
+const ApiDocsPage = lazy(() => import('./pages/api-docs'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -76,6 +77,7 @@ const App: React.FC = () => {
               <Route path="/playlist" element={<PlaylistPage />} />
               <Route path="/api-keys" element={<ApiKeysPage />} />
               <Route path="/webhooks" element={<WebhooksPage />} />
+              <Route path="/api-docs" element={<ApiDocsPage />} />
               <Route path="/user-playlists" element={<UserPlaylistsPage />} />
               <Route path="/user-playlists/:id" element={<UserPlaylistEditor />} />
             </Route>
