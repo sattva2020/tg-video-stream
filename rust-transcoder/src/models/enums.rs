@@ -1,4 +1,4 @@
-//! Перечисления для аудио форматов, кодеков и статусов
+//! Перечисления для аудио/видео форматов, кодеков и статусов
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -256,6 +256,145 @@ impl fmt::Display for TranscodeStatus {
     }
 }
 
+/// Поддерживаемые видео форматы (контейнеры)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoFormat {
+    /// MP4 container (H.264/H.265 + AAC)
+    #[default]
+    Mp4,
+    /// Matroska Video container
+    Mkv,
+    /// WebM container (VP8/VP9/AV1 + Opus/Vorbis)
+    Webm,
+}
+
+impl VideoFormat {
+    /// Возвращает MIME type для формата
+    pub fn content_type(&self) -> &'static str {
+        match self {
+            VideoFormat::Mp4 => "video/mp4",
+            VideoFormat::Mkv => "video/x-matroska",
+            VideoFormat::Webm => "video/webm",
+        }
+    }
+
+    /// Возвращает FFmpeg format name
+    pub fn ffmpeg_format(&self) -> &'static str {
+        match self {
+            VideoFormat::Mp4 => "mp4",
+            VideoFormat::Mkv => "matroska",
+            VideoFormat::Webm => "webm",
+        }
+    }
+
+    /// Расширение файла
+    pub fn extension(&self) -> &'static str {
+        match self {
+            VideoFormat::Mp4 => "mp4",
+            VideoFormat::Mkv => "mkv",
+            VideoFormat::Webm => "webm",
+        }
+    }
+}
+
+impl fmt::Display for VideoFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VideoFormat::Mp4 => write!(f, "mp4"),
+            VideoFormat::Mkv => write!(f, "mkv"),
+            VideoFormat::Webm => write!(f, "webm"),
+        }
+    }
+}
+
+/// Поддерживаемые видео кодеки
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoCodec {
+    /// H.264/AVC (most compatible)
+    #[default]
+    H264,
+    /// H.265/HEVC (better compression)
+    H265,
+}
+
+impl VideoCodec {
+    /// Возвращает FFmpeg codec name
+    pub fn ffmpeg_codec(&self) -> &'static str {
+        match self {
+            VideoCodec::H264 => "libx264",
+            VideoCodec::H265 => "libx265",
+        }
+    }
+
+    /// Проверяет совместимость кодека с форматом
+    pub fn is_compatible_with(&self, format: VideoFormat) -> bool {
+        matches!(
+            (self, format),
+            (VideoCodec::H264, VideoFormat::Mp4)
+                | (VideoCodec::H264, VideoFormat::Mkv)
+                | (VideoCodec::H264, VideoFormat::Webm)
+                | (VideoCodec::H265, VideoFormat::Mp4)
+                | (VideoCodec::H265, VideoFormat::Mkv)
+        )
+    }
+}
+
+impl fmt::Display for VideoCodec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.ffmpeg_codec())
+    }
+}
+
+/// Качество видео транскодирования
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum VideoQuality {
+    /// Низкое качество (экономия трафика)
+    Low,
+    /// Среднее качество (баланс)
+    #[default]
+    Medium,
+    /// Высокое качество
+    High,
+    /// Ультра качество (Premium/4K)
+    Ultra,
+}
+
+impl VideoQuality {
+    /// Возвращает высоту видео в пикселях и битрейт в kbps
+    pub fn get_video_settings(&self) -> (u32, u32) {
+        match self {
+            VideoQuality::Low => (480, 800),
+            VideoQuality::Medium => (720, 2000),
+            VideoQuality::High => (1080, 4000),
+            VideoQuality::Ultra => (1440, 8000),
+        }
+    }
+
+    /// Возвращает битрейт аудио в kbps
+    pub fn get_audio_settings(&self) -> u32 {
+        match self {
+            VideoQuality::Low => 64,
+            VideoQuality::Medium => 128,
+            VideoQuality::High => 128,
+            VideoQuality::Ultra => 192,
+        }
+    }
+}
+
+impl fmt::Display for VideoQuality {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VideoQuality::Low => write!(f, "low"),
+            VideoQuality::Medium => write!(f, "medium"),
+            VideoQuality::High => write!(f, "high"),
+            VideoQuality::Ultra => write!(f, "ultra"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,5 +452,64 @@ mod tests {
         assert!(!EqPreset::Flat.description().is_empty());
         assert!(EqPreset::BassBoost.description().contains("bass"));
         assert!(EqPreset::Voice.description().contains("voice") || EqPreset::Voice.description().contains("Voice"));
+    }
+
+    // Video format tests
+    #[test]
+    fn test_video_format_content_type() {
+        assert_eq!(VideoFormat::Mp4.content_type(), "video/mp4");
+        assert_eq!(VideoFormat::Mkv.content_type(), "video/x-matroska");
+        assert_eq!(VideoFormat::Webm.content_type(), "video/webm");
+    }
+
+    #[test]
+    fn test_video_format_ffmpeg() {
+        assert_eq!(VideoFormat::Mp4.ffmpeg_format(), "mp4");
+        assert_eq!(VideoFormat::Mkv.ffmpeg_format(), "matroska");
+        assert_eq!(VideoFormat::Webm.ffmpeg_format(), "webm");
+    }
+
+    #[test]
+    fn test_video_format_display() {
+        assert_eq!(VideoFormat::Mp4.to_string(), "mp4");
+        assert_eq!(VideoFormat::Mkv.to_string(), "mkv");
+        assert_eq!(VideoFormat::Webm.to_string(), "webm");
+    }
+
+    #[test]
+    fn test_video_codec_ffmpeg() {
+        assert_eq!(VideoCodec::H264.ffmpeg_codec(), "libx264");
+        assert_eq!(VideoCodec::H265.ffmpeg_codec(), "libx265");
+    }
+
+    #[test]
+    fn test_video_codec_compatibility() {
+        assert!(VideoCodec::H264.is_compatible_with(VideoFormat::Mp4));
+        assert!(VideoCodec::H264.is_compatible_with(VideoFormat::Webm));
+        assert!(!VideoCodec::H265.is_compatible_with(VideoFormat::Webm));
+    }
+
+    #[test]
+    fn test_video_quality_settings() {
+        assert_eq!(VideoQuality::Low.get_video_settings(), (480, 800));
+        assert_eq!(VideoQuality::Medium.get_video_settings(), (720, 2000));
+        assert_eq!(VideoQuality::High.get_video_settings(), (1080, 4000));
+        assert_eq!(VideoQuality::Ultra.get_video_settings(), (1440, 8000));
+    }
+
+    #[test]
+    fn test_video_quality_audio_settings() {
+        assert_eq!(VideoQuality::Low.get_audio_settings(), 64);
+        assert_eq!(VideoQuality::Medium.get_audio_settings(), 128);
+        assert_eq!(VideoQuality::High.get_audio_settings(), 128);
+        assert_eq!(VideoQuality::Ultra.get_audio_settings(), 192);
+    }
+
+    #[test]
+    fn test_video_quality_display() {
+        assert_eq!(VideoQuality::Low.to_string(), "low");
+        assert_eq!(VideoQuality::Medium.to_string(), "medium");
+        assert_eq!(VideoQuality::High.to_string(), "high");
+        assert_eq!(VideoQuality::Ultra.to_string(), "ultra");
     }
 }
