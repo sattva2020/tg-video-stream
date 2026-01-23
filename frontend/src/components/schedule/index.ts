@@ -8,3 +8,4 @@ export { CopyScheduleModal } from './CopyScheduleModal';
 export { PlaylistManager } from './PlaylistManager';
 export { AutoPilotPanel } from './AutoPilotPanel';
 export { ScheduleOptimizationModal } from './ScheduleOptimizationModal';
+export { PeakHoursChart } from './PeakHoursChart';

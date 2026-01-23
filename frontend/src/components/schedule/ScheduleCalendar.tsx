@@ -40,10 +40,11 @@ import {
   Tooltip,
 } from '@heroui/react';
 import { useScheduleCalendar, useDeleteSlot } from '../../hooks/useScheduleQuery';
-import { useScheduleRecommendations } from '../../hooks/useScheduleAI';
+import { useScheduleRecommendations, usePeakHours } from '../../hooks/useScheduleAI';
 import type { ScheduleSlot, CalendarDay } from '../../api/schedule';
 import { AutoPilotPanel } from './AutoPilotPanel';
 import { ScheduleOptimizationModal } from './ScheduleOptimizationModal';
+import { PeakHoursChart } from './PeakHoursChart';
 
 // ==================== Types ====================
 
@@ -300,6 +301,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   // AI Features State
   const [showAutoPilot, setShowAutoPilot] = useState(false);
   const [showOptimization, setShowOptimization] = useState(false);
+  const [showPeakHours, setShowPeakHours] = useState(false);
 
   // Data
   const { data: calendarData, isLoading, isFetching } = useScheduleCalendar(
@@ -314,6 +316,13 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     channelId,
     selectedDateStr,
     { max_recommendations: 5 }
+  );
+
+  // Peak Hours data
+  const { data: peakHoursData, isLoading: peakHoursLoading, error: peakHoursError } = usePeakHours(
+    channelId,
+    '30d',
+    showPeakHours // Only fetch when modal is open
   );
 
   const deleteSlotMutation = useDeleteSlot();
@@ -452,6 +461,18 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
               startContent={<Sparkles className="w-4 h-4" />}
             >
               {t('schedule.optimize', 'Оптимизировать')}
+            </Button>
+          </Tooltip>
+
+          <Tooltip content={t('schedule.peakHoursTooltip', 'Анализ пиковых часов')}>
+            <Button
+              size="sm"
+              variant="flat"
+              className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+              onPress={() => setShowPeakHours(true)}
+              startContent={<TrendingUp className="w-4 h-4" />}
+            >
+              {t('schedule.peakHours', 'Пиковые часы')}
             </Button>
           </Tooltip>
 
@@ -830,6 +851,38 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             endDate={getOptimizationDateRange().endDate}
             onOptimizationApplied={handleOptimizationComplete}
           />
+        )}
+
+        {showPeakHours && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowPeakHours(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.3 }}
+              className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <PeakHoursChart
+                data={peakHoursData}
+                loading={peakHoursLoading}
+                error={peakHoursError?.message}
+              />
+              <button
+                onClick={() => setShowPeakHours(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-[color:var(--color-surface-muted)] hover:bg-[color:var(--color-surface-hover)] transition-colors z-10"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
