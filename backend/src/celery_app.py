@@ -97,8 +97,19 @@ def make_celery():
         # Retry policy
         task_default_retry_delay=60,
         task_max_retries=3,
+
+        # Beat schedule for periodic tasks
+        beat_schedule={
+            'periodic-alert-check': {
+                'task': 'alerts.check_periodic',
+                'schedule': float(os.getenv('ALERT_CHECK_INTERVAL_SECONDS', '60.0')),
+                'options': {
+                    'queue': 'alerts',
+                },
+            },
+        },
     )
-    
+
     return app
 
 
