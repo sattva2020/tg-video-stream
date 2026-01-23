@@ -339,6 +339,74 @@ export const adminApi = {
     const response = await client.post(`/api/admin/security-policies/policies/${policyId}/disable`);
     return response.data;
   },
+
+  // Feature 025: Security Dashboard
+  getSecurityDashboard: async (framework: string = 'soc2', days: number = 30): Promise<SecurityDashboardResponse> => {
+    const response = await client.get('/api/admin/security/dashboard', {
+      params: { framework, days }
+    });
+    return response.data;
+  },
+
+  getSecurityMetrics: async (days: number = 30): Promise<SecurityMetrics> => {
+    const response = await client.get('/api/admin/security/dashboard/metrics', {
+      params: { days }
+    });
+    return response.data;
+  },
+
+  getComplianceStatus: async (framework: string): Promise<ComplianceStatusSummary> => {
+    const response = await client.get(`/api/admin/security/dashboard/compliance/${framework}`);
+    return response.data;
+  },
+
+  getDataProtectionStatus: async (): Promise<DataProtectionStatus> => {
+    const response = await client.get('/api/admin/security/dashboard/data-protection');
+    return response.data;
+  },
+
+  getAccessControlStatus: async (): Promise<AccessControlStatus> => {
+    const response = await client.get('/api/admin/security/dashboard/access-control');
+    return response.data;
+  },
+
+  getSecurityConfigSummary: async (): Promise<SecurityConfigSummary> => {
+    const response = await client.get('/api/admin/security/dashboard/security-configs');
+    return response.data;
+  },
+
+  getRecentCriticalEvents: async (limit: number = 10, severity?: string): Promise<{
+    total: number;
+    events: Array<{
+      id: string;
+      event_type: string;
+      category: string;
+      severity: string;
+      compliance_status: string;
+      title: string;
+      description: string;
+      resource_type?: string;
+      resource_id?: string;
+      timestamp: string | null;
+    }>;
+  }> => {
+    const response = await client.get('/api/admin/security/dashboard/recent-events', {
+      params: { limit, severity }
+    });
+    return response.data;
+  },
+
+  getSecurityEventsHistory: async (
+    period: '1d' | '7d' | '30d' | '90d' | '1y' = '7d',
+    interval: 'hour' | 'day' | 'week' = 'day',
+    category?: string,
+    severity?: string
+  ): Promise<SecurityEventsHistoryResponse> => {
+    const response = await client.get('/api/admin/security/security/events', {
+      params: { period, interval, category, severity }
+    });
+    return response.data;
+  },
 };
 
 // Feature 025: IP Whitelist Types
@@ -422,4 +490,106 @@ export interface SecurityPolicyUpdate {
   allow_exempt_alternative_auth?: boolean;
   policy_config?: Record<string, unknown> | null;
   description?: string | null;
+}
+
+// Feature 025: Security Dashboard Types
+export interface ComplianceStatusSummary {
+  framework: string;
+  overall_status: string;
+  non_compliant_events_last_30_days: number;
+  requirements: Array<{
+    requirement: string;
+    status: string;
+    description: string;
+  }>;
+  last_checked: string;
+}
+
+export interface SecurityMetrics {
+  total_events: number;
+  by_status: Record<string, number>;
+  by_severity: Record<string, number>;
+  by_category: Record<string, number>;
+  unresolved_incidents: number;
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+}
+
+export interface DataProtectionStatus {
+  overall_status: string;
+  checks: Record<string, {
+    status: string;
+    description: string;
+    last_checked?: string;
+  }>;
+  last_checked: string;
+}
+
+export interface AccessControlStatus {
+  overall_status: string;
+  checks: Record<string, {
+    status: string;
+    description: string;
+    last_checked?: string;
+  }>;
+  last_checked: string;
+}
+
+export interface SecurityConfigSummary {
+  saml_configs_enabled: number;
+  saml_configs_total: number;
+  security_policies_enabled: number;
+  security_policies_total: number;
+  ip_whitelist_entries: number;
+  two_factor_enforcement_enabled: boolean;
+}
+
+export interface SecurityDashboardResponse {
+  compliance_status: ComplianceStatusSummary;
+  security_metrics: SecurityMetrics;
+  data_protection: DataProtectionStatus;
+  access_control: AccessControlStatus;
+  security_configs: SecurityConfigSummary;
+  recent_critical_events: Array<{
+    id: string;
+    event_type: string;
+    category: string;
+    severity: string;
+    compliance_status: string;
+    title: string;
+    description: string;
+    timestamp: string | null;
+  }>;
+  generated_at: string;
+}
+
+export interface SecurityEventBucket {
+  timestamp: string;
+  total_events: number;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+  by_category: Record<string, number>;
+  critical_events: number;
+  high_events: number;
+  resolved_events: number;
+}
+
+export interface SecurityEventsHistoryResponse {
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+  interval: string;
+  total_events: number;
+  buckets: SecurityEventBucket[];
+  summary: {
+    resolved_events: number;
+    critical_events: number;
+    high_events: number;
+    unresolved_events: number;
+  };
 }
