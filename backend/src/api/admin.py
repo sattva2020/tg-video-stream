@@ -27,6 +27,7 @@ from src.api.admin.ip_whitelist import router as ip_whitelist_router
 from src.api.admin.security_policy import router as security_policy_router
 from src.api.admin.data_export import router as data_export_router
 from src.api.admin.user_deletion import router as user_deletion_router
+from src.api.admin.security_dashboard import router as security_dashboard_router
 from src.lib.audit import (
     audit_read,
     audit_create,
@@ -63,6 +64,11 @@ router.include_router(data_export_router, prefix="", tags=["Data Export"])
 # Feature 025: User Deletion for GDPR Right to Erasure
 # ============================================================================
 router.include_router(user_deletion_router, prefix="", tags=["User Deletion"])
+
+# ============================================================================
+# Feature 025: Security Dashboard
+# ============================================================================
+router.include_router(security_dashboard_router, prefix="/security", tags=["Security Dashboard"])
 
 
 class PlaylistUpdate(BaseModel):
