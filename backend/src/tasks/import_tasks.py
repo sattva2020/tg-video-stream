@@ -590,12 +590,13 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
         Celery task: импортирует локальные медиа-файлы с отслеживанием прогресса.
 
         Сканирует директорию и импортирует найденные медиа-файлы.
+        Использует media_scanner для извлечения метаданных из аудиофайлов.
 
         Args:
             job_id: UUID import job
-            source_path: Путь к файлу или директории
+            source_path: Путь к файлу или директории (относительный от MUSIC_ROOT)
             channel_id: Опциональный ID канала для привязки
-            options: Опции импорта (recursive, file_types, deduplicate)
+            options: Опции импорта (recursive, deduplicate)
         """
         logger.info(f"[worker] import_local_library_task for job {job_id}, path: {source_path}")
 
@@ -603,6 +604,8 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
         from src.models.import_job import ImportJob, ImportStatus
         from src.models.playlist import PlaylistItem
         from src.services.deduplication_service import DeduplicationService
+        from src.services.media_scanner import scan_folder, get_file_metadata
+        from pathlib import Path
 
         options = options or {}
         db = SessionLocal()
@@ -618,78 +621,51 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
             job.mark_started()
             db.commit()
 
-            # Проверяем существование пути
-            if not os.path.exists(source_path):
-                job.mark_failed(f"Path does not exist: {source_path}")
-                db.commit()
-                return {"success": False, "error": "Path does not exist"}
-
             # Опции сканирования
             recursive = options.get("recursive", True)
-            file_types = options.get("file_types", [
-                ".mp4", ".mkv", ".avi", ".mov", ".wmv",  # Video
-                ".mp3", ".wav", ".flac", ".m4a", ".ogg",  # Audio
-                ".m3u", ".m3u8"  # Playlists
-            ])
 
-            # Сканируем файлы
-            items = []
-            total_size = 0
+            # Используем media_scanner для сканирования папки
+            try:
+                media_files = scan_folder(source_path, recursive=recursive)
+            except FileNotFoundError as e:
+                job.mark_failed(str(e))
+                db.commit()
+                return {"success": False, "error": str(e)}
+            except (ValueError, PermissionError) as e:
+                job.mark_failed(str(e))
+                db.commit()
+                return {"success": False, "error": str(e)}
 
-            if os.path.isfile(source_path):
-                # Одиночный файл
-                if any(source_path.lower().endswith(ext) for ext in file_types):
-                    stat = os.stat(source_path)
-                    items.append({
-                        "url": source_path,
-                        "title": os.path.basename(source_path),
-                        "duration": None,
-                        "type": "local",
-                        "file_size": stat.st_size
-                    })
-                    total_size += stat.st_size
-            else:
-                # Директория - сканируем
-                if recursive:
-                    for root, dirs, files in os.walk(source_path):
-                        for filename in files:
-                            if any(filename.lower().endswith(ext) for ext in file_types):
-                                file_path = os.path.join(root, filename)
-                                stat = os.stat(file_path)
-                                items.append({
-                                    "url": file_path,
-                                    "title": filename,
-                                    "duration": None,
-                                    "type": "local",
-                                    "file_size": stat.st_size
-                                })
-                                total_size += stat.st_size
-                else:
-                    for filename in os.listdir(source_path):
-                        file_path = os.path.join(source_path, filename)
-                        if os.path.isfile(file_path) and any(
-                            filename.lower().endswith(ext) for ext in file_types
-                        ):
-                            stat = os.stat(file_path)
-                            items.append({
-                                "url": file_path,
-                                "title": filename,
-                                "duration": None,
-                                "type": "local",
-                                "file_size": stat.st_size
-                            })
-                            total_size += stat.st_size
-
-            if not items:
+            if not media_files:
                 job.mark_failed("No media files found in specified path")
                 db.commit()
                 return {"success": False, "error": "No media files found"}
+
+            # Подготавливаем элементы для импорта
+            items = []
+            total_size = 0
+            total_duration = 0
+
+            for media_file in media_files:
+                items.append({
+                    "url": media_file.path,
+                    "title": media_file.title,
+                    "artist": media_file.artist,
+                    "album": media_file.album,
+                    "duration": media_file.duration,
+                    "type": "local",
+                    "file_size": media_file.size,
+                    "mime_type": media_file.mime_type
+                })
+                total_size += media_file.size
+                total_duration += media_file.duration
 
             # Обновляем метаданные job
             job.metadata = {
                 "source_path": source_path,
                 "recursive": recursive,
                 "total_size_bytes": total_size,
+                "total_duration": total_duration,
                 "file_count": len(items)
             }
             job.total_items = len(items)
@@ -735,9 +711,17 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
                                 failed=len(failed),
                                 skipped=len(duplicates)
                             )
+                            # Notify about progress
+                            _notify_import_progress(job_id, {
+                                "processed": i + 1,
+                                "total": len(items),
+                                "imported": len(imported),
+                                "duplicates": len(duplicates),
+                                "failed": len(failed)
+                            })
                             continue
 
-                    # Создаём элемент плейлиста
+                    # Создаём элемент плейлиста с метаданными
                     playlist_item = PlaylistItem(
                         url=item_url,
                         title=item.get("title"),
@@ -746,6 +730,12 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
                         position=position,
                         channel_id=channel_id,
                     )
+
+                    # Добавляем дополнительные метаданные если модель поддерживает
+                    if hasattr(playlist_item, "artist") and item.get("artist"):
+                        playlist_item.artist = item["artist"]
+                    if hasattr(playlist_item, "album") and item.get("album"):
+                        playlist_item.album = item["album"]
 
                     db.add(playlist_item)
                     position += 1
@@ -790,7 +780,9 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
                     "total": len(items),
                     "imported": len(imported),
                     "duplicates": len(duplicates),
-                    "failed": len(failed)
+                    "failed": len(failed),
+                    "total_duration": total_duration,
+                    "total_size": total_size
                 }
             }
 
@@ -800,14 +792,15 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
 
             logger.info(f"Local import job {job_id} completed: "
                        f"{len(imported)} imported, {len(duplicates)} duplicates, "
-                       f"{len(failed)} failed")
+                       f"{len(failed)} failed, {total_duration}s total duration")
 
             # Notify about completion
             _notify_import_progress(job_id, {
                 "status": "completed",
                 "imported": len(imported),
                 "duplicates": len(duplicates),
-                "failed": len(failed)
+                "failed": len(failed),
+                "total_duration": total_duration
             })
 
             return {
