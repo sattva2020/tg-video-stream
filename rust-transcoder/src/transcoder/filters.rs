@@ -1,8 +1,128 @@
-//! Аудио фильтры FFmpeg
+//! Аудио и видео фильтры FFmpeg
 //!
-//! Генерация строк фильтров для FFmpeg -af опции.
+//! Генерация строк фильтров для FFmpeg -vf (видео) и -af (аудио) опции.
 
 use crate::models::EqPreset;
+
+// ==================== ВИДЕО ФИЛЬТРЫ ====================
+
+/// Генерирует transpose фильтр для коррекции ориентации видео
+///
+/// # Arguments
+/// * `orientation` - угол поворота в градусах (0, 90, 180, 270)
+///
+/// # Returns
+/// Строка с transpose фильтром или пустая строка для orientation=0
+///
+/// # Examples
+/// ```
+/// assert_eq!(transpose_filter(90), "transpose=2");
+/// assert_eq!(transpose_filter(180), "transpose=1,transpose=1");
+/// assert_eq!(transpose_filter(270), "transpose=1");
+/// assert_eq!(transpose_filter(0), "");
+/// ```
+pub fn transpose_filter(orientation: u32) -> String {
+    match orientation {
+        90 => "transpose=2".to_string(),      // 90° counter-clockwise
+        180 => "transpose=1,transpose=1".to_string(), // 180° (два раза 90° CW)
+        270 => "transpose=1".to_string(),     // 90° clockwise (270° CCW)
+        0 => String::new(),                   // Без изменений
+        _ => String::new(),                   // Некорректное значение - игнорируем
+    }
+}
+
+/// Генерирует scale фильтр для изменения разрешения
+///
+/// # Arguments
+/// * `width` - ширина в пикселях (None = auto)
+/// * `height` - высота в пикселях (None = auto)
+///
+/// # Returns
+/// Строка scale фильтра или пустая строка если оба None
+///
+/// # Examples
+/// ```
+/// assert_eq!(scale_filter(Some(1920), Some(1080)), "scale=1920:1080");
+/// assert_eq!(scale_filter(None, Some(720)), "scale=-2:720");
+/// assert_eq!(scale_filter(Some(1280), None), "scale=1280:-2");
+/// assert_eq!(scale_filter(None, None), "");
+/// ```
+pub fn scale_filter(width: Option<u32>, height: Option<u32>) -> String {
+    match (width, height) {
+        (Some(w), Some(h)) => format!("scale={}:{}", w, h),
+        (Some(w), None) => format!("scale={}:-2", w),
+        (None, Some(h)) => format!("scale=-2:{}", h),
+        (None, None) => String::new(),
+    }
+}
+
+/// Генерирует fps фильтр для изменения частоты кадров
+///
+/// # Arguments
+/// * `fps` - целевой FPS
+///
+/// # Returns
+/// Строка fps фильтра
+pub fn fps_filter(fps: u32) -> String {
+    format!("fps={}", fps)
+}
+
+/// Объединяет видео фильтры в цепочку
+///
+/// # Arguments
+/// * `filters` - список строк видео фильтров
+///
+/// # Returns
+/// Объединённая строка фильтров через запятую (пустые фильтры пропускаются)
+pub fn chain_video_filters(filters: &[String]) -> String {
+    filters
+        .iter()
+        .filter(|f| !f.is_empty())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Строит полную цепочку видео фильтров
+///
+/// # Arguments
+/// * `orientation` - опциональная ориентация (0, 90, 180, 270)
+/// * `width` - опциональная ширина для масштабирования
+/// * `height` - опциональная высота для масштабирования
+/// * `fps` - опциональный FPS
+///
+/// # Returns
+/// Полная цепочка FFmpeg video filters (-vf) или пустая строка
+pub fn build_video_filter_chain(
+    orientation: Option<u32>,
+    width: Option<u32>,
+    height: Option<u32>,
+    fps: Option<u32>,
+) -> String {
+    let mut filters = Vec::new();
+
+    // 1. Orientation correction (прежде всего)
+    if let Some(o) = orientation {
+        if o != 0 {
+            filters.push(transpose_filter(o));
+        }
+    }
+
+    // 2. Scale (разрешение)
+    let scale = scale_filter(width, height);
+    if !scale.is_empty() {
+        filters.push(scale);
+    }
+
+    // 3. FPS (последним)
+    if let Some(f) = fps {
+        filters.push(fps_filter(f));
+    }
+
+    chain_video_filters(&filters)
+}
+
+// ==================== АУДИО ФИЛЬТРЫ ====================
 
 /// Генерирует фильтр fade in
 ///
@@ -221,6 +341,152 @@ pub fn build_audio_filter_chain(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ==================== ВИДЕО ФИЛЬТРЫ ТЕСТЫ ====================
+
+    #[test]
+    fn test_transpose_filter_90_degrees() {
+        assert_eq!(transpose_filter(90), "transpose=2");
+    }
+
+    #[test]
+    fn test_transpose_filter_180_degrees() {
+        assert_eq!(transpose_filter(180), "transpose=1,transpose=1");
+    }
+
+    #[test]
+    fn test_transpose_filter_270_degrees() {
+        assert_eq!(transpose_filter(270), "transpose=1");
+    }
+
+    #[test]
+    fn test_transpose_filter_0_degrees() {
+        assert_eq!(transpose_filter(0), "");
+    }
+
+    #[test]
+    fn test_transpose_filter_invalid() {
+        // Некорректные значения должны возвращать пустую строку
+        assert_eq!(transpose_filter(45), "");
+        assert_eq!(transpose_filter(360), "");
+    }
+
+    #[test]
+    fn test_scale_filter_both_dimensions() {
+        assert_eq!(scale_filter(Some(1920), Some(1080)), "scale=1920:1080");
+        assert_eq!(scale_filter(Some(1280), Some(720)), "scale=1280:720");
+    }
+
+    #[test]
+    fn test_scale_filter_width_only() {
+        assert_eq!(scale_filter(Some(1920), None), "scale=1920:-2");
+        assert_eq!(scale_filter(Some(640), None), "scale=640:-2");
+    }
+
+    #[test]
+    fn test_scale_filter_height_only() {
+        assert_eq!(scale_filter(None, Some(1080)), "scale=-2:1080");
+        assert_eq!(scale_filter(None, Some(480)), "scale=-2:480");
+    }
+
+    #[test]
+    fn test_scale_filter_none() {
+        assert_eq!(scale_filter(None, None), "");
+    }
+
+    #[test]
+    fn test_fps_filter() {
+        assert_eq!(fps_filter(30), "fps=30");
+        assert_eq!(fps_filter(60), "fps=60");
+        assert_eq!(fps_filter(24), "fps=24");
+    }
+
+    #[test]
+    fn test_chain_video_filters_empty() {
+        let filters = vec![];
+        assert_eq!(chain_video_filters(&filters), "");
+    }
+
+    #[test]
+    fn test_chain_video_filters_single() {
+        let filters = vec!["transpose=2".to_string()];
+        assert_eq!(chain_video_filters(&filters), "transpose=2");
+    }
+
+    #[test]
+    fn test_chain_video_filters_multiple() {
+        let filters = vec![
+            "transpose=2".to_string(),
+            "scale=1920:1080".to_string(),
+            "fps=30".to_string(),
+        ];
+        let result = chain_video_filters(&filters);
+        assert_eq!(result, "transpose=2,scale=1920:1080,fps=30");
+    }
+
+    #[test]
+    fn test_chain_video_filters_skips_empty() {
+        let filters = vec![
+            "transpose=2".to_string(),
+            String::new(), // Пустой фильтр
+            "scale=1920:1080".to_string(),
+        ];
+        let result = chain_video_filters(&filters);
+        assert!(!result.contains(",,"));
+        assert_eq!(result, "transpose=2,scale=1920:1080");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_orientation_only() {
+        let chain = build_video_filter_chain(Some(90), None, None, None);
+        assert_eq!(chain, "transpose=2");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_scale_only() {
+        let chain = build_video_filter_chain(None, Some(1920), Some(1080), None);
+        assert_eq!(chain, "scale=1920:1080");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_fps_only() {
+        let chain = build_video_filter_chain(None, None, None, Some(30));
+        assert_eq!(chain, "fps=30");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_combined() {
+        let chain = build_video_filter_chain(Some(90), Some(1920), Some(1080), Some(30));
+        assert_eq!(chain, "transpose=2,scale=1920:1080,fps=30");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_orientation_180() {
+        let chain = build_video_filter_chain(Some(180), None, None, None);
+        assert_eq!(chain, "transpose=1,transpose=1");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_orientation_270() {
+        let chain = build_video_filter_chain(Some(270), None, None, None);
+        assert_eq!(chain, "transpose=1");
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_orientation_0_skipped() {
+        let chain = build_video_filter_chain(Some(0), Some(1920), Some(1080), None);
+        // orientation=0 должен быть пропущен
+        assert_eq!(chain, "scale=1920:1080");
+        assert!(!chain.contains("transpose"));
+    }
+
+    #[test]
+    fn test_build_video_filter_chain_empty() {
+        let chain = build_video_filter_chain(None, None, None, None);
+        assert_eq!(chain, "");
+    }
+
+    // ==================== АУДИО ФИЛЬТРЫ ТЕСТЫ ====================
 
     #[test]
     fn test_fade_in() {
