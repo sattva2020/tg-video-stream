@@ -13,6 +13,7 @@ import type {
   ListenerStatsResponse,
   ListenerHistoryResponse,
   TopTracksResponse,
+  MultiPlatformAnalyticsResponse,
 } from '../types/analytics';
 
 /**
@@ -68,6 +69,21 @@ export async function getTopTracks(
 ): Promise<TopTracksResponse> {
   const response = await client.get<TopTracksResponse>('/api/analytics/top-tracks', {
     params: { period, limit },
+  });
+  return response.data;
+}
+
+/**
+ * Получить мультиплатформенную аналитику.
+ *
+ * @param period - Период данных (7d, 30d, 90d, all)
+ * @returns Агрегированная статистика по всем платформам
+ */
+export async function getMultiPlatformAnalytics(
+  period: AnalyticsPeriod = '7d'
+): Promise<MultiPlatformAnalyticsResponse> {
+  const response = await client.get<MultiPlatformAnalyticsResponse>('/api/analytics/multi-platform', {
+    params: { period },
   });
   return response.data;
 }

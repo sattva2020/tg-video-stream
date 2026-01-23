@@ -98,3 +98,49 @@ export interface TrackPlayResponse {
   /** Время записи */
   played_at: string;
 }
+
+/** Метрики платформы */
+export interface PlatformMetrics {
+  /** ID платформы */
+  platform_id: string;
+  /** Тип платформы */
+  platform_type: 'youtube' | 'twitch' | 'twitter' | 'discord' | 'custom_rtmp';
+  /** Название платформы */
+  platform_name: string;
+  /** Статус платформы */
+  status: 'inactive' | 'active' | 'error';
+  /** Количество стримов */
+  stream_count: number;
+  /** Общее время стриминга в часах */
+  total_stream_hours: number;
+  /** Количество постов */
+  post_count: number;
+  /** Успешные посты */
+  successful_posts: number;
+  /** Неудачные посты */
+  failed_posts: number;
+  /** Последняя активность */
+  last_activity?: string;
+}
+
+/** Ответ с мультиплатформенной аналитикой */
+export interface MultiPlatformAnalyticsResponse {
+  /** Период данных */
+  period: AnalyticsPeriod;
+  /** Общее количество платформ */
+  total_platforms: number;
+  /** Активные платформы */
+  active_platforms: number;
+  /** Список платформ */
+  platforms: PlatformMetrics[];
+  /** Общее количество стримов */
+  total_streams: number;
+  /** Общее время стриминга в часах */
+  total_stream_hours: number;
+  /** Общее количество постов */
+  total_posts: number;
+  /** Успешные посты rate */
+  successful_posts_rate: number;
+  /** Время кэширования */
+  cached_at: string;
+}

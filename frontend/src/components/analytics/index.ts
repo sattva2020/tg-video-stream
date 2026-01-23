@@ -6,3 +6,4 @@
 export { MetricCard } from './MetricCard';
 export { ListenersChart } from './ListenersChart';
 export { TopTracksTable } from './TopTracksTable';
+export { MultiPlatformAnalytics } from './MultiPlatformAnalytics';
