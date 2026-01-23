@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useTranslation } from 'react-i18next';
 import { AuthProvider } from './context/AuthContext';
 import { LogCollectorProvider } from './context/LogCollectorContext';
+import { OrganizationProvider } from './context/OrganizationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import { UserRole } from './types/user';
@@ -60,8 +61,9 @@ const App: React.FC = () => {
     <Suspense fallback={<LoadingFallback />}>
       <LogCollectorProvider>
         <AuthProvider>
-          <Router>
-            <Suspense fallback={<LoadingFallback />}>
+          <OrganizationProvider>
+            <Router>
+              <Suspense fallback={<LoadingFallback />}>
             <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage3D />} />
@@ -120,9 +122,10 @@ const App: React.FC = () => {
           </Routes>
         </Suspense>
         
-        {/* Плавающая кнопка "Сообщить о проблеме" */}
-        <ReportBugButton variant="floating" showOnError={true} />
-      </Router>
+          {/* Плавающая кнопка "Сообщить о проблеме" */}
+          <ReportBugButton variant="floating" showOnError={true} />
+        </Router>
+      </OrganizationProvider>
     </AuthProvider>
       </LogCollectorProvider>
       
