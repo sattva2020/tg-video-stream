@@ -154,7 +154,7 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    const hasDescription = await page.evaluate(() => {
+    await page.evaluate(() => {
       const body = document.body;
       return body.textContent?.includes('быстрый доступ') ||
              body.textContent?.includes('quick access') ||
