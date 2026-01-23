@@ -26,6 +26,13 @@ class RepeatType(str, PyEnum):
     CUSTOM = "custom"       # Пользовательский (указать дни)
 
 
+class PlaylistRepeatMode(str, PyEnum):
+    """Режимы воспроизведения плейлиста."""
+    NONE = "none"           # Без повтора (остановиться после последнего трека)
+    ONE = "one"             # Повторять один трек
+    ALL = "all"             # Повторять весь плейлист (зациклить)
+
+
 class ScheduleSlot(Base):
     """
     Слот расписания — привязка плейлиста/контента к временному интервалу.
@@ -202,7 +209,14 @@ class Playlist(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     color = Column(String(7), default="#8B5CF6")  # Фиолетовый по умолчанию
-    
+
+    # Режим повтора при воспроизведении
+    repeat_mode = Column(
+        Enum(PlaylistRepeatMode, values_callable=lambda x: [e.value for e in x]),
+        default=PlaylistRepeatMode.NONE,
+        nullable=False
+    )
+
     # Источник плейлиста
     source_type = Column(String(50), default="manual")  # manual, youtube, m3u, folder, gdrive_folder
     source_url = Column(String(2048), nullable=True)    # URL источника (YouTube playlist, m3u)
