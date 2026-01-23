@@ -16,6 +16,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { OfflineBanner } from './components/OfflineBanner';
 
 /**
  * Error boundary fallback component
@@ -35,20 +37,28 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
  */
 const PushNotificationInitializer: React.FC = () => {
   const { isAuthenticated } = useAuth();
-  const { expoPushToken, isRegistered, error } = usePushNotifications();
+  const { isRegistered } = usePushNotifications();
 
+  // Push notification registration is handled automatically by the hook
+  // This component ensures registration when user is authenticated
   useEffect(() => {
-    if (isAuthenticated && isRegistered && expoPushToken) {
+    if (isAuthenticated && isRegistered) {
       // Successfully registered for push notifications
-      console.log('Push notifications registered:', expoPushToken);
+      // Token is available in the hook and can be sent to backend
     }
-
-    if (error) {
-      console.error('Push notification error:', error);
-    }
-  }, [isAuthenticated, isRegistered, expoPushToken, error]);
+  }, [isAuthenticated, isRegistered]);
 
   return null; // This component doesn't render anything
+};
+
+/**
+ * Network status wrapper component
+ * Monitors network status and displays offline banner
+ */
+const NetworkStatusWrapper: React.FC = () => {
+  const { isOnline, connectionType } = useNetworkStatus();
+
+  return <OfflineBanner isOnline={isOnline} connectionType={connectionType} />;
 };
 
 /**
@@ -57,6 +67,7 @@ const PushNotificationInitializer: React.FC = () => {
 const Root: React.FC = () => (
   <OfflineProvider>
     <AuthProvider>
+      <NetworkStatusWrapper />
       <PushNotificationInitializer />
       <AppNavigator />
     </AuthProvider>
