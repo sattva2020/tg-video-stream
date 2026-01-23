@@ -1,12 +1,15 @@
 """
 Analytics Service
-Feature: 021-admin-analytics-menu
+Feature: 021-admin-analytics-menu, 012-comprehensive-analytics-dashboard
 
 Сервис для сбора и кэширования аналитики:
 - Статистика слушателей (текущие, пик, среднее)
 - История слушателей (для графиков)
 - Топ треков
 - Сводная статистика
+- Метрики вовлеченности
+- Производительность потока
+- Аналитика контента и точки отказа
 """
 
 import json
@@ -27,6 +30,9 @@ from sqlalchemy.orm import Session
 
 from src.models.analytics import TrackPlay, MonthlyAnalytics
 from src.models.playlist import PlaylistItem
+from src.models.engagement import EngagementEvent
+from src.models.stream_quality import StreamQualityHistory
+from src.models.viewer_session import ViewerSession
 from src.schemas.analytics import (
     ListenerStatsResponse,
     ListenerHistoryPoint,
@@ -38,6 +44,15 @@ from src.schemas.analytics import (
     TrackPlayResponse,
     AnalyticsPeriod,
     HistoryInterval,
+    EngagementMetricsResponse,
+    EngagementTrendPoint,
+    ActiveUserItem,
+    StreamPerformanceResponse,
+    QualityDistributionItem,
+    QualityTrendPoint,
+    ContentInsightsResponse,
+    ContentPerformanceItem,
+    DropOffPoint,
 )
 from src.core.config import settings
 
@@ -49,6 +64,9 @@ CACHE_SUMMARY_KEY = f"{CACHE_PREFIX}summary:{{period}}"
 CACHE_LISTENERS_KEY = f"{CACHE_PREFIX}listeners"
 CACHE_HISTORY_KEY = f"{CACHE_PREFIX}history:{{period}}:{{interval}}"
 CACHE_TOP_TRACKS_KEY = f"{CACHE_PREFIX}top_tracks:{{period}}:{{limit}}"
+CACHE_ENGAGEMENT_KEY = f"{CACHE_PREFIX}engagement:{{period}}"
+CACHE_STREAM_PERFORMANCE_KEY = f"{CACHE_PREFIX}stream_performance:{{period}}"
+CACHE_CONTENT_INSIGHTS_KEY = f"{CACHE_PREFIX}content_insights:{{period}}"
 CACHE_TTL = 300  # 5 minutes
 
 
@@ -61,12 +79,15 @@ def _period_to_days(period: AnalyticsPeriod) -> Optional[int]:
 class AnalyticsService:
     """
     Сервис аналитики с Redis кэшированием.
-    
+
     Методы:
     - get_listener_stats: Текущая статистика слушателей
     - get_listener_history: История для графиков
     - get_top_tracks: Топ треков
     - get_summary: Сводная статистика
+    - get_engagement: Метрики вовлеченности
+    - get_stream_performance: Производительность потока
+    - get_content_insights: Аналитика контента и точки отказа
     - log_track_play: Запись воспроизведения (для streamer)
     """
 
@@ -311,6 +332,348 @@ class AnalyticsService:
             total_duration_hours=round(total_seconds / 3600, 2),
             unique_tracks=unique_tracks,
             listeners=listeners,
+            cached_at=now
+        )
+
+        await self._set_to_cache(cache_key, result.model_dump())
+        return result
+
+    async def get_engagement(self, period: AnalyticsPeriod = "7d") -> EngagementMetricsResponse:
+        """
+        Получение метрик вовлеченности за период.
+
+        Args:
+            period: Период данных (7d, 30d, 90d, all)
+
+        Returns:
+            EngagementMetricsResponse с метриками вовлеченности
+        """
+        cache_key = CACHE_ENGAGEMENT_KEY.format(period=period)
+        cached = await self._get_from_cache(cache_key)
+        if cached:
+            return EngagementMetricsResponse(**cached)
+
+        period_start = self._get_period_filter(period)
+        now = datetime.now(timezone.utc)
+
+        # Базовый фильтр
+        base_filter = EngagementEvent.event_timestamp >= period_start if period_start else True
+
+        # Общее количество событий по типам
+        total_messages = self.db.execute(
+            select(func.count(EngagementEvent.id))
+            .where(and_(base_filter, EngagementEvent.event_type == "chat_message"))
+        ).scalar() or 0
+
+        total_reactions = self.db.execute(
+            select(func.count(EngagementEvent.id))
+            .where(and_(base_filter, EngagementEvent.event_type == "reaction"))
+        ).scalar() or 0
+
+        total_comments = self.db.execute(
+            select(func.count(EngagementEvent.id))
+            .where(and_(base_filter, EngagementEvent.event_type == "comment"))
+        ).scalar() or 0
+
+        # Уникальные пользователи
+        unique_users = self.db.execute(
+            select(func.count(func.distinct(EngagementEvent.user_id))).where(base_filter)
+        ).scalar() or 0
+
+        # Среднее количество событий в день
+        days = _period_to_days(period) or 7
+        total_events = total_messages + total_reactions + total_comments
+        average_daily = round(total_events / days, 2) if days > 0 else 0.0
+
+        # Топ активных пользователей
+        top_users_query = (
+            select(
+                EngagementEvent.user_id,
+                EngagementEvent.username,
+                func.sum(func.case((EngagementEvent.event_type == "chat_message", 1), else_=0)).label('message_count'),
+                func.sum(func.case((EngagementEvent.event_type == "reaction", 1), else_=0)).label('reaction_count'),
+                func.max(EngagementEvent.event_timestamp).label('last_activity')
+            )
+            .where(base_filter)
+            .group_by(EngagementEvent.user_id, EngagementEvent.username)
+            .order_by(desc('message_count'))
+            .limit(10)
+        )
+        top_users_rows = self.db.execute(top_users_query).fetchall()
+
+        top_active_users = [
+            ActiveUserItem(
+                user_id=row.user_id,
+                username=row.username,
+                message_count=row.message_count or 0,
+                reaction_count=row.reaction_count or 0,
+                last_activity=row.last_activity
+            )
+            for row in top_users_rows
+        ]
+
+        # Данные для графика вовлеченности по времени (группировка по дням)
+        time_trunc = func.date_trunc('day', EngagementEvent.event_timestamp)
+        engagement_query = select(
+            time_trunc.label('timestamp'),
+            func.sum(func.case((EngagementEvent.event_type == "chat_message", 1), else_=0)).label('message_count'),
+            func.sum(func.case((EngagementEvent.event_type == "reaction", 1), else_=0)).label('reaction_count'),
+            func.count(func.distinct(EngagementEvent.user_id)).label('unique_users')
+        ).where(base_filter).group_by(time_trunc).order_by(time_trunc)
+
+        engagement_rows = self.db.execute(engagement_query).fetchall()
+
+        engagement_over_time = [
+            EngagementTrendPoint(
+                timestamp=row.timestamp,
+                message_count=row.message_count or 0,
+                reaction_count=row.reaction_count or 0,
+                unique_users=row.unique_users or 0
+            )
+            for row in engagement_rows
+        ]
+
+        result = EngagementMetricsResponse(
+            period=period,
+            total_messages=total_messages,
+            total_reactions=total_reactions,
+            total_comments=total_comments,
+            unique_users=unique_users,
+            average_daily=average_daily,
+            top_active_users=top_active_users,
+            engagement_over_time=engagement_over_time,
+            cached_at=now
+        )
+
+        await self._set_to_cache(cache_key, result.model_dump())
+        return result
+
+    async def get_stream_performance(self, period: AnalyticsPeriod = "7d") -> StreamPerformanceResponse:
+        """
+        Получение показателей производительности потока.
+
+        Args:
+            period: Период данных (7d, 30d, 90d, all)
+
+        Returns:
+            StreamPerformanceResponse с метриками производительности
+        """
+        cache_key = CACHE_STREAM_PERFORMANCE_KEY.format(period=period)
+        cached = await self._get_from_cache(cache_key)
+        if cached:
+            return StreamPerformanceResponse(**cached)
+
+        period_start = self._get_period_filter(period)
+        now = datetime.now(timezone.utc)
+
+        # Базовый фильтр
+        base_filter = StreamQualityHistory.analyzed_at >= period_start if period_start else True
+
+        # Аптайм: считаем процент успешных анализов
+        total_records = self.db.execute(
+            select(func.count(StreamQualityHistory.id)).where(base_filter)
+        ).scalar() or 0
+
+        successful_records = self.db.execute(
+            select(func.count(StreamQualityHistory.id))
+            .where(and_(base_filter, StreamQualityHistory.success == True))
+        ).scalar() or 0
+
+        uptime_percentage = round((successful_records / total_records * 100), 2) if total_records > 0 else 100.0
+
+        # Аптайм в часах (предполагаем записи каждые 5 минут)
+        uptime_hours = round(total_records * 5 / 60, 2) if total_records > 0 else 0.0
+
+        # Средний процент буферизации
+        avg_buffering = self.db.execute(
+            select(func.avg(StreamQualityHistory.buffering_percentage))
+            .where(and_(base_filter, StreamQualityHistory.buffering_percentage.isnot(None)))
+        ).scalar() or 0.0
+
+        average_buffering_percentage = round(float(avg_buffering), 2)
+
+        # Количество изменений качества (считаем по изменению overall_quality между соседними записями)
+        # Это упрощенная версия - в реальности может потребоваться более сложный запрос
+        quality_changes_count = 0  # Заглушка, требует оконных функций для точного расчета
+
+        # Текущее качество (последняя запись)
+        latest_quality = self.db.execute(
+            select(StreamQualityHistory.overall_quality)
+            .where(base_filter)
+            .order_by(desc(StreamQualityHistory.analyzed_at))
+            .limit(1)
+        ).scalar() or "unknown"
+
+        current_quality = latest_quality
+
+        # Распределение по качеству
+        quality_dist_query = select(
+            StreamQualityHistory.overall_quality,
+            func.count(StreamQualityHistory.id).label('count')
+        ).where(base_filter).group_by(StreamQualityHistory.overall_quality)
+
+        quality_dist_rows = self.db.execute(quality_dist_query).fetchall()
+
+        quality_distribution = [
+            QualityDistributionItem(
+                quality=row.overall_quality,
+                count=row.count,
+                percentage=round(row.count / total_records * 100, 2) if total_records > 0 else 0.0
+            )
+            for row in quality_dist_rows
+        ]
+
+        # Данные для графика качества по времени (группировка по часам)
+        time_trunc = func.date_trunc('hour', StreamQualityHistory.analyzed_at)
+        quality_query = select(
+            time_trunc.label('timestamp'),
+            func.max(StreamQualityHistory.overall_quality).label('overall_quality'),
+            func.avg(StreamQualityHistory.audio_bitrate_kbps).label('audio_bitrate_kbps'),
+            func.avg(StreamQualityHistory.video_bitrate_kbps).label('video_bitrate_kbps'),
+            func.avg(StreamQualityHistory.buffering_percentage).label('buffering_percentage')
+        ).where(base_filter).group_by(time_trunc).order_by(time_trunc)
+
+        quality_rows = self.db.execute(quality_query).fetchall()
+
+        quality_over_time = [
+            QualityTrendPoint(
+                timestamp=row.timestamp,
+                overall_quality=row.overall_quality or "unknown",
+                audio_bitrate_kbps=int(row.audio_bitrate_kbps) if row.audio_bitrate_kbps else None,
+                video_bitrate_kbps=int(row.video_bitrate_kbps) if row.video_bitrate_kbps else None,
+                buffering_percentage=round(row.buffering_percentage, 2) if row.buffering_percentage else None
+            )
+            for row in quality_rows
+        ]
+
+        result = StreamPerformanceResponse(
+            period=period,
+            uptime_percentage=uptime_percentage,
+            uptime_hours=uptime_hours,
+            average_buffering_percentage=average_buffering_percentage,
+            quality_changes_count=quality_changes_count,
+            bandwidth_usage_mbps=None,  # Требует дополнительных данных
+            current_quality=current_quality,
+            quality_distribution=quality_distribution,
+            quality_over_time=quality_over_time,
+            cached_at=now
+        )
+
+        await self._set_to_cache(cache_key, result.model_dump())
+        return result
+
+    async def get_content_insights(self, period: AnalyticsPeriod = "7d") -> ContentInsightsResponse:
+        """
+        Получение аналитики контента и точек отказа.
+
+        Args:
+            period: Период данных (7d, 30d, 90d, all)
+
+        Returns:
+            ContentInsightsResponse с аналитикой контента
+        """
+        cache_key = CACHE_CONTENT_INSIGHTS_KEY.format(period=period)
+        cached = await self._get_from_cache(cache_key)
+        if cached:
+            return ContentInsightsResponse(**cached)
+
+        period_start = self._get_period_filter(period)
+        now = datetime.now(timezone.utc)
+
+        # Базовый фильтр
+        base_filter = ViewerSession.started_at >= period_start if period_start else True
+
+        # Самый просматриваемый контент (топ по количеству сессий)
+        content_query = (
+            select(
+                PlaylistItem.id.label('content_id'),
+                PlaylistItem.title,
+                func.count(ViewerSession.id).label('total_views'),
+                func.avg(ViewerSession.completion_percentage).label('avg_completion'),
+                func.sum(ViewerSession.drop_off_position_seconds).label('total_watch_time'),
+                func.avg(ViewerSession.drop_off_position_seconds).label('avg_duration')
+            )
+            .join(ViewerSession, ViewerSession.playlist_item_id == PlaylistItem.id)
+            .where(base_filter)
+            .group_by(PlaylistItem.id, PlaylistItem.title)
+            .order_by(desc('total_views'))
+            .limit(10)
+        )
+
+        content_rows = self.db.execute(content_query).fetchall()
+
+        most_watched = [
+            ContentPerformanceItem(
+                content_id=str(row.content_id),
+                title=row.title or "Unknown",
+                total_views=row.total_views or 0,
+                average_completion_percentage=round(float(row.avg_completion or 0), 2),
+                total_watch_time_minutes=round((row.total_watch_time or 0) / 60, 2),
+                average_watch_duration_seconds=round(float(row.avg_duration or 0), 2)
+            )
+            for row in content_rows
+        ]
+
+        # Точки отказа (агрегируем по позициям в секундах)
+        # Группируем по интервалам в 10 секунд для создания графика
+        interval_seconds = 10
+
+        drop_off_query = select(
+            (func.floor(ViewerSession.drop_off_position_seconds / interval_seconds) * interval_seconds).label('position_seconds'),
+            func.count(ViewerSession.id).label('viewers_count')
+        ).where(
+            and_(base_filter, ViewerSession.drop_off_position_seconds.isnot(None))
+        ).group_by(
+            (func.floor(ViewerSession.drop_off_position_seconds / interval_seconds) * interval_seconds)
+        ).order_by('position_seconds')
+
+        drop_off_rows = self.db.execute(drop_off_query).fetchall()
+
+        # Вычисляем кумулятивный процент отказа
+        total_sessions = sum(row.viewers_count for row in drop_off_rows) or 1
+        cumulative_drop_off = 0.0
+
+        drop_off_points = []
+        for row in drop_off_rows:
+            percentage = round(row.viewers_count / total_sessions * 100, 2)
+            cumulative_drop_off += percentage
+            drop_off_points.append(
+                DropOffPoint(
+                    position_seconds=int(row.position_seconds),
+                    percentage=percentage,
+                    viewers_count=row.viewers_count,
+                    cumulative_drop_off=round(min(cumulative_drop_off, 100.0), 2)
+                )
+            )
+
+        # Средний рейтинг завершения
+        avg_completion = self.db.execute(
+            select(func.avg(ViewerSession.completion_percentage))
+            .where(and_(base_filter, ViewerSession.completion_percentage.isnot(None)))
+        ).scalar() or 0.0
+
+        average_completion_rate = round(float(avg_completion), 2)
+
+        # Общее количество сессий
+        total_sessions_count = self.db.execute(
+            select(func.count(ViewerSession.id)).where(base_filter)
+        ).scalar() or 0
+
+        # Средняя длительность сессии
+        avg_session_duration = self.db.execute(
+            select(func.avg(ViewerSession.drop_off_position_seconds))
+            .where(and_(base_filter, ViewerSession.drop_off_position_seconds.isnot(None)))
+        ).scalar() or 0.0
+
+        average_session_duration_seconds = round(float(avg_session_duration), 2)
+
+        result = ContentInsightsResponse(
+            period=period,
+            most_watched=most_watched,
+            drop_off_points=drop_off_points,
+            average_completion_rate=average_completion_rate,
+            total_sessions=total_sessions_count,
+            average_session_duration_seconds=average_session_duration_seconds,
             cached_at=now
         )
 
