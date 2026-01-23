@@ -11,7 +11,6 @@ Subtask 5-4: Verify mobile video orientation correction with sample videos
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 from typing import Optional, Dict, Any
 
 # Импортируем из streamer модуля
