@@ -17,6 +17,10 @@ from datetime import datetime, timezone, timedelta, date, time
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
+from dataclasses import dataclass
+from itertools import combinations
+
+import numpy as np
 
 try:
     import redis.asyncio as aioredis
@@ -61,6 +65,193 @@ CACHE_GAPS_KEY = f"{CACHE_PREFIX}gaps:{{channel_id}}:{{start_date}}:{{end_date}}
 CACHE_METRICS_KEY = f"{CACHE_PREFIX}metrics:{{channel_id}}:{{start_date}}:{{end_date}}"
 CACHE_OPTIMIZATION_KEY = f"{CACHE_PREFIX}optimization:{{optimization_id}}"
 CACHE_TTL = 900  # 15 minutes
+
+
+@dataclass
+class OptimizationObjective:
+    """Цель оптимизации с весом."""
+    name: str
+    weight: float
+    minimize: bool = False  # True if we want to minimize (e.g., gaps, conflicts)
+
+
+@dataclass
+class ScheduleSolution:
+    """Решение оптимизации расписания."""
+    suggestions: List[ScheduleSlotSuggestion]
+    objective_scores: Dict[str, float]
+    overall_score: float
+    metrics: OptimizationMetrics
+
+
+class MultiObjectiveOptimizer:
+    """
+    Многокритериальный оптимизатор расписания.
+
+    Оптимизирует расписание по нескольким критериям:
+    - Максимизация покрытия (coverage)
+    - Максимизация вовлеченности (engagement)
+    - Максимизация разнообразия (variety)
+    - Минимизация конфликтов (conflicts)
+    - Максимизация покрытия пиковых часов (peak_hours_coverage)
+
+    Использует взвешенную сумму критериев для комбинированной оценки.
+    """
+
+    def __init__(self, objectives: Optional[List[OptimizationObjective]] = None):
+        """
+        Инициализация оптимизатора.
+
+        Args:
+            objectives: Список целей оптимизации с весами
+        """
+        self.objectives = objectives or self._default_objectives()
+
+    def _default_objectives(self) -> List[OptimizationObjective]:
+        """Цели оптимизации по умолчанию."""
+        return [
+            OptimizationObjective("coverage_percent", weight=0.25, minimize=False),
+            OptimizationObjective("engagement_score", weight=0.30, minimize=False),
+            OptimizationObjective("variety_score", weight=0.20, minimize=False),
+            OptimizationObjective("conflicts_resolved", weight=0.15, minimize=True),
+            OptimizationObjective("peak_hours_coverage", weight=0.10, minimize=False),
+        ]
+
+    def normalize_scores(self, scores: Dict[str, float]) -> Dict[str, float]:
+        """
+        Нормализация оценок к диапазону [0, 1].
+
+        Args:
+            scores: Словарь с исходными оценками
+
+        Returns:
+            Нормализованные оценки
+        """
+        normalized = {}
+
+        for obj in self.objectives:
+            value = scores.get(obj.name, 0.0)
+
+            # Специфичная нормализация для каждой метрики
+            if obj.name == "coverage_percent":
+                # Уже в процентах, нормализуем к [0, 1]
+                normalized[obj.name] = min(1.0, value / 100.0)
+            elif obj.name == "engagement_score":
+                # Шкала 0-10, нормализуем к [0, 1]
+                normalized[obj.name] = min(1.0, value / 10.0)
+            elif obj.name == "variety_score":
+                # Шкала 0-10, нормализуем к [0, 1]
+                normalized[obj.name] = min(1.0, value / 10.0)
+            elif obj.name == "conflicts_resolved":
+                # Количество конфликтов, нормализуем: 0 конфликтов = 1.0
+                # Используем обратную величину: 1 / (1 + conflicts)
+                normalized[obj.name] = 1.0 / (1.0 + max(0, value))
+            elif obj.name == "peak_hours_coverage":
+                # Уже в процентах, нормализуем к [0, 1]
+                normalized[obj.name] = min(1.0, value / 100.0)
+            else:
+                # Общая нормализация
+                normalized[obj.name] = max(0.0, min(1.0, value))
+
+        return normalized
+
+    def calculate_weighted_score(self, scores: Dict[str, float]) -> float:
+        """
+        Расчет взвешенной оценки.
+
+        Args:
+            scores: Нормализованные оценки по критериям
+
+        Returns:
+            Взвешенная сумма оценок
+        """
+        total_score = 0.0
+        total_weight = 0.0
+
+        for obj in self.objectives:
+            value = scores.get(obj.name, 0.0)
+            total_score += obj.weight * value
+            total_weight += obj.weight
+
+        return total_score / total_weight if total_weight > 0 else 0.0
+
+    def generate_pareto_front(
+        self,
+        solutions: List[ScheduleSolution]
+    ) -> List[ScheduleSolution]:
+        """
+        Генерация фронта Парето (недоминируемых решений).
+
+        Args:
+            solutions: Список всех решений
+
+        Returns:
+            Список недоминируемых решений
+        """
+        if not solutions:
+            return []
+
+        pareto_front = []
+
+        for sol1 in solutions:
+            is_dominated = False
+
+            for sol2 in solutions:
+                if sol1 is sol2:
+                    continue
+
+                # Проверяем, доминирует ли sol2 над sol1
+                # sol2 доминирует sol1, если по всем критериям не хуже
+                # и хотя бы по одному критерию лучше
+                dominates = True
+                better_in_one = False
+
+                for obj in self.objectives:
+                    val1 = sol1.objective_scores.get(obj.name, 0.0)
+                    val2 = sol2.objective_scores.get(obj.name, 0.0)
+
+                    if obj.minimize:
+                        # Для минимизации меньше = лучше
+                        if val2 > val1:
+                            dominates = False
+                            break
+                        elif val2 < val1:
+                            better_in_one = True
+                    else:
+                        # Для максимизации больше = лучше
+                        if val2 < val1:
+                            dominates = False
+                            break
+                        elif val2 > val1:
+                            better_in_one = True
+
+                if dominates and better_in_one:
+                    is_dominated = True
+                    break
+
+            if not is_dominated:
+                pareto_front.append(sol1)
+
+        return pareto_front
+
+    def rank_solutions(
+        self,
+        solutions: List[ScheduleSolution]
+    ) -> List[ScheduleSolution]:
+        """
+        Ранжирование решений по взвешенной оценке.
+
+        Args:
+            solutions: Список решений
+
+        Returns:
+            Отсортированный список решений (лучшие сначала)
+        """
+        return sorted(
+            solutions,
+            key=lambda s: s.overall_score,
+            reverse=True
+        )
 
 
 class ScheduleOptimizationService:
@@ -731,6 +922,292 @@ class ScheduleOptimizationService:
             parameters=request.parameters,
             created_at=optimization.created_at
         )
+
+    async def generate_optimization_suggestions(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date,
+        parameters: OptimizationParameters,
+        num_candidates: int = 10
+    ) -> List[ScheduleSlotSuggestion]:
+        """
+        Генерация предложений по оптимизации с использованием многокритериальной оптимизации.
+
+        Args:
+            channel_id: ID канала
+            start_date: Начало периода
+            end_date: Конец периода
+            parameters: Параметры оптимизации
+            num_candidates: Количество генерируемых кандидатов
+
+        Returns:
+            Список лучших предложений
+        """
+        # Создаем оптимизатор с настраиваемыми весами
+        objectives = [
+            OptimizationObjective("coverage_percent", weight=parameters.priority_coverage or 0.25, minimize=False),
+            OptimizationObjective("engagement_score", weight=parameters.priority_engagement or 0.30, minimize=False),
+            OptimizationObjective("variety_score", weight=parameters.priority_variety or 0.20, minimize=False),
+            OptimizationObjective("conflicts_resolved", weight=parameters.priority_conflicts or 0.15, minimize=True),
+            OptimizationObjective("peak_hours_coverage", weight=parameters.priority_peak_hours or 0.10, minimize=False),
+        ]
+
+        optimizer = MultiObjectiveOptimizer(objectives)
+
+        # Генерируем кандидатов решений
+        candidate_solutions = await self._generate_candidate_solutions(
+            channel_id, start_date, end_date, parameters, num_candidates
+        )
+
+        if not candidate_solutions:
+            return []
+
+        # Ранжируем решения
+        ranked_solutions = optimizer.rank_solutions(candidate_solutions)
+
+        # Получаем лучшее решение
+        best_solution = ranked_solutions[0]
+
+        # Генерируем предложения на основе лучшего решения
+        suggestions = await self._create_suggestions_from_solution(
+            best_solution, channel_id
+        )
+
+        return suggestions
+
+    async def _generate_candidate_solutions(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date,
+        parameters: OptimizationParameters,
+        num_candidates: int
+    ) -> List[ScheduleSolution]:
+        """
+        Генерация кандидатов решений для оптимизации.
+
+        Args:
+            channel_id: ID канала
+            start_date: Начало периода
+            end_date: Конец периода
+            parameters: Параметры оптимизации
+            num_candidates: Количество кандидатов
+
+        Returns:
+            Список решений
+        """
+        solutions = []
+        channel_uuid = UUID(channel_id)
+
+        # Получаем существующие слоты
+        existing_slots_query = select(ScheduleSlot).where(
+            and_(
+                ScheduleSlot.channel_id == channel_uuid,
+                ScheduleSlot.start_date >= start_date,
+                ScheduleSlot.start_date <= end_date,
+                ScheduleSlot.is_active == True
+            )
+        )
+        existing_slots = self.db.execute(existing_slots_query).scalars().all()
+
+        # Получаем доступные плейлисты
+        playlists_query = select(Playlist).where(Playlist.is_active == True)
+        available_playlists = self.db.execute(playlists_query).scalars().all()
+
+        # Получаем пробелы в расписании
+        gap_request = GapDetectionRequest(
+            channel_id=channel_id,
+            start_date=start_date,
+            end_date=end_date,
+            consider_peak_hours=True
+        )
+        gaps_response = await self.detect_gaps(gap_request)
+
+        # Генерируем кандидатов с разными стратегиями
+        strategies = [
+            {"fill_gaps": True, "prioritize_peak": True, "max_variety": False},
+            {"fill_gaps": True, "prioritize_peak": False, "max_variety": True},
+            {"fill_gaps": True, "prioritize_peak": True, "max_variety": True},
+            {"fill_gaps": False, "prioritize_peak": True, "max_variety": False},
+        ]
+
+        for i in range(num_candidates):
+            # Выбираем стратегию
+            strategy = strategies[i % len(strategies)]
+
+            # Генерируем предложения для этой стратегии
+            suggestions = await self._generate_suggestions_for_strategy(
+                gaps_response.gaps,
+                available_playlists,
+                existing_slots,
+                strategy,
+                channel_uuid
+            )
+
+            # Вычисляем метрики для этого решения
+            metrics = await self._calculate_metrics_for_suggestions(
+                channel_uuid, start_date, end_date, suggestions, existing_slots
+            )
+
+            # Вычисляем оценки по критериям
+            objective_scores = {
+                "coverage_percent": metrics.coverage_percent,
+                "engagement_score": metrics.engagement_score,
+                "variety_score": metrics.variety_score,
+                "conflicts_resolved": metrics.conflicts_resolved,
+                "peak_hours_coverage": metrics.peak_hours_coverage,
+            }
+
+            # Нормализуем и вычисляем общую оценку
+            optimizer = MultiObjectiveOptimizer()
+            normalized_scores = optimizer.normalize_scores(objective_scores)
+            overall_score = optimizer.calculate_weighted_score(normalized_scores)
+
+            solution = ScheduleSolution(
+                suggestions=suggestions,
+                objective_scores=objective_scores,
+                overall_score=overall_score,
+                metrics=metrics
+            )
+
+            solutions.append(solution)
+
+        return solutions
+
+    async def _generate_suggestions_for_strategy(
+        self,
+        gaps: List[ScheduleGap],
+        available_playlists: List[Playlist],
+        existing_slots: List[ScheduleSlot],
+        strategy: Dict[str, bool],
+        channel_id: UUID
+    ) -> List[ScheduleSlotSuggestion]:
+        """
+        Генерация предложений для конкретной стратегии.
+
+        Args:
+            gaps: Список пробелов
+            available_playlists: Доступные плейлисты
+            existing_slots: Существующие слоты
+            strategy: Стратегия оптимизации
+            channel_id: ID канала
+
+        Returns:
+            Список предложений
+        """
+        suggestions = []
+
+        if not gaps or not available_playlists:
+            return suggestions
+
+        # Сортируем плейлисты в зависимости от стратегии
+        if strategy["max_variety"]:
+            # Максимизируем разнообразие - перемешиваем плейлисты
+            playlists = list(available_playlists)
+        else:
+            # Используем плейлисты по порядку
+            playlists = available_playlists
+
+        playlist_idx = 0
+
+        for gap in gaps:
+            # Пропускаем слишком короткие пробелы
+            if gap.duration_hours < 0.5:
+                continue
+
+            # Пропускаем непиковые часы если приоритет пиков
+            if strategy["prioritize_peak"] and not gap.is_peak_hour:
+                # Но заполняем некоторые непиковые часы (30%)
+                import random
+                if random.random() > 0.3:
+                    continue
+
+            # Выбираем плейлист
+            playlist = playlists[playlist_idx % len(playlists)]
+            playlist_idx += 1
+
+            # Создаем предложение
+            suggestion = ScheduleSlotSuggestion(
+                title=playlist.name,
+                date=gap.date,
+                start_time=gap.start_time,
+                end_time=gap.end_time,
+                playlist_id=str(playlist.id),
+                playlist_name=playlist.name,
+                confidence=0.85 if gap.is_peak_hour else 0.70,
+                reason=f"Заполнение пробела в {'пиковый' if gap.is_peak_hour else 'обычный'} час"
+            )
+
+            suggestions.append(suggestion)
+
+        return suggestions
+
+    async def _calculate_metrics_for_suggestions(
+        self,
+        channel_id: UUID,
+        start_date: date,
+        end_date: date,
+        suggestions: List[ScheduleSlotSuggestion],
+        existing_slots: List[ScheduleSlot]
+    ) -> OptimizationMetrics:
+        """
+        Расчет метрик для набора предложений.
+
+        Args:
+            channel_id: ID канала
+            start_date: Начало периода
+            end_date: Конец периода
+            suggestions: Предложения
+            existing_slots: Существующие слоты
+
+        Returns:
+            Метрики оптимизации
+        """
+        # Создаем временные слоты на основе предложений
+        temp_slots = list(existing_slots)
+
+        for sug in suggestions:
+            # Создаем временный слот
+            start_time_parts = sug.start_time.split(":")
+            end_time_parts = sug.end_time.split(":")
+
+            temp_slot = ScheduleSlot(
+                title=sug.title,
+                channel_id=channel_id,
+                start_date=sug.date,
+                start_time=time(int(start_time_parts[0]), int(start_time_parts[1])),
+                end_time=time(int(end_time_parts[0]), int(end_time_parts[1])),
+                playlist_id=UUID(sug.playlist_id) if sug.playlist_id else None,
+                is_active=False,  # Временный, неактивный
+                priority=0
+            )
+            temp_slots.append(temp_slot)
+
+        # Вычисляем метрики
+        parameters = OptimizationParameters()  # Используем параметры по умолчанию
+        metrics = await self.calculate_metrics(
+            str(channel_id), start_date, end_date, parameters
+        )
+
+        return metrics
+
+    async def _create_suggestions_from_solution(
+        self,
+        solution: ScheduleSolution,
+        channel_id: str
+    ) -> List[ScheduleSlotSuggestion]:
+        """
+        Создание предложений из решения.
+
+        Args:
+            solution: Решение оптимизации
+            channel_id: ID канала
+
+        Returns:
+            Список предложений
+        """
+        return solution.suggestions
 
     async def get_optimization(
         self,
