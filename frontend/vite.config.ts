@@ -2,10 +2,134 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
+import fs from 'fs'
+
+/**
+ * Case-sensitivity plugin for Vite
+ * Detects import path casing mismatches that cause issues on case-sensitive filesystems (Linux)
+ * while developing on case-insensitive filesystems (Windows/macOS)
+ */
+function caseSensitivityCheck() {
+  const issues: Array<{ file: string; import: string; expected: string }> = []
+  const checkedFiles = new Set<string>()
+
+  return {
+    name: 'case-sensitivity-check',
+
+    resolveId(id: string, importer?: string) {
+      if (!importer) return null
+
+      // Only check source files, skip node_modules
+      if (id.includes('node_modules') || importer.includes('node_modules')) {
+        return null
+      }
+
+      // Skip virtual modules and special paths
+      if (id.startsWith('\0') || id.startsWith('/@/') || id.startsWith('/@vite/')) {
+        return null
+      }
+
+      try {
+        // Get the directory of the importing file
+        const importerDir = path.dirname(importer)
+
+        // Resolve the import path relative to the importer
+        const resolved = path.resolve(importerDir, id)
+
+        // Skip if already checked
+        if (checkedFiles.has(resolved)) {
+          return null
+        }
+        checkedFiles.add(resolved)
+
+        // Check if the file exists
+        if (!fs.existsSync(resolved)) {
+          return null // Let Vite handle missing files
+        }
+
+        // Get the actual filename from filesystem (with correct casing)
+        const actualPath = getActualPath(resolved)
+
+        // Compare resolved path with actual path
+        if (resolved !== actualPath) {
+          issues.push({
+            file: importer,
+            import: id,
+            expected: actualPath
+          })
+        }
+      } catch (error) {
+        // Ignore errors (file not found, permission issues, etc.)
+      }
+
+      return null
+    },
+
+    buildEnd() {
+      if (issues.length > 0) {
+        this.error(
+          `Case-sensitivity issues detected:\n\n` +
+          issues.map(issue =>
+            `  ❌ In ${issue.file}:\n` +
+            `     Import: "${issue.import}"\n` +
+            `     Expected: "${issue.expected}"\n`
+          ).join('\n') +
+          `\n${issues.length} case-sensitivity issue(s) found.\n` +
+          `These imports will fail on case-sensitive filesystems (Linux).\n` +
+          `Please fix the import casing to match the actual file paths.`
+        )
+      }
+    }
+  }
+}
+
+/**
+ * Get the actual path with correct casing from the filesystem
+ */
+function getActualPath(targetPath: string): string {
+  try {
+    // Split path into parts
+    const parts = targetPath.split(path.sep)
+    let currentPath = parts[0] // Drive letter or root
+
+    // Build path incrementally, checking each part
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i]
+      const testPath = path.join(currentPath, part)
+
+      if (fs.existsSync(testPath)) {
+        // Check if the casing matches by listing directory
+        const parentPath = currentPath
+        const actualFiles = fs.readdirSync(parentPath)
+
+        // Find the actual filename (case-sensitive)
+        const actualName = actualFiles.find(
+          f => f.toLowerCase() === part.toLowerCase()
+        )
+
+        if (actualName) {
+          currentPath = path.join(currentPath, actualName)
+        } else {
+          // File not found (shouldn't happen as we checked exists)
+          currentPath = testPath
+        }
+      } else {
+        // Path doesn't exist, return as-is
+        currentPath = testPath
+      }
+    }
+
+    return currentPath
+  } catch {
+    // On error, return original path
+    return targetPath
+  }
+}
 
 export default defineConfig({
   plugins: [
     react(),
+    caseSensitivityCheck(),
     process.env.ANALYZE === 'true' && visualizer({
       filename: '../.internal/frontend-logs/perf/profiling/bundle-report.html',
       open: false,
