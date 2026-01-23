@@ -9,6 +9,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
+import * as Notifications from 'expo-notifications';
 import { tokenStorage } from '../api/auth';
 import { canUseBiometric } from './biometricAuth';
 
@@ -678,6 +679,251 @@ export const runStreamManagementE2E = async (channels: any[]) => {
     const allHaveMessages = errorChannels.every((ch) => ch.error_message);
     return allHaveMessages;
   });
+
+  suite.printResults();
+  return suite.getResults();
+};
+
+// ============================================================
+// PUSH NOTIFICATION TEST HELPERS
+// ============================================================
+
+/**
+ * Verify push notification permissions granted
+ */
+export const verifyNotificationPermissions = async (
+  permissions: Notifications.NotificationPermissionsStatus
+): Promise<TestResult> => {
+  const checks = [
+    assertEquals(permissions.granted, true, 'Notifications granted'),
+    assertNotNull(permissions.ios?.status, 'iOS permission status'),
+    assertNotNull(permissions.android?.status, 'Android permission status'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'TC-PUSH-002: Notification Permissions Granted',
+    passed: allPassed,
+    message: allPassed
+      ? 'Push notification permissions are granted'
+      : `Permission verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      granted: permissions.granted,
+      iosStatus: permissions.ios?.status,
+      androidStatus: permissions.android?.status,
+    },
+  };
+};
+
+/**
+ * Verify push token exists
+ */
+export const verifyPushTokenExists = async (
+  token: string | null
+): Promise<TestResult> => {
+  const checks = [
+    assertNotNull(token, 'Push token'),
+    assertEquals(token?.startsWith('ExponentPushToken['), true, 'Valid Expo token format'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'Verify Push Token Exists',
+    passed: allPassed,
+    message: allPassed
+      ? `Push token exists: ${token?.substring(0, 30)}...`
+      : `Push token verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      tokenLength: token?.length || 0,
+      tokenPrefix: token?.substring(0, 50) || null,
+    },
+  };
+};
+
+/**
+ * Verify device registered with backend
+ */
+export const verifyDeviceRegistered = async (
+  deviceId: string | null
+): Promise<TestResult> => {
+  const checks = [
+    assertNotNull(deviceId, 'Device ID'),
+    assertEquals(typeof deviceId, 'string', 'Device ID is string'),
+    assertEquals(deviceId?.length > 0, true, 'Device ID not empty'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'TC-PUSH-004: Device Registered',
+    passed: allPassed,
+    message: allPassed
+      ? `Device registered: ${deviceId}`
+      : `Device registration verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      deviceId,
+      deviceType: deviceId?.split(':')[0] || null,
+    },
+  };
+};
+
+/**
+ * Verify notification received
+ */
+export const verifyNotificationReceived = async (
+  notification: Notifications.Notification | null
+): Promise<TestResult> => {
+  const checks = [
+    assertNotNull(notification, 'Notification object'),
+    assertNotNull(notification?.request, 'Notification request'),
+    assertNotNull(notification?.request?.content, 'Notification content'),
+    assertNotNull(notification?.request?.content?.title, 'Notification title'),
+    assertNotNull(notification?.request?.content?.body, 'Notification body'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'Verify Notification Received',
+    passed: allPassed,
+    message: allPassed
+      ? `Notification received: ${notification?.request.content.title}`
+      : `Notification verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      title: notification?.request?.content?.title,
+      body: notification?.request?.content?.body,
+      data: notification?.request?.content?.data,
+    },
+  };
+};
+
+/**
+ * Verify notification data structure
+ */
+export const verifyNotificationData = async (
+  notification: Notifications.Notification | null,
+  expectedType?: string
+): Promise<TestResult> => {
+  const data = notification?.request?.content?.data as Record<string, unknown> | undefined;
+
+  const checks = [
+    assertNotNull(data, 'Notification data'),
+  ];
+
+  if (expectedType) {
+    checks.push(assertEquals(data?.type, expectedType, `Notification type is "${expectedType}"`));
+  }
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: `Verify Notification Data${expectedType ? ` (type: ${expectedType})` : ''}`,
+    passed: allPassed,
+    message: allPassed
+      ? `Notification data is valid${expectedType ? ` with type "${expectedType}"` : ''}`
+      : `Notification data verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      type: data?.type,
+      channelId: data?.channelId,
+      streamId: data?.streamId,
+      screen: data?.screen,
+      allData: data,
+    },
+  };
+};
+
+/**
+ * Verify notification navigation occurred
+ */
+export const verifyNotificationNavigation = async (
+  currentRoute: string,
+  expectedRoute: string,
+  notificationData?: Record<string, unknown>
+): Promise<TestResult> => {
+  const routeMatch = currentRoute.includes(expectedRoute) || expectedRoute.includes(currentRoute);
+
+  return {
+    testName: `Verify Notification Navigation to ${expectedRoute}`,
+    passed: routeMatch,
+    message: routeMatch
+      ? `✓ Navigated to ${expectedRoute} after notification tap`
+      : `✗ Expected ${expectedRoute} but got: ${currentRoute}`,
+    timestamp: new Date(),
+    details: {
+      currentRoute,
+      expectedRoute,
+      notificationType: notificationData?.type,
+      channelId: notificationData?.channelId,
+    },
+  };
+};
+
+/**
+ * Verify badge count (iOS)
+ */
+export const verifyBadgeCount = async (
+  actualBadgeCount: number,
+  expectedBadgeCount: number
+): Promise<TestResult> => {
+  const result = assertEquals(actualBadgeCount, expectedBadgeCount, 'Badge count');
+
+  return {
+    testName: 'TC-PUSH-014: Verify Badge Count',
+    passed: result.passed,
+    message: result.message,
+    timestamp: new Date(),
+    details: {
+      actual: actualBadgeCount,
+      expected: expectedBadgeCount,
+    },
+  };
+};
+
+/**
+ * E2E Test: Push Notifications
+ *
+ * This function can be called to verify push notification functionality.
+ * It's designed to be used during manual testing with a debugger or console.
+ */
+export const runPushNotificationE2E = async (
+  pushToken: string | null,
+  deviceId: string | null,
+  notification: Notifications.Notification | null
+) => {
+  const suite = createTestSuite('E2E Push Notifications');
+
+  // Test 1: Verify push token exists
+  await suite.runTest('Push token exists', async () => {
+    const result = await verifyPushTokenExists(pushToken);
+    return result.passed;
+  });
+
+  // Test 2: Verify device registered
+  await suite.runTest('Device registered with backend', async () => {
+    const result = await verifyDeviceRegistered(deviceId);
+    return result.passed;
+  });
+
+  // Test 3: Verify notification received (if provided)
+  if (notification) {
+    await suite.runTest('Notification received', async () => {
+      const result = await verifyNotificationReceived(notification);
+      return result.passed;
+    });
+
+    // Test 4: Verify notification has data
+    await suite.runTest('Notification has valid data', async () => {
+      const data = notification.request?.content?.data as Record<string, unknown> | undefined;
+      return data !== null && data !== undefined;
+    });
+  }
 
   suite.printResults();
   return suite.getResults();
