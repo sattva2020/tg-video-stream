@@ -40,3 +40,35 @@ class PlaylistResponse(PlaylistBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+# Playlist Template Schemas
+class PlaylistTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_public: bool = False
+
+class PlaylistTemplateCreate(PlaylistTemplateBase):
+    items: List[PlaylistEntry] = []
+
+class PlaylistTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
+    items: Optional[List[PlaylistEntry]] = None
+
+class PlaylistTemplateResponse(PlaylistTemplateBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    items: List[PlaylistEntry]
+    items_count: int
+    total_duration: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class ApplyTemplateRequest(BaseModel):
+    playlist_name: str
+    playlist_description: Optional[str] = None
+    group_id: Optional[uuid.UUID] = None
+    channel_id: Optional[uuid.UUID] = None

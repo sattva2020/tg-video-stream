@@ -4,8 +4,13 @@ from typing import List
 import uuid
 
 from src.database import get_db
-from src.schemas.playlist import PlaylistCreate, PlaylistUpdate, PlaylistResponse
+from src.schemas.playlist import (
+    PlaylistCreate, PlaylistUpdate, PlaylistResponse,
+    PlaylistTemplateCreate, PlaylistTemplateUpdate, PlaylistTemplateResponse,
+    ApplyTemplateRequest
+)
 from src.services.user_playlist_service import UserPlaylistService
+from src.services.playlist_template_service import PlaylistTemplateService
 from api.auth import get_current_user
 from src.models.user import User
 
@@ -174,3 +179,146 @@ def export_playlist_m3u(
         media_type="audio/x-mpegurl",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+# Playlist Templates Routes
+@router.get("/templates", response_model=List[PlaylistTemplateResponse])
+def get_my_templates(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's playlist templates."""
+    return PlaylistTemplateService.get_user_templates(db, current_user.id, skip, limit)
+
+@router.get("/templates/public", response_model=List[PlaylistTemplateResponse])
+def get_public_templates(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all public playlist templates."""
+    return PlaylistTemplateService.get_public_templates(db, skip, limit)
+
+@router.post("/templates", response_model=PlaylistTemplateResponse, status_code=status.HTTP_201_CREATED)
+def create_template(
+    template: PlaylistTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new playlist template."""
+    items_data = [item.model_dump() for item in template.items]
+    return PlaylistTemplateService.create_template(
+        db,
+        name=template.name,
+        user_id=current_user.id,
+        items=items_data,
+        description=template.description,
+        is_public=template.is_public
+    )
+
+@router.get("/templates/{template_id}", response_model=PlaylistTemplateResponse)
+def get_template(
+    template_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get template details. Must be owner or template must be public."""
+    template = PlaylistTemplateService.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.user_id != current_user.id and not template.is_public:
+        raise HTTPException(status_code=403, detail="Not authorized to view this template")
+
+    return template
+
+@router.put("/templates/{template_id}", response_model=PlaylistTemplateResponse)
+def update_template(
+    template_id: uuid.UUID,
+    update_data: PlaylistTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update template. Owner only."""
+    template = PlaylistTemplateService.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this template")
+
+    items_data = None
+    if update_data.items is not None:
+        items_data = [item.model_dump() for item in update_data.items]
+
+    return PlaylistTemplateService.update_template(
+        db,
+        db_template=template,
+        name=update_data.name,
+        description=update_data.description,
+        is_public=update_data.is_public,
+        items=items_data
+    )
+
+@router.delete("/templates/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_template(
+    template_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete template. Owner only."""
+    template = PlaylistTemplateService.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this template")
+
+    PlaylistTemplateService.delete_template(db, template)
+
+@router.post("/templates/{template_id}/apply", response_model=PlaylistResponse, status_code=status.HTTP_201_CREATED)
+def apply_template(
+    template_id: uuid.UUID,
+    request: ApplyTemplateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Apply a template to create a new playlist."""
+    template = PlaylistTemplateService.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    # Check access (owner or public)
+    if template.user_id != current_user.id and not template.is_public:
+        raise HTTPException(status_code=403, detail="Not authorized to use this template")
+
+    try:
+        return PlaylistTemplateService.apply_template(
+            db,
+            template_id=template_id,
+            user_id=current_user.id,
+            playlist_name=request.playlist_name,
+            playlist_description=request.playlist_description,
+            group_id=request.group_id,
+            channel_id=request.channel_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/templates/{template_id}/clone", response_model=PlaylistTemplateResponse, status_code=status.HTTP_201_CREATED)
+def clone_template(
+    template_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Clone a template to my library. Source must be public or owned by me."""
+    template = PlaylistTemplateService.get_template(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    if template.user_id != current_user.id and not template.is_public:
+        raise HTTPException(status_code=403, detail="Not authorized to clone this template")
+
+    return PlaylistTemplateService.clone_template(db, template, current_user.id)
