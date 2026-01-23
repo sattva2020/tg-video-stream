@@ -26,6 +26,7 @@ except ImportError:
 from sqlalchemy.orm import Session
 from src.models.telegram import Channel
 from src.services.encryption import EncryptionService
+from src.services.webhook_service import WebhookService
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ class RedisStreamController:
     def __init__(self, db: Session):
         self.db = db
         self.encryption_service = EncryptionService()
+        self.webhook_service = WebhookService(db)
         self._redis: Optional[Any] = None
         self.redis_url = settings.REDIS_URL
         
@@ -132,6 +134,55 @@ class RedisStreamController:
             "ffmpeg_args": channel.ffmpeg_args,
             "stream_type": getattr(channel, 'stream_type', 'video'),
         }
+
+    def _trigger_webhook_event(
+        self,
+        event_type: str,
+        channel_id: str,
+        additional_data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """
+        Trigger a webhook event for stream lifecycle changes.
+
+        Args:
+            event_type: The event type (e.g., "stream.started", "stream.stopped", "stream.error")
+            channel_id: The channel ID
+            additional_data: Additional event data to include in the payload
+        """
+        try:
+            channel = self.db.query(Channel).filter(
+                Channel.id == channel_id
+            ).first()
+
+            if not channel:
+                logger.warning(f"Channel {channel_id} not found, skipping webhook trigger")
+                return
+
+            # Prepare event data
+            event_data = {
+                "channel_id": str(channel.id),
+                "channel_name": channel.name,
+                "chat_id": channel.chat_id,
+            }
+
+            # Add additional data if provided
+            if additional_data:
+                event_data.update(additional_data)
+
+            # Trigger the webhook event
+            event_id = f"{event_type}:{channel_id}:{datetime.now(timezone.utc).timestamp()}"
+            self.webhook_service.trigger_event(
+                event_type=event_type,
+                event_data=event_data,
+                event_id=event_id,
+                owner_id=channel.account.owner_id if channel.account else None,
+            )
+
+            logger.info(f"Triggered webhook event {event_type} for channel {channel_id}")
+
+        except Exception as e:
+            # Log error but don't fail the stream operation
+            logger.error(f"Failed to trigger webhook event {event_type}: {e}")
     
     def start_channel(self, channel_id: str) -> bool:
         """
@@ -159,11 +210,18 @@ class RedisStreamController:
         }
         
         success = self._publish_command_sync(command)
-        
+
         if success:
             channel.status = "starting"
             self.db.commit()
-            
+
+            # Trigger webhook event for stream start
+            self._trigger_webhook_event(
+                event_type="stream.started",
+                channel_id=channel_id,
+                additional_data={"status": "starting"},
+            )
+
         return success
     
     def stop_channel(self, channel_id: str) -> bool:
@@ -182,11 +240,18 @@ class RedisStreamController:
         }
         
         success = self._publish_command_sync(command)
-        
+
         if success:
             channel.status = "stopping"
             self.db.commit()
-            
+
+            # Trigger webhook event for stream stop
+            self._trigger_webhook_event(
+                event_type="stream.stopped",
+                channel_id=channel_id,
+                additional_data={"status": "stopping"},
+            )
+
         return success
     
     def restart_channel(self, channel_id: str) -> bool:
@@ -211,11 +276,18 @@ class RedisStreamController:
         }
         
         success = self._publish_command_sync(command)
-        
+
         if success:
             channel.status = "restarting"
             self.db.commit()
-            
+
+            # Trigger webhook event for stream restart
+            self._trigger_webhook_event(
+                event_type="stream.started",
+                channel_id=channel_id,
+                additional_data={"status": "restarting"},
+            )
+
         return success
     
     def update_playlist(self, channel_id: str) -> bool:
@@ -256,6 +328,44 @@ class RedisStreamController:
         except Exception as e:
             logger.error(f"Failed to get status: {e}")
             return {"status": "unknown", "error": str(e)}
+
+    def trigger_stream_error(self, channel_id: str, error_message: str) -> None:
+        """
+        Trigger a webhook event when a stream error is detected.
+
+        This method should be called when monitoring detects an error in stream status.
+
+        Args:
+            channel_id: The channel ID
+            error_message: The error message
+        """
+        try:
+            channel = self.db.query(Channel).filter(
+                Channel.id == channel_id
+            ).first()
+
+            if not channel:
+                logger.warning(f"Channel {channel_id} not found, skipping error webhook")
+                return
+
+            # Update channel status to error
+            channel.status = "error"
+            self.db.commit()
+
+            # Trigger webhook event for stream error
+            self._trigger_webhook_event(
+                event_type="stream.error",
+                channel_id=channel_id,
+                additional_data={
+                    "error": error_message,
+                    "status": "error",
+                },
+            )
+
+            logger.info(f"Triggered error webhook for channel {channel_id}: {error_message}")
+
+        except Exception as e:
+            logger.error(f"Failed to trigger error webhook for channel {channel_id}: {e}")
 
 
 def get_channel_controller(db: Session) -> RedisStreamController:

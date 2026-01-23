@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tv, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal, Library, BookOpen, ExternalLink, MessageSquareWarning } from 'lucide-react';
+import { Home, Tv, Users, Settings, CalendarDays, Activity, BarChart3, Bell, Signal, Library, BookOpen, ExternalLink, MessageSquareWarning, Key, Webhook, Globe } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { DOCS_URL } from '../../config/docs';
 import { filterNavItems } from '../../utils/navigationHelpers';
@@ -82,11 +82,31 @@ export const DesktopNav: React.FC = () => {
       icon: <Settings className="w-4 h-4" />,
       adminOnly: true
     },
-    { 
-      path: '/admin', 
-      label: t('nav.settings', 'Налаштування'), 
+    {
+      path: '/admin',
+      label: t('nav.settings', 'Налаштування'),
       icon: <Settings className="w-4 h-4" />,
       adminOnly: true
+    },
+    {
+      path: '/api-keys',
+      label: t('nav.apiKeys', 'API ключі'),
+      icon: <Key className="w-4 h-4" />
+    },
+    {
+      path: '/webhooks',
+      label: t('nav.webhooks', 'Webhooks'),
+      icon: <Webhook className="w-4 h-4" />
+    },
+    {
+      path: '/api-docs',
+      label: t('nav.apiDocs', 'API Docs'),
+      icon: <BookOpen className="w-4 h-4" />
+    },
+    {
+      path: '/ecosystem',
+      label: t('nav.ecosystem', 'Екосистема'),
+      icon: <Globe className="w-4 h-4" />
     },
   ];
 

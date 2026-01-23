@@ -66,9 +66,46 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="Telegram Broadcast API",
-        description="API for handling user authentication and other features.",
+        description="""
+## Telegram Broadcast API
+
+A comprehensive API for managing Telegram broadcasts, streaming, webhooks, and API keys.
+
+### Features
+
+- **Authentication**: JWT-based authentication with OAuth support
+- **Channel Management**: Create and manage Telegram streaming channels
+- **Playlist & Schedule**: Organize and schedule content playback
+- **Webhooks**: Subscribe to real-time events via webhook notifications
+- **API Keys**: Manage programmatic access with scoped API keys
+- **Analytics**: Track performance and viewer metrics
+- **Media Handling**: Upload and manage media files
+
+### Authentication
+
+Most endpoints require authentication via:
+- JWT bearer token (login via `/api/v1/auth/login`)
+- API key (X-API-Key header for programmatic access)
+
+### Rate Limiting
+
+API requests are rate-limited based on:
+- User session (default: 100 requests/minute)
+- API key (customizable per key)
+
+### Documentation
+
+Use the interactive docs below to explore endpoints and test requests.
+        """,
         version="0.1.0",
         lifespan=app_lifespan,
+        contact={
+            "name": "API Support",
+            "email": "support@example.com",
+        },
+        license_info={
+            "name": "MIT",
+        },
     )
     
     # =============================================================================
@@ -122,10 +159,15 @@ def create_app() -> FastAPI:
         print(f"[OK] Rate limiter middleware initialized (Redis: {redis_url})")
     except Exception as e:
         print(f"[WARN] Rate limiter middleware disabled: {e}")
-    
+
+    # API version headers middleware
+    from src.frameworks.http.middleware.version_headers import VersionHeadersMiddleware
+    app.add_middleware(VersionHeadersMiddleware)
+    print("[OK] API version headers middleware initialized")
+
     # Базовые метрики FastAPI/Starlette
     Instrumentator(
-        excluded_handlers={"/metrics", "/health", "/api/health", "/healthz"}
+        excluded_handlers={"/metrics", "/health", "/api/health", "/api/v1/health", "/healthz"}
     ).instrument(app)
     
     # =============================================================================
@@ -169,47 +211,51 @@ def create_app() -> FastAPI:
     from src.api.audio import router as audio_router
     from src.api.incidents import router as incidents_router, solutions_router
     from src.api.settings import router as settings_router
-    
+    from src.api.api_keys import router as api_keys_router
+    from src.api.webhooks import router as webhooks_router
+
     # Root endpoint
     @app.get("/")
     def read_root():
         return {"message": "Welcome to the Telegram Broadcast API"}
     
     # Include migrated routers
-    app.include_router(health_router, prefix="/api", tags=["Health"])
-    app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-    app.include_router(system_router, prefix="/api/system", tags=["System Monitoring"])
+    app.include_router(health_router, prefix="/api/v1", tags=["Health"])
+    app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
+    app.include_router(system_router, prefix="/api/v1/system", tags=["System Monitoring"])
     app.include_router(metrics_router, tags=["Metrics"])
-    
+
     # Include non-migrated routers (TODO: migrate in future)
-    app.include_router(users.router, prefix="/api/users", tags=["Users"])
-    app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
-    app.include_router(user_playlists_router.router, prefix="/api/playlists", tags=["User Playlists"])
-    app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
-    app.include_router(ai_settings.router, prefix="/api/admin", tags=["AI Settings"])
-    app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
-    app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
-    app.include_router(telegram_login_router, prefix="/api/auth/telegram-login", tags=["Telegram Login"])
-    app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
-    app.include_router(files.router, prefix="/api/files", tags=["Files"])
-    app.include_router(media.router, prefix="/api", tags=["Media"])
-    app.include_router(media_gdrive.router, prefix="/api", tags=["Media"])
-    app.include_router(websocket.router, prefix="/api/ws", tags=["WebSocket"])
-    app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
+    app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+    app.include_router(playlist.router, prefix="/api/v1/playlist", tags=["Playlist"])
+    app.include_router(user_playlists_router.router, prefix="/api/v1/playlists", tags=["User Playlists"])
+    app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+    app.include_router(ai_settings.router, prefix="/api/v1/admin", tags=["AI Settings"])
+    app.include_router(stream_quality_routes.router, prefix="/api/v1/admin/stream-quality", tags=["Stream Quality"])
+    app.include_router(telegram_auth.router, prefix="/api/v1/auth/telegram", tags=["Telegram Auth"])
+    app.include_router(telegram_login_router, prefix="/api/v1/auth/telegram-login", tags=["Telegram Login"])
+    app.include_router(channels.router, prefix="/api/v1/channels", tags=["Channels"])
+    app.include_router(files.router, prefix="/api/v1/files", tags=["Files"])
+    app.include_router(media.router, prefix="/api/v1", tags=["Media"])
+    app.include_router(media_gdrive.router, prefix="/api/v1", tags=["Media"])
+    app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
+    app.include_router(schedule.router, prefix="/api/v1", tags=["Schedule"])
     app.include_router(queue_router, prefix="/api/v1", tags=["Queue"])
-    app.include_router(playback_routes.router)
-    app.include_router(notifications_channels.router)
-    app.include_router(notifications_templates.router)
-    app.include_router(notifications_recipients.router)
-    app.include_router(notifications_rules.router)
-    app.include_router(notifications_events.router)
-    app.include_router(notifications_logs.router)
-    app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
-    app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
-    app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])
+    app.include_router(playback_routes.router, prefix="/api/v1")
+    app.include_router(notifications_channels.router, prefix="/api/v1")
+    app.include_router(notifications_templates.router, prefix="/api/v1")
+    app.include_router(notifications_recipients.router, prefix="/api/v1")
+    app.include_router(notifications_rules.router, prefix="/api/v1")
+    app.include_router(notifications_events.router, prefix="/api/v1")
+    app.include_router(notifications_logs.router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1", tags=["Analytics"])
+    app.include_router(analytics_internal_router, prefix="/api/v1", tags=["Internal"])
+    app.include_router(internal_router, prefix="/api/v1", tags=["Internal Streamer"])
     app.include_router(audio_router, prefix="/api/v1", tags=["Audio Processing"])
-    app.include_router(incidents_router, prefix="/api", tags=["Incidents"])
-    app.include_router(solutions_router, prefix="/api", tags=["Solutions"])
-    app.include_router(settings_router, prefix="/api/admin", tags=["Settings"])
-    
+    app.include_router(incidents_router, prefix="/api/v1", tags=["Incidents"])
+    app.include_router(solutions_router, prefix="/api/v1", tags=["Solutions"])
+    app.include_router(settings_router, prefix="/api/v1/admin", tags=["Settings"])
+    app.include_router(api_keys_router, prefix="/api/v1/keys", tags=["API Keys"])
+    app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])
+
     return app

@@ -45,6 +45,11 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# API & Webhook Ecosystem (Feature 026)
+from .api_key import APIKey, APIKeyScope
+from .webhook import Webhook
+from .webhook_event import WebhookEvent
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +91,10 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # API & Webhook Ecosystem
+    "APIKey",
+    "APIKeyScope",
+    "Webhook",
+    "WebhookEvent",
 ]
 
