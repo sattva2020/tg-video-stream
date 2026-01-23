@@ -134,28 +134,28 @@ class SSRFProtection:
                 # Check IPv4 addresses for private/reserved ranges
                 # Проверяем IPv4 адреса на приватные/зарезервированные диапазоны
                 if isinstance(ip, IPv4Address):
-                    if ip.is_private:
-                        return False, "Private IP address blocked"
                     if ip.is_loopback:
                         return False, "Loopback address blocked"
                     if ip.is_link_local:
                         return False, "Link-local address blocked"
-                    if ip.is_reserved:
-                        return False, "Reserved IP blocked"
                     if ip.is_multicast:
                         return False, "Multicast IP blocked"
+                    if ip.is_reserved:
+                        return False, "Reserved IP blocked"
+                    if ip.is_private:
+                        return False, "Private IP address blocked"
 
                 # Check IPv6 addresses
                 # Проверяем IPv6 адреса
                 if isinstance(ip, IPv6Address):
-                    if ip.is_private:
-                        return False, "Private IPv6 address blocked"
                     if ip.is_loopback:
                         return False, "IPv6 loopback address blocked"
                     if ip.is_link_local:
                         return False, "IPv6 link-local address blocked"
                     if ip.is_reserved:
                         return False, "Reserved IPv6 address blocked"
+                    if ip.is_private:
+                        return False, "Private IPv6 address blocked"
 
             except ValueError:
                 # Hostname is not an IP address, need to resolve DNS
@@ -175,27 +175,27 @@ class SSRFProtection:
                             
                             # Check IPv4 addresses
                             if isinstance(resolved_ip, IPv4Address):
-                                if resolved_ip.is_private:
-                                    return False, f"Hostname resolves to private IP: {resolved_ip_str}"
                                 if resolved_ip.is_loopback:
                                     return False, f"Hostname resolves to loopback IP: {resolved_ip_str}"
                                 if resolved_ip.is_link_local:
                                     return False, f"Hostname resolves to link-local IP: {resolved_ip_str}"
-                                if resolved_ip.is_reserved:
-                                    return False, f"Hostname resolves to reserved IP: {resolved_ip_str}"
                                 if resolved_ip.is_multicast:
                                     return False, f"Hostname resolves to multicast IP: {resolved_ip_str}"
+                                if resolved_ip.is_reserved:
+                                    return False, f"Hostname resolves to reserved IP: {resolved_ip_str}"
+                                if resolved_ip.is_private:
+                                    return False, f"Hostname resolves to private IP: {resolved_ip_str}"
                             
                             # Check IPv6 addresses
                             if isinstance(resolved_ip, IPv6Address):
-                                if resolved_ip.is_private:
-                                    return False, f"Hostname resolves to private IPv6: {resolved_ip_str}"
                                 if resolved_ip.is_loopback:
                                     return False, f"Hostname resolves to IPv6 loopback: {resolved_ip_str}"
                                 if resolved_ip.is_link_local:
                                     return False, f"Hostname resolves to IPv6 link-local: {resolved_ip_str}"
                                 if resolved_ip.is_reserved:
                                     return False, f"Hostname resolves to reserved IPv6: {resolved_ip_str}"
+                                if resolved_ip.is_private:
+                                    return False, f"Hostname resolves to private IPv6: {resolved_ip_str}"
                         
                         except ValueError:
                             # Skip if IP parsing fails
