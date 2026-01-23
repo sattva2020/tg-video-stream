@@ -151,6 +151,7 @@ def create_app() -> FastAPI:
         schedule,
         organizations,
         quotas,
+        subscriptions,
     )
     from src.api import media, media_gdrive, ai_settings
     from src.api.routes import playback as playback_routes
@@ -190,6 +191,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
     app.include_router(organizations.router, prefix="/api/organizations", tags=["Organizations"])
     app.include_router(quotas.router, prefix="/api", tags=["Quotas"])
+    app.include_router(subscriptions.router, prefix="/api", tags=["Subscriptions"])
     app.include_router(ai_settings.router, prefix="/api/admin", tags=["AI Settings"])
     app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
     app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
