@@ -24,7 +24,6 @@ try:
 except ImportError:
     aioredis = None
 
-from src.database import get_db
 
 logger = logging.getLogger(__name__)
 
