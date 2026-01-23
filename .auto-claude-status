@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "003-video-format-validation-transcoding-pipeline",
+  "state": "building",
+  "subtasks": {
+    "completed": 6,
+    "total": 21,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Video Transcoding Pipeline",
+    "id": null,
+    "total": 5
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 8,
+    "started_at": "2026-01-23T12:18:48.933946"
+  },
+  "last_update": "2026-01-23T12:55:00.232260"
+}
