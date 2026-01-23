@@ -10,6 +10,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { SettingsStackParamList, UserRole } from '../types';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import SettingsScreen from '../../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
 
@@ -24,18 +25,18 @@ const MODERATOR_AND_ABOVE: UserRole[] = [
   'moderator' as UserRole,
 ];
 
+// Placeholder component for screens not yet implemented
+const PlaceholderScreen: React.FC = () => {
+  const { View, Text } = require('react-native');
+  return (
+    <View style={{ flex: 1, backgroundColor: '#f9fafb', justifyContent: 'center', alignItems: 'center' }}>
+      <Text style={{ color: '#6b7280', fontSize: 16 }}>Coming soon</Text>
+    </View>
+  );
+};
+
 export const SettingsStackNavigator: React.FC<SettingsStackProps> = ({ userRole }) => {
   const { t } = useTranslation();
-
-  // Temporary placeholder component until screens are implemented
-  const PlaceholderScreen: React.FC = () => {
-    const { View } = require('react-native');
-    return (
-      <View style={{ flex: 1, backgroundColor: '#fff' }}>
-        {/* Placeholder - will be replaced with actual screens in subtask-5-2 */}
-      </View>
-    );
-  };
 
   return (
     <Stack.Navigator
@@ -52,18 +53,18 @@ export const SettingsStackNavigator: React.FC<SettingsStackProps> = ({ userRole 
     >
       <Stack.Screen
         name="SettingsHome"
-        component={PlaceholderScreen}
-        options={{ title: t('navigation.settings', 'Settings') }}
+        component={SettingsScreen}
+        options={{ title: t('settings.title', 'Settings') }}
       />
       <Stack.Screen
         name="Profile"
         component={PlaceholderScreen}
-        options={{ title: t('navigation.profile', 'Profile') }}
+        options={{ title: t('settings.profile', 'Profile') }}
       />
       <Stack.Screen
         name="Language"
         component={PlaceholderScreen}
-        options={{ title: t('navigation.language', 'Language') }}
+        options={{ title: t('settings.language', 'Language') }}
       />
 
       {/* Admin Settings - Available to ADMIN and above */}

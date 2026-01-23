@@ -14,6 +14,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import './i18n'; // Initialize i18n before anything else
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OfflineProvider } from './contexts/OfflineContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
@@ -81,13 +82,15 @@ const NavigationManager: React.FC = () => {
  * Root component with providers
  */
 const Root: React.FC = () => (
-  <OfflineProvider>
-    <AuthProvider>
-      <NetworkStatusWrapper />
-      <PushNotificationInitializer />
-      <NavigationManager />
-    </AuthProvider>
-  </OfflineProvider>
+  <ThemeProvider>
+    <OfflineProvider>
+      <AuthProvider>
+        <NetworkStatusWrapper />
+        <PushNotificationInitializer />
+        <NavigationManager />
+      </AuthProvider>
+    </OfflineProvider>
+  </ThemeProvider>
 );
 
 /**
