@@ -1,0 +1,722 @@
+=== AUTO-BUILD PROGRESS ===
+
+Project: API & Webhook Ecosystem
+Workspace: managed by orchestrator
+Started: 2026-01-23
+
+Workflow Type: feature
+Rationale: This is a multi-service feature with clear dependencies: API keys must exist before webhooks can be secured, backend APIs must be versioned before SDKs can consume them, and webhook delivery worker depends on webhook endpoints being created. The feature workflow naturally follows service dependency order.
+
+Session 1 (Planner):
+- Created implementation_plan.json
+- Phases: 10
+- Total subtasks: 68
+- Created init.sh
+- Created project_index.json
+- Created context.json
+
+Phase Summary:
+- Phase 1 - API Keys & Per-Key Rate Limiting: 8 subtasks, depends on []
+- Phase 2 - Webhook System: 7 subtasks, depends on [phase-1-api-keys]
+- Phase 3 - API Versioning: 4 subtasks, depends on [phase-1-api-keys]
+- Phase 4 - Webhook Delivery Worker: 6 subtasks, depends on [phase-2-webhooks]
+- Phase 5 - Python SDK: 5 subtasks, depends on [phase-3-api-versioning]
+- Phase 6 - JavaScript/TypeScript SDK: 5 subtasks, depends on [phase-3-api-versioning]
+- Phase 7 - Go SDK: 4 subtasks, depends on [phase-3-api-versioning]
+- Phase 8 - API Documentation: 5 subtasks, depends on [phase-3-api-versioning]
+- Phase 9 - Developer Portal UI: 5 subtasks, depends on [phase-2-webhooks, phase-8-api-docs]
+- Phase 10 - Integration & Testing: 6 subtasks, depends on [phase-4-webhook-worker, phase-5-python-sdk, phase-6-js-sdk, phase-7-go-sdk, phase-9-frontend-portal]
+
+Services Involved:
+- backend: FastAPI + SQLAlchemy + PostgreSQL + Redis + Celery
+- frontend: React + TypeScript + Vite
+- worker: Celery background tasks
+- sdk: Python, JavaScript, and Go SDKs
+- docs: API documentation with MkDocs and OpenAPI
+
+Parallelism Analysis:
+- Max parallel phases: 3
+- Parallel groups:
+  * Group 1: [phase-3-api-versioning, phase-5-python-sdk, phase-6-js-sdk, phase-7-go-sdk, phase-8-api-docs]
+    Reason: SDK development and API documentation can proceed in parallel after API versioning foundation is complete
+  * Group 2: [phase-9-frontend-portal]
+    Reason: Frontend can be developed in parallel with SDKs and documentation
+- Recommended workers: 3
+- Speedup estimate: 2.5x faster than sequential
+
+Investigation Summary:
+- Project Type: Monorepo with backend, frontend, and worker services
+- Backend: FastAPI with SQLAlchemy, PostgreSQL, Redis, Celery
+- Frontend: React + TypeScript + Vite
+- Infrastructure: Docker Compose with full monitoring stack
+- Existing Authentication: JWT-based with get_current_user dependency
+- Existing Rate Limiting: Redis-based with fastapi-limiter
+- Existing Background Tasks: Celery with Redis broker
+- Event Tracking: Analytics events, stream status changes, incidents
+- No existing API key system - must be built from scratch
+- No existing webhook system - must be built from scratch
+- No existing SDKs - must be created for Python, JavaScript, and Go
+- No API versioning - must be implemented
+
+Key Findings:
+1. FastAPI factory pattern used (create_app in frameworks/http/app.py)
+2. SQLAlchemy ORM with GUID primary keys
+3. Alembic for database migrations
+4. Celery configured with Redis broker and task queues
+5. Redis already configured for rate limiting
+6. Pydantic schemas for request/response validation
+7. APIRouter with dependency injection pattern
+8. Comprehensive testing with pytest, Playwright, Vitest
+9. Existing rate limiter middleware can be extended for per-key limits
+
+Tech Stack:
+- Backend: Python, FastAPI, SQLAlchemy, Celery, Redis
+- Frontend: React, TypeScript, Vite, HeroUI, Radix UI
+- Database: PostgreSQL 15
+- Cache: Redis 7
+- Task Queue: Celery with Redis broker
+- Testing: pytest, Playwright, Vitest, Jest
+- Documentation: MkDocs, OpenAPI/Swagger
+
+=== STARTUP COMMAND ===
+
+To continue building this spec, run:
+
+  source .auto-claude/.venv/bin/activate && python .auto-claude/run.py --spec 026 --parallel 3
+
+This will start the build process with 3 parallel workers for optimal performance.
+
+Session 2 (2026-01-23):
+Subtask 1-4: Create API key management service
+- Status: COMPLETED
+- File: backend/src/services/api_key_service.py
+- Features implemented:
+  * list_keys: Filter API keys by owner and active status
+  * get_key: Retrieve key by ID
+  * get_key_by_hash: Lookup key by hash for authentication
+  * create_key: Generate API key with secure random bytes (secrets.token_urlsafe)
+  * update_key: Update key fields (name, scopes, rate_limit, is_active, expires_at)
+  * delete_key: Remove key from database
+  * revoke_key: Soft-delete by setting is_active=False
+  * validate_key: Validate format, lookup by hash, check active/expired, update last_used
+  * check_scope/check_scopes: Verify key permissions
+  * _generate_key: Generate sk_<random> format keys (32 bytes = 256 bits)
+  * _hash_key: One-way SHA-256 hash for secure storage
+- Verification: Service imports successfully and syntax check passed
+- Commit: b6806635 - auto-claude: subtask-1-4 - Create API key management service
+
+=== END SESSION 2 ===
+
+Session 3 (2026-01-23):
+Subtask 1-5: Create API key authentication dependency (get_api_key)
+- Status: COMPLETED
+- File: backend/src/api/auth/dependencies.py
+- Features implemented:
+  * get_api_key: Extract API key from X-API-Key header and validate
+  * require_scope(): Dependency factory for single scope validation
+  * require_any_scope(): Dependency factory for multiple scope validation (any match)
+  * Follows get_current_user pattern with proper error handling
+  * Raises 401 if key missing or invalid
+  * Raises 403 if scope requirements not met
+  * Returns APIKey object for use in route handlers
+- Pattern: Similar to get_current_user and require_admin
+- Verification: Code syntax verified, follows existing patterns
+- Commit: 5e0989a0 - auto-claude: subtask-1-5 - Create API key authentication dependency (get_api_key)
+
+=== END SESSION 3 ===
+
+Session 4 (2026-01-23):
+Subtask 1-6: Create API key management endpoints (create, list, revoke) at /api/v1/keys
+- Status: COMPLETED
+- File: backend/src/api/api_keys.py
+- Modified: backend/src/frameworks/http/app.py (registered router)
+- Endpoints implemented:
+  * GET /api/v1/keys/ - List all API keys for current user (key values never included)
+  * POST /api/v1/keys/ - Create new API key (returns key value ONLY in creation response)
+  * GET /api/v1/keys/{key_id} - Get specific API key details (no key value)
+  * PATCH /api/v1/keys/{key_id} - Update API key metadata (name, scopes, rate_limit, is_active, expires_at)
+  * DELETE /api/v1/keys/{key_id} - Delete API key permanently (204 No Content)
+  * POST /api/v1/keys/{key_id}/revoke - Revoke API key (soft delete, sets is_active=False)
+- Security features:
+  * All endpoints protected with get_current_user dependency (JWT auth required)
+  * Ownership verification on all operations (users can only access their own keys)
+  * Key value only returned once during creation, never in list/get responses
+  * Proper HTTP status codes (201 for create, 204 for delete, 403 for access denied, 404 for not found)
+- Pattern followed: backend/src/api/channels.py (APIRouter, Pydantic models, dependency injection)
+- Verification note: Requires running backend server to test API endpoint (returns 401 without auth)
+- Commit: 0d3cfb61 - auto-claude: subtask-1-6 - Create API key management endpoints (create, list, revoke)
+
+=== END SESSION 4 ===
+
+Session 5 (2026-01-23):
+Subtask 1-7: Implement per-API-key rate limiting using Redis with configurable limits per key
+- Status: COMPLETED
+- File: backend/src/services/rate_limit_service.py
+- Features implemented:
+  * RateLimitService class with Redis-based sliding window rate limiting
+  * check_rate_limit(): Main method to check if request is allowed (returns allowed + info dict)
+  * reset_rate_limit(): Clear rate limit data for a specific API key
+  * get_rate_limit_info(): Get current usage without incrementing counter
+  * cleanup_expired_keys(): Maintenance task to clean old in-memory entries
+  * _get_limit_from_key(): Extract rate limit config from APIKey model (requests/window)
+  * _check_redis(): Redis sliding window implementation using sorted sets
+  * _check_in_memory(): Fallback implementation when Redis unavailable
+  * Configurable per-API-key limits via api_key.rate_limit field
+  * Default: 100 requests per 60 seconds if not configured
+- Redis implementation:
+  * Uses sorted sets with timestamps as scores for accurate sliding window
+  * Atomic operations using Redis pipelines
+  * Automatic expiry of old entries
+  * Key format: ratelimit:key:{api_key_id}
+- Fallback: In-memory storage with same sliding window logic (WARNING: not for multi-worker production)
+- Error handling: Graceful degradation from Redis to in-memory on connection failures
+- Logging: Comprehensive logging for monitoring and debugging
+- Pattern followed: backend/src/services/telegram_rate_limiter.py (Redis async patterns, error handling)
+- Verification: Code structure verified (1 class, 6 async methods, 10 total methods, proper imports)
+- Commit: 9b7c4bd1 - auto-claude: subtask-1-7 - Implement per-API-key rate limiting using Redis with configurable limits per key
+
+=== END SESSION 5 ===
+
+Session 6 (2026-01-23):
+Subtask 2-1: Create webhook database model with URL, event types, secret, and owner
+- Status: COMPLETED
+- File: backend/src/models/webhook.py
+- Features implemented:
+  * Webhook model with all required fields for webhook subscriptions
+  * id: GUID primary key
+  * owner_id: Foreign key to users table
+  * url: String(2048) for webhook endpoint URL
+  * event_types: JSONB field for storing subscribed event types
+  * secret: String(255) for HMAC signature verification
+  * is_active: Boolean with default true
+  * last_success_at, last_failure_at: DateTime fields for tracking
+  * failure_count: Integer with default 0 for monitoring
+  * created_at, updated_at: Timestamps
+  * JSONBCompat type for PostgreSQL/test compatibility
+  * Helper methods: is_subscribed_to(), update_success(), update_failure()
+  * is_healthy property for webhook health monitoring
+- Pattern followed: backend/src/models/api_key.py (GUID primary key, JSONB field types)
+- Verification: Code structure verified and matches model requirements
+- Commit: [Previous session commit]
+
+Subtask 2-2: Create webhook_event model to track delivery status, attempts, and responses
+- Status: COMPLETED
+- File: backend/src/models/webhook_event.py
+- Features implemented:
+  * WebhookEvent model with comprehensive delivery tracking
+  * id: BigInteger primary key with autoincrement
+  * webhook_id: Foreign key to webhooks with CASCADE delete
+  * event_type: String(255) for event type name
+  * event_id: String(255) for event deduplication
+  * status: String(50) with default 'pending' (pending/success/failed/retrying)
+  * attempt_number: Integer with default 1
+  * attempted_at: DateTime with server default now()
+  * response_status_code: Integer for HTTP status
+  * response_body: Text for response content
+  * response_headers: JSONB for response metadata
+  * should_retry: Boolean with default false
+  * next_retry_at: DateTime for scheduled retries
+  * duration_ms: Integer for request timing
+  * JSONBCompat type for PostgreSQL/test compatibility
+  * Helper methods: mark_success(), mark_failure(), mark_retrying()
+  * 5 performance indexes on webhook_id, event_type, status, attempted_at, event_id
+- Pattern followed: backend/src/models/analytics.py (BigInteger primary key, multiple indexes)
+- Verification: Code structure verified and matches model requirements
+- Commit: [Previous session commit]
+
+Subtask 2-3: Create Alembic migration for webhooks and webhook_events tables
+- Status: COMPLETED
+- File: backend/alembic/versions/p3q4r5s6t7u8_add_webhooks_tables.py
+- Migration ID: p3q4r5s6t7u8 (revises: o2p3q4r5s6t7)
+- Features implemented:
+  * webhooks table with all model fields:
+    - id (GUID), owner_id (FK to users), url (String 2048)
+    - event_types (JSONB with default []), secret (String 255)
+    - is_active (Boolean, default true)
+    - last_success_at, last_failure_at (DateTime)
+    - failure_count (Integer, default 0)
+    - created_at, updated_at (DateTime)
+    - Index on owner_id for performance
+  * webhook_events table with all model fields:
+    - id (BigInteger autoincrement), webhook_id (FK to webhooks with CASCADE)
+    - event_type, event_id (String 255)
+    - status (String 50, default 'pending'), attempt_number (Integer, default 1)
+    - attempted_at (DateTime with default now())
+    - response_status_code (Integer), response_body (Text)
+    - response_headers (JSONB), should_retry (Boolean, default false)
+    - next_retry_at (DateTime), duration_ms (Integer)
+    - 5 performance indexes on webhook_id, event_type, status, attempted_at, event_id
+  * Complete downgrade() function for rollback
+  * All server defaults and constraints properly defined
+  * Foreign key constraints with CASCADE delete for webhook cleanup
+- Pattern followed: backend/alembic/versions/0423a9e3b5a8_create_users_table.py
+- Verification: Migration syntax verified, field types match models exactly
+- Commit: 1d75ddf9 - auto-claude: subtask-2-3 - Create Alembic migration for webhooks and webhook_events tables
+
+Subtask 2-4: Create Pydantic schemas for webhook subscription and event types
+- Status: COMPLETED
+- File: backend/src/schemas/webhook.py
+- Features implemented:
+  * WebhookBase: Base schema with url and event_types fields
+  * WebhookCreate: Schema for creating new webhooks
+  * WebhookUpdate: Schema for updating existing webhooks (url, event_types, is_active)
+  * WebhookResponse: Response schema with all webhook fields plus secret (only on creation)
+  * WebhookListResponse: Paginated list of webhooks
+  * WebhookEventResponse: Webhook event delivery record schema
+  * WebhookEventListResponse: Paginated list of webhook events
+  * All schemas include proper field validation (max_length, min_items) and descriptions
+  * ORM mode enabled for SQLAlchemy compatibility
+  * Secret field only returned on creation for security
+- Pattern followed: backend/src/schemas/api_key.py (BaseModel pattern, Field validation, ORM mode)
+- Verification: Schema syntax verified, follows established patterns exactly
+- Commit: 9508d72c - auto-claude: subtask-2-4 - Create Pydantic schemas for webhook subscription and event types
+
+Subtask 2-5: Create webhook service with subscription management, signature generation, and event triggering
+- Status: COMPLETED
+- File: backend/src/services/webhook_service.py
+- Features implemented:
+  * list_webhooks: Filter webhooks by owner, active status, and event type
+  * get_webhook: Retrieve webhook by ID
+  * create_webhook: Create webhook with secure secret generation (secrets.token_urlsafe)
+  * update_webhook: Update webhook URL, event types, and active status
+  * delete_webhook: Remove webhook from database
+  * disable_webhook: Soft-delete by setting is_active=False
+  * get_webhooks_for_event: Get active/healthy webhooks subscribed to specific event type
+  * trigger_event: Create WebhookEvent records for all subscribed webhooks
+  * get_webhook_events: Retrieve delivery records with filters
+  * generate_signature: Generate HMAC-SHA256 signature for webhook payloads
+  * verify_signature: Verify HMAC signature using constant-time comparison
+  * rotate_secret: Generate new secret for webhook subscription
+  * get_delivery_stats: Calculate delivery statistics (success rate, response times)
+  * _generate_secret: Generate URL-safe base64 encoded random secret (32 bytes = 256 bits)
+- Security features:
+  * Cryptographically secure secret generation using secrets.token_urlsafe()
+  * HMAC-SHA256 signature generation for webhook payload verification
+  * Constant-time signature comparison to prevent timing attacks
+  * Webhook health checking (filters out webhooks with >10 consecutive failures)
+  * Secret rotation support for key management
+- Event delivery:
+  * Creates WebhookEvent records for tracking delivery attempts
+  * Filters webhooks by event type subscription
+  * Only delivers to active and healthy webhooks
+  * Supports event deduplication via event_id parameter
+- Pattern followed: backend/src/services/api_key_service.py (service class pattern, private methods)
+- Constants: WEBHOOK_SECRET_LENGTH=32 (256 bits), MAX_WEBHOOK_RETRIES=5
+- Verification: Code structure verified, follows established patterns exactly
+- Commit: 7b85319d - auto-claude: subtask-2-5 - Create webhook service with subscription management, signature generation, and event triggering
+
+=== END SESSION 6 ===
+
+Session 7 (2026-01-23):
+Subtask 2-6: Create webhook management endpoints (create, list, delete, test) at /api/v1/webhooks
+- Status: COMPLETED
+- File: backend/src/api/webhooks.py
+- Modified: backend/src/frameworks/http/app.py (registered router)
+- Endpoints implemented:
+  * GET /api/v1/webhooks/ - List all webhook subscriptions for current user (secret never included)
+  * POST /api/v1/webhooks/ - Create new webhook subscription (returns secret ONLY in creation response)
+  * GET /api/v1/webhooks/{webhook_id} - Get specific webhook details (no secret)
+  * PATCH /api/v1/webhooks/{webhook_id} - Update webhook metadata (url, event_types, is_active)
+  * DELETE /api/v1/webhooks/{webhook_id} - Delete webhook permanently (204 No Content)
+  * POST /api/v1/webhooks/{webhook_id}/test - Send test event to webhook URL
+  * POST /api/v1/webhooks/{webhook_id}/rotate-secret - Rotate webhook secret (returns new secret once)
+- Security features:
+  * All endpoints protected with get_current_user dependency (JWT auth required)
+  * Ownership verification on all operations (users can only access their own webhooks)
+  * Secret only returned once during creation and rotation, never in list/get responses
+  * Proper HTTP status codes (201 for create, 204 for delete, 403 for access denied, 404 for not found)
+- Test endpoint features:
+  * Sends real HTTP POST request to webhook URL using httpx.AsyncClient
+  * Includes HMAC-SHA256 signature in X-Webhook-Signature header
+  * Test event payload includes id, type="test", timestamp, and data
+  * Returns success status, status code, and response body from webhook
+  * Updates webhook health stats (last_success_at, last_failure_at, failure_count)
+  * 10-second timeout with proper error handling for timeouts and HTTP errors
+- Pattern followed: backend/src/api/api_keys.py (APIRouter, Pydantic models, ownership verification)
+- Router registered in app.py with /api/v1/webhooks prefix and "Webhooks" tag
+- Verification note: Requires running backend server to test API endpoint (returns 401 without auth)
+- Commit: 4ba6e1c9 - auto-claude: subtask-2-6 - Create webhook management endpoints (create, list, delete, test)
+
+=== END SESSION 7 ===
+
+Session 8 (2026-01-23):
+Subtask 3-1: Create API versioning middleware and router structure for v1 and v2
+- Status: COMPLETED
+- File: backend/src/frameworks/http/versioning.py
+- Features implemented:
+  * APIVersion enum for v1 and v2 versions
+  * Version detection from URL path (/api/v1/, /api/v2/) with regex pattern matching
+  * Version detection from X-API-Version header
+  * get_api_version(): Priority-based version detection (path > header > default v1)
+  * VersioningMiddleware: Adds X-API-Version and X-API-Deprecated headers to responses
+  * Separate v1_router and v2_router for version-specific endpoint organization
+  * version_router with /api/version and /api/versions info endpoints
+  * mark_version_deprecated(): Mark API versions as deprecated with optional sunset date
+  * mark_version_supported(): Remove deprecation warning for API versions
+- Version detection features:
+  * Extracts version from /api/v{digits}/ pattern in URL path
+  * Falls back to X-API-Version header if no version in path
+  * Defaults to v1 if no version specified
+  * Raises HTTP 400 for unsupported versions
+  * Async middleware for minimal performance impact
+- Router structure:
+  * v1_router: Prefixed with /v1, tagged "API v1"
+  * v2_router: Prefixed with /v2, tagged "API v2"
+  * version_router: Main router with /api prefix, tagged "API Versioning"
+  * GET /api/version: Returns current version, supported versions, deprecation status
+  * GET /api/versions: Returns detailed list of all versions with features and status
+- Deprecation management:
+  * DEPRECATED_VERSIONS set tracks deprecated versions
+  * Automatic X-API-Deprecated: WARNING header for deprecated versions
+  * Centralized version lifecycle management functions
+- Pattern followed: backend/src/frameworks/http/app.py (Russian/English docstrings, type hints, structure)
+- Verification: Code structure verified (1 enum, 1 class, 7 functions, 3 routers, proper imports)
+- Commit: d30c4dbe - auto-claude: subtask-3-1 - Create API versioning middleware and router structure
+
+=== END SESSION 8 ===
+Session 9 (2026-01-23):
+Subtask 3-3: Add API version deprecation headers and documentation
+- Status: COMPLETED
+- File: backend/src/frameworks/http/middleware/version_headers.py
+- Modified: backend/src/frameworks/http/middleware/__init__.py (added export)
+- Modified: backend/src/frameworks/http/app.py (registered middleware)
+- Features implemented:
+  * VersionHeadersMiddleware class following rate_limiter.py pattern
+  * Adds X-API-Version header to all API responses
+  * Adds X-API-Deprecated header (true/false) for deprecated versions
+  * Adds X-API-Sunset header with ISO 8601 sunset date for deprecated versions
+  * Adds X-API-Docs header with link to version-specific documentation
+  * Adds X-API-Supported-Versions header listing all active versions
+  * Adds X-API-Migration-Guide header for deprecated versions
+  * VERSION_INFO dictionary with metadata for v1 (stable) and v2 (beta)
+  * mark_version_deprecated(): Mark version as deprecated with sunset date and migration guide
+  * mark_version_supported(): Remove deprecation warning from version
+  * set_version_info(): Set or update version metadata
+  * Skip logic for non-API paths (/health, /metrics, /static/)
+  * Comprehensive logging for deprecation warnings and errors
+- Middleware registration:
+  * Imported VersionHeadersMiddleware from middleware package
+  * Registered in app.py with app.add_middleware()
+  * Exported in middleware/__init__.py for consistency
+- Version detection:
+  * Uses existing get_api_version() from versioning.py
+  * Extracts version from URL path (/api/v1/, /api/v2/)
+  * Graceful error handling (fail silently on exceptions)
+- Pattern followed: backend/src/frameworks/http/middleware/rate_limiter.py (BaseHTTPMiddleware, dispatch method, error handling, logging)
+- Headers added to responses:
+  * X-API-Version: v1 or v2
+  * X-API-Deprecated: "true" if deprecated
+  * X-API-Sunset: ISO 8601 date if deprecated
+  * X-API-Docs: /docs or /docs/v2
+  * X-API-Supported-Versions: "v1, v2"
+  * X-API-Migration-Guide: URL if deprecated
+- Verification: Requires running backend server to test (curl -I http://localhost:8000/api/v1/health | grep 'X-API-Version')
+- Commit: cb2974fc - auto-claude: subtask-3-3 - Add API version deprecation headers and documentation
+
+=== END SESSION 9 ===
+
+Session 10 (2026-01-23):
+Subtask 4-1: Create Celery task for webhook delivery with retry policy (exponential backoff)
+- Status: COMPLETED
+- File: backend/src/services/webhook_worker.py
+- Modified: backend/src/celery_app.py (registered worker and webhooks queue)
+- Celery tasks implemented:
+  * webhook.deliver: Main delivery task with exponential backoff retry
+  * webhook.send_test: Test webhook delivery for validation
+- Features implemented:
+  * calculate_retry_delay(): Exponential backoff with 2x multiplier (configurable)
+  * is_duplicate_event(): Redis-based event deduplication (prevents duplicate deliveries)
+  * build_webhook_payload(): Construct standardized webhook payload with timestamp
+  * generate_signature_headers(): HMAC-SHA256 signature in X-Sattva-Signature header
+  * deliver_webhook_http(): Async HTTP POST with httpx, 10s timeout, error handling
+  * log_webhook_delivery(): Update WebhookEvent records with delivery results
+  * deliver_webhook(): Main Celery task with retry policy, webhook health checking
+  * send_test_webhook(): Test webhook delivery for subscription validation
+- Security features:
+  * HMAC-SHA256 signature generation for payload verification
+  * Cryptographically secure signature using webhook.secret
+  * Signature header format: "X-Sattva-Signature: sha256=<signature>"
+  * Event ID header for traceability: "X-Sattva-Event-ID"
+  * Delivery ID header for tracking: "X-Sattva-Delivery-ID"
+- Retry policy:
+  * Max retries: 5 (configurable via WEBHOOK_MAX_RETRIES)
+  * Initial delay: 60 seconds (configurable via WEBHOOK_RETRY_INITIAL_DELAY)
+  * Backoff multiplier: 2x (configurable via WEBHOOK_RETRY_BACKOFF_MULTIPLIER)
+  * Cap delay at 1 hour (3600 seconds)
+  * Retry on HTTP errors, timeouts, and connection failures
+- Delivery tracking:
+  * Updates webhook statistics (last_success_at, last_failure_at, failure_count)
+  * Logs to WebhookEvent with status, status_code, response_body, duration_ms
+  * Tracks should_retry and next_retry_at for scheduled retries
+  * Supports event deduplication via Redis with 24-hour TTL
+- Webhook health:
+  * Checks webhook.is_active before delivery
+  * Skips unhealthy webhooks (failure_count > 10)
+  * Updates webhook health stats on success/failure
+  * Automatic webhook disabling after repeated failures
+- HTTP delivery:
+  * Uses httpx.AsyncClient for async HTTP requests
+  * 10-second timeout (configurable via WEBHOOK_TIMEOUT_SEC)
+  * Proper error handling for timeouts, connection errors, HTTP errors
+  * 2xx status codes considered success
+  * Response body truncated to 1000 chars for storage
+- Celery integration:
+  * Registered in celery_app.py include list
+  * Dedicated "webhooks" queue for isolation
+  * Task routing configured for webhook.deliver and webhook.send_test
+  * Fallback functions when celery_app is not configured
+- Pattern followed: backend/src/services/notifications/worker.py (task structure, error handling, Russian/English docstrings)
+- Constants defined:
+  * WEBHOOK_TIMEOUT_SEC: Default 10 seconds
+  * WEBHOOK_MAX_RETRIES: Default 5
+  * WEBHOOK_RETRY_INITIAL_DELAY: Default 60 seconds
+  * WEBHOOK_RETRY_BACKOFF_MULTIPLIER: Default 2
+  * WEBHOOK_USER_AGENT: Default "Sattva-Webhook/1.0"
+  * WEBHOOK_SIGNATURE_HEADER: Default "X-Sattva-Signature"
+  * WEBHOOK_EVENT_ID_HEADER: Default "X-Sattva-Event-ID"
+  * WEBHOOK_DELIVERY_ID_HEADER: Default "X-Sattva-Delivery-ID"
+- Verification: Code structure verified, follows established patterns, proper imports, task decorators configured
+- Commit: 3ba7c1f3 - auto-claude: subtask-4-1 - Create Celery task for webhook delivery with retry
+
+=== END SESSION 10 ===
+
+Session 11 (2026-01-23):
+Subtask 4-3: Implement event deduplication using event_id to prevent duplicate deliveries
+- Status: COMPLETED (Already implemented in subtask-4-1)
+- File: backend/src/services/webhook_worker.py
+- Features implemented:
+  * is_duplicate_event() function using Redis for deduplication
+  * Key pattern: "webhook:delivered:{webhook_id}:{event_id}"
+  * 24-hour TTL on deduplication keys (86400 seconds)
+  * Integrated into deliver_webhook Celery task (lines 308-315)
+  * Checks for duplicates before webhook delivery
+  * Marks duplicate events as failed to prevent retries
+  * Logs when duplicate events are detected and skipped
+- Error handling:
+  * Returns False (fail-open) if Redis is unavailable
+  * Logs warning when deduplication check fails
+  * Graceful degradation without blocking delivery
+- Pattern followed: backend/src/services/webhook_worker.py (existing function)
+- Verification: Function already implemented and integrated in deliver_webhook task
+- No new code changes required - feature was complete in subtask-4-1
+
+=== END SESSION 11 ===
+
+Session 12 (2026-01-23):
+Subtask 4-4: Add webhook event logging with HTTP status, response time, and error details
+- Status: COMPLETED
+- File: backend/src/services/webhook_worker.py
+- Features implemented:
+  * log_webhook_delivery() function already implemented with full logging capabilities
+  * Fixed type annotation error: Optional[time.time] -> Optional[datetime]
+  * Added datetime import at module level for consistency
+  * Removed duplicate local datetime imports
+- Logging features:
+  * HTTP status codes (success/failure) logged via status_code parameter
+  * Response time in milliseconds logged via duration_ms parameter
+  * Error details logged via response_body parameter (truncated to 1000 chars)
+  * Retry information logged via should_retry and next_retry_at parameters
+  * Uses WebhookEvent.mark_success() for successful deliveries
+  * Uses WebhookEvent.mark_failure() for failed deliveries with retry logic
+  * Proper error handling with try/except and logging
+- Integration:
+  * Called in deliver_webhook task after HTTP delivery (lines 333-340, 369-378)
+  * Called in send_test_webhook task after test delivery (lines 478-485)
+  * Commits changes to database with db.commit()
+  * Refreshes webhook_event to get updated database values
+- Pattern followed: backend/src/models/webhook_event.py (mark_success, mark_failure methods)
+- Verification: log_webhook_delivery function imports successfully (syntax check passed)
+- Commit: 06920581 - auto-claude: subtask-4-4 - Add webhook event logging with HTTP status, response time, and error details
+
+=== END SESSION 12 ===
+
+Session 13 (2026-01-23):
+Subtask 4-5: Register webhook delivery tasks in Celery app with dedicated queue
+- Status: COMPLETED (Already implemented in subtask-4-1)
+- Verification: Code structure verified, no changes needed
+- Features already implemented:
+  * Worker module 'src.services.webhook_worker' included in celery_app.py
+  * Task routes configured for webhook.deliver -> 'webhooks' queue
+  * Task routes configured for webhook.send_test -> 'webhooks' queue
+  * Queue('webhooks', routing_key='webhooks') defined in task_queues
+  * Both webhook tasks properly defined in webhook_worker.py with @celery_app.task decorators
+- Pattern followed: backend/src/celery_app.py (existing task routing configuration)
+- Notes: This subtask was completed as part of subtask 4-1 in Session 10. The webhook delivery worker was fully implemented and registered in the Celery app with a dedicated 'webhooks' queue for isolation from other background tasks.
+- No code changes required - verification only
+
+=== END SESSION 13 ===
+
+Session 14 (2026-01-23):
+Subtask 5-1: Create Python SDK package structure with setup.py and project configuration
+- Status: COMPLETED
+- Files created:
+  * sdks/python/setup.py: Package configuration with setuptools
+  * sdks/python/pyproject.toml: Modern build system configuration
+  * sdks/python/README.md: Comprehensive documentation with usage examples
+  * sdks/python/LICENSE: MIT license file
+  * sdks/python/MANIFEST.in: Package manifest for distribution
+  * sdks/python/.gitignore: Python-specific gitignore
+  * sdks/python/sattva_api/__init__.py: Public API exports (version, client, exceptions, webhook)
+  * sdks/python/sattva_api/client.py: Base SattvaClient class with configuration options
+  * sdks/python/sattva_api/exceptions.py: Exception hierarchy (SattvaAPIError, AuthenticationError, RateLimitError, NotFoundError, ValidationError)
+  * sdks/python/sattva_api/webhook.py: Webhook signature verification function (HMAC-SHA256)
+- Package metadata:
+  * Name: sattva-api
+  * Version: 0.1.0
+  * Python support: 3.9, 3.10, 3.11, 3.12
+  * Dependencies: requests>=2.31.0, pydantic>=2.0.0
+  * Dev dependencies: pytest, pytest-cov, black, ruff, mypy
+  * Classifiers: Development Status :: 4 - Beta, License :: OSI Approved :: MIT License
+- SDK features:
+  * SattvaClient class with configurable base_url, timeout, max_retries, retry_delay
+  * Resource attributes: streams, playlists, channels, webhooks, api_keys (to be implemented in subtask-5-2)
+  * Comprehensive exception hierarchy for error handling
+  * Webhook signature verification using HMAC-SHA256 with constant-time comparison
+  * Type hints throughout for IDE support
+- Documentation features:
+  * Installation instructions
+  * Quick start example
+  * Authentication guide with security best practices
+  * API usage examples for all resources (streams, playlists, channels, webhooks, API keys)
+  * Error handling examples
+  * Rate limiting documentation
+  * Webhook signature verification guide
+  * Development setup instructions
+  * Event types reference
+  * Support links
+- Package structure follows Python packaging best practices:
+  * setup.py with complete metadata and dependencies
+  * pyproject.toml with build system configuration
+  * Proper __init__.py exports for clean API surface
+  * MANIFEST.in for distribution
+  * LICENSE file
+  * .gitignore for Python projects
+- Verification: All required files created and properly structured
+- Total files: 10 (setup.py, pyproject.toml, README.md, LICENSE, MANIFEST.in, .gitignore, 4 Python modules)
+- Total lines of code: 562 (562 lines across all files)
+- Commit: c71ea5b4 - auto-claude: subtask-5-1 - Create Python SDK package structure with setup.py
+
+=== END SESSION 14 ===
+
+Session 15 (2026-01-23):
+Subtask 6-5: Create JavaScript SDK tests with Jest
+- Status: COMPLETED
+- Files created:
+  * sdks/javascript/jest.config.js: Jest configuration with ts-jest preset
+  * sdks/javascript/tsconfig.spec.json: TypeScript configuration for test files
+  * sdks/javascript/tests/setup.ts: Test setup with global fetch mock
+  * sdks/javascript/tests/client.test.ts: Main test suite (1078 lines, 52 test cases)
+  * sdks/javascript/tests/simple.test.ts: Basic Jest setup verification
+- Test coverage:
+  * Client initialization (3 tests):
+    - Default configuration values
+    - Custom configuration support
+    - Resource manager initialization
+  * HTTP methods (5 tests):
+    - GET, POST, PATCH, DELETE, PUT requests
+    - Proper request construction
+    - Response handling
+  * Error handling (7 tests):
+    - AuthenticationError (401, 403)
+    - NotFoundError (404)
+    - ValidationError (400, 422)
+    - RateLimitError (429) with retry-after
+    - SattvaAPIError (500+)
+    - Network error handling
+  * Rate limiting and retry logic (4 tests):
+    - Automatic retry on 429 status
+    - Retry-After header respect
+    - Exponential backoff calculation
+    - Max retries enforcement
+  * Timeout handling (1 test):
+    - Request timeout after configured time
+  * Streams resource (5 tests):
+    - List streams
+    - Get stream by ID
+    - Start, stop, restart streams
+  * Channels resource (5 tests):
+    - List channels
+    - Get channel by ID
+    - Create, update, delete channels
+  * Playlists resource (6 tests):
+    - List playlists
+    - Get playlist by ID
+    - Create, update, delete playlists
+    - Reorder playlist tracks
+  * Webhooks resource (8 tests):
+    - List webhooks
+    - Get webhook by ID
+    - Create, update, delete webhooks
+    - Test webhook delivery
+    - Rotate webhook secret
+    - List webhook events
+  * API Keys resource (6 tests):
+    - List API keys
+    - Get API key by ID
+    - Create, update, delete API keys
+    - Revoke API key
+  * Request headers (1 test):
+    - Correct header construction (X-API-Key, Content-Type, Accept)
+- Test infrastructure:
+  * Jest configuration with ts-jest preset for TypeScript support
+  * Global fetch mock for testing HTTP requests without network calls
+  * Test-specific TypeScript configuration (CommonJS modules, Jest types)
+  * Proper cleanup after each test (jest.clearAllMocks())
+  * 10-second timeout for async operations
+- Mocking strategy:
+  * Global fetch mock for all HTTP requests
+  * Mock responses with proper status codes and JSON bodies
+  * Error response simulation for exception testing
+  * Async/await support throughout
+- Test statistics:
+  * Total test cases: 52
+  * Total lines: 1078
+  * Test suites: 12 (describe blocks)
+  * All tests passing: exit code 0
+- Pattern followed: sdks/python/tests/test_client.py (test structure, mocking approach, coverage areas)
+- Verification: npm test completes successfully with exit code 0
+- Commit: d9c9879d - auto-claude: subtask-6-5 - Create JavaScript SDK tests with Jest
+
+=== END SESSION 15 ===
+
+Session 16 (2026-01-23):
+Subtask 7-3: Implement Go SDK methods for all API resources
+- Status: COMPLETED
+- Files created:
+  * sdks/go/streams.go: Streams resource implementation (205 lines)
+  * sdks/go/webhooks.go: Webhooks resource implementation (207 lines)
+  * sdks/go/playlists.go: Playlists resource implementation (189 lines)
+  * sdks/go/channels.go: Channels resource implementation (149 lines)
+  * sdks/go/apikeys.go: API keys resource implementation (144 lines)
+  * sdks/go/client_test.go: Test suite for client and resources (161 lines)
+- Modified: sdks/go/client.go (uncommented resource initialization)
+- Features implemented:
+  * streamsResource: List, Get, Start, Stop, Pause, Resume, Restart methods
+  * webhooksResource: List, Get, Create, Update, Delete, Test, RotateSecret, ListEvents methods
+  * playlistsResource: List, Get, Create, Update, Delete, GetStatus, Reorder methods
+  * channelsResource: List, Get, Create, Update, Delete methods
+  * apiKeysResource: List, Get, Create, Update, Delete, Revoke methods
+- Implementation details:
+  * All resources implement interfaces defined in types.go
+  * Context support for all operations (cancelation, timeouts)
+  * Comprehensive error handling with wrapped error messages
+  * Debug logging for all operations ([DEBUG] level)
+  * Custom JSON marshaling for each resource type
+  * Proper HTTP path construction with fmt.Sprintf
+  * Query string support via buildQueryString helper
+  * Response decoding via client.decodeJSON method
+- Test coverage (client_test.go):
+  * TestClientInitialization: Verifies client and all resources are properly initialized
+  * TestClientString: Tests String() method output
+  * TestClientClose: Verifies resource cleanup
+  * TestBuildQueryString: Tests query string building with 4 sub-cases
+  * TestResourcesNotNil: Verifies all resource interfaces are not nil
+  * TestClientOptions: Tests client configuration with functional options
+- Test results: All 9 test cases pass (6 test suites, 4 sub-tests)
+- Pattern followed: sdks/python/sattva_api/resources.py (resource class structure, method naming)
+- Verification: cd sdks/go && go test -v ./... | grep 'PASS' returns PASS
+- Total lines of code: 1,055 lines across 6 files
+- Commit: 427d1f17 - auto-claude: subtask-7-3 - Implement Go SDK methods for all API resources
+
+=== END SESSION 16 ===
+
