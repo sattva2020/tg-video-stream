@@ -116,25 +116,40 @@ async def preview_optimization(
         # Create optimization ID
         optimization_id = str(uuid.uuid4())
 
-        # Detect gaps and conflicts
-        gaps = await service.detect_gaps(
+        # Create request objects for service methods
+        from src.schemas.schedule_ai import GapDetectionRequest, ConflictDetectionRequest
+
+        gaps_request = GapDetectionRequest(
+            channel_id=request.channel_id,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            consider_peak_hours=request.parameters.maximize_engagement
+        )
+
+        conflicts_request = ConflictDetectionRequest(
             channel_id=request.channel_id,
             start_date=request.start_date,
             end_date=request.end_date
         )
 
-        conflicts = await service.detect_conflicts(
-            channel_id=request.channel_id,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
+        # Detect gaps and conflicts
+        gaps = await service.detect_gaps(gaps_request)
+        conflicts = await service.detect_conflicts(conflicts_request)
 
         # Calculate current metrics
         current_metrics = await service.calculate_metrics(
             channel_id=request.channel_id,
             start_date=request.start_date,
-            end_date=request.end_date
+            end_date=request.end_date,
+            parameters=request.parameters
         )
+
+        # Generate warnings based on gaps and conflicts
+        warnings = []
+        if gaps.total_gap_hours > 0:
+            warnings.append(f"Found {gaps.total_gap_hours:.1f} hours of gaps in schedule")
+        if conflicts.total_conflicts > 0:
+            warnings.append(f"Found {conflicts.total_conflicts} conflicts in schedule")
 
         return ScheduleOptimizationResponse(
             id=optimization_id,
@@ -145,7 +160,7 @@ async def preview_optimization(
             metrics=current_metrics,
             suggestions=[],
             parameters=request.parameters,
-            warnings=[],
+            warnings=warnings,
             created_at=datetime.utcnow()
         )
     except Exception as e:
