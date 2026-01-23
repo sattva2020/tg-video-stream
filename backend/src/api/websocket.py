@@ -442,7 +442,7 @@ def stop_metrics_broadcast():
 async def notify_listeners_update(channel_id: int, listeners_count: int):
     """
     Уведомить об изменении количества слушателей.
-    
+
     Args:
         channel_id: ID канала
         listeners_count: Текущее количество слушателей
@@ -453,9 +453,30 @@ async def notify_listeners_update(channel_id: int, listeners_count: int):
         "listeners_count": listeners_count,
         "timestamp": _get_timestamp()
     }
-    
+
     await manager.broadcast_to_channel(str(channel_id), message)
     await manager.broadcast_to_channel(None, message)
+
+
+# === Import Progress Notifications (T011 - Content Import Tools) ===
+
+async def notify_import_progress(job_id: str, progress_data: dict):
+    """
+    Уведомить клиентов о прогрессе импорта контента.
+
+    Args:
+        job_id: UUID import job
+        progress_data: Данные о прогрессе (processed, successful, failed, etc.)
+    """
+    message = {
+        "type": "import_progress",
+        "job_id": job_id,
+        "timestamp": _get_timestamp(),
+        **progress_data
+    }
+
+    # Отправляем всем клиентам для обновления UI
+    await manager.broadcast_all(message)
 
 
 # Экспорт connection_manager для использования в других модулях

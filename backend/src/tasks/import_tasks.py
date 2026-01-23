@@ -94,17 +94,7 @@ def _notify_import_progress(job_id: str, progress_data: Dict[str, Any]):
         import asyncio
 
         # Run async notify in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(
-                ws_module.broadcast_to_user(
-                    event_type="import_progress",
-                    data={"job_id": job_id, **progress_data}
-                )
-            )
-        finally:
-            loop.close()
+        asyncio.run(ws_module.notify_import_progress(job_id, progress_data))
     except Exception:
         logger.exception("Failed to notify import progress")
 
