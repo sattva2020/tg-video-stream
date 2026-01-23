@@ -11,6 +11,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from './types';
 import { SplashLoadingScreen } from '../components/SplashLoadingScreen';
 import { LoginScreen } from '../screens/auth/LoginScreen';
+import { BiometricPromptScreen } from '../screens/auth/BiometricPrompt';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -45,6 +46,11 @@ export const AuthNavigator: React.FC = () => {
       <Stack.Screen
         name="PendingApproval"
         component={PlaceholderScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="BiometricPrompt"
+        component={BiometricPromptScreen}
         options={{ gestureEnabled: false }}
       />
     </Stack.Navigator>

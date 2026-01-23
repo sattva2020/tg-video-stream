@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { jwtDecode } from 'jwt-decode';
 import { User, UserRole } from '../api/types';
 import { authApi, tokenStorage } from '../api/auth';
+import { canUseBiometric, authenticateWithBiometrics } from '../utils/biometricAuth';
 
 interface AuthState {
   user: User | null;
@@ -55,6 +56,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const token = await tokenStorage.getToken();
       if (token) {
+        // Check if biometric authentication is available and enabled
+        const biometricEnabled = await canUseBiometric();
+
+        if (biometricEnabled) {
+          // Attempt biometric authentication
+          const result = await authenticateWithBiometrics('Authenticate to access your account');
+
+          if (!result.success) {
+            // Biometric failed or was cancelled, log out
+            await logout();
+            setIsLoading(false);
+            return;
+          }
+          // Biometric succeeded, continue with normal auth check
+        }
+
         try {
           const decoded = jwtDecode<JwtPayload>(token);
           const currentTime = Date.now() / 1000;

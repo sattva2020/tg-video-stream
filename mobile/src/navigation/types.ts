@@ -34,6 +34,7 @@ export type AuthStackParamList = {
   Login: undefined;
   AuthCallback: { token?: string };
   PendingApproval: undefined;
+  BiometricPrompt: { email: string };
 };
 
 /**

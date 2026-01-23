@@ -80,7 +80,9 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
       // Save token and update auth state
       await login(response.access_token);
 
-      // Navigation to main app will be handled by AuthContext
+      // Navigate to biometric prompt screen
+      // This screen will offer to enable biometric auth, then navigate to main app
+      navigation.navigate('BiometricPrompt', { email });
     } catch (error: any) {
       setIsLoading(false);
 
