@@ -11,8 +11,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Play, Clock, Music, RefreshCw, Calendar } from 'lucide-react';
-import { MetricCard, ListenersChart, TopTracksTable } from '../../components/analytics';
+import { Users, Play, Clock, Music, RefreshCw, Calendar, Download } from 'lucide-react';
+import { MetricCard, ListenersChart, TopTracksTable, ExportReportDialog } from '../../components/analytics';
 import { AppLayout } from '../../components/layout';
 import * as analyticsApi from '../../api/analytics';
 import type {
@@ -113,6 +113,27 @@ const Analytics: React.FC = () => {
                 </button>
               ))}
             </div>
+
+            {/* Export Dialog */}
+            <ExportReportDialog
+              trigger={
+                <button
+                  className="px-4 py-2 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium transition-colors duration-300 flex items-center gap-2 shadow-sm shadow-black/5"
+                  title="Export analytics"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </button>
+              }
+              onExport={async (options) => {
+                // Handle export with backend API
+                console.log('Exporting analytics:', options);
+              }}
+              onSchedule={async (options) => {
+                // Handle schedule with backend API
+                console.log('Scheduling report:', options);
+              }}
+            />
 
             {/* Refresh Button */}
             <button

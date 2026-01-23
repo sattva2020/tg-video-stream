@@ -10,3 +10,4 @@ export { RealtimeViewersChart } from './RealtimeViewersChart';
 export { StreamPerformanceCard } from './StreamPerformanceCard';
 export { EngagementMetrics } from './EngagementMetrics';
 export { ContentInsights } from './ContentInsights';
+export { ExportReportDialog } from './ExportReportDialog';
