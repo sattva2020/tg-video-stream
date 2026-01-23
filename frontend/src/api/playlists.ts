@@ -167,6 +167,46 @@ export interface PlaylistGroupUpdate {
   is_expanded?: boolean;
 }
 
+// ==================== Bulk Operations ====================
+
+export interface BulkDeleteRequest {
+  playlist_ids: string[];
+}
+
+export interface BulkMoveRequest {
+  playlist_ids: string[];
+  group_id?: string | null; // null means move to root (no group)
+}
+
+export interface BulkCopyRequest {
+  playlist_ids: string[];
+}
+
+export interface BulkOperationResponse {
+  success_count: number;
+  failed_count: number;
+  errors: string[];
+}
+
+export interface BulkImportRequest {
+  urls: string[];
+  channel_id?: string;
+}
+
+export interface BulkImportResult {
+  url: string;
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface BulkImportResponse {
+  success_count: number;
+  failed_count: number;
+  results: BulkImportResult[];
+  message: string;
+}
+
 const PLAYLISTS_BASE = '/api/playlists';
 
 export const playlistsApi = {
@@ -368,5 +408,26 @@ export const playlistsApi = {
 
   deleteGroup: async (groupId: string) => {
     await client.delete(`${PLAYLISTS_BASE}/groups/${groupId}`);
+  },
+
+  // Bulk operations methods
+  bulkDeletePlaylists: async (request: BulkDeleteRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/delete`, request);
+    return response.data;
+  },
+
+  bulkMovePlaylists: async (request: BulkMoveRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/move`, request);
+    return response.data;
+  },
+
+  bulkCopyPlaylists: async (request: BulkCopyRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/copy`, request);
+    return response.data;
+  },
+
+  bulkImportPlaylists: async (request: BulkImportRequest) => {
+    const response = await client.post<BulkImportResponse>(`${PLAYLISTS_BASE}/import/bulk`, request);
+    return response.data;
   },
 };
