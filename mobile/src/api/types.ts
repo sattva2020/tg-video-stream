@@ -64,14 +64,27 @@ export interface AuthResponse {
   };
 }
 
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+  SUPERADMIN = 'superadmin',
+  MODERATOR = 'moderator',
+  OPERATOR = 'operator',
+}
+
 export interface User {
-  id: number;
-  email: string;
-  username?: string;
-  is_active: boolean;
-  is_superuser: boolean;
-  created_at: string;
-  updated_at?: string;
+  id: string;
+  email?: string;
+  full_name?: string;
+  profile_picture_url?: string;
+  role: UserRole;
+  status?: string;
+  last_login?: string;
+  email_verified?: boolean;
+  google_id?: string;
+  telegram_id?: number;
+  telegram_username?: string;
+  totp_enabled?: boolean;
 }
 
 // Channel types
