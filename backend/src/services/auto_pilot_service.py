@@ -1,0 +1,732 @@
+"""
+AutoPilotService for one-click schedule generation.
+
+Features:
+- Automatic schedule generation based on AI recommendations
+- Gap filling with optimal content
+- Template-based recurring schedule creation
+- Conflict resolution during generation
+- Background task support for large date ranges
+
+External Library: APScheduler 3.10+, Celery 5.3+
+"""
+
+import logging
+import uuid
+from typing import Optional, List, Dict, Any
+from datetime import datetime, date, time, timedelta
+from uuid import UUID
+
+from sqlalchemy import select, and_, or_
+from sqlalchemy.orm import Session
+
+from src.models.schedule import ScheduleSlot, ScheduleTemplate, RepeatType
+from src.models.playlist import Playlist
+from src.models.schedule_optimization import ScheduleOptimization, OptimizationStatus
+from src.schemas.schedule_ai import (
+    AutoPilotRequest,
+    AutoPilotResponse,
+    AutoPilotProgress,
+    AutoPilotTemplate,
+    OptimizationParameters,
+    ScheduleSlotSuggestion,
+    AppliedChanges,
+)
+from src.services.schedule_recommendation_service import ScheduleRecommendationService
+from src.services.schedule_optimization_service import ScheduleOptimizationService
+
+
+logger = logging.getLogger(__name__)
+
+
+class AutoPilotService:
+    """Manages automatic schedule generation (auto-pilot mode)."""
+
+    def __init__(self, db_session: Session):
+        """
+        Initialize auto-pilot service.
+
+        Args:
+            db_session: SQLAlchemy database session
+        """
+        self.db = db_session
+        self.logger = logger
+
+        # Initialize recommendation and optimization services
+        self.recommendation_service: Optional[ScheduleRecommendationService] = None
+        self.optimization_service: Optional[ScheduleOptimizationService] = None
+
+    def _init_services(self, redis_client=None):
+        """
+        Lazy initialization of dependent services.
+
+        Args:
+            redis_client: Optional Redis client for caching
+        """
+        if self.recommendation_service is None:
+            self.recommendation_service = ScheduleRecommendationService(
+                self.db, redis_client
+            )
+        if self.optimization_service is None:
+            self.optimization_service = ScheduleOptimizationService(
+                self.db, redis_client
+            )
+
+    async def generate_schedule(
+        self,
+        request: AutoPilotRequest,
+        user_id: Optional[str] = None,
+        redis_client=None
+    ) -> AutoPilotResponse:
+        """
+        Generate complete schedule automatically (one-click generation).
+
+        Args:
+            request: Auto-pilot request with date range and options
+            user_id: Optional user ID who initiated generation
+            redis_client: Optional Redis client for caching
+
+        Returns:
+            AutoPilotResponse with generation results
+        """
+        self._init_services(redis_client)
+
+        # Parse date range
+        start_date = date.fromisoformat(request.date_range["start"])
+        end_date = date.fromisoformat(request.date_range["end"])
+
+        # Validate date range
+        if end_date < start_date:
+            raise ValueError("End date must be after start date")
+
+        task_id = str(uuid.uuid4())
+
+        self.logger.info(
+            f"Starting auto-pilot schedule generation for channel {request.channel_id}, "
+            f"dates {start_date} to {end_date}"
+        )
+
+        try:
+            # Apply template if provided
+            slots_created = 0
+            if request.template:
+                template_slots = await self._apply_template(
+                    request.channel_id,
+                    request.template,
+                    start_date,
+                    end_date,
+                    user_id
+                )
+                slots_created += template_slots
+
+            # Fill gaps with AI recommendations
+            gaps_filled = 0
+            if request.fill_gaps:
+                filled = await self._fill_gaps_with_recommendations(
+                    request.channel_id,
+                    start_date,
+                    end_date,
+                    request.max_daily_hours,
+                    request.use_ai_recommendations,
+                    user_id
+                )
+                gaps_filled = filled
+
+            # Resolve conflicts if requested
+            conflicts_resolved = 0
+            if request.resolve_conflicts:
+                resolved = await self._resolve_schedule_conflicts(
+                    request.channel_id,
+                    start_date,
+                    end_date
+                )
+                conflicts_resolved = resolved
+
+            total_slots = slots_created + gaps_filled
+
+            self.logger.info(
+                f"Auto-pilot generation completed: {total_slots} slots created, "
+                f"{gaps_filled} gaps filled, {conflicts_resolved} conflicts resolved"
+            )
+
+            return AutoPilotResponse(
+                task_id=task_id,
+                channel_id=request.channel_id,
+                status="completed",
+                date_range=request.date_range,
+                slots_created=total_slots,
+                gaps_filled=gaps_filled,
+                conflicts_resolved=conflicts_resolved,
+                created_at=datetime.utcnow()
+            )
+
+        except Exception as e:
+            self.logger.error(f"Auto-pilot generation failed: {e}")
+            return AutoPilotResponse(
+                task_id=task_id,
+                channel_id=request.channel_id,
+                status="failed",
+                date_range=request.date_range,
+                slots_created=0,
+                gaps_filled=0,
+                conflicts_resolved=0,
+                error_message=str(e),
+                created_at=datetime.utcnow()
+            )
+
+    def generate_schedule_async(
+        self,
+        request: AutoPilotRequest,
+        user_id: Optional[str] = None
+    ) -> str:
+        """
+        Submit background task for schedule generation.
+
+        This method is designed for Celery integration. The actual
+        generation happens in the background task.
+
+        Args:
+            request: Auto-pilot request
+            user_id: Optional user ID
+
+        Returns:
+            Task ID for tracking
+        """
+        # TODO: Integrate with Celery
+        # For now, return a placeholder task ID
+        task_id = str(uuid.uuid4())
+        logger.info(f"Background task submitted: {task_id}")
+        return task_id
+
+    async def get_generation_progress(
+        self,
+        task_id: str
+    ) -> Optional[AutoPilotProgress]:
+        """
+        Get progress of background generation task.
+
+        Args:
+            task_id: Task ID from generate_schedule_async
+
+        Returns:
+            AutoPilotProgress or None if task not found
+        """
+        # TODO: Implement progress tracking with Redis/Celery result backend
+        return None
+
+    async def _apply_template(
+        self,
+        channel_id: str,
+        template: AutoPilotTemplate,
+        start_date: date,
+        end_date: date,
+        user_id: Optional[str] = None
+    ) -> int:
+        """
+        Apply schedule template to date range.
+
+        Args:
+            channel_id: Channel ID
+            template: Template to apply
+            start_date: Start date
+            end_date: End date
+            user_id: Optional user ID
+
+        Returns:
+            Number of slots created
+        """
+        slots_created = 0
+        channel_uuid = UUID(channel_id)
+
+        # Determine which days to apply template
+        target_days = self._get_target_days(template, start_date, end_date)
+
+        for target_date in target_days:
+            for time_slot in template.time_slots:
+                # Parse times
+                start_time = time.fromisoformat(time_slot["start_time"])
+                end_time = time.fromisoformat(time_slot["end_time"])
+
+                # Get playlist ID if provided
+                playlist_id = UUID(time_slot["playlist_id"]) if time_slot.get("playlist_id") else None
+
+                # Create slot
+                slot = ScheduleSlot(
+                    channel_id=channel_uuid,
+                    playlist_id=playlist_id,
+                    start_date=target_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    title=time_slot.get("title"),
+                    description=time_slot.get("description"),
+                    color=time_slot.get("color", "#3B82F6"),
+                    is_active=True,
+                    priority=time_slot.get("priority", 5),
+                    created_by=UUID(user_id) if user_id else None
+                )
+
+                self.db.add(slot)
+                slots_created += 1
+
+        self.db.commit()
+
+        self.logger.info(
+            f"Template applied: {slots_created} slots created from {start_date} to {end_date}"
+        )
+
+        return slots_created
+
+    def _get_target_days(
+        self,
+        template: AutoPilotTemplate,
+        start_date: date,
+        end_date: date
+    ) -> List[date]:
+        """
+        Get list of target dates based on template repeat pattern.
+
+        Args:
+            template: Template with repeat pattern
+            start_date: Start date
+            end_date: End date
+
+        Returns:
+            List of dates to apply template
+        """
+        target_days = []
+        current_date = start_date
+
+        while current_date <= end_date:
+            weekday = current_date.weekday()  # 0=Monday, 6=Sunday
+
+            should_apply = False
+            if template.repeat_pattern == "daily":
+                should_apply = True
+            elif template.repeat_pattern == "weekdays":
+                should_apply = weekday < 5  # Mon-Fri
+            elif template.repeat_pattern == "weekends":
+                should_apply = weekday >= 5  # Sat-Sun
+            elif template.repeat_pattern == "custom" and template.repeat_days:
+                should_apply = weekday in template.repeat_days
+
+            if should_apply:
+                target_days.append(current_date)
+
+            current_date += timedelta(days=1)
+
+        return target_days
+
+    async def _fill_gaps_with_recommendations(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date,
+        max_daily_hours: int,
+        use_ai: bool,
+        user_id: Optional[str] = None
+    ) -> int:
+        """
+        Fill schedule gaps using AI recommendations.
+
+        Args:
+            channel_id: Channel ID
+            start_date: Start date
+            end_date: End date
+            max_daily_hours: Maximum hours per day
+            use_ai: Whether to use AI recommendations
+            user_id: Optional user ID
+
+        Returns:
+            Number of gaps filled
+        """
+        # Detect gaps
+        from src.schemas.schedule_ai import GapDetectionRequest
+
+        gap_request = GapDetectionRequest(
+            channel_id=channel_id,
+            start_date=start_date,
+            end_date=end_date,
+            consider_peak_hours=True
+        )
+
+        gaps_response = await self.optimization_service.detect_gaps(gap_request)
+
+        if not gaps_response.gaps:
+            self.logger.info("No gaps to fill")
+            return 0
+
+        gaps_filled = 0
+
+        # Group gaps by date
+        gaps_by_date: Dict[date, List] = {}
+        for gap in gaps_response.gaps:
+            if gap.date not in gaps_by_date:
+                gaps_by_date[gap.date] = []
+            gaps_by_date[gap.date].append(gap)
+
+        # Fill gaps for each day
+        for gap_date, day_gaps in gaps_by_date.items():
+            # Calculate current daily hours
+            current_hours = await self._get_daily_hours(channel_id, gap_date)
+
+            if current_hours >= max_daily_hours:
+                self.logger.debug(f"Skipping {gap_date}: already {current_hours} hours")
+                continue
+
+            remaining_hours = max_daily_hours - current_hours
+
+            # Sort gaps by priority (peak hours first)
+            day_gaps.sort(key=lambda g: g.is_peak_hour, reverse=True)
+
+            for gap in day_gaps:
+                if remaining_hours <= 0:
+                    break
+
+                if gap.duration_hours > remaining_hours:
+                    # Truncate gap to fit remaining hours
+                    continue
+
+                # Get recommendation for this gap
+                if use_ai:
+                    recommendation = await self._get_recommendation_for_gap(
+                        channel_id, gap
+                    )
+                else:
+                    # Get first available playlist
+                    recommendation = await self._get_fallback_playlist(channel_id)
+
+                if recommendation:
+                    # Create slot from recommendation
+                    slot = await self._create_slot_from_recommendation(
+                        channel_id,
+                        gap,
+                        recommendation,
+                        user_id
+                    )
+
+                    if slot:
+                        gaps_filled += 1
+                        remaining_hours -= gap.duration_hours
+
+        self.db.commit()
+
+        self.logger.info(f"Filled {gaps_filled} gaps in schedule")
+
+        return gaps_filled
+
+    async def _get_daily_hours(self, channel_id: str, target_date: date) -> float:
+        """
+        Calculate total scheduled hours for a day.
+
+        Args:
+            channel_id: Channel ID
+            target_date: Date to check
+
+        Returns:
+            Total hours scheduled
+        """
+        channel_uuid = UUID(channel_id)
+
+        slots = self.db.execute(
+            select(ScheduleSlot).where(
+                and_(
+                    ScheduleSlot.channel_id == channel_uuid,
+                    ScheduleSlot.start_date == target_date,
+                    ScheduleSlot.is_active == True
+                )
+            )
+        ).scalars().all()
+
+        total_hours = 0.0
+        for slot in slots:
+            duration = (
+                slot.end_time.hour - slot.start_time.hour +
+                (slot.end_time.minute - slot.start_time.minute) / 60.0
+            )
+            total_hours += duration
+
+        return total_hours
+
+    async def _get_recommendation_for_gap(
+        self,
+        channel_id: str,
+        gap
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get AI recommendation for filling a gap.
+
+        Args:
+            channel_id: Channel ID
+            gap: Schedule gap
+
+        Returns:
+            Recommendation dict or None
+        """
+        from src.schemas.schedule_ai import ScheduleRecommendationRequest
+
+        request = ScheduleRecommendationRequest(
+            channel_id=channel_id,
+            target_date=gap.date,
+            max_recommendations=1,
+            min_confidence=50.0
+        )
+
+        response = await self.recommendation_service.get_recommendations(request)
+
+        if response.recommendations:
+            rec = response.recommendations[0]
+            return {
+                "playlist_id": rec.playlist_id,
+                "playlist_name": rec.playlist_name,
+                "confidence": rec.confidence_score,
+                "reason": f"{rec.description} (confidence: {rec.confidence_score}%)"
+            }
+
+        return None
+
+    async def _get_fallback_playlist(
+        self,
+        channel_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get fallback playlist when AI recommendations unavailable.
+
+        Args:
+            channel_id: Channel ID
+
+        Returns:
+            Playlist dict or None
+        """
+        channel_uuid = UUID(channel_id)
+
+        # Get first active playlist for channel
+        playlist = self.db.execute(
+            select(Playlist).where(
+                and_(
+                    Playlist.channel_id == channel_uuid,
+                    Playlist.is_active == True
+                )
+            ).order_by(Playlist.created_at)
+        ).scalar_one_or_none()
+
+        if playlist:
+            return {
+                "playlist_id": str(playlist.id),
+                "playlist_name": playlist.name,
+                "confidence": 50.0,
+                "reason": "Fallback playlist (default selection)"
+            }
+
+        return None
+
+    async def _create_slot_from_recommendation(
+        self,
+        channel_id: str,
+        gap,
+        recommendation: Dict[str, Any],
+        user_id: Optional[str] = None
+    ) -> Optional[ScheduleSlot]:
+        """
+        Create schedule slot from recommendation.
+
+        Args:
+            channel_id: Channel ID
+            gap: Schedule gap
+            recommendation: Recommendation dict
+            user_id: Optional user ID
+
+        Returns:
+            Created ScheduleSlot or None
+        """
+        try:
+            slot = ScheduleSlot(
+                channel_id=UUID(channel_id),
+                playlist_id=UUID(recommendation["playlist_id"]) if recommendation["playlist_id"] else None,
+                start_date=gap.date,
+                start_time=time.fromisoformat(gap.start_time),
+                end_time=time.fromisoformat(gap.end_time),
+                title=recommendation.get("playlist_name", "Auto-generated"),
+                description=recommendation.get("reason", "Generated by auto-pilot"),
+                color="#10B981",  # Green for auto-generated
+                is_active=True,
+                priority=5,
+                created_by=UUID(user_id) if user_id else None
+            )
+
+            self.db.add(slot)
+
+            self.logger.debug(
+                f"Created slot from recommendation: {gap.date} {gap.start_time}-{gap.end_time}"
+            )
+
+            return slot
+
+        except Exception as e:
+            self.logger.warning(f"Failed to create slot from recommendation: {e}")
+            return None
+
+    async def _resolve_schedule_conflicts(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date
+    ) -> int:
+        """
+        Resolve conflicts in generated schedule.
+
+        Args:
+            channel_id: Channel ID
+            start_date: Start date
+            end_date: End date
+
+        Returns:
+            Number of conflicts resolved
+        """
+        from src.schemas.schedule_ai import ConflictDetectionRequest
+
+        request = ConflictDetectionRequest(
+            channel_id=channel_id,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        response = await self.optimization_service.resolve_conflicts(request)
+
+        self.logger.info(f"Resolved {response.total_conflicts} conflicts")
+
+        return response.total_conflicts
+
+    async def create_template_from_schedule(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date,
+        name: str,
+        description: Optional[str] = None,
+        user_id: Optional[str] = None
+    ) -> ScheduleTemplate:
+        """
+        Create template from existing schedule.
+
+        Args:
+            channel_id: Channel ID
+            start_date: Start date
+            end_date: End date
+            name: Template name
+            description: Optional description
+            user_id: User ID creating template
+
+        Returns:
+            Created ScheduleTemplate
+        """
+        channel_uuid = UUID(channel_id)
+
+        # Get slots for the date range
+        slots = self.db.execute(
+            select(ScheduleSlot).where(
+                and_(
+                    ScheduleSlot.channel_id == channel_uuid,
+                    ScheduleSlot.start_date >= start_date,
+                    ScheduleSlot.start_date <= end_date,
+                    ScheduleSlot.is_active == True
+                )
+            ).order_by(ScheduleSlot.start_time)
+        ).scalars().all()
+
+        # Extract unique time patterns
+        time_patterns = {}
+        for slot in slots:
+            key = (slot.start_time.strftime("%H:%M"), slot.end_time.strftime("%H:%M"))
+            if key not in time_patterns:
+                time_patterns[key] = {
+                    "start_time": key[0],
+                    "end_time": key[1],
+                    "playlist_id": str(slot.playlist_id) if slot.playlist_id else None,
+                    "title": slot.title,
+                    "description": slot.description,
+                    "color": slot.color,
+                    "priority": slot.priority
+                }
+
+        # Create template
+        template = ScheduleTemplate(
+            user_id=UUID(user_id) if user_id else None,
+            channel_id=channel_uuid,
+            name=name,
+            description=description,
+            slots=list(time_patterns.values()),
+            is_public=False
+        )
+
+        self.db.add(template)
+        self.db.commit()
+        self.db.refresh(template)
+
+        self.logger.info(f"Created template '{name}' with {len(template.slots)} slots")
+
+        return template
+
+    async def preview_schedule(
+        self,
+        channel_id: str,
+        start_date: date,
+        end_date: date,
+        use_ai: bool = True,
+        redis_client=None
+    ) -> List[ScheduleSlotSuggestion]:
+        """
+        Preview schedule without creating slots.
+
+        Args:
+            channel_id: Channel ID
+            start_date: Start date
+            end_date: End date
+            use_ai: Use AI recommendations
+            redis_client: Optional Redis client
+
+        Returns:
+            List of slot suggestions
+        """
+        self._init_services(redis_client)
+
+        # Get optimization suggestions
+        from src.schemas.schedule_ai import (
+            ScheduleOptimizationRequest,
+            OptimizationParameters
+        )
+
+        request = ScheduleOptimizationRequest(
+            channel_id=channel_id,
+            start_date=start_date,
+            end_date=end_date,
+            parameters=OptimizationParameters(
+                maximize_engagement=use_ai,
+                minimize_gaps=True,
+                balance_variety=True,
+                respect_priority=True
+            )
+        )
+
+        suggestions = await self.optimization_service.generate_optimization_suggestions(
+            channel_id=channel_id,
+            start_date=start_date,
+            end_date=end_date,
+            parameters=request.parameters
+        )
+
+        self.logger.info(f"Generated {len(suggestions)} preview suggestions")
+
+        return suggestions
+
+
+def get_auto_pilot_service(db: Session) -> AutoPilotService:
+    """
+    Factory for creating auto-pilot service.
+
+    Args:
+        db: SQLAlchemy database session
+
+    Returns:
+        AutoPilotService instance
+    """
+    return AutoPilotService(db)
