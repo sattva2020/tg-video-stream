@@ -4,3 +4,4 @@
  */
 
 export { RecommendationCard } from './RecommendationCard';
+export { FeedbackControls } from './FeedbackControls';
