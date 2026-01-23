@@ -161,6 +161,7 @@ def create_app() -> FastAPI:
         notifications_logs
     )
     from src.api.routes import stream_quality as stream_quality_routes
+    from src.api.routes import cdn as cdn_routes
     from src.api.routes import playlists as user_playlists_router
     from api.telegram_login import router as telegram_login_router
     from api.queue import router as queue_router
@@ -188,6 +189,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
     app.include_router(ai_settings.router, prefix="/api/admin", tags=["AI Settings"])
     app.include_router(stream_quality_routes.router, prefix="/api/admin/stream-quality", tags=["Stream Quality"])
+    app.include_router(cdn_routes.router)
     app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
     app.include_router(telegram_login_router, prefix="/api/auth/telegram-login", tags=["Telegram Login"])
     app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
