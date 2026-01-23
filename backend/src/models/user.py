@@ -69,6 +69,13 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    # Feature 019: Live Streaming - LiveStream ownership
+    live_streams = relationship(
+        "src.models.live_stream.LiveStream",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<User(email='{self.email}', telegram_id={self.telegram_id})>"
