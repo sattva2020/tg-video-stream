@@ -159,7 +159,8 @@ def create_app() -> FastAPI:
         notifications_rules,
         notifications_events,
         notifications_logs,
-        alerts_rules
+        alerts_rules,
+        alerts_instances
     )
     from src.api.routes import stream_quality as stream_quality_routes
     from src.api.routes import playlists as user_playlists_router
@@ -209,6 +210,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_events.router)
     app.include_router(notifications_logs.router)
     app.include_router(alerts_rules.router)
+    app.include_router(alerts_instances.router)
     app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
     app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
     app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])

@@ -15,4 +15,5 @@ __all__ = [
     "notifications_logs",
     "stream_health",
     "alerts_rules",
+    "alerts_instances",
 ]
