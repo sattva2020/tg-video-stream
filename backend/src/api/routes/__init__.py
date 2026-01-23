@@ -14,4 +14,5 @@ __all__ = [
     "notifications_events",
     "notifications_logs",
     "live_streams",
+    "guest_sessions",
 ]
