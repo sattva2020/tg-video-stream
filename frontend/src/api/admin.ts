@@ -172,15 +172,15 @@ export const adminApi = {
     const response = await client.post('/api/admin/stream/restart');
     return response.data;
   },
-  getStreamStatus: async (): Promise<StreamStatus> => {
+  getStreamStatus: async (): Promise<StreamStatus> {
     const response = await client.get('/api/admin/stream/status');
     return response.data;
   },
   getLogs: async (lines: number = 100) => {
-    const response = await client.get('/api/admin/stream/logs', { params: { lines } });
+    const response = client.get('/api/admin/stream/logs', { params: { lines } });
     return response.data;
   },
-  getMetrics: async (): Promise<StreamMetrics> => {
+  getMetrics: async (): Promise<StreamMetrics> {
     const response = await client.get('/api/admin/stream/metrics');
     return response.data;
   },
@@ -197,7 +197,7 @@ export const adminApi = {
     return response.data;
   },
   updateUserRole: async (id: string, role: string) => {
-    const response = await client.put(`/api/admin/users/${id}/role`, { role });
+    const response = client.put(`/api/admin/users/${id}/role`, { role });
     return response.data;
   },
   getPlaylist: async () => {
@@ -330,12 +330,12 @@ export const adminApi = {
     return response.data;
   },
 
-  enableSecurityPolicy: async (policyId: string) => {
+  enableSecurityPolicy: async (policyId: string) {
     const response = await client.post(`/api/admin/security-policies/policies/${policyId}/enable`);
     return response.data;
   },
 
-  disableSecurityPolicy: async (policyId: string) => {
+  disableSecurityPolicy: async (policyId: string) {
     const response = await client.post(`/api/admin/security-policies/policies/${policyId}/disable`);
     return response.data;
   },
@@ -365,12 +365,12 @@ export const adminApi = {
     return response.data;
   },
 
-  getAccessControlStatus: async (): Promise<AccessControlStatus> => {
+  getAccessControlStatus: async (): Promise<AccessControlStatus> {
     const response = await client.get('/api/admin/security/dashboard/access-control');
     return response.data;
   },
 
-  getSecurityConfigSummary: async (): Promise<SecurityConfigSummary> => {
+  getSecurityConfigSummary: async (): Promise<SecurityConfigSummary> {
     const response = await client.get('/api/admin/security/dashboard/security-configs');
     return response.data;
   },
@@ -405,6 +405,42 @@ export const adminApi = {
     const response = await client.get('/api/admin/security/security/events', {
       params: { period, interval, category, severity }
     });
+    return response.data;
+  },
+
+  // Feature 025: SAML/SSO Configuration Management
+  getSAMLConfigs: async (params?: { enabled_only?: boolean }): Promise<SAMLConfig[]> => {
+    const response = await client.get('/api/admin/saml/configs', { params });
+    return response.data;
+  },
+
+  getSAMLConfig: async (configId: string): Promise<SAMLConfig> => {
+    const response = await client.get(`/api/admin/saml/configs/${configId}`);
+    return response.data;
+  },
+
+  createSAMLConfig: async (data: SAMLConfigCreate): Promise<SAMLConfig> {
+    const response = await client.post('/api/admin/saml/configs', data);
+    return response.data;
+  },
+
+  updateSAMLConfig: async (configId: string, data: SAMLConfigUpdate): Promise<SAMLConfig> => {
+    const response = await client.put(`/api/admin/saml/configs/${configId}`, data);
+    return response.data;
+  },
+
+  deleteSAMLConfig: async (configId: string) {
+    const response = await client.delete(`/api/admin/saml/configs/${configId}`);
+    return response.data;
+  },
+
+  enableSAMLConfig: async (configId: string) {
+    const response = await client.post(`/api/admin/saml/configs/${configId}/enable`);
+    return response.data;
+  },
+
+  disableSAMLConfig: async (configId: string) {
+    const response = await client.post(`/api/admin/saml/configs/${configId}/disable`);
     return response.data;
   },
 };
@@ -533,7 +569,7 @@ export interface AccessControlStatus {
   checks: Record<string, {
     status: string;
     description: string;
-    last_checked?: string;
+    now_checked?: string;
   }>;
   last_checked: string;
 }
@@ -592,4 +628,58 @@ export interface SecurityEventsHistoryResponse {
     high_events: number;
     unresolved_events: number;
   };
+}
+
+// Feature 025: SAML/SSO Configuration Types
+export interface SAMLConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_slo_url: string | null;
+  idp_metadata_url: string | null;
+  sp_entity_id: string;
+  sp_acs_url: string;
+  sp_slo_url: string | null;
+  name_id_format: string | null;
+  security_config: Record<string, unknown> | null;
+  attribute_mapping: Record<string, unknown> | null;
+  role_mapping: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SAMLConfigCreate {
+  name: string;
+  enabled?: boolean;
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_x509_cert: string;
+  idp_slo_url?: string;
+  idp_metadata_url?: string;
+  sp_entity_id: string;
+  sp_acs_url: string;
+  sp_slo_url?: string;
+  name_id_format?: string;
+  security_config?: Record<string, unknown>;
+  attribute_mapping?: Record<string, unknown>;
+  role_mapping?: Record<string, unknown>;
+}
+
+export interface SAMLConfigUpdate {
+  name?: string;
+  enabled?: boolean;
+  idp_entity_id?: string;
+  idp_sso_url?: string;
+  idp_x509_cert?: string;
+  idp_slo_url?: string;
+  idp_metadata_url?: string;
+  sp_entity_id?: string;
+  sp_acs_url?: string;
+  sp_slo_url?: string;
+  name_id_format?: string;
+  security_config?: Record<string, unknown>;
+  attribute_mapping?: Record<string, unknown>;
+  role_mapping?: Record<string, unknown>;
 }

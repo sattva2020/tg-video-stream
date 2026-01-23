@@ -34,6 +34,7 @@ const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const IPWhitelistPage = lazy(() => import('./pages/admin/IPWhitelistPage'));
 const TwoFactorPolicyPage = lazy(() => import('./pages/admin/TwoFactorPolicyPage'));
 const SecurityDashboardPage = lazy(() => import('./pages/admin/SecurityDashboardPage'));
+const SSOConfigurationPage = lazy(() => import('./pages/admin/SSOConfigurationPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -112,6 +113,7 @@ const App: React.FC = () => {
               <Route path="/admin/security" element={<SecurityDashboardPage />} />
               <Route path="/admin/security/ip-whitelist" element={<IPWhitelistPage />} />
               <Route path="/admin/security/2fa-policy" element={<TwoFactorPolicyPage />} />
+              <Route path="/admin/security/sso" element={<SSOConfigurationPage />} />
             </Route>
 
             {/* Routes for MODERATOR and above (incidents) */}
