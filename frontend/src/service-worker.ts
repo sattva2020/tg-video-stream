@@ -73,7 +73,7 @@ const saveRequestToQueue = async (request: Request, requestBody?: string): Promi
     store.add(queuedRequest);
 
     // Register background sync
-    if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
+    if ('sync' in self.registration) {
       await self.registration.sync.register(QUEUE_SYNC_TAG);
     }
 
