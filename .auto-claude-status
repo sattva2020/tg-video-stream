@@ -3,13 +3,13 @@
   "spec": "017-native-mobile-applications",
   "state": "building",
   "subtasks": {
-    "completed": 13,
+    "completed": 16,
     "total": 37,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Authentication & Core Features",
+    "current": "Push Notifications & Offline Mode",
     "id": null,
     "total": 5
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 15,
+    "number": 18,
     "started_at": "2026-01-23T16:04:05.089840"
   },
-  "last_update": "2026-01-23T18:07:05.150939"
+  "last_update": "2026-01-23T18:26:29.340178"
 }
