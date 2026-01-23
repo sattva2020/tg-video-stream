@@ -41,6 +41,15 @@ except ImportError:
         # Module not available - define stubs
         RTMPStreamer = StreamConfig = PlatformType = None
 
+try:
+    from streamer.health_monitor import HealthMonitor, get_health_monitor
+except ImportError:
+    try:
+        from health_monitor import HealthMonitor, get_health_monitor
+    except ImportError:
+        HealthMonitor = None
+        get_health_monitor = None
+
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +148,7 @@ class PlatformStreamer:
         self._lock = asyncio.Lock()
 
         # Health monitoring
-        self._health_monitor_task: Optional[asyncio.Task] = None
+        self._health_monitor: Optional[HealthMonitor] = None
         self._stop_event = asyncio.Event()
 
         self.logger = logger
@@ -165,8 +174,12 @@ class PlatformStreamer:
                     self.logger.warning(f"Redis connection failed: {e}")
                     self._redis = None
 
-            # Start health monitoring
-            self._health_monitor_task = asyncio.create_task(self._health_monitor_loop())
+            # Initialize health monitor
+            if HealthMonitor:
+                self._health_monitor = HealthMonitor(redis_url=self._redis_url)
+                await self._health_monitor.initialize()
+                await self._health_monitor.start_monitoring()
+                self.logger.info("PlatformStreamer: Health monitor started")
 
             self.logger.info("PlatformStreamer initialized")
             return True
@@ -181,12 +194,9 @@ class PlatformStreamer:
 
         # Stop health monitor
         self._stop_event.set()
-        if self._health_monitor_task:
-            self._health_monitor_task.cancel()
-            try:
-                await self._health_monitor_task
-            except asyncio.CancelledError:
-                pass
+        if self._health_monitor:
+            await self._health_monitor.shutdown()
+            self._health_monitor = None
 
         # Stop all platforms
         for platform_id in list(self._platform_states.keys()):
@@ -277,6 +287,14 @@ class PlatformStreamer:
             streamer = RTMPStreamer(config)
             self._platform_streamers[platform_id] = streamer
 
+            # Register with health monitor
+            if self._health_monitor:
+                await self._health_monitor.register_platform(
+                    platform_id=platform_id,
+                    health_check_func=lambda sid=platform_id: self._check_platform_health(sid),
+                    recovery_callback=lambda sid=platform_id: self._attempt_platform_recovery(sid)
+                )
+
             # Sync to Redis
             await self._sync_status_to_redis(platform_id, state)
 
@@ -311,6 +329,10 @@ class PlatformStreamer:
             # Remove state
             if platform_id in self._platform_states:
                 del self._platform_states[platform_id]
+
+            # Unregister from health monitor
+            if self._health_monitor:
+                await self._health_monitor.unregister_platform(platform_id)
 
             # Remove from Redis
             if self._redis:
@@ -384,6 +406,14 @@ class PlatformStreamer:
 
             await self._sync_status_to_redis(platform_id, state)
 
+            # Update health monitor
+            if self._health_monitor:
+                await self._health_monitor.update_platform_streaming_status(
+                    platform_id=platform_id,
+                    is_streaming=True,
+                    uptime_seconds=0.0
+                )
+
             self.logger.info(f"Started streaming to platform {platform_id}")
             return True
 
@@ -424,6 +454,14 @@ class PlatformStreamer:
             state.last_updated = datetime.now(timezone.utc)
 
             await self._sync_status_to_redis(platform_id, state)
+
+            # Update health monitor
+            if self._health_monitor:
+                await self._health_monitor.update_platform_streaming_status(
+                    platform_id=platform_id,
+                    is_streaming=False,
+                    uptime_seconds=0.0
+                )
 
             self.logger.info(f"Stopped streaming to platform {platform_id}")
             return True
@@ -534,94 +572,123 @@ class PlatformStreamer:
         self.logger.info(f"Disabled platform {platform_id}")
         return True
 
-    async def _health_monitor_loop(self) -> None:
+    async def _check_platform_health(self, platform_id: str) -> bool:
         """
-        Background task to monitor health of all streaming platforms.
-
-        Checks:
-        - Stream is still active
-        - No excessive errors
-        - Auto-restart on failure
-        """
-        while not self._stop_event.is_set():
-            try:
-                await asyncio.sleep(self.HEALTH_CHECK_INTERVAL)
-
-                for platform_id, state in list(self._platform_states.items()):
-                    if state.status != PlatformStreamStatus.STREAMING:
-                        continue
-
-                    # Check if streamer is still running
-                    if platform_id in self._platform_streamers:
-                        streamer = self._platform_streamers[platform_id]
-                        is_healthy = await self._check_streamer_health(streamer)
-
-                        state.last_health_check = datetime.now(timezone.utc)
-
-                        if not is_healthy:
-                            state.health_check_failures += 1
-
-                            # Restart if within retry limit
-                            if (state.restart_count < self.MAX_RESTART_ATTEMPTS and
-                                state.source_url):
-                                self.logger.warning(
-                                    f"Platform {platform_id} unhealthy, attempting restart "
-                                    f"(attempt {state.restart_count + 1}/{self.MAX_RESTART_ATTEMPTS})"
-                                )
-
-                                state.status = PlatformStreamStatus.RECONNECTING
-                                await self._sync_status_to_redis(platform_id, state)
-
-                                # Stop and restart
-                                try:
-                                    await streamer.stop()
-                                except Exception:
-                                    pass  # Ignore errors on stop
-
-                                success = await self.start_platform(platform_id, state.source_url)
-                                if success:
-                                    state.restart_count += 1
-                                    state.last_restart_time = datetime.now(timezone.utc)
-                                    state.health_check_failures = 0
-                                else:
-                                    # Failed to restart
-                                    state.status = PlatformStreamStatus.ERROR
-                                    state.error_message = "Failed to restart after health check failure"
-                                    await self._sync_status_to_redis(platform_id, state)
-                            else:
-                                # Exceeded restart attempts
-                                state.status = PlatformStreamStatus.ERROR
-                                state.error_message = "Exceeded maximum restart attempts"
-                                await self._sync_status_to_redis(platform_id, state)
-                        else:
-                            # Healthy - reset failure count
-                            state.health_check_failures = 0
-
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                self.logger.error(f"Error in health monitor loop: {e}")
-
-    async def _check_streamer_health(self, streamer: RTMPStreamer) -> bool:
-        """
-        Check if an RTMPStreamer is healthy.
+        Check if a platform's stream is healthy.
 
         Args:
-            streamer: RTMPStreamer instance to check
+            platform_id: Platform identifier
 
         Returns:
-            True if streamer is healthy
+            True if platform stream is healthy
         """
+        if platform_id not in self._platform_states:
+            return False
+
+        state = self._platform_states[platform_id]
+
+        # Only check streaming platforms
+        if state.status != PlatformStreamStatus.STREAMING:
+            return True
+
+        # Check if streamer is still running
+        if platform_id not in self._platform_streamers:
+            return False
+
+        streamer = self._platform_streamers[platform_id]
+
         try:
             # Check if process is still running
             if streamer.process is None:
                 return False
 
             # Check if process has exited
-            return streamer.process.returncode is None
+            is_healthy = streamer.process.returncode is None
+
+            # Update state health check time
+            state.last_health_check = datetime.now(timezone.utc)
+
+            # Update streaming uptime
+            if is_healthy and state.stream_start_time:
+                uptime = (datetime.now(timezone.utc) - state.stream_start_time).total_seconds()
+                if self._health_monitor:
+                    await self._health_monitor.update_platform_streaming_status(
+                        platform_id=platform_id,
+                        is_streaming=True,
+                        uptime_seconds=uptime
+                    )
+
+            return is_healthy
 
         except Exception as e:
-            self.logger.warning(f"Health check error: {e}")
+            self.logger.warning(f"Health check error for {platform_id}: {e}")
+            return False
+
+    async def _attempt_platform_recovery(self, platform_id: str) -> bool:
+        """
+        Attempt to recover a failed platform stream.
+
+        Args:
+            platform_id: Platform identifier
+
+        Returns:
+            True if recovery was successful
+        """
+        if platform_id not in self._platform_states:
+            return False
+
+        state = self._platform_states[platform_id]
+
+        # Check if we can attempt recovery
+        if state.restart_count >= self.MAX_RESTART_ATTEMPTS:
+            self.logger.warning(
+                f"Platform {platform_id} exceeded max restart attempts "
+                f"({self.MAX_RESTART_ATTEMPTS})"
+            )
+            return False
+
+        if not state.source_url:
+            self.logger.warning(f"Platform {platform_id} has no source URL for recovery")
+            return False
+
+        try:
+            self.logger.info(
+                f"Attempting recovery for platform {platform_id} "
+                f"(attempt {state.restart_count + 1}/{self.MAX_RESTART_ATTEMPTS})"
+            )
+
+            # Update status to reconnecting
+            state.status = PlatformStreamStatus.RECONNECTING
+            state.last_updated = datetime.now(timezone.utc)
+            await self._sync_status_to_redis(platform_id, state)
+
+            # Stop existing streamer
+            if platform_id in self._platform_streamers:
+                streamer = self._platform_streamers[platform_id]
+                try:
+                    await streamer.stop()
+                except Exception as e:
+                    self.logger.warning(f"Error stopping streamer during recovery: {e}")
+
+            # Restart the platform
+            success = await self.start_platform(platform_id, state.source_url)
+
+            if success:
+                state.restart_count += 1
+                state.last_restart_time = datetime.now(timezone.utc)
+                self.logger.info(f"Recovery successful for platform {platform_id}")
+            else:
+                state.restart_count += 1
+                state.error_message = "Recovery attempt failed"
+                self.logger.warning(f"Recovery failed for platform {platform_id}")
+
+            return success
+
+        except Exception as e:
+            self.logger.error(f"Recovery error for platform {platform_id}: {e}")
+            state.restart_count += 1
+            state.error_message = f"Recovery error: {str(e)}"
+            await self._sync_status_to_redis(platform_id, state)
             return False
 
     async def _sync_status_to_redis(
