@@ -39,7 +39,13 @@ jobs:
         id: audit
         run: |
           python scripts/audit_i18n.py
-          
+
+      - name: Run i18n import conflict detection
+        id: import_check
+        run: |
+          python scripts/validate-i18n-imports.py --json
+        continue-on-error: true
+
       - name: Parse audit results
         id: parse
         run: |
@@ -121,43 +127,103 @@ jobs:
           name: i18n-audit-report
           path: docs/REPORTS/i18n-audit-report.json
           retention-days: 30
-          
+
+      - name: Upload import validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: i18n-import-validation-report
+          path: docs/REPORTS/i18n-import-validation.json
+          retention-days: 30
+          if-no-files-found: ignore
+
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
+
+            // Parse i18n coverage report
             const data = JSON.parse(fs.readFileSync('docs/REPORTS/i18n-audit-report.json', 'utf8'));
-            
+
             const total = data.total_used_keys;
             const en_found = data.coverage.en.total;
             const ru_found = data.coverage.ru.total;
             const uk_found = data.coverage.uk.total;
             const de_found = data.coverage.de.total;
-            
+
             const en_cov = ((en_found / total) * 100).toFixed(1);
             const ru_cov = ((ru_found / total) * 100).toFixed(1);
             const uk_cov = ((uk_found / total) * 100).toFixed(1);
             const de_cov = ((de_found / total) * 100).toFixed(1);
             const avg_cov = ((parseFloat(en_cov) + parseFloat(ru_cov) + parseFloat(uk_cov) + parseFloat(de_cov)) / 4).toFixed(1);
-            
+
+            // Parse import validation report (if exists)
+            let importSection = '';
+            try {
+              const importData = JSON.parse(fs.readFileSync('docs/REPORTS/i18n-import-validation.json', 'utf8'));
+              const importErrors = importData.errors || 0;
+              const importWarnings = importData.warnings || 0;
+              const totalIssues = importData.total_issues || 0;
+
+              if (totalIssues > 0) {
+                importSection = `
+
+            ## 🔍 i18n Import Conflict Detection
+
+            **Total Issues:** ${totalIssues} (❌ ${importErrors} errors, ⚠️ ${importWarnings} warnings)
+
+            ${importErrors > 0 ? '❌ **FAIL:** Import conflicts detected that must be resolved' : '✅ **PASS:** No critical import conflicts found'}
+
+            ${importWarnings > 0 ? `⚠️ **Warning:** ${importWarnings} warning(s) detected. Review recommended.` : ''}
+
+            <details>
+            <summary>View detailed issues</summary>
+
+            ${importData.issues.map(issue => {
+              const emoji = issue.severity === 'error' ? '❌' : '⚠️';
+              const details = issue.details ? `\n   - ${Object.entries(issue.details).slice(0, 5).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.slice(0, 3).join(', ') : v}`).join('\n   - ')}${Object.keys(issue.details).length > 5 ? '\n   - ...' : ''}` : '';
+              return `${emoji} **${issue.type.replace(/_/g, ' ').toUpperCase()}** (${issue.count} found)${details}`;
+            }).join('\n\n')}
+
+            </details>
+            `;
+              } else {
+                importSection = `
+
+            ## 🔍 i18n Import Conflict Detection
+
+            ✅ **PASS:** No import conflicts detected. All i18n imports are valid.
+            `;
+              }
+            } catch (e) {
+              // Import validation report not found or error reading it
+              importSection = `
+
+            ## 🔍 i18n Import Conflict Detection
+
+            ⚠️ Import validation check did not complete successfully.
+            `;
+            }
+
             const comment = `## 🌐 i18n Coverage Report
-            
+
             **Total keys in project:** ${total}
-            
+
             | Language | Coverage | Keys |
             |----------|----------|------|
             | 🇬🇧 EN | ${en_cov}% | ${en_found}/${total} |
             | 🇷🇺 RU | ${ru_cov}% | ${ru_found}/${total} |
             | 🇺🇦 UK | ${uk_cov}% | ${uk_found}/${total} |
             | 🇩🇪 DE | ${de_cov}% | ${de_found}/${total} |
-            
+
             **Average Coverage:** ${avg_cov}% ${parseFloat(avg_cov) >= 80 ? '✅' : '❌'}
-            
+
             ${parseFloat(avg_cov) >= 80 ? '✅ Meets minimum coverage requirement (80%)' : '❌ Below minimum coverage requirement (80%)'}
+            ${importSection}
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
