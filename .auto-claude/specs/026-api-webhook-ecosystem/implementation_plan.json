@@ -884,7 +884,9 @@
               "Code examples visible for endpoints"
             ]
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Added comprehensive code examples in Python, JavaScript, and cURL to all major API endpoints. Examples added using openapi_extra parameter with x-codeSamples extension which is supported by Swagger UI. Endpoints updated: API Keys (list, create, update, delete), Webhooks (list, create, update, delete, test, rotate-secret). Each example shows practical usage with proper authentication headers and realistic request/response handling. The examples will be visible in the Swagger UI documentation at /docs.",
+          "updated_at": "2026-01-23T18:00:00.000000+00:00"
         },
         {
           "id": "subtask-8-3",
@@ -1420,6 +1422,6 @@
   "qa_signoff": null,
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-01-23T14:28:21.635Z",
+  "updated_at": "2026-01-23T14:35:27.993Z",
   "last_updated": "2026-01-23T13:01:46.603507+00:00"
 }
