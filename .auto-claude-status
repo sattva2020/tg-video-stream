@@ -5,12 +5,12 @@
   "subtasks": {
     "completed": 8,
     "total": 21,
-    "in_progress": 0,
+    "in_progress": 1,
     "failed": 0
   },
   "phase": {
     "current": "Video Transcoding Pipeline",
-    "id": "subtask-2-4",
+    "id": null,
     "total": 5
   },
   "workers": {
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 10,
-    "started_at": "2026-01-23T13:00:00.000000"
+    "started_at": "2026-01-23T12:18:48.933946"
   },
-  "last_update": "2026-01-23T13:00:00.000000"
+  "last_update": "2026-01-23T13:04:49.389081"
 }
