@@ -19,6 +19,11 @@ Before running integration tests, ensure the following services are running:
   # Check if FFmpeg is available
   ffmpeg -version
   ```
+- **FFprobe**: For recording verification (included with FFmpeg)
+  ```bash
+  # Check if FFprobe is available
+  ffprobe -version
+  ```
 
 ### Required Environment Variables
 
@@ -39,6 +44,13 @@ RTMP_URL=rtmp://localhost:1935/live
 
 # FFmpeg path (if not in PATH)
 FFMPEG_PATH=ffmpeg
+FFPROBE_PATH=ffprobe
+
+# Recordings path
+RECORDINGS_PATH=./data/recordings
+
+# Stream duration for recording tests (in seconds, default 10 for tests, 300 for production)
+TEST_STREAM_DURATION=10
 
 # Optional: Test video source
 TEST_VIDEO_SOURCE=test_assets/test_video.mp4
@@ -69,6 +81,18 @@ pytest tests/integration/test_live_streaming_e2e.py::test_live_stream_lifecycle 
 
 # API endpoints test (no streaming required)
 pytest tests/integration/test_live_streaming_e2e.py::test_live_stream_api_endpoints -v
+
+# Recording and playback test
+pytest tests/integration/test_live_stream_recording.py::test_live_stream_recording_and_playback -v
+
+# Recording metadata test
+pytest tests/integration/test_live_stream_recording.py::test_live_stream_recording_metadata -v
+
+# Recording format test
+pytest tests/integration/test_live_stream_recording.py::test_live_stream_recording_format -v
+
+# Recording list test
+pytest tests/integration/test_live_stream_recording.py::test_live_stream_recording_list -v
 ```
 
 ### Run with Detailed Output
@@ -131,6 +155,77 @@ pytest tests/integration/ --cov=backend/src --cov-report=html
 
 **Dependencies**: Backend API only + valid auth token
 
+### Recording Tests (`test_live_stream_recording.py`)
+
+#### `test_live_stream_recording_and_playback`
+
+**Purpose**: Verifies complete recording and playback workflow
+
+**Steps**:
+1. Create live stream with recording enabled
+2. Inject RTMP stream for specified duration
+3. Start live stream via API
+4. Verify stream reaches active status
+5. Wait for streaming duration (10s for tests, 300s for production)
+6. Stop live stream
+7. Wait for recording to finish processing (up to 120s)
+8. Download recording via API
+9. Verify recording metadata (duration, format, file size)
+10. Verify recording plays back correctly with FFprobe
+
+**Duration**: ~150-180 seconds
+
+**Dependencies**: All services + FFmpeg + FFprobe + valid auth token
+
+**Verification**:
+- Recording status is "ready"
+- Duration within expected range (±20% tolerance)
+- File size > 0
+- Format is supported (mp4, webm, mkv, hls)
+- Video and audio streams present
+- FFprobe can parse the file
+
+#### `test_live_stream_recording_metadata`
+
+**Purpose**: Verifies recording contains all required metadata fields
+
+**Steps**:
+1. Create and start stream with recording
+2. Stop stream and wait for recording
+3. Verify all required fields present
+4. Verify field types and values
+
+**Duration**: ~60 seconds
+
+**Dependencies**: All services + FFmpeg + valid auth token
+
+#### `test_live_stream_recording_format`
+
+**Purpose**: Verifies recording is saved in correct format
+
+**Steps**:
+1. Create and start stream
+2. Stop stream and wait for recording
+3. Verify format is supported (MP4/WebM/MKV/HLS)
+
+**Duration**: ~60 seconds
+
+**Dependencies**: All services + FFmpeg + valid auth token
+
+#### `test_live_stream_recording_list`
+
+**Purpose**: Verifies recordings can be listed via API
+
+**Steps**:
+1. Create stream
+2. Verify recordings list is initially empty
+3. Start and stop stream
+4. Verify recording appears in list
+
+**Duration**: ~60 seconds
+
+**Dependencies**: All services + FFmpeg + valid auth token
+
 ## Test Video Assets
 
 For realistic testing, you can provide a test video:
@@ -158,10 +253,16 @@ cd backend && uvicorn src.main:app --reload
 
 ### Tests Fail with "FFmpeg not available"
 
-**Solution**: Install FFmpeg:
+**Solution**: Install FFmpeg (includes FFprobe):
 - **Windows**: `choco install ffmpeg`
 - **macOS**: `brew install ffmpeg`
 - **Linux**: `sudo apt install ffmpeg`
+
+### Tests Fail with "FFprobe not available"
+
+**Solution**: FFprobe is included with FFmpeg. If you have FFmpeg but not FFprobe:
+- Reinstall FFmpeg completely
+- Or add FFmpeg to your PATH manually
 
 ### Tests Fail with "TEST_USER_TOKEN not configured"
 
@@ -194,11 +295,39 @@ docker-compose logs -f rtmp-ingest
 1. Recording service not configured
 2. File permissions issue
 3. Recording path not writable
+4. Recording processing timeout
 
 **Debug steps**:
 1. Check recording directory permissions: `ls -la data/recordings`
 2. Check backend logs for recording errors
 3. Verify `RECORDINGS_PATH` environment variable
+4. Check RecordingService Celery tasks are running: `docker-compose logs celery`
+
+### Recording Verification Fails
+
+**Possible causes**:
+1. FFprobe not available
+2. Recording file corrupted
+3. Recording format not supported
+
+**Debug steps**:
+1. Verify FFprobe works: `ffprobe -version`
+2. Check recording file manually: `ffprobe /path/to/recording.mp4`
+3. Review RecordingService logs for processing errors
+4. Verify recording format is supported
+
+### Recording Processing Timeout
+
+**Possible causes**:
+1. Recording too long
+2. FFmpeg post-processing slow
+3. Insufficient disk space
+
+**Debug steps**:
+1. Check disk space: `df -h`
+2. Reduce TEST_STREAM_DURATION for faster tests
+3. Check FFmpeg processing logs: `docker-compose logs backend | grep ffmpeg`
+4. Verify recording post-processing tasks are running
 
 ## CI/CD Integration
 
