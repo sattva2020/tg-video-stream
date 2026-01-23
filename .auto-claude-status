@@ -3,7 +3,7 @@
   "spec": "024-global-cdn-integration-edge-deployment",
   "state": "building",
   "subtasks": {
-    "completed": 17,
+    "completed": 18,
     "total": 23,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 19,
+    "number": 20,
     "started_at": "2026-01-23T12:20:11.721528"
   },
-  "last_update": "2026-01-23T14:25:20.596423"
+  "last_update": "2026-01-23T14:31:00.884001"
 }
