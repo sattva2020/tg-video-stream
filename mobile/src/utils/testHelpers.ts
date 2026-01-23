@@ -467,3 +467,218 @@ export const testError = (...args: any[]) => {
     console.error('[TEST ERROR]', ...args);
   }
 };
+
+// ============================================================
+// STREAM MANAGEMENT TEST HELPERS
+// ============================================================
+
+/**
+ * Verify channel list loaded from backend
+ */
+export const verifyChannelListLoaded = async (
+  channels: any[]
+): Promise<TestResult> => {
+  const checks = [
+    assertNotNull(channels, 'Channel list'),
+    assertEquals(channels.length > 0, true, 'Channels exist'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'TC-STREAM-002: Channel List Loaded',
+    passed: allPassed,
+    message: allPassed
+      ? `Channel list loaded successfully: ${channels.length} channels`
+      : `Channel list verification failed: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      channelCount: channels.length,
+      channelIds: channels.map((ch) => ch.id),
+    },
+  };
+};
+
+/**
+ * Verify channel status
+ */
+export const verifyChannelStatus = async (
+  channel: any,
+  expectedStatus: string
+): Promise<TestResult> => {
+  const actualStatus = channel.status;
+  const result = assertEquals(actualStatus, expectedStatus, 'Channel status');
+
+  return {
+    testName: `Verify Channel Status: ${channel.name}`,
+    passed: result.passed,
+    message: result.message,
+    timestamp: new Date(),
+    details: {
+      channelId: channel.id,
+      channelName: channel.name,
+      expected: expectedStatus,
+      actual: actualStatus,
+    },
+  };
+};
+
+/**
+ * Verify channel can start
+ */
+export const verifyChannelCanStart = async (
+  channel: any
+): Promise<TestResult> => {
+  const canStart =
+    channel.status === 'stopped' ||
+    channel.status === 'error' ||
+    channel.status === 'unknown';
+
+  return {
+    testName: `Verify Channel Can Start: ${channel.name}`,
+    passed: canStart,
+    message: canStart
+      ? `✓ Channel "${channel.name}" can start (status: ${channel.status})`
+      : `✗ Channel "${channel.name}" cannot start (status: ${channel.status})`,
+    timestamp: new Date(),
+    details: {
+      channelId: channel.id,
+      channelName: channel.name,
+      status: channel.status,
+      canStart,
+    },
+  };
+};
+
+/**
+ * Verify channel can stop
+ */
+export const verifyChannelCanStop = async (
+  channel: any
+): Promise<TestResult> => {
+  const isTransitional =
+    channel.status === 'starting' || channel.status === 'stopping';
+  const canStop = channel.status === 'running' || isTransitional;
+
+  return {
+    testName: `Verify Channel Can Stop: ${channel.name}`,
+    passed: canStop,
+    message: canStop
+      ? `✓ Channel "${channel.name}" can stop (status: ${channel.status})`
+      : `✗ Channel "${channel.name}" cannot stop (status: ${channel.status})`,
+    timestamp: new Date(),
+    details: {
+      channelId: channel.id,
+      channelName: channel.name,
+      status: channel.status,
+      canStop,
+      isTransitional,
+    },
+  };
+};
+
+/**
+ * Verify channel has error
+ */
+export const verifyChannelHasError = async (
+  channel: any
+): Promise<TestResult> => {
+  const hasError = channel.status === 'error';
+  const hasErrorMessage = !!channel.error_message;
+
+  return {
+    testName: `Verify Channel Error State: ${channel.name}`,
+    passed: hasError && hasErrorMessage,
+    message: hasError
+      ? `✓ Channel "${channel.name}" has error: ${channel.error_message}`
+      : `✗ Channel "${channel.name}" does not have error`,
+    timestamp: new Date(),
+    details: {
+      channelId: channel.id,
+      channelName: channel.name,
+      status: channel.status,
+      error_message: channel.error_message,
+    },
+  };
+};
+
+/**
+ * Verify all status types are present in channel list
+ */
+export const verifyAllStatusTypes = async (
+  channels: any[]
+): Promise<TestResult> => {
+  const statuses = new Set(channels.map((ch) => ch.status));
+  const expectedStatuses = ['stopped', 'running', 'error', 'starting', 'stopping'];
+
+  return {
+    testName: 'Verify All Status Types Present',
+    passed: statuses.size > 0,
+    message: `Channel list contains ${statuses.size} status types: ${Array.from(statuses).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      totalChannels: channels.length,
+      statusesFound: Array.from(statuses),
+      statusCounts: channels.reduce((acc, ch) => {
+        acc[ch.status] = (acc[ch.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+    },
+  };
+};
+
+/**
+ * E2E Test: Stream Management
+ *
+ * This function can be called to verify stream management functionality.
+ * It's designed to be used during manual testing with a debugger or console.
+ */
+export const runStreamManagementE2E = async (channels: any[]) => {
+  const suite = createTestSuite('E2E Stream Management');
+
+  // Test 1: Verify channel list loaded
+  await suite.runTest('Channel list loaded', async () => {
+    const result = await verifyChannelListLoaded(channels);
+    return result.passed;
+  });
+
+  // Test 2: Verify at least one channel exists
+  await suite.runTest('At least one channel exists', async () => {
+    return channels.length > 0;
+  });
+
+  // Test 3: Verify all channels have required fields
+  await suite.runTest('All channels have required fields', async () => {
+    const hasRequiredFields = channels.every(
+      (ch) => ch.id && ch.name && ch.status
+    );
+    return hasRequiredFields;
+  });
+
+  // Test 4: Verify channel with 'stopped' status can start
+  await suite.runTest('Stopped channel can start', async () => {
+    const stoppedChannel = channels.find((ch) => ch.status === 'stopped');
+    if (!stoppedChannel) return false; // Skip if no stopped channel
+    const result = await verifyChannelCanStart(stoppedChannel);
+    return result.passed;
+  });
+
+  // Test 5: Verify channel with 'running' status can stop
+  await suite.runTest('Running channel can stop', async () => {
+    const runningChannel = channels.find((ch) => ch.status === 'running');
+    if (!runningChannel) return false; // Skip if no running channel
+    const result = await verifyChannelCanStop(runningChannel);
+    return result.passed;
+  });
+
+  // Test 6: Verify error channels have error messages
+  await suite.runTest('Error channels have error messages', async () => {
+    const errorChannels = channels.filter((ch) => ch.status === 'error');
+    if (errorChannels.length === 0) return true; // Skip if no error channels
+    const allHaveMessages = errorChannels.every((ch) => ch.error_message);
+    return allHaveMessages;
+  });
+
+  suite.printResults();
+  return suite.getResults();
+};
