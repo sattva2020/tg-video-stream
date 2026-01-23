@@ -132,6 +132,65 @@ class ScheduleTemplate(Base):
         return f"<ScheduleTemplate {self.id}: {self.name}>"
 
 
+class PlaylistTemplate(Base):
+    """
+    Шаблон плейлиста — сохранённая структура плейлиста для быстрого создания.
+
+    Позволяет:
+    - Сохранить часто используемые наборы треков/видео
+    - Быстро создавать новые плейлисты на основе шаблона
+    - Делиться шаблонами между пользователями
+    """
+    __tablename__ = "playlist_templates"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    # Владелец шаблона
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Привязка к каналу (опционально - можно сделать общий шаблон)
+    channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
+
+    # Метаданные
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+
+    # Элементы шаблона плейлиста в формате JSON
+    # Формат: [
+    #   {"url": "...", "title": "...", "duration": 180, "type": "youtube"},
+    #   ...
+    # ]
+    items = Column(JSONB, nullable=False, default=list)
+
+    # Статистика
+    total_duration = Column(BigInteger, default=0)  # Общая длительность в секундах
+    items_count = Column(BigInteger, default=0)     # Количество элементов
+
+    # Флаги
+    is_public = Column(Boolean, default=False)  # Доступен другим пользователям
+
+    # Аудит
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="playlist_templates")
+    channel = relationship("Channel", backref="playlist_templates")
+
+    def __repr__(self):
+        return f"<PlaylistTemplate {self.id}: {self.name} ({self.items_count} items)>"
+
+    def __init__(self, *args, **kwargs):
+        # Ensure items and stats are computed when created via constructor
+        items = kwargs.get('items') or []
+        # If caller didn't provide explicit items_count/total_duration, compute them
+        if 'items_count' not in kwargs:
+            kwargs['items_count'] = len(items)
+        if 'total_duration' not in kwargs:
+            kwargs['total_duration'] = sum(item.get('duration', 0) for item in items)
+        super().__init__(*args, **kwargs)
+
+
 class PlaylistGroup(Base):
     """
     Группа плейлистов — для логической организации плейлистов.
