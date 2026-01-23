@@ -171,7 +171,8 @@ def create_app() -> FastAPI:
     from src.api.incidents import router as incidents_router, solutions_router
     from src.api.settings import router as settings_router
     from src.api.video_validation import router as video_validation_router
-    
+    from src.api.schedule_ai import router as schedule_ai_router
+
     # Root endpoint
     @app.get("/")
     def read_root():
@@ -199,6 +200,7 @@ def create_app() -> FastAPI:
     app.include_router(media_gdrive.router, prefix="/api", tags=["Media"])
     app.include_router(websocket.router, prefix="/api/ws", tags=["WebSocket"])
     app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
+    app.include_router(schedule_ai_router, prefix="/api", tags=["Schedule AI"])
     app.include_router(queue_router, prefix="/api/v1", tags=["Queue"])
     app.include_router(playback_routes.router)
     app.include_router(notifications_channels.router)
