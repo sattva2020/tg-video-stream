@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminApi, Organization } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
 import { Skeleton } from '../../components/ui/Skeleton';
@@ -26,6 +27,7 @@ const SkeletonOrgItem: React.FC = () => (
 
 const Organizations: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -221,6 +223,7 @@ const Organizations: React.FC = () => {
                         : t('organizations.activate', 'Активировать')}
                     </button>
                     <button
+                      onClick={() => navigate(`/admin/organizations/${org.id}`)}
                       disabled={actionLoading !== null}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[color:var(--color-bg)] border border-[color:var(--color-border)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)] px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
                     >
