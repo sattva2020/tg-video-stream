@@ -7,13 +7,14 @@
  * Follows patterns from frontend/src/main.tsx
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet } from 'react-native';
 import './i18n'; // Initialize i18n before anything else
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppNavigator } from './navigation/AppNavigator';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 /**
  * Error boundary fallback component
@@ -28,10 +29,33 @@ const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
 };
 
 /**
+ * Push notification initializer component
+ * Handles push notification registration when user is authenticated
+ */
+const PushNotificationInitializer: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const { expoPushToken, isRegistered, error } = usePushNotifications();
+
+  useEffect(() => {
+    if (isAuthenticated && isRegistered && expoPushToken) {
+      // Successfully registered for push notifications
+      console.log('Push notifications registered:', expoPushToken);
+    }
+
+    if (error) {
+      console.error('Push notification error:', error);
+    }
+  }, [isAuthenticated, isRegistered, expoPushToken, error]);
+
+  return null; // This component doesn't render anything
+};
+
+/**
  * Root component with providers
  */
 const Root: React.FC = () => (
   <AuthProvider>
+    <PushNotificationInitializer />
     <AppNavigator />
   </AuthProvider>
 );
