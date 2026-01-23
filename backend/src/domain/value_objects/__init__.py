@@ -14,6 +14,10 @@ from src.domain.value_objects.stream_id import StreamId
 from src.domain.value_objects.title import Title
 from src.domain.value_objects.user_id import UserId
 
+# Global CDN Integration & Edge Deployment (Feature 024)
+from src.domain.value_objects.cdn_config import CDNConfig, CacheRule, CDNProviderType
+from src.domain.value_objects.edge_location import EdgeLocation, EdgeHealthStatus
+
 __all__ = [
     # IDs
     "UserId",
@@ -30,4 +34,10 @@ __all__ = [
     "Quality",
     "VideoQuality",
     "AudioQuality",
+    # Global CDN Integration & Edge Deployment
+    "CDNConfig",
+    "CacheRule",
+    "CDNProviderType",
+    "EdgeLocation",
+    "EdgeHealthStatus",
 ]

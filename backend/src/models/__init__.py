@@ -45,6 +45,9 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# Global CDN Integration & Edge Deployment (Feature 024)
+from .cdn_config import CDNConfig, CDNProviderType
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +89,8 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # Global CDN Integration & Edge Deployment
+    "CDNConfig",
+    "CDNProviderType",
 ]
 
