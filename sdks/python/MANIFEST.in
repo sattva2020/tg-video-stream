@@ -1,0 +1,5 @@
+include README.md
+include LICENSE
+recursive-include sattva_api *.py
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
