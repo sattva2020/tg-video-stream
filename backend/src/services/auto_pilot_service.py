@@ -1130,6 +1130,126 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
         finally:
             db.close()
 
+    @celery_app.task(name='services.auto_pilot.fill_gaps', bind=True, max_retries=3)
+    def fill_gaps_task(
+        self,
+        channel_id: str,
+        date_range_start: str,
+        date_range_end: str,
+        max_daily_hours: int = 24,
+        use_ai_recommendations: bool = True,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Celery task: Auto-fill schedule gaps in the background.
+
+        Detects gaps in the schedule and fills them with optimal content
+        based on engagement data and AI recommendations.
+
+        Args:
+            channel_id: Channel ID to fill gaps for
+            date_range_start: Start date (ISO format)
+            date_range_end: End date (ISO format)
+            max_daily_hours: Maximum hours per day (default: 24)
+            use_ai_recommendations: Whether to use AI for recommendations (default: True)
+            user_id: Optional user ID who initiated the task
+
+        Returns:
+            dict with gap filling results:
+            - channel_id: str
+            - date_range: dict with start/end dates
+            - status: str (completed/failed)
+            - gaps_filled: int
+            - total_gap_hours: float
+            - error_message: str or None
+        """
+        logger.info(
+            f"[worker] fill_gaps_task for channel {channel_id}, "
+            f"dates {date_range_start} to {date_range_end}"
+        )
+
+        from database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            # Create service instance and initialize dependencies
+            service = AutoPilotService(db)
+            service._init_services()
+
+            # Parse dates
+            start_date = date.fromisoformat(date_range_start)
+            end_date = date.fromisoformat(date_range_end)
+
+            # Run gap filling in sync context
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                gaps_filled = loop.run_until_complete(
+                    service._fill_gaps_with_recommendations(
+                        channel_id,
+                        start_date,
+                        end_date,
+                        max_daily_hours,
+                        use_ai_recommendations,
+                        user_id
+                    )
+                )
+            finally:
+                loop.close()
+
+            # Calculate total gap hours for reporting
+            total_gap_hours = 0.0
+            try:
+                from src.schemas.schedule_ai import GapDetectionRequest
+                gap_request = GapDetectionRequest(
+                    channel_id=channel_id,
+                    start_date=start_date,
+                    end_date=end_date,
+                    consider_peak_hours=True
+                )
+                gaps_response = loop.run_until_complete(
+                    service.optimization_service.detect_gaps(gap_request)
+                )
+                if gaps_response.gaps:
+                    total_gap_hours = sum(g.duration_hours for g in gaps_response.gaps)
+            except Exception as e:
+                logger.warning(f"Could not calculate total gap hours: {e}")
+
+            logger.info(
+                f"fill_gaps_task completed: {gaps_filled} gaps filled, "
+                f"{total_gap_hours:.1f} total gap hours"
+            )
+
+            return {
+                "channel_id": channel_id,
+                "date_range": {"start": date_range_start, "end": date_range_end},
+                "status": "completed",
+                "gaps_filled": gaps_filled,
+                "total_gap_hours": total_gap_hours,
+                "error_message": None,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in fill_gaps_task for channel {channel_id}")
+            # Retry on temporary errors
+            error_msg = str(e).lower()
+            if any(err in error_msg for err in ["timeout", "network", "connection", "database"]):
+                raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
+
+            return {
+                "channel_id": channel_id,
+                "date_range": {"start": date_range_start, "end": date_range_end},
+                "status": "failed",
+                "gaps_filled": 0,
+                "total_gap_hours": 0.0,
+                "error_message": str(e),
+            }
+
+        finally:
+            db.close()
+
 
 def get_auto_pilot_service(db: Session) -> AutoPilotService:
     """
