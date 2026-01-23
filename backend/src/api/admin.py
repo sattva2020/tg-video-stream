@@ -24,6 +24,7 @@ from src.services.stream_quality_service import get_stream_quality_service, Stre
 from src.services.quality_trends_service import get_quality_trends_service, QualityTrendsService
 from src.api.admin.saml_config import router as saml_config_router
 from src.api.admin.ip_whitelist import router as ip_whitelist_router
+from src.api.admin.security_policy import router as security_policy_router
 
 router = APIRouter()
 
@@ -36,6 +37,11 @@ router.include_router(saml_config_router, prefix="/saml", tags=["SAML Config"])
 # Feature 025: IP Whitelist Management
 # ============================================================================
 router.include_router(ip_whitelist_router, prefix="/ip-whitelist", tags=["IP Whitelist"])
+
+# ============================================================================
+# Feature 025: Security Policy Management
+# ============================================================================
+router.include_router(security_policy_router, prefix="/security-policies", tags=["Security Policy"])
 
 
 class PlaylistUpdate(BaseModel):
