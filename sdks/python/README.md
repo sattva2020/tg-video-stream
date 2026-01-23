@@ -63,6 +63,118 @@ client = SattvaClient(
 - **API Key Management**: Create and manage API keys
 - **Rate Limiting**: Built-in rate limit handling
 
+## Usage Examples
+
+### Managing Streams
+
+```python
+from sattva_api import SattvaClient
+
+client = SattvaClient(api_key="your-api-key")
+
+# List all active streams
+streams = client.streams.list()
+for stream in streams:
+    print(f"Stream {stream['id']}: {stream['status']}")
+
+# Start a new stream on a channel
+response = client.streams.start(channel_id="channel-123")
+print(f"Stream started with ID: {response['stream_id']}")
+
+# Stop a running stream
+client.streams.stop(stream_id="stream-123")
+
+# Pause and resume streams
+client.streams.pause(stream_id="stream-123")
+client.streams.resume(stream_id="stream-123")
+```
+
+### Working with Playlists
+
+```python
+# Create a new playlist
+playlist = client.playlists.create(
+    name="My Music Playlist",
+    description="Favorite tracks"
+)
+
+# Add tracks and manage playback
+client.playlists.update(
+    playlist_id=playlist['id'],
+    track_ids=["track-1", "track-2", "track-3"]
+)
+
+# Get playlist status
+status = client.playlists.status(playlist_id=playlist['id'])
+print(f"Current track: {status['current_track']}")
+```
+
+### Setting Up Webhooks
+
+```python
+# Subscribe to stream events
+webhook = client.webhooks.create(
+    url="https://your-app.com/webhooks",
+    event_types=[
+        "stream.started",
+        "stream.stopped",
+        "stream.error"
+    ]
+)
+
+# Test the webhook
+result = client.webhooks.test(webhook_id=webhook['id'])
+print(f"Test result: {result['success']}")
+
+# List webhook events
+events = client.webhooks.list_events(webhook_id=webhook['id'])
+for event in events:
+    print(f"Event {event['event_type']}: {event['status']}")
+```
+
+### Managing API Keys
+
+```python
+# Create a new API key with limited scopes
+key = client.api_keys.create(
+    name="Read-only Integration",
+    scopes=["read:streams", "read:playlists"]
+)
+
+# Store the key value securely
+api_key = key['key']
+
+# List all your API keys
+keys = client.api_keys.list()
+for key in keys:
+    print(f"{key['name']}: {key['scopes']}")
+
+# Revoke a compromised key
+client.api_keys.revoke(key_id="key-123")
+```
+
+### Context Manager Usage
+
+```python
+# Use as context manager for automatic cleanup
+with SattvaClient(api_key="your-api-key") as client:
+    streams = client.streams.list()
+    # Client automatically handles cleanup
+```
+
+### Custom Configuration
+
+```python
+# Configure retry behavior and timeouts
+client = SattvaClient(
+    api_key="your-api-key",
+    base_url="https://api.sattva.io/api/v1",
+    timeout=30,  # Request timeout in seconds
+    max_retries=5,  # Number of retries on rate limit
+    retry_delay=2.0  # Delay between retries
+)
+```
+
 ## Resources
 
 ### Streams
