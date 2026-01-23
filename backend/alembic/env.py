@@ -31,7 +31,8 @@ from src.database import Base
 from src.models import (
     User, TelegramAccount, Channel, PlaylistItem,
     PlaybackSettings, RadioStream, ScheduledPlaylist, LyricsCache,
-    Stream, StreamStatus  # Phase 6: Clean Architecture
+    Stream, StreamStatus,  # Phase 6: Clean Architecture
+    StreamingPlatform, BroadcastDestination, SocialMediaPost, ChatMessage  # Feature 021: Multi-platform
 )
 
 target_metadata = Base.metadata
