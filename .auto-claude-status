@@ -3,7 +3,7 @@
   "spec": "021-social-media-integration-cross-platform-broadcasti",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 3,
     "total": 31,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 5,
     "started_at": "2026-01-23T16:03:38.275829"
   },
-  "last_update": "2026-01-23T16:18:13.235399"
+  "last_update": "2026-01-23T16:27:56.063302"
 }

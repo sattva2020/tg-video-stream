@@ -49,6 +49,7 @@ from .stream import Stream, StreamStatus
 from .streaming_platform import StreamingPlatform
 from .broadcast_destination import BroadcastDestination
 from .social_media_post import SocialMediaPost
+from .chat_message import ChatMessage
 
 __all__ = [
     "User",
@@ -95,5 +96,6 @@ __all__ = [
     "StreamingPlatform",
     "BroadcastDestination",
     "SocialMediaPost",
+    "ChatMessage",
 ]
 
