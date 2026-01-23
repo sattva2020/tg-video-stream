@@ -7,11 +7,41 @@ Model for storing webhook subscriptions with event filtering and signature verif
 
 import uuid
 from datetime import datetime, timezone
+from enum import Enum as PyEnum
 from sqlalchemy import Column, String, DateTime, func, Boolean, text, ForeignKey, JSON, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import TypeDecorator
 from src.database import Base, GUID
+
+
+class WebhookEventType(str, PyEnum):
+    """Webhook event types for event-driven notifications.
+
+    Event types follow the pattern: <category>.<action>
+    Can be used to filter webhook subscriptions to specific events.
+    """
+    # Stream lifecycle events
+    STREAM_STARTED = "stream.started"           # Stream has started broadcasting
+    STREAM_STOPPED = "stream.stopped"           # Stream has stopped broadcasting
+    STREAM_PAUSED = "stream.paused"             # Stream has been paused
+    STREAM_RESUMED = "stream.resumed"           # Stream has been resumed
+    STREAM_ERROR = "stream.error"               # Error occurred during stream
+
+    # Viewer events
+    VIEWER_MILESTONE = "viewer.milestone"       # Viewer count milestone reached (e.g., 100, 1000)
+    VIEWER_JOINED = "viewer.joined"             # New viewer joined the stream
+    VIEWER_LEFT = "viewer.left"                 # Viewer left the stream
+
+    # Track events
+    TRACK_STARTED = "track.started"             # New track started playing
+    TRACK_COMPLETED = "track.completed"         # Track finished playing
+    TRACK_FAILED = "track.failed"               # Track failed to play
+    TRACK_SKIPPED = "track.skipped"             # Track was skipped
+
+    # System events
+    WEBHOOK_TEST = "webhook.test"               # Test event for webhook validation
+    SYSTEM_STATUS = "system.status"             # System status update
 
 
 class JSONBCompat(TypeDecorator):
