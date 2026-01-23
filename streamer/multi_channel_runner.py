@@ -60,6 +60,7 @@ except ImportError:
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
+from live_stream_handler import LiveStreamHandler, get_live_handler
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
@@ -68,6 +69,7 @@ playlist_update_events: Dict[str, asyncio.Event] = {}  # channel_id -> Event (si
 play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+live_handler: Optional[LiveStreamHandler] = None
 
 
 def _env_truthy(name: str, default: bool = True) -> bool:
@@ -770,12 +772,191 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                 # превращаем его в абсолютный, иначе ffmpeg воспримет как локальный путь.
                 if link.startswith("/api/"):
                     link = backend_url.rstrip("/") + link
-                
-                try:
-                    # Expand playlists and get stream URL
-                    expanded = await expand_playlist([link])
-                    if not expanded:
+
+                # Check if this is a live stream (RTMP/SRT)
+                is_live_stream = link.lower().startswith(('rtmp://', 'rtmps://', 'srt://'))
+
+                if is_live_stream:
+                    # Handle live stream with LiveStreamHandler
+                    log.info(f"Channel {channel_id}: Detected live stream: {link[:50]}...")
+
+                    # Validate live stream URL
+                    is_valid, error = await live_handler.validate_stream_url(link)
+                    if not is_valid:
+                        log.error(f"Channel {channel_id}: Invalid live stream URL: {error}")
+                        if command_handler:
+                            await command_handler.update_status(
+                                channel_id,
+                                "error",
+                                error=f"Invalid live stream URL: {error}"
+                            )
+                        await asyncio.sleep(10)
                         continue
+
+                    # Get live stream metadata
+                    metadata = await live_handler.get_stream_metadata(link)
+                    stream_name = metadata.title if metadata else "Live Stream"
+
+                    # Start live stream tracking
+                    success, error = await live_handler.start_stream(
+                        channel_id,
+                        link,
+                        name=item.get("title", stream_name)
+                    )
+
+                    if not success:
+                        log.error(f"Channel {channel_id}: Failed to start live stream: {error}")
+                        if command_handler:
+                            await command_handler.update_status(
+                                channel_id,
+                                "error",
+                                error=error
+                            )
+                        await asyncio.sleep(10)
+                        continue
+
+                    # Update status to show live streaming
+                    if command_handler:
+                        await command_handler.update_status(
+                            channel_id,
+                            "playing",
+                            current_item=f"LIVE: {stream_name}"
+                        )
+
+                    log.info(f"Channel {channel_id}: Playing live stream: {link}")
+
+                    # Play live stream using PyTgCalls
+                    try:
+                        # Set flag BEFORE play() to ignore any StreamEnded during execution
+                        play_in_progress[chat_id] = True
+
+                        try:
+                            # Determine audio quality from config
+                            audio_quality_map = {
+                                "low": AudioQuality.LOW,
+                                "medium": AudioQuality.MEDIUM,
+                                "high": AudioQuality.HIGH,
+                                "studio": AudioQuality.STUDIO,
+                            }
+                            audio_quality = audio_quality_map.get(
+                                config.audio_quality.lower() if config.audio_quality else "studio",
+                                AudioQuality.STUDIO
+                            )
+
+                            # Determine video quality from config
+                            video_quality_map = {
+                                "480p": VideoQuality.SD_480p,
+                                "sd": VideoQuality.SD_480p,
+                                "720p": VideoQuality.HD_720p,
+                                "hd": VideoQuality.HD_720p,
+                                "1080p": VideoQuality.FHD_1080p,
+                                "fhd": VideoQuality.FHD_1080p,
+                                "2k": VideoQuality.QHD_2K,
+                                "qhd": VideoQuality.QHD_2K,
+                                "4k": VideoQuality.UHD_4K,
+                                "uhd": VideoQuality.UHD_4K,
+                            }
+                            video_quality = video_quality_map.get(
+                                config.video_quality.lower() if config.video_quality else "720p",
+                                VideoQuality.HD_720p
+                            )
+
+                            # Build MediaStream for live stream
+                            media_kwargs = {
+                                "audio_parameters": audio_quality,
+                                "video_parameters": video_quality,
+                            }
+
+                            # Prepare FFmpeg parameters for live stream
+                            v_args, a_args = build_ffmpeg_av_args(config.video_quality or "720p")
+                            ffmpeg_params_list = v_args + a_args
+                            ffmpeg_params_str = " ".join(ffmpeg_params_list)
+
+                            # Add live stream specific FFmpeg parameters
+                            # -re (read input at native frame rate) for live streams
+                            live_ffmpeg_params = f"-re {ffmpeg_params_str}"
+
+                            if config.ffmpeg_args:
+                                media_kwargs["ffmpeg_parameters"] = f"{live_ffmpeg_params} {config.ffmpeg_args}"
+                            else:
+                                media_kwargs["ffmpeg_parameters"] = live_ffmpeg_params
+
+                            log.info(f"Channel {channel_id}: Using live stream FFmpeg params: {media_kwargs['ffmpeg_parameters']}")
+
+                            # Add headers if configured
+                            if config.stream_headers:
+                                media_kwargs["headers"] = config.stream_headers
+
+                            # Create MediaStream for RTMP/SRT
+                            media = MediaStream(link, **media_kwargs)
+
+                            log.info(f"Channel {channel_id}: Calling pytg.play() with live MediaStream('{link}')")
+
+                            # Auto-start configuration
+                            auto_start = _env_truthy("TG_CALL_AUTO_START", default=True)
+
+                            # Try to join and play live stream
+                            await pytg.join_group_call(
+                                chat_id,
+                                media,
+                                config=GroupCallConfig(auto_start=auto_start)
+                            )
+
+                            log.info(f"Channel {channel_id}: Live stream started successfully")
+
+                        except Exception as play_error:
+                            formatted = _format_exception(play_error)
+                            hint = _human_hint_for_telegram_error(play_error)
+                            log.exception(f"Channel {channel_id}: Live stream play() failed: {formatted}")
+
+                            # Handle live stream error with reconnection
+                            should_reconnect, error = await live_handler.handle_stream_error(channel_id)
+                            if should_reconnect:
+                                log.info(f"Channel {channel_id}: Attempting to reconnect live stream...")
+                                continue
+                            else:
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=(formatted + (f" | {error}" if error else "") + (f" | hint: {hint}" if hint else "")),
+                                    )
+                                raise play_error
+                        finally:
+                            # Clear flag AFTER play() completes
+                            play_in_progress[chat_id] = False
+
+                    except Exception as e:
+                        formatted = _format_exception(e)
+                        hint = _human_hint_for_telegram_error(e)
+                        log.exception(f"Channel {channel_id}: Live stream error: {formatted}")
+                        if command_handler:
+                            await command_handler.update_status(
+                                channel_id,
+                                "error",
+                                error=(formatted + (f" | hint: {hint}" if hint else "")),
+                            )
+                        await asyncio.sleep(5)
+                        continue
+
+                    # Live streams play indefinitely - wait for manual stop or error
+                    log.info(f"Channel {channel_id}: Live stream active, waiting for manual stop...")
+                    # Wait indefinitely until channel is stopped
+                    while channel_id in running_channels:
+                        await asyncio.sleep(10)
+
+                    # Stop live stream tracking
+                    await live_handler.stop_stream(channel_id)
+                    log.info(f"Channel {channel_id}: Live stream stopped")
+
+                    # Move to next item in playlist
+                    continue
+                else:
+                    try:
+                        # Expand playlists and get stream URL
+                        expanded = await expand_playlist([link])
+                        if not expanded:
+                            continue
                     
                     for video_link in expanded:
                         if channel_id not in running_channels:
@@ -1252,10 +1433,15 @@ async def update_channel_playlist(channel_id: str) -> bool:
 
 async def main():
     """Main entry point."""
-    global manager, command_handler
-    
+    global manager, command_handler, live_handler
+
     log.info("Starting Multi-Channel Stream Runner")
-    
+
+    # Initialize live stream handler
+    live_handler = get_live_handler()
+    await live_handler.initialize()
+    log.info("Live stream handler initialized")
+
     # Initialize command handler
     redis_url = get_redis_url()
     command_handler = RedisCommandHandler(redis_url)
@@ -1295,15 +1481,19 @@ async def main():
     
     # Cleanup
     log.info("Shutting down...")
-    
+
     # Stop all channels
     for channel_id in list(running_channels.keys()):
         await stop_channel_stream(channel_id)
-    
+
     # Stop command handler
     if command_handler:
         await command_handler.stop()
-    
+
+    # Cleanup live stream handler
+    if live_handler:
+        await live_handler.cleanup()
+
     log.info("Shutdown complete")
 
 
