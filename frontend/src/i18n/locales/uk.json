@@ -198,7 +198,8 @@
     "monitoring": "Монітор",
     "analytics": "Статистика",
     "streamQuality": "Якість",
-    "settings": "Налаштування"
+    "settings": "Налаштування",
+    "recommendations": "Рекомендації"
   },
   "analytics": {
     "title": "Аналітика",

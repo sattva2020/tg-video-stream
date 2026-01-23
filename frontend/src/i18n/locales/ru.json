@@ -184,7 +184,8 @@
     "monitoring": "Монитор",
     "analytics": "Статистика",
     "streamQuality": "Качество",
-    "settings": "Настройки"
+    "settings": "Настройки",
+    "recommendations": "Рекомендации"
   },
   "analytics": {
     "title": "Аналитика",
