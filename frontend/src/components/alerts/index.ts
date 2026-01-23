@@ -3,6 +3,7 @@ export { AlertRuleDetail } from './AlertRuleDetail';
 export { AlertRuleWizard } from './AlertRuleWizard';
 export { AlertHistory } from './AlertHistory';
 export { AlertGroups } from './AlertGroups';
+export { AlertsNav } from './AlertsNav';
 
 export type { AlertRuleListProps } from './AlertRuleList';
 export type { AlertRuleDetailProps } from './AlertRuleDetail';
