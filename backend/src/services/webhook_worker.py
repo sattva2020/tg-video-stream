@@ -3,6 +3,8 @@
 Обеспечивает доставку вебхук-уведомлений с подписью HMAC-SHA256 и экспоненциальной задержкой.
 """
 import asyncio
+import hashlib
+import hmac
 import httpx
 import json
 import logging
@@ -121,6 +123,40 @@ def generate_signature_headers(webhook: Webhook, payload: Dict) -> Dict[str, str
         "Content-Type": "application/json",
         "User-Agent": WEBHOOK_USER_AGENT,
     }
+
+
+def verify_webhook_signature(payload: Dict, signature: str, secret: str) -> bool:
+    """
+    Verify HMAC-SHA256 signature for a webhook payload.
+
+    This function verifies that a received signature matches the expected
+    signature for the given payload and secret. It uses constant-time
+    comparison to prevent timing attacks.
+
+    Args:
+        payload: The payload data to verify
+        signature: The signature to verify (with or without "sha256=" prefix)
+        secret: The webhook secret used for signature generation
+
+    Returns:
+        True if signature is valid, False otherwise
+    """
+    # Strip "sha256=" prefix if present
+    if signature.startswith("sha256="):
+        signature = signature[7:]
+
+    # Convert payload to JSON string with same format used for generation
+    payload_str = json.dumps(payload, separators=(',', ':'), sort_keys=True)
+
+    # Generate the expected signature
+    expected_signature = hmac.new(
+        secret.encode(),
+        payload_str.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    # Use constant-time comparison to prevent timing attacks
+    return hmac.compare_digest(expected_signature, signature)
 
 
 async def deliver_webhook_http(
