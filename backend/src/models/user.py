@@ -1,7 +1,7 @@
 import uuid
 from enum import Enum as PyEnum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, func, Boolean, text, Enum, BigInteger
+from sqlalchemy import Column, String, DateTime, func, Boolean, text, Enum, BigInteger, ForeignKey
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -30,6 +30,10 @@ class User(Base):
     google_id = Column(String, unique=True, index=True, nullable=True)
     telegram_id = Column(BigInteger, unique=True, index=True, nullable=True)  # Telegram Login Widget
     telegram_username = Column(String(255), nullable=True)  # Username в Telegram (без @)
+
+    # SAML/SSO
+    saml_name_id = Column(String, unique=True, index=True, nullable=True)  # SAML NameID от IdP
+    saml_config_id = Column(GUID(), ForeignKey("saml_configs.id", ondelete="SET NULL"), nullable=True)  # Ссылка на конфигурацию SAML
     
     # Common fields
     email = Column(String, unique=True, index=True, nullable=True)  # Nullable для Telegram-only пользователей
