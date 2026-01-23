@@ -5,3 +5,4 @@
 
 export { ABTestList } from './ABTestList';
 export type { ABTestListProps } from './ABTestList';
+export { ABTestWizard } from './ABTestWizard';
