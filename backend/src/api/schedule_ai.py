@@ -234,7 +234,12 @@ async def preview_auto_pilot_schedule(
 
 # ==================== Peak Hours ====================
 
-@router.get("/peak-hours", response_model=PeakHoursResponse)
+@router.get(
+    "/peak-hours",
+    response_model=PeakHoursResponse,
+    summary="Получить анализ пиковых часов",
+    description="Возвращает данные о часах пик на основе исторических данных воспроизведений"
+)
 async def get_peak_hours(
     channel_id: str = Query(..., description="ID канала"),
     period: str = Query("30d", description="Период анализа (7d, 30d, 90d)"),
@@ -245,7 +250,8 @@ async def get_peak_hours(
     """
     Получить анализ пиковых часов.
 
-    Возвращает данные о часах пик на основе исторических данных.
+    Анализирует исторические данные воспроизведений для определения часов
+    с наибольшей активностью слушателей. Используется для оптимизации расписания.
     """
     try:
         service = ScheduleRecommendationService(db)
@@ -259,7 +265,7 @@ async def get_peak_hours(
         return response
     except Exception as e:
         logger.error(f"Error getting peak hours: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get peak hours analysis")
 
 
 # ==================== Conflict Detection & Resolution ====================
