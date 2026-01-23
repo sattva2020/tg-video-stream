@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, CardBody, Chip, Skeleton, Button } from '@heroui/react';
-import { Activity, Music, Video, RefreshCw, AlertTriangle, Gauge } from 'lucide-react';
+import { Activity, Music, Video, RefreshCw, AlertTriangle, Gauge, Zap, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { adminApi, StreamQualityResponse } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
+import { AdaptiveStreamingStatus } from '../../types/adaptive-streaming';
 
 interface StreamQualityCardProps {
   streamUrl?: string | null;
@@ -19,20 +20,33 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
   const { t } = useTranslation();
   const toast = useToast();
   const [quality, setQuality] = useState<StreamQualityResponse | null>(null);
+  const [adaptiveStatus, setAdaptiveStatus] = useState<AdaptiveStreamingStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
 
   const analyzeStream = useCallback(async (force = false) => {
     if (!streamUrl) return;
-    
+
     setLoading(true);
+    setAdaptiveLoading(true);
     try {
       // If we have a new URL, we might want to force analysis or use cache
       // For now, we default to use_cache=true unless forced
       const data = await adminApi.getStreamQuality(streamUrl, 10, !force);
       setQuality(data);
       setAnalyzedUrl(streamUrl);
-      
+
+      // Try to fetch adaptive streaming status (may fail if not configured)
+      try {
+        const encodedStreamId = encodeURIComponent(streamUrl);
+        const adaptiveData = await adminApi.getAdaptiveStatus(encodedStreamId, 'desktop');
+        setAdaptiveStatus(adaptiveData);
+      } catch (adaptiveError) {
+        // Adaptive streaming might not be configured for this stream
+        setAdaptiveStatus(null);
+      }
+
       if (force) {
         toast.success(t('quality.analysisComplete', 'Анализ завершен'));
       }
@@ -44,6 +58,7 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
       }
     } finally {
       setLoading(false);
+      setAdaptiveLoading(false);
     }
   }, [streamUrl, toast, t]);
 
@@ -221,6 +236,69 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
                   </div>
                </div>
             </div>
+
+            {/* Adaptive Streaming Status */}
+            {adaptiveStatus && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--color-text-secondary)]">
+                    <Zap size={16} />
+                    <span>{t('quality.adaptiveStreaming', 'Адаптивный стриминг')}</span>
+                    {adaptiveStatus.adaptive_enabled && (
+                      <Chip size="sm" variant="flat" color="success">
+                        {t('quality.enabled', 'Включен')}
+                      </Chip>
+                    )}
+                  </div>
+                  {adaptiveStatus.is_adapting && (
+                    <div className="flex items-center gap-1 text-xs text-primary animate-pulse">
+                      <TrendingUp size={12} />
+                      <span>{t('quality.adapting', 'Адаптация...')}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-[color:var(--color-bg)] border border-[color:var(--color-border)]">
+                  <div>
+                    <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.currentQuality', 'Текущее качество')}</p>
+                    <p className="font-mono text-sm capitalize">{adaptiveStatus.current_quality}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.bandwidth', 'Пропускная способность')}</p>
+                    <p className="font-mono text-sm">
+                      {adaptiveStatus.current_bandwidth_kbps
+                        ? `${Math.round(adaptiveStatus.current_bandwidth_kbps)} Kbps`
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.smoothedBandwidth', 'Сглаженная пропускная способность')}</p>
+                    <p className="font-mono text-sm">
+                      {adaptiveStatus.smoothed_bandwidth_kbps
+                        ? `${Math.round(adaptiveStatus.smoothed_bandwidth_kbps)} Kbps`
+                        : 'N/A'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.qualityChanges', 'Изменения качества')}</p>
+                    <p className="font-mono text-sm">{adaptiveStatus.total_quality_changes}</p>
+                  </div>
+                  {adaptiveStatus.recommended_quality && (
+                    <>
+                      <div>
+                        <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.recommendedQuality', 'Рекомендуемое качество')}</p>
+                        <p className="font-mono text-sm capitalize text-warning">{adaptiveStatus.recommended_quality}</p>
+                      </div>
+                      {adaptiveStatus.recommended_action && (
+                        <div className="col-span-2">
+                          <p className="text-xs text-[color:var(--color-text-secondary)] mb-1">{t('quality.recommendedAction', 'Рекомендуемое действие')}</p>
+                          <p className="text-xs text-[color:var(--color-text)]">{adaptiveStatus.recommended_action}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {!quality.audio && !quality.video && (
               <div className="flex flex-col items-center justify-center py-8 text-[color:var(--color-text-secondary)]">
