@@ -139,19 +139,11 @@ def perform_transcode(
             }
         else:
             # Транскодирование в поток (в память)
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                output_data = loop.run_until_complete(
-                    VideoTranscoder.transcode(request, None)
-                )
-            finally:
-                loop.close()
-
-            # Собираем данные из потока
+            # Собираем данные из асинхронного генератора в один список чанков
             chunks = []
+
             async def collect_chunks():
-                async for chunk in output_data:
+                async for chunk in VideoTranscoder.transcode(request):
                     chunks.append(chunk)
 
             loop = asyncio.new_event_loop()
