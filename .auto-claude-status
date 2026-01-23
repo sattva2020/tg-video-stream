@@ -3,14 +3,14 @@
   "spec": "015-smart-scheduling-auto-pilot-mode",
   "state": "building",
   "subtasks": {
-    "completed": 8,
+    "completed": 9,
     "total": 31,
-    "in_progress": 1,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
     "current": "Auto-Pilot Service",
-    "id": null,
+    "id": "subtask-4-1",
     "total": 3
   },
   "workers": {
@@ -21,5 +21,5 @@
     "number": 10,
     "started_at": "2026-01-23T20:41:23.353209"
   },
-  "last_update": "2026-01-23T21:44:25.752615"
+  "last_update": "2026-01-23T21:47:00.000000"
 }

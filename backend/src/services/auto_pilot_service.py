@@ -608,6 +608,9 @@ class AutoPilotService:
         """
         Create template from existing schedule.
 
+        Analyzes the schedule to detect recurring patterns and creates
+        a template with proper repeat configuration.
+
         Args:
             channel_id: Channel ID
             start_date: Start date
@@ -633,22 +636,13 @@ class AutoPilotService:
             ).order_by(ScheduleSlot.start_time)
         ).scalars().all()
 
-        # Extract unique time patterns
-        time_patterns = {}
-        for slot in slots:
-            key = (slot.start_time.strftime("%H:%M"), slot.end_time.strftime("%H:%M"))
-            if key not in time_patterns:
-                time_patterns[key] = {
-                    "start_time": key[0],
-                    "end_time": key[1],
-                    "playlist_id": str(slot.playlist_id) if slot.playlist_id else None,
-                    "title": slot.title,
-                    "description": slot.description,
-                    "color": slot.color,
-                    "priority": slot.priority
-                }
+        # Analyze patterns and detect repeat type
+        repeat_info = self._detect_repeat_pattern(slots, start_date, end_date)
 
-        # Create template
+        # Extract unique time patterns based on detected repeat type
+        time_patterns = self._extract_time_patterns(slots, repeat_info)
+
+        # Create template with repeat information
         template = ScheduleTemplate(
             user_id=UUID(user_id) if user_id else None,
             channel_id=channel_uuid,
@@ -662,9 +656,238 @@ class AutoPilotService:
         self.db.commit()
         self.db.refresh(template)
 
-        self.logger.info(f"Created template '{name}' with {len(template.slots)} slots")
+        self.logger.info(
+            f"Created template '{name}' with {len(template.slots)} slots, "
+            f"repeat pattern: {repeat_info['repeat_type'].value}"
+        )
 
         return template
+
+    def _detect_repeat_pattern(
+        self,
+        slots: List[ScheduleSlot],
+        start_date: date,
+        end_date: date
+    ) -> Dict[str, Any]:
+        """
+        Detect repeat pattern from schedule slots.
+
+        Args:
+            slots: List of schedule slots
+            start_date: Start date of period
+            end_date: End date of period
+
+        Returns:
+            Dict with repeat_type, repeat_days, and detected pattern info
+        """
+        if not slots:
+            return {"repeat_type": RepeatType.NONE, "repeat_days": None}
+
+        # Group slots by time pattern
+        time_patterns: Dict[tuple, List[date]] = {}
+        for slot in slots:
+            key = (slot.start_time, slot.end_time, slot.playlist_id)
+            if key not in time_patterns:
+                time_patterns[key] = []
+            time_patterns[key].append(slot.start_date)
+
+        # Analyze pattern for first time slot
+        first_pattern_dates = list(time_patterns.values())[0]
+        first_pattern_dates.sort()
+
+        # Check for daily pattern (same slots every day)
+        total_days = (end_date - start_date).days + 1
+        coverage_ratio = len(first_pattern_dates) / total_days if total_days > 0 else 0
+
+        if coverage_ratio >= 0.9:
+            # Daily pattern
+            return {
+                "repeat_type": RepeatType.DAILY,
+                "repeat_days": None,
+                "confidence": coverage_ratio
+            }
+
+        # Check for weekdays pattern
+        weekdays_count = sum(1 for d in first_pattern_dates if d.weekday() < 5)
+        if weekdays_count / len(first_pattern_dates) >= 0.9:
+            return {
+                "repeat_type": RepeatType.WEEKDAYS,
+                "repeat_days": None,
+                "confidence": weekdays_count / len(first_pattern_dates)
+            }
+
+        # Check for weekends pattern
+        weekends_count = sum(1 for d in first_pattern_dates if d.weekday() >= 5)
+        if weekends_count / len(first_pattern_dates) >= 0.9:
+            return {
+                "repeat_type": RepeatType.WEEKENDS,
+                "repeat_days": None,
+                "confidence": weekends_count / len(first_pattern_dates)
+            }
+
+        # Check for weekly pattern (same day of week)
+        weekdays_in_pattern = set(d.weekday() for d in first_pattern_dates)
+        if len(weekdays_in_pattern) <= 3:
+            # Custom repeat with specific days
+            return {
+                "repeat_type": RepeatType.CUSTOM,
+                "repeat_days": sorted(list(weekdays_in_pattern)),
+                "confidence": len(first_pattern_dates) / (len(weekdays_in_pattern) * (total_days / 7))
+            }
+
+        # Default to no repeat
+        return {
+            "repeat_type": RepeatType.NONE,
+            "repeat_days": None,
+            "confidence": 0.0
+        }
+
+    def _extract_time_patterns(
+        self,
+        slots: List[ScheduleSlot],
+        repeat_info: Dict[str, Any]
+    ) -> Dict[tuple, Dict[str, Any]]:
+        """
+        Extract unique time patterns from slots.
+
+        Args:
+            slots: List of schedule slots
+            repeat_info: Detected repeat pattern info
+
+        Returns:
+            Dict of time patterns keyed by (start_time, end_time)
+        """
+        time_patterns = {}
+
+        for slot in slots:
+            key = (slot.start_time.strftime("%H:%M"), slot.end_time.strftime("%H:%M"))
+
+            if key not in time_patterns:
+                time_patterns[key] = {
+                    "start_time": key[0],
+                    "end_time": key[1],
+                    "playlist_id": str(slot.playlist_id) if slot.playlist_id else None,
+                    "title": slot.title,
+                    "description": slot.description,
+                    "color": slot.color,
+                    "priority": slot.priority,
+                    "repeat_type": repeat_info["repeat_type"].value,
+                    "repeat_days": repeat_info.get("repeat_days"),
+                }
+
+        return time_patterns
+
+    async def generate_recurring_slots_from_template(
+        self,
+        channel_id: str,
+        template_id: str,
+        start_date: date,
+        end_date: date,
+        user_id: Optional[str] = None
+    ) -> int:
+        """
+        Generate recurring schedule slots from a template.
+
+        Creates ScheduleSlot entries with proper repeat configuration
+        (DAILY, WEEKLY, WEEKDAYS, WEEKENDS, CUSTOM) based on the template.
+
+        Args:
+            channel_id: Channel ID
+            template_id: Template ID
+            start_date: Start date for recurrence
+            end_date: End date for recurrence
+            user_id: Optional user ID
+
+        Returns:
+            Number of slots created
+        """
+        channel_uuid = UUID(channel_id)
+        template_uuid = UUID(template_id)
+
+        # Get template
+        template = self.db.execute(
+            select(ScheduleTemplate).where(
+                ScheduleTemplate.id == template_uuid
+            )
+        ).scalar_one_or_none()
+
+        if not template:
+            raise ValueError(f"Template {template_id} not found")
+
+        slots_created = 0
+
+        # Analyze template slots to detect repeat pattern
+        repeat_info = self._detect_template_repeat_pattern(template)
+
+        # Create recurring slot based on detected pattern
+        for slot_data in template.slots:
+            start_time = time.fromisoformat(slot_data["start_time"])
+            end_time = time.fromisoformat(slot_data["end_time"])
+
+            # Create slot with repeat configuration
+            slot = ScheduleSlot(
+                channel_id=channel_uuid,
+                playlist_id=UUID(slot_data["playlist_id"]) if slot_data.get("playlist_id") else None,
+                start_date=start_date,
+                start_time=start_time,
+                end_time=end_time,
+                title=slot_data.get("title"),
+                description=slot_data.get("description"),
+                color=slot_data.get("color", "#3B82F6"),
+                is_active=True,
+                priority=slot_data.get("priority", 5),
+                repeat_type=repeat_info["repeat_type"],
+                repeat_days=repeat_info.get("repeat_days"),
+                repeat_until=end_date,
+                created_by=UUID(user_id) if user_id else None
+            )
+
+            self.db.add(slot)
+            slots_created += 1
+
+        self.db.commit()
+
+        self.logger.info(
+            f"Generated {slots_created} recurring slots from template '{template.name}', "
+            f"repeat type: {repeat_info['repeat_type'].value}"
+        )
+
+        return slots_created
+
+    def _detect_template_repeat_pattern(
+        self,
+        template: ScheduleTemplate
+    ) -> Dict[str, Any]:
+        """
+        Detect repeat pattern from template slots.
+
+        Args:
+            template: ScheduleTemplate to analyze
+
+        Returns:
+            Dict with repeat_type and repeat_days
+        """
+        if not template.slots:
+            return {"repeat_type": RepeatType.NONE, "repeat_days": None}
+
+        # Check if template already has repeat information stored
+        first_slot = template.slots[0]
+        if "repeat_type" in first_slot:
+            repeat_type_str = first_slot["repeat_type"]
+            try:
+                repeat_type = RepeatType(repeat_type_str)
+                return {
+                    "repeat_type": repeat_type,
+                    "repeat_days": first_slot.get("repeat_days")
+                }
+            except ValueError:
+                pass
+
+        # Default to daily for templates without explicit repeat info
+        return {
+            "repeat_type": RepeatType.DAILY,
+            "repeat_days": None
+        }
 
     async def preview_schedule(
         self,
