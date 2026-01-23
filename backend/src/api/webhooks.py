@@ -24,17 +24,52 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=list[WebhookResponse])
+@router.get(
+    "/",
+    response_model=list[WebhookResponse],
+    summary="List all webhook subscriptions",
+    description="""
+Retrieves all webhook subscriptions owned by the currently authenticated user.
+
+**Important:** The webhook secret is NEVER included in list responses for security reasons.
+The secret is only returned once when you create a new webhook.
+
+**Response includes:**
+- Webhook metadata (id, url, event_types, is_active)
+- Delivery statistics (last_success_at, last_failure_at, failure_count)
+- Timestamps (created_at, updated_at)
+
+**Authentication:** Requires valid JWT token or session cookie
+    """,
+    responses={
+        200: {
+            "description": "List of webhook subscriptions owned by the user",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                            "url": "https://example.com/webhooks",
+                            "event_types": ["stream.started", "stream.ended", "stream.error"],
+                            "is_active": True,
+                            "last_success_at": "2025-01-15T10:30:00Z",
+                            "last_failure_at": None,
+                            "failure_count": 0,
+                            "created_at": "2025-01-01T00:00:00Z",
+                            "updated_at": "2025-01-15T10:30:00Z",
+                            "secret": None
+                        }
+                    ]
+                }
+            }
+        }
+    }
+)
 def list_webhooks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    List all webhook subscriptions owned by the current user.
-
-    Returns a list of webhook subscriptions with their metadata.
-    The secret is never included in list responses.
-    """
     service = WebhookService(db)
     webhooks = service.list_webhooks(owner_id=current_user.id)
 
@@ -59,18 +94,93 @@ def list_webhooks(
     return result
 
 
-@router.post("/", response_model=WebhookResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=WebhookResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a webhook subscription",
+    description="""
+Creates a new webhook subscription to receive real-time events.
+
+**⚠️ IMPORTANT:** The webhook secret is returned ONLY ONCE in this response.
+Make sure to save it securely, as it cannot be retrieved again.
+
+**Event Types:**
+Subscribe to specific event types to filter the events you receive:
+
+- **Stream Events:**
+  - `stream.started` - A stream has started
+  - `stream.ended` - A stream has ended
+  - `stream.error` - A stream encountered an error
+  - `stream.paused` - A stream has been paused
+  - `stream.resumed` - A paused stream has resumed
+
+- **Channel Events:**
+  - `channel.created` - A channel was created
+  - `channel.deleted` - A channel was deleted
+  - `channel.updated` - A channel was updated
+
+- **Viewer Events:**
+  - `viewer.milestone` - Viewer count milestone reached
+  - `viewer.joined` - A new viewer joined (if tracking enabled)
+  - `viewer.left` - A viewer left (if tracking enabled)
+
+- **Playlist Events:**
+  - `playlist.started` - A playlist playback started
+  - `playlist.ended` - A playlist playback ended
+  - `playlist.item_changed` - Current item in playlist changed
+
+**Webhook Security:**
+All webhook requests include:
+- `X-Webhook-Signature` - HMAC-SHA256 signature using your secret
+- `X-Webhook-Event` - The event type
+- `X-Webhook-ID` - Unique delivery ID
+- `X-Webhook-Timestamp` - Unix timestamp of the event
+
+**Verify Signatures:**
+```python
+import hmac
+import hashlib
+
+signature = hmac.new(
+    secret.encode(),
+    request_body.encode(),
+    hashlib.sha256
+).hexdigest()
+
+# Compare with X-Webhook-Signature header
+```
+
+**Authentication:** Requires valid JWT token or session cookie
+    """,
+    responses={
+        201: {
+            "description": "Webhook subscription created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "url": "https://example.com/webhooks",
+                        "event_types": ["stream.started", "stream.ended", "stream.error"],
+                        "is_active": True,
+                        "last_success_at": None,
+                        "last_failure_at": None,
+                        "failure_count": 0,
+                        "created_at": "2025-01-15T10:30:00Z",
+                        "updated_at": "2025-01-15T10:30:00Z",
+                        "secret": "whsec_abc123xyz456"
+                    }
+                }
+            }
+        }
+    }
+)
 def create_webhook(
     webhook_data: WebhookCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new webhook subscription.
-
-    The webhook secret is returned only once in the response.
-    Make sure to save it securely, as it cannot be retrieved again.
-    """
     service = WebhookService(db)
 
     # Create the webhook
@@ -95,17 +205,49 @@ def create_webhook(
     return WebhookResponse(**response_data)
 
 
-@router.get("/{webhook_id}", response_model=WebhookResponse)
+@router.get(
+    "/{webhook_id}",
+    response_model=WebhookResponse,
+    summary="Get webhook subscription details",
+    description="""
+Retrieves detailed information about a specific webhook subscription.
+
+**Note:** This endpoint does NOT return the webhook secret.
+Only the metadata and delivery statistics are returned.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the webhook
+    """,
+    responses={
+        200: {
+            "description": "Webhook subscription details",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "url": "https://example.com/webhooks",
+                        "event_types": ["stream.started", "stream.ended", "stream.error"],
+                        "is_active": True,
+                        "last_success_at": "2025-01-15T10:30:00Z",
+                        "last_failure_at": None,
+                        "failure_count": 0,
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-15T10:30:00Z",
+                        "secret": None
+                    }
+                }
+            }
+        },
+        404: {"description": "Webhook not found"},
+        403: {"description": "Access denied - you don't own this webhook"}
+    }
+)
 def get_webhook(
     webhook_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific webhook subscription by ID.
-
-    Returns the webhook metadata but not the secret value.
-    """
     service = WebhookService(db)
     webhook = service.get_webhook(webhook_id)
 
@@ -140,19 +282,55 @@ def get_webhook(
     return WebhookResponse(**response_data)
 
 
-@router.patch("/{webhook_id}", response_model=WebhookResponse)
+@router.patch(
+    "/{webhook_id}",
+    response_model=WebhookResponse,
+    summary="Update a webhook subscription",
+    description="""
+Updates an existing webhook subscription.
+
+**Editable fields:**
+- `url` - The webhook endpoint URL
+- `event_types` - List of event types to subscribe to
+- `is_active` - Enable or disable the webhook
+
+**Note:** The webhook secret CANNOT be changed via this endpoint.
+Use the `/rotate-secret` endpoint to generate a new secret.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the webhook
+    """,
+    responses={
+        200: {
+            "description": "Webhook subscription updated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "url": "https://example.com/webhooks/v2",
+                        "event_types": ["stream.started", "stream.ended"],
+                        "is_active": True,
+                        "last_success_at": "2025-01-15T10:30:00Z",
+                        "last_failure_at": None,
+                        "failure_count": 0,
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-16T14:20:00Z",
+                        "secret": None
+                    }
+                }
+            }
+        },
+        404: {"description": "Webhook not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def update_webhook(
     webhook_id: uuid.UUID,
     webhook_update: WebhookUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update a webhook subscription.
-
-    Can update url, event_types, and is_active.
-    The secret cannot be changed via update (use rotate_secret instead).
-    """
     service = WebhookService(db)
 
     # First verify ownership
@@ -196,17 +374,33 @@ def update_webhook(
     return WebhookResponse(**response_data)
 
 
-@router.delete("/{webhook_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{webhook_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a webhook subscription",
+    description="""
+Permanently deletes a webhook subscription.
+
+**⚠️ WARNING:** This action cannot be undone.
+The webhook will immediately stop receiving events.
+
+**Alternative:** Consider setting `is_active` to `false` if you want to
+temporarily disable the webhook without deleting it.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the webhook
+    """,
+    responses={
+        204: {"description": "Webhook subscription deleted successfully"},
+        404: {"description": "Webhook not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def delete_webhook(
     webhook_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete a webhook subscription permanently.
-
-    This action cannot be undone. The webhook will immediately stop receiving events.
-    """
     service = WebhookService(db)
 
     # First verify ownership
@@ -235,18 +429,89 @@ def delete_webhook(
     return None
 
 
-@router.post("/{webhook_id}/test")
+@router.post(
+    "/{webhook_id}/test",
+    summary="Test a webhook subscription",
+    description="""
+Sends a test event to the webhook URL to verify it's working correctly.
+
+**Use this endpoint to:**
+- Verify your webhook endpoint is reachable
+- Test signature verification
+- Check response handling
+- Debug webhook delivery issues
+
+**Test Event Format:**
+```json
+{
+  "id": "uuid",
+  "type": "test",
+  "test": true,
+  "timestamp": "2025-01-15T10:30:00Z",
+  "data": {
+    "message": "This is a test webhook event",
+    "webhook_id": "uuid"
+  }
+}
+```
+
+**Response includes:**
+- `success` - Whether the test succeeded (HTTP 2xx status)
+- `status_code` - HTTP status code from webhook endpoint
+- `response_body` - Response body (truncated to 1000 chars)
+- `webhook_id` - The webhook ID that was tested
+- `event_id` - Unique test event ID
+- `timestamp` - When the test was sent
+
+**Note:** A successful test updates the webhook's `last_success_at` timestamp.
+A failed test updates `last_failure_at` and increments `failure_count`.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the webhook
+    """,
+    responses={
+        200: {
+            "description": "Test completed (check success field for result)",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "success": {
+                            "summary": "Successful test",
+                            "value": {
+                                "success": True,
+                                "status_code": 200,
+                                "response_body": "{\"received\": true}",
+                                "webhook_id": "550e8400-e29b-41d4-a716-446655440000",
+                                "event_id": "test-event-uuid",
+                                "timestamp": "2025-01-15T10:30:00Z"
+                            }
+                        },
+                        "failure": {
+                            "summary": "Failed test",
+                            "value": {
+                                "success": False,
+                                "status_code": 404,
+                                "response_body": "Not Found",
+                                "webhook_id": "550e8400-e29b-41d4-a716-446655440000",
+                                "event_id": "test-event-uuid",
+                                "timestamp": "2025-01-15T10:30:00Z"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        404: {"description": "Webhook not found"},
+        403: {"description": "Access denied"},
+        408: {"description": "Webhook URL timed out"},
+        500: {"description": "Failed to send test event"}
+    }
+)
 async def test_webhook(
     webhook_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Send a test event to a webhook subscription.
-
-    This sends a test event to the webhook URL to verify it's working correctly.
-    Returns the response status and details from the webhook endpoint.
-    """
     service = WebhookService(db)
 
     # Verify ownership
@@ -340,19 +605,64 @@ async def test_webhook(
         )
 
 
-@router.post("/{webhook_id}/rotate-secret", response_model=WebhookResponse)
+@router.post(
+    "/{webhook_id}/rotate-secret",
+    response_model=WebhookResponse,
+    summary="Rotate webhook secret",
+    description="""
+Rotates the webhook secret by generating a new one.
+
+**⚠️ IMPORTANT:** The new secret is returned ONLY ONCE in this response.
+Make sure to save it securely and update your webhook endpoint immediately.
+
+**What happens:**
+- A new secret is generated
+- The old secret immediately becomes invalid
+- The new secret is returned in this response (only time)
+
+**When to use:**
+- You suspect the secret has been compromised
+- Regular security maintenance (recommended: rotate every 90 days)
+- After a security incident
+
+**After rotation:**
+1. Update your webhook endpoint with the new secret
+2. Use the new secret to verify X-Webhook-Signature headers
+3. The old secret will no longer work for signature verification
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the webhook
+    """,
+    responses={
+        200: {
+            "description": "Secret rotated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "url": "https://example.com/webhooks",
+                        "event_types": ["stream.started", "stream.ended", "stream.error"],
+                        "is_active": True,
+                        "last_success_at": "2025-01-15T10:30:00Z",
+                        "last_failure_at": None,
+                        "failure_count": 0,
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-16T15:00:00Z",
+                        "secret": "whsec_new_secret_xyz789"
+                    }
+                }
+            }
+        },
+        404: {"description": "Webhook not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def rotate_webhook_secret(
     webhook_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Rotate the webhook secret.
-
-    Generates a new secret for the webhook subscription.
-    The old secret will no longer work for signature verification.
-    The new secret is returned only once in the response.
-    """
     service = WebhookService(db)
 
     # First verify ownership

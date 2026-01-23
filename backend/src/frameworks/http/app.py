@@ -66,9 +66,46 @@ def create_app() -> FastAPI:
     """
     app = FastAPI(
         title="Telegram Broadcast API",
-        description="API for handling user authentication and other features.",
+        description="""
+## Telegram Broadcast API
+
+A comprehensive API for managing Telegram broadcasts, streaming, webhooks, and API keys.
+
+### Features
+
+- **Authentication**: JWT-based authentication with OAuth support
+- **Channel Management**: Create and manage Telegram streaming channels
+- **Playlist & Schedule**: Organize and schedule content playback
+- **Webhooks**: Subscribe to real-time events via webhook notifications
+- **API Keys**: Manage programmatic access with scoped API keys
+- **Analytics**: Track performance and viewer metrics
+- **Media Handling**: Upload and manage media files
+
+### Authentication
+
+Most endpoints require authentication via:
+- JWT bearer token (login via `/api/v1/auth/login`)
+- API key (X-API-Key header for programmatic access)
+
+### Rate Limiting
+
+API requests are rate-limited based on:
+- User session (default: 100 requests/minute)
+- API key (customizable per key)
+
+### Documentation
+
+Use the interactive docs below to explore endpoints and test requests.
+        """,
         version="0.1.0",
         lifespan=app_lifespan,
+        contact={
+            "name": "API Support",
+            "email": "support@example.com",
+        },
+        license_info={
+            "name": "MIT",
+        },
     )
     
     # =============================================================================

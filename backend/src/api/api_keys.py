@@ -23,17 +23,52 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/", response_model=list[APIKeyResponse])
+@router.get(
+    "/",
+    response_model=list[APIKeyResponse],
+    summary="List all API keys",
+    description="""
+Retrieves all API keys owned by the currently authenticated user.
+
+**Important:** The actual API key value is NEVER included in list responses for security reasons.
+The key value is only returned once when you create a new API key.
+
+**Response includes:**
+- Key metadata (id, name, scopes, rate_limit, is_active)
+- Usage statistics (last_used, created_at, updated_at)
+- Expiration information (expires_at)
+
+**Authentication:** Requires valid JWT token or session cookie
+    """,
+    responses={
+        200: {
+            "description": "List of API keys owned by the user",
+            "content": {
+                "application/json": {
+                    "example": [
+                        {
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                            "name": "Production Integration",
+                            "scopes": ["read:streams", "write:playlists"],
+                            "rate_limit": {"requests": 100, "window": 60},
+                            "is_active": True,
+                            "expires_at": "2025-12-31T23:59:59Z",
+                            "last_used": "2025-01-15T10:30:00Z",
+                            "created_at": "2025-01-01T00:00:00Z",
+                            "updated_at": "2025-01-15T10:30:00Z",
+                            "key": None
+                        }
+                    ]
+                }
+            }
+        }
+    }
+)
 def list_api_keys(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    List all API keys owned by the current user.
-
-    Returns a list of API keys with their metadata.
-    The actual key value is never included in list responses.
-    """
     service = APIKeyService(db)
     keys = service.list_keys(owner_id=current_user.id)
 
@@ -58,18 +93,66 @@ def list_api_keys(
     return result
 
 
-@router.post("/", response_model=APIKeyResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=APIKeyResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new API key",
+    description="""
+Creates a new API key for the authenticated user.
+
+**⚠️ IMPORTANT:** The API key value is returned ONLY ONCE in this response.
+Make sure to save it securely, as it cannot be retrieved again.
+
+**Scopes:**
+API keys can be granted specific scopes to limit their access:
+- `read:streams` - View stream information
+- `write:streams` - Start/stop streams
+- `read:playlists` - View playlists
+- `write:playlists` - Modify playlists
+- `read:channels` - View channels
+- `write:channels` - Manage channels
+- `read:analytics` - View analytics data
+- `read:webhooks` - View webhooks
+- `write:webhooks` - Manage webhooks
+
+**Rate Limiting:**
+You can optionally set a custom rate limit per API key.
+If not specified, the default rate limit applies.
+
+**Expiration:**
+Optionally set an expiration date. Keys without expiration remain active indefinitely.
+
+**Authentication:** Requires valid JWT token or session cookie
+    """,
+    responses={
+        201: {
+            "description": "API key created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "name": "Production Integration",
+                        "scopes": ["read:streams", "write:playlists"],
+                        "rate_limit": {"requests": 100, "window": 60},
+                        "is_active": True,
+                        "expires_at": "2025-12-31T23:59:59Z",
+                        "last_used": None,
+                        "created_at": "2025-01-15T10:30:00Z",
+                        "updated_at": "2025-01-15T10:30:00Z",
+                        "key": "sbpa_prod_abc123xyz456"
+                    }
+                }
+            }
+        }
+    }
+)
 def create_api_key(
     key_data: APIKeyCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Create a new API key.
-
-    The API key value is returned only once in the response.
-    Make sure to save it securely, as it cannot be retrieved again.
-    """
     service = APIKeyService(db)
 
     # Create the key
@@ -94,17 +177,49 @@ def create_api_key(
     return APIKeyResponse(**response_data)
 
 
-@router.get("/{key_id}", response_model=APIKeyResponse)
+@router.get(
+    "/{key_id}",
+    response_model=APIKeyResponse,
+    summary="Get API key details",
+    description="""
+Retrieves detailed information about a specific API key.
+
+**Note:** This endpoint does NOT return the actual API key value.
+Only the metadata and usage statistics are returned.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the API key
+    """,
+    responses={
+        200: {
+            "description": "API key details",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "name": "Production Integration",
+                        "scopes": ["read:streams", "write:playlists"],
+                        "rate_limit": {"requests": 100, "window": 60},
+                        "is_active": True,
+                        "expires_at": "2025-12-31T23:59:59Z",
+                        "last_used": "2025-01-15T10:30:00Z",
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-15T10:30:00Z",
+                        "key": None
+                    }
+                }
+            }
+        },
+        404: {"description": "API key not found"},
+        403: {"description": "Access denied - you don't own this key"}
+    }
+)
 def get_api_key(
     key_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Get a specific API key by ID.
-
-    Returns the key metadata but not the actual key value.
-    """
     service = APIKeyService(db)
     api_key = service.get_key(key_id)
 
@@ -139,19 +254,57 @@ def get_api_key(
     return APIKeyResponse(**response_data)
 
 
-@router.patch("/{key_id}", response_model=APIKeyResponse)
+@router.patch(
+    "/{key_id}",
+    response_model=APIKeyResponse,
+    summary="Update an API key",
+    description="""
+Updates an existing API key.
+
+**Editable fields:**
+- `name` - Display name for the key
+- `scopes` - List of granted permissions
+- `rate_limit` - Custom rate limit configuration
+- `is_active` - Enable or disable the key
+- `expires_at` - Expiration date
+
+**Note:** The actual API key value CANNOT be changed.
+If you need a new key value, delete and recreate the key.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the API key
+    """,
+    responses={
+        200: {
+            "description": "API key updated successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "name": "Updated Name",
+                        "scopes": ["read:streams"],
+                        "rate_limit": {"requests": 50, "window": 60},
+                        "is_active": False,
+                        "expires_at": "2025-12-31T23:59:59Z",
+                        "last_used": "2025-01-15T10:30:00Z",
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-16T14:20:00Z",
+                        "key": None
+                    }
+                }
+            }
+        },
+        404: {"description": "API key not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def update_api_key(
     key_id: uuid.UUID,
     key_update: APIKeyUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an API key.
-
-    Can update name, scopes, rate_limit, is_active, and expires_at.
-    The actual key value cannot be changed.
-    """
     service = APIKeyService(db)
 
     # First verify ownership
@@ -195,17 +348,33 @@ def update_api_key(
     return APIKeyResponse(**response_data)
 
 
-@router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{key_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an API key",
+    description="""
+Permanently deletes an API key.
+
+**⚠️ WARNING:** This action cannot be undone.
+The deleted API key will immediately stop working for any API requests.
+
+**Alternative:** Consider using `/revoke` if you want to disable the key
+temporarily without deleting it.
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the API key
+    """,
+    responses={
+        204: {"description": "API key deleted successfully"},
+        404: {"description": "API key not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def delete_api_key(
     key_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete an API key permanently.
-
-    This action cannot be undone. The key will immediately stop working.
-    """
     service = APIKeyService(db)
 
     # First verify ownership
@@ -234,18 +403,53 @@ def delete_api_key(
     return None
 
 
-@router.post("/{key_id}/revoke", response_model=APIKeyResponse)
+@router.post(
+    "/{key_id}/revoke",
+    response_model=APIKeyResponse,
+    summary="Revoke an API key",
+    description="""
+Revokes an API key by setting `is_active` to `False`.
+
+The key will immediately stop working for API requests.
+
+**Benefits over deletion:**
+- Reversible: You can reactivate the key by updating `is_active` to `True`
+- Auditable: The key remains in the database for audit purposes
+- Safer: Less destructive than permanent deletion
+
+**Authentication:** Requires valid JWT token or session cookie
+**Authorization:** User must own the API key
+    """,
+    responses={
+        200: {
+            "description": "API key revoked successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "owner_id": "550e8400-e29b-41d4-a716-446655440001",
+                        "name": "Production Integration",
+                        "scopes": ["read:streams", "write:playlists"],
+                        "rate_limit": {"requests": 100, "window": 60},
+                        "is_active": False,
+                        "expires_at": "2025-12-31T23:59:59Z",
+                        "last_used": "2025-01-15T10:30:00Z",
+                        "created_at": "2025-01-01T00:00:00Z",
+                        "updated_at": "2025-01-16T15:00:00Z",
+                        "key": None
+                    }
+                }
+            }
+        },
+        404: {"description": "API key not found"},
+        403: {"description": "Access denied"}
+    }
+)
 def revoke_api_key(
     key_id: uuid.UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Revoke an API key.
-
-    Sets is_active to False. The key will immediately stop working.
-    This is safer than delete as it can be reversed by re-activating.
-    """
     service = APIKeyService(db)
 
     # First verify ownership
