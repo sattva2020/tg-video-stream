@@ -25,6 +25,7 @@ from src.services.quality_trends_service import get_quality_trends_service, Qual
 from src.api.admin.saml_config import router as saml_config_router
 from src.api.admin.ip_whitelist import router as ip_whitelist_router
 from src.api.admin.security_policy import router as security_policy_router
+from src.api.admin.data_export import router as data_export_router
 from src.lib.audit import (
     audit_read,
     audit_create,
@@ -51,6 +52,11 @@ router.include_router(ip_whitelist_router, prefix="/ip-whitelist", tags=["IP Whi
 # Feature 025: Security Policy Management
 # ============================================================================
 router.include_router(security_policy_router, prefix="/security-policies", tags=["Security Policy"])
+
+# ============================================================================
+# Feature 025: Data Export for GDPR Compliance
+# ============================================================================
+router.include_router(data_export_router, prefix="", tags=["Data Export"])
 
 
 class PlaylistUpdate(BaseModel):
