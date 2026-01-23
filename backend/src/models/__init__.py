@@ -48,6 +48,7 @@ from .stream import Stream, StreamStatus
 # Live Streaming (Feature 019)
 from .live_stream import LiveStream, LiveStreamStatus, IngestionType
 from .guest_session import GuestSession, GuestSessionStatus, GuestPermission
+from .recording import Recording, RecordingStatus, RecordingFormat
 
 __all__ = [
     "User",
@@ -97,5 +98,8 @@ __all__ = [
     "GuestSession",
     "GuestSessionStatus",
     "GuestPermission",
+    "Recording",
+    "RecordingStatus",
+    "RecordingFormat",
 ]
 
