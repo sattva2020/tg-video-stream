@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet } from 'react-native';
 import './i18n'; // Initialize i18n before anything else
+import { initSentry } from './instrumentation/sentry'; // Initialize Sentry before rendering
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OfflineProvider } from './contexts/OfflineContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -98,6 +99,9 @@ const Root: React.FC = () => (
  * Sets up providers and renders the application
  */
 export default function App() {
+  // Initialize Sentry as early as possible
+  initSentry();
+
   try {
     return (
       <SafeAreaProvider>
