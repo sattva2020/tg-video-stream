@@ -13,6 +13,7 @@ Feature: 015-smart-scheduling-auto-pilot-mode
 import json
 import logging
 import uuid
+import os
 from datetime import datetime, timezone, timedelta, date, time
 from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple
@@ -26,6 +27,14 @@ try:
     import redis.asyncio as aioredis
 except ImportError:
     aioredis = None
+
+# Lazy Celery import
+try:
+    from celery import Celery
+    CELERY_AVAILABLE = True
+except ImportError:
+    Celery = None
+    CELERY_AVAILABLE = False
 
 from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +67,14 @@ from src.schemas.schedule_ai import (
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Lazy Celery import
+def _get_celery_app():
+    """Get or create Celery application."""
+    broker = os.getenv('CELERY_BROKER_URL')
+    if not broker:
+        return None
+    return Celery('tg_video_streamer', broker=broker)
 
 # Redis cache keys
 CACHE_PREFIX = "schedule_optimization:"
@@ -1511,3 +1528,242 @@ def get_schedule_optimization_service(
         ScheduleOptimizationService instance
     """
     return ScheduleOptimizationService(db=db, redis_client=redis_client)
+
+
+# ============================================================================
+# Celery Task (registered if Celery available)
+# ============================================================================
+
+if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
+    celery_app = _get_celery_app()
+
+    @celery_app.task(name='services.schedule_optimization.run_optimization', bind=True, max_retries=3)
+    def run_optimization_task(
+        self,
+        channel_id: str,
+        date_range_start: str,
+        date_range_end: str,
+        priority_coverage: float = 0.25,
+        priority_engagement: float = 0.30,
+        priority_variety: float = 0.20,
+        priority_conflicts: float = 0.15,
+        priority_peak_hours: float = 0.10,
+        auto_apply: bool = False,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Celery task: Run periodic schedule optimization.
+
+        Performs comprehensive schedule optimization including:
+        - Gap detection and analysis
+        - Metrics calculation (coverage, engagement, variety, peak hours)
+        - Conflict detection and resolution
+        - Generation of optimization suggestions
+        - Optional auto-apply of suggestions
+
+        Args:
+            channel_id: Channel ID to optimize schedule for
+            date_range_start: Start date (ISO format)
+            date_range_end: End date (ISO format)
+            priority_coverage: Weight for coverage optimization (default: 0.25)
+            priority_engagement: Weight for engagement optimization (default: 0.30)
+            priority_variety: Weight for variety optimization (default: 0.20)
+            priority_conflicts: Weight for conflict resolution (default: 0.15)
+            priority_peak_hours: Weight for peak hours coverage (default: 0.10)
+            auto_apply: Whether to automatically apply suggestions (default: False)
+            user_id: Optional user ID who initiated optimization
+
+        Returns:
+            dict with optimization results:
+            - channel_id: str
+            - date_range: dict with start/end dates
+            - status: str (completed/failed)
+            - optimization_id: str or None
+            - metrics: dict with calculated metrics
+            - suggestions_count: int
+            - gaps_found: int
+            - conflicts_found: int
+            - error_message: str or None
+        """
+        logger.info(
+            f"[worker] run_optimization_task for channel {channel_id}, "
+            f"dates {date_range_start} to {date_range_end}"
+        )
+
+        from database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            # Create service instance
+            service = ScheduleOptimizationService(db)
+
+            # Parse dates
+            start_date = date.fromisoformat(date_range_start)
+            end_date = date.fromisoformat(date_range_end)
+
+            # Build optimization parameters
+            from src.schemas.schedule_ai import (
+                ScheduleOptimizationRequest,
+                OptimizationParameters
+            )
+
+            parameters = OptimizationParameters(
+                priority_coverage=priority_coverage,
+                priority_engagement=priority_engagement,
+                priority_variety=priority_variety,
+                priority_conflicts=priority_conflicts,
+                priority_peak_hours=priority_peak_hours,
+                maximize_engagement=True,
+                minimize_gaps=True,
+                balance_variety=True,
+                respect_priority=True
+            )
+
+            # Run optimization in sync context
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Detect gaps
+                from src.schemas.schedule_ai import GapDetectionRequest
+
+                gap_request = GapDetectionRequest(
+                    channel_id=channel_id,
+                    start_date=start_date,
+                    end_date=end_date,
+                    consider_peak_hours=True
+                )
+                gaps_response = loop.run_until_complete(
+                    service.detect_gaps(gap_request)
+                )
+                gaps_found = len(gaps_response.gaps)
+
+                # Detect conflicts
+                from src.schemas.schedule_ai import ConflictDetectionRequest
+
+                conflict_request = ConflictDetectionRequest(
+                    channel_id=channel_id,
+                    start_date=start_date,
+                    end_date=end_date
+                )
+                conflicts_response = loop.run_until_complete(
+                    service.detect_conflicts(conflict_request)
+                )
+                conflicts_found = conflicts_response.total_conflicts
+
+                # Calculate metrics
+                metrics = loop.run_until_complete(
+                    service.calculate_metrics(
+                        channel_id, start_date, end_date, parameters
+                    )
+                )
+
+                # Generate optimization suggestions
+                suggestions = loop.run_until_complete(
+                    service.generate_optimization_suggestions(
+                        channel_id=channel_id,
+                        start_date=start_date,
+                        end_date=end_date,
+                        parameters=parameters,
+                        num_candidates=10
+                    )
+                )
+                suggestions_count = len(suggestions)
+
+                # Create optimization record
+                optimization_request = ScheduleOptimizationRequest(
+                    channel_id=channel_id,
+                    start_date=start_date,
+                    end_date=end_date,
+                    parameters=parameters
+                )
+
+                optimization_response = loop.run_until_complete(
+                    service.create_optimization(optimization_request, user_id)
+                )
+
+                optimization_id = optimization_response.id
+
+                # Optionally apply suggestions
+                slots_created = 0
+                if auto_apply and suggestions:
+                    # Apply suggestions by creating schedule slots
+                    from src.models.schedule import ScheduleSlot
+
+                    for suggestion in suggestions[:10]:  # Limit to top 10
+                        try:
+                            slot = ScheduleSlot(
+                                channel_id=UUID(channel_id),
+                                playlist_id=UUID(suggestion.playlist_id) if suggestion.playlist_id else None,
+                                start_date=suggestion.date,
+                                start_time=time.fromisoformat(suggestion.start_time),
+                                end_time=time.fromisoformat(suggestion.end_time),
+                                title=suggestion.title,
+                                description=f"Auto-applied by optimization (confidence: {suggestion.confidence}%)",
+                                color="#10B981",  # Green for auto-applied
+                                is_active=True,
+                                priority=5,
+                                created_by=UUID(user_id) if user_id else None
+                            )
+
+                            db.add(slot)
+                            slots_created += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to apply suggestion: {e}")
+
+                    if slots_created > 0:
+                        db.commit()
+
+                logger.info(
+                    f"run_optimization_task completed: {gaps_found} gaps found, "
+                    f"{conflicts_found} conflicts found, {suggestions_count} suggestions, "
+                    f"{slots_created} slots applied"
+                )
+
+                return {
+                    "channel_id": channel_id,
+                    "date_range": {"start": date_range_start, "end": date_range_end},
+                    "status": "completed",
+                    "optimization_id": optimization_id,
+                    "metrics": {
+                        "gap_hours": metrics.gap_hours,
+                        "coverage_percent": metrics.coverage_percent,
+                        "engagement_score": metrics.engagement_score,
+                        "variety_score": metrics.variety_score,
+                        "conflicts_resolved": metrics.conflicts_resolved,
+                        "peak_hours_coverage": metrics.peak_hours_coverage,
+                    },
+                    "suggestions_count": suggestions_count,
+                    "gaps_found": gaps_found,
+                    "conflicts_found": conflicts_found,
+                    "slots_created": slots_created,
+                    "error_message": None,
+                }
+
+            finally:
+                loop.close()
+
+        except Exception as e:
+            logger.exception(f"Error in run_optimization_task for channel {channel_id}")
+            # Retry on temporary errors
+            error_msg = str(e).lower()
+            if any(err in error_msg for err in ["timeout", "network", "connection", "database"]):
+                raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
+
+            return {
+                "channel_id": channel_id,
+                "date_range": {"start": date_range_start, "end": date_range_end},
+                "status": "failed",
+                "optimization_id": None,
+                "metrics": None,
+                "suggestions_count": 0,
+                "gaps_found": 0,
+                "conflicts_found": 0,
+                "slots_created": 0,
+                "error_message": str(e),
+            }
+
+        finally:
+            db.close()
+
