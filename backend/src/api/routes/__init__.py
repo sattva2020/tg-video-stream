@@ -16,4 +16,5 @@ __all__ = [
     "live_streams",
     "guest_sessions",
     "recordings",
+    "stream_preview",
 ]

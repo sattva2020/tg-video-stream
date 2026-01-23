@@ -163,6 +163,7 @@ def create_app() -> FastAPI:
     from src.api.routes import live_streams
     from src.api.routes import guest_sessions
     from src.api.routes import recordings
+    from src.api.routes import stream_preview
     from src.api.routes import stream_quality as stream_quality_routes
     from src.api.routes import playlists as user_playlists_router
     from api.telegram_login import router as telegram_login_router
@@ -210,6 +211,7 @@ def create_app() -> FastAPI:
     app.include_router(live_streams.router)
     app.include_router(guest_sessions.router)
     app.include_router(recordings.router)
+    app.include_router(stream_preview.router)
     app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
     app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
     app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])
