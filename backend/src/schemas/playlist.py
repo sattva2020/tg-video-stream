@@ -114,3 +114,36 @@ class SmartPlaylistResponse(SmartPlaylistBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+# Playlist Group Schemas
+class PlaylistGroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    color: str = "#6366F1"
+    icon: str = "folder"
+
+class PlaylistGroupCreate(PlaylistGroupBase):
+    parent_id: Optional[uuid.UUID] = None
+    channel_id: Optional[uuid.UUID] = None
+    position: Optional[int] = 0
+
+class PlaylistGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    parent_id: Optional[uuid.UUID] = None
+    position: Optional[int] = None
+
+class PlaylistGroupResponse(PlaylistGroupBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    parent_id: Optional[uuid.UUID] = None
+    channel_id: Optional[uuid.UUID] = None
+    position: int
+    is_expanded: bool
+    is_active: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

@@ -8,11 +8,13 @@ from src.schemas.playlist import (
     PlaylistCreate, PlaylistUpdate, PlaylistResponse,
     PlaylistTemplateCreate, PlaylistTemplateUpdate, PlaylistTemplateResponse,
     ApplyTemplateRequest,
-    SmartPlaylistCreate, SmartPlaylistUpdate, SmartPlaylistResponse
+    SmartPlaylistCreate, SmartPlaylistUpdate, SmartPlaylistResponse,
+    PlaylistGroupCreate, PlaylistGroupUpdate, PlaylistGroupResponse
 )
 from src.services.user_playlist_service import UserPlaylistService
 from src.services.playlist_template_service import PlaylistTemplateService
 from src.services.smart_playlist_service import SmartPlaylistService
+from src.services.playlist_group_service import PlaylistGroupService
 from api.auth import get_current_user
 from src.models.user import User
 
@@ -461,3 +463,120 @@ def clone_smart_playlist(
         raise HTTPException(status_code=403, detail="Not authorized to clone this smart playlist")
 
     return SmartPlaylistService.clone_smart_playlist(db, smart_playlist, current_user.id)
+
+# Playlist Groups Routes
+@router.get("/groups", response_model=List[PlaylistGroupResponse])
+def get_my_groups(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's playlist groups."""
+    return PlaylistGroupService.get_user_groups(db, current_user.id, skip, limit)
+
+@router.post("/groups", response_model=PlaylistGroupResponse, status_code=status.HTTP_201_CREATED)
+def create_group(
+    group: PlaylistGroupCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new playlist group."""
+    return PlaylistGroupService.create_group(
+        db,
+        name=group.name,
+        user_id=current_user.id,
+        parent_id=group.parent_id,
+        description=group.description,
+        color=group.color,
+        icon=group.icon,
+        channel_id=group.channel_id,
+        position=group.position
+    )
+
+@router.get("/groups/{group_id}", response_model=PlaylistGroupResponse)
+def get_group(
+    group_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get group details. Must be owner."""
+    group = PlaylistGroupService.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this group")
+
+    return group
+
+@router.put("/groups/{group_id}", response_model=PlaylistGroupResponse)
+def update_group(
+    group_id: uuid.UUID,
+    update_data: PlaylistGroupUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update group. Owner only."""
+    group = PlaylistGroupService.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this group")
+
+    try:
+        return PlaylistGroupService.update_group(
+            db,
+            db_group=group,
+            name=update_data.name,
+            parent_id=update_data.parent_id,
+            description=update_data.description,
+            color=update_data.color,
+            icon=update_data.icon,
+            position=update_data.position
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/groups/{group_id}/move", response_model=PlaylistGroupResponse, status_code=status.HTTP_200_OK)
+def move_group(
+    group_id: uuid.UUID,
+    parent_id: uuid.UUID = None,
+    position: int = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Move a group to a new parent and/or position. Owner only."""
+    group = PlaylistGroupService.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to move this group")
+
+    try:
+        return PlaylistGroupService.move_group(
+            db,
+            group_id=group_id,
+            new_parent_id=parent_id,
+            new_position=position
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_group(
+    group_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete group. Owner only. Child groups will be moved to root level."""
+    group = PlaylistGroupService.get_group(db, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if group.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this group")
+
+    PlaylistGroupService.delete_group(db, group)
