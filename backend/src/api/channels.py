@@ -15,6 +15,13 @@ import os
 
 router = APIRouter()
 
+# Import social media task
+try:
+    from src.tasks.social_media_tasks import post_stream_start_announcement
+    SOCIAL_MEDIA_TASKS_AVAILABLE = True
+except ImportError:
+    SOCIAL_MEDIA_TASKS_AVAILABLE = False
+
 # Timeout for transitional states (stopping/starting)
 TRANSITIONAL_STATE_TIMEOUT = timedelta(seconds=30)
 
@@ -176,9 +183,9 @@ def start_channel(
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
-    
+
     # TODO: Check if current_user owns the channel's account
-    
+
     controller = RedisStreamController(db)
     try:
         success = controller.start_channel(str(channel_id))
@@ -188,7 +195,18 @@ def start_channel(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
+
+    # Trigger social media announcement task
+    if SOCIAL_MEDIA_TASKS_AVAILABLE:
+        try:
+            post_stream_start_announcement(str(channel_id))
+        except Exception as e:
+            # Don't fail the stream start if social media posting fails
+            # Log it and continue
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to enqueue social media announcement: {str(e)}")
+
     return {"status": "starting", "message": "Start command sent to streamer"}
 
 @router.post("/{channel_id}/stop")
