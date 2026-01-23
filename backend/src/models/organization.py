@@ -43,6 +43,13 @@ class Organization(Base):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    subscription = relationship(
+        "Subscription",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<Organization(id='{self.id}', name='{self.name}')>"

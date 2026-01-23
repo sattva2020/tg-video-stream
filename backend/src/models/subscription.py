@@ -1,8 +1,9 @@
 import uuid
 from enum import Enum as PyEnum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, func, Boolean
+from sqlalchemy import Column, String, DateTime, func, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
 
@@ -28,7 +29,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    organization_id = Column(GUID(), nullable=False, unique=True)
+    organization_id = Column(GUID(), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=False, unique=True)
     plan_type = Column(String(50), nullable=False)
     status = Column(String(32), nullable=False, default=SubscriptionStatus.TRIALING.value, server_default="'trialing'")
     billing_email = Column(String(255), nullable=True)
@@ -39,6 +40,14 @@ class Subscription(Base):
     cancel_at_period_end = Column(Boolean, nullable=False, default=False, server_default='false')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    organization = relationship(
+        "Organization",
+        back_populates="subscription",
+        uselist=False,
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<Subscription(id='{self.id}', org_id='{self.organization_id}', plan='{self.plan_type}', status='{self.status}')>"
