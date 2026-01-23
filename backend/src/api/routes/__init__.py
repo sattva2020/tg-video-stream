@@ -16,4 +16,5 @@ __all__ = [
     "stream_health",
     "alerts_rules",
     "alerts_instances",
+    "alerts_test",
 ]
