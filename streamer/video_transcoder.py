@@ -67,7 +67,7 @@ class VideoTranscodeRequest:
 
     Attributes:
         source_url: URL исходного видео файла
-        video_codec: Целевой видео кодек (h264, h265)
+        video_codec: Целевой видео кодек (h264, h265, vp9)
         audio_codec: Целевой аудио кодек (aac, mp3, opus)
         format: Выходной формат контейнера (mp4, mkv, webm)
         quality: Профиль качества
@@ -113,7 +113,7 @@ class VideoTranscoder:
     Транскодер видео файлов для совместимости с Telegram.
 
     Features:
-    - Конвертация видео кодеков (h264, h265)
+    - Конвертация видео кодеков (h264, h265, vp9)
     - Конвертация аудио кодеков (aac, mp3, opus)
     - Коррекция ориентации (transpose filter)
     - Профили качества (low, medium, high, ultra)
@@ -132,7 +132,7 @@ class VideoTranscoder:
     """
 
     # Telegram поддерживаемые кодеки
-    SUPPORTED_VIDEO_CODECS = ["h264", "h265"]
+    SUPPORTED_VIDEO_CODECS = ["h264", "h265", "vp9"]
     SUPPORTED_AUDIO_CODECS = ["aac", "mp3", "opus"]
     SUPPORTED_FORMATS = ["mp4", "mkv", "webm"]
 
