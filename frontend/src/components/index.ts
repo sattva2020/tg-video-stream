@@ -7,3 +7,4 @@ export { default as QAManager } from './interactions/QAManager';
 export { default as ReactionOverlay } from './interactions/ReactionOverlay';
 export { default as ChatOverlay } from './interactions/ChatOverlay';
 export { default as ShoutoutBanner } from './interactions/ShoutoutBanner';
+export { default as CTADisplay } from './interactions/CTADisplay';
