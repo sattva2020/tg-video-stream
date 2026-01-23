@@ -102,4 +102,88 @@ class AlertRule(Base):
     updated_by = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Relationships
-    incidents = relationship("AlertIncident", back_populates="rule", cascade="all, delete-orphan")
+    instances = relationship("AlertInstance", back_populates="rule", cascade="all, delete-orphan")
+    groups = relationship("AlertGroup", back_populates="rule", cascade="all, delete-orphan")
+
+
+class AlertInstance(Base):
+    """
+    AlertInstance tracks individual alert occurrences (fired alerts).
+
+    Each time an AlertRule conditions are met, an AlertInstance is created
+    to record the event. This provides a complete history of when alerts fired,
+    their context, and their resolution status.
+
+    Example:
+    - AlertRule: "CPU usage > 90%"
+    - AlertInstance #1: Fired at 10:00 AM, value=95%, resolved at 10:15 AM
+    - AlertInstance #2: Fired at 11:00 AM, value=92%, still firing
+    """
+    __tablename__ = "alert_instances"
+
+    # Primary key
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    # Reference to the rule that created this instance
+    rule_id = Column(GUID(), ForeignKey("alert_rules.id", ondelete="CASCADE"), nullable=False)
+    rule = relationship("AlertRule", back_populates="instances")
+
+    # Alert details
+    alert_type = Column(String(50), nullable=False)  # stream_quality, service_health, resource, custom
+    severity = Column(String(32), nullable=False, default="warning")  # critical, warning, info
+    status = Column(String(32), nullable=False, default="firing")  # firing, resolved, acknowledged, suppressed
+
+    # Alert context (what triggered the alert)
+    trigger_value = Column(JSONB, nullable=True)
+    # Example: {
+    #   "metric": "cpu_usage",
+    #   "current_value": 95.2,
+    #   "threshold": 90,
+    #   "operator": "gt"
+    # }
+
+    # Alert metadata
+    context = Column(JSONB, nullable=True)
+    # Additional context about the alert:
+    # {
+    #   "host": "server-1",
+    #   "service": "api",
+    #   "tags": ["production", "critical"],
+    #   "consecutive_failures": 3
+    # }
+
+    # Notification tracking
+    notification_sent = Column(Boolean, nullable=False, default=False)
+    notification_channels = Column(JSONB, nullable=True)
+    # Example: {
+    #   "telegram": [123, 456],
+    #   "email": ["admin@example.com"],
+    #   "success": true,
+    #   "errors": []
+    # }
+
+    # Alert grouping (optional - will be populated by AlertGroupingService)
+    group_id = Column(GUID(), ForeignKey("alert_groups.id", ondelete="SET NULL"), nullable=True)
+    group = relationship("AlertGroup", back_populates="instances", foreign_keys=[group_id])
+
+    # Resolution tracking
+    fired_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    acknowledged_by = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Duration tracking (how long the alert was firing)
+    duration_sec = Column(BigInteger, nullable=True)
+
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Indexes for common queries
+    __table_args__ = (
+        Index("ix_alert_instances_rule_id", "rule_id"),
+        Index("ix_alert_instances_status", "status"),
+        Index("ix_alert_instances_fired_at", "fired_at"),
+        Index("ix_alert_instances_severity", "severity"),
+        Index("ix_alert_instances_alert_type", "alert_type"),
+    )
