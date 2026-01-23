@@ -497,6 +497,69 @@ async def notify_question_upvoted(
         await manager.broadcast_all(message)
 
 
+# === Reactions & Chat Events (US4 - Viewer Interaction) ===
+
+async def notify_reaction_added(
+    stream_id: str,
+    emoji: str,
+    count: int,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о добавлении реакции.
+
+    Args:
+        stream_id: ID стрима
+        emoji: Эмодзи реакции
+        count: Общее количество реакций этого типа
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "reaction_added",
+        "stream_id": stream_id,
+        "emoji": emoji,
+        "count": count,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_chat_message(
+    stream_id: str,
+    message_id: str,
+    author_name: str,
+    content: str,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о новом сообщении в чате.
+
+    Args:
+        stream_id: ID стрима
+        message_id: ID сообщения
+        author_name: Имя автора
+        content: Текст сообщения
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "chat_message",
+        "stream_id": stream_id,
+        "message_id": message_id,
+        "author_name": author_name,
+        "content": content,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
 # === Helper functions ===
 
 def _get_timestamp() -> str:
