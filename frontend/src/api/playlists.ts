@@ -131,6 +131,42 @@ export interface SmartPlaylistUpdate {
   group_id?: string;
 }
 
+// ==================== Playlist Groups ====================
+
+export interface PlaylistGroup {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  parent_id?: string | null;
+  position: number;
+  color?: string;
+  icon?: string;
+  is_expanded: boolean;
+  playlists_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PlaylistGroupCreate {
+  name: string;
+  description?: string;
+  parent_id?: string | null;
+  position?: number;
+  color?: string;
+  icon?: string;
+}
+
+export interface PlaylistGroupUpdate {
+  name?: string;
+  description?: string;
+  parent_id?: string | null;
+  position?: number;
+  color?: string;
+  icon?: string;
+  is_expanded?: boolean;
+}
+
 const PLAYLISTS_BASE = '/api/playlists';
 
 export const playlistsApi = {
@@ -296,5 +332,41 @@ export const playlistsApi = {
   cloneSmartPlaylist: async (smartPlaylistId: string) => {
     const response = await client.post<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}/clone`);
     return response.data;
+  },
+
+  // Playlist Groups methods
+  getMyGroups: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistGroup[]>(`${PLAYLISTS_BASE}/groups`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getGroup: async (groupId: string) => {
+    const response = await client.get<PlaylistGroup>(`${PLAYLISTS_BASE}/groups/${groupId}`);
+    return response.data;
+  },
+
+  createGroup: async (data: PlaylistGroupCreate) => {
+    const response = await client.post<PlaylistGroup>(`${PLAYLISTS_BASE}/groups`, data);
+    return response.data;
+  },
+
+  updateGroup: async (groupId: string, data: PlaylistGroupUpdate) => {
+    const response = await client.put<PlaylistGroup>(`${PLAYLISTS_BASE}/groups/${groupId}`, data);
+    return response.data;
+  },
+
+  moveGroup: async (groupId: string, parentId?: string | null, position?: number) => {
+    const response = await client.post<PlaylistGroup>(
+      `${PLAYLISTS_BASE}/groups/${groupId}/move`,
+      null,
+      { params: { parent_id: parentId, position } }
+    );
+    return response.data;
+  },
+
+  deleteGroup: async (groupId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/groups/${groupId}`);
   },
 };
