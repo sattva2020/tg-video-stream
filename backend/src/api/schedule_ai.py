@@ -184,30 +184,13 @@ async def generate_auto_pilot_schedule(
     try:
         service = AutoPilotService(db)
 
-        # Parse date range from dict
-        start = date.fromisoformat(request.date_range["start"])
-        end = date.fromisoformat(request.date_range["end"])
-
+        # Call service with request object and user_id
         result = await service.generate_schedule(
-            channel_id=request.channel_id,
-            start_date=start,
-            end_date=end,
-            use_templates=True,
-            fill_gaps=request.fill_gaps,
-            resolve_conflicts=request.resolve_conflicts,
-            user_id=current_user.id
+            request=request,
+            user_id=str(current_user.id)
         )
 
-        return AutoPilotResponse(
-            task_id=result.get("schedule_id", str(uuid.uuid4())),
-            channel_id=request.channel_id,
-            status="completed",
-            date_range=request.date_range,
-            slots_created=result.get("slots_created", 0),
-            gaps_filled=result.get("gaps_filled", 0),
-            conflicts_resolved=result.get("conflicts_resolved", 0),
-            created_at=datetime.utcnow()
-        )
+        return result
     except Exception as e:
         logger.error(f"Error generating auto-pilot schedule: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -235,8 +218,7 @@ async def preview_auto_pilot_schedule(
             channel_id=request.channel_id,
             start_date=start,
             end_date=end,
-            use_templates=True,
-            fill_gaps=request.fill_gaps
+            use_ai=request.use_ai_recommendations
         )
 
         return {
