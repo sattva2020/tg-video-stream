@@ -1,25 +1,25 @@
 {
   "active": true,
   "spec": "016-a-b-testing-framework-for-content",
-  "state": "planning",
+  "state": "building",
   "subtasks": {
-    "completed": 0,
-    "total": 0,
-    "in_progress": 1,
+    "completed": 18,
+    "total": 19,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Database Models & Migrations",
-    "id": null,
-    "total": 3
+    "current": "Integration & Testing",
+    "id": "subtask-4-4",
+    "total": 5
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 2,
+    "number": 18,
     "started_at": "2026-01-23T16:04:26.218151"
   },
-  "last_update": "2026-01-23T16:13:03.253809"
+  "last_update": "2026-01-23T21:45:00.000000"
 }
