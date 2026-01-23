@@ -13,6 +13,7 @@ External Library: APScheduler 3.10+, Celery 5.3+
 
 import logging
 import uuid
+import os
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date, time, timedelta
 from uuid import UUID
@@ -37,6 +38,22 @@ from src.services.schedule_optimization_service import ScheduleOptimizationServi
 
 
 logger = logging.getLogger(__name__)
+
+# Lazy Celery import
+try:
+    from celery import Celery
+    CELERY_AVAILABLE = True
+except ImportError:
+    Celery = None
+    CELERY_AVAILABLE = False
+
+
+def _get_celery_app():
+    """Get or create Celery application."""
+    broker = os.getenv('CELERY_BROKER_URL')
+    if not broker:
+        return None
+    return Celery('tg_video_streamer', broker=broker)
 
 
 class AutoPilotService:
@@ -182,8 +199,8 @@ class AutoPilotService:
         """
         Submit background task for schedule generation.
 
-        This method is designed for Celery integration. The actual
-        generation happens in the background task.
+        This method queues a Celery task for background schedule generation.
+        The actual generation happens asynchronously in the worker process.
 
         Args:
             request: Auto-pilot request
@@ -192,10 +209,58 @@ class AutoPilotService:
         Returns:
             Task ID for tracking
         """
-        # TODO: Integrate with Celery
-        # For now, return a placeholder task ID
         task_id = str(uuid.uuid4())
-        logger.info(f"Background task submitted: {task_id}")
+
+        # Parse date range
+        start_date = request.date_range["start"]
+        end_date = request.date_range["end"]
+
+        # Convert template to dict if present
+        template_dict = None
+        if request.template:
+            template_dict = request.template.dict()
+
+        # Check if Celery is available
+        if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
+            app = _get_celery_app()
+            try:
+                # Queue the task
+                app.send_task(
+                    'services.auto_pilot.generate_schedule',
+                    args=[
+                        task_id,
+                        request.channel_id,
+                        start_date,
+                        end_date,
+                        template_dict,
+                        request.fill_gaps,
+                        request.max_daily_hours,
+                        request.use_ai_recommendations,
+                        request.resolve_conflicts,
+                        user_id
+                    ]
+                )
+                self.logger.info(f"Background task queued: {task_id}")
+                return task_id
+            except Exception as e:
+                self.logger.warning(f"Failed to queue Celery task: {e}, falling back to sync")
+
+        # Fallback: Run synchronously if Celery not available
+        self.logger.info(f"Running schedule generation synchronously: {task_id}")
+        import asyncio
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            response = loop.run_until_complete(
+                self.generate_schedule(request, user_id)
+            )
+        finally:
+            loop.close()
+
+        if response.status == "failed":
+            self.logger.error(f"Synchronous generation failed: {response.error_message}")
+
         return task_id
 
     async def get_generation_progress(
@@ -940,6 +1005,130 @@ class AutoPilotService:
         self.logger.info(f"Generated {len(suggestions)} preview suggestions")
 
         return suggestions
+
+
+# ============================================================================
+# Celery Task (registered if Celery available)
+# ============================================================================
+
+if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
+    celery_app = _get_celery_app()
+
+    @celery_app.task(name='services.auto_pilot.generate_schedule', bind=True, max_retries=3)
+    def generate_schedule_task(
+        self,
+        task_id: str,
+        channel_id: str,
+        date_range_start: str,
+        date_range_end: str,
+        template: Optional[Dict[str, Any]] = None,
+        fill_gaps: bool = True,
+        max_daily_hours: int = 24,
+        use_ai_recommendations: bool = True,
+        resolve_conflicts: bool = True,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Celery task: Generate schedule in the background.
+
+        Performs automatic schedule generation including template application,
+        gap filling, and conflict resolution.
+
+        Args:
+            task_id: Task UUID for tracking
+            channel_id: Channel ID to generate schedule for
+            date_range_start: Start date (ISO format)
+            date_range_end: End date (ISO format)
+            template: Optional template dict to apply
+            fill_gaps: Whether to fill gaps with recommendations
+            max_daily_hours: Maximum hours per day
+            use_ai_recommendations: Whether to use AI for recommendations
+            resolve_conflicts: Whether to resolve conflicts
+            user_id: Optional user ID who initiated generation
+
+        Returns:
+            dict with generation results:
+            - task_id: str
+            - channel_id: str
+            - status: str (completed/failed)
+            - slots_created: int
+            - gaps_filled: int
+            - conflicts_resolved: int
+            - error_message: str or None
+        """
+        logger.info(
+            f"[worker] generate_schedule_task for {task_id}, "
+            f"channel {channel_id}, dates {date_range_start} to {date_range_end}"
+        )
+
+        from database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            # Create service instance
+            service = AutoPilotService(db)
+
+            # Build request object
+            from src.schemas.schedule_ai import AutoPilotRequest, AutoPilotTemplate
+
+            template_obj = None
+            if template:
+                template_obj = AutoPilotTemplate(**template)
+
+            request = AutoPilotRequest(
+                channel_id=channel_id,
+                date_range={"start": date_range_start, "end": date_range_end},
+                template=template_obj,
+                fill_gaps=fill_gaps,
+                max_daily_hours=max_daily_hours,
+                use_ai_recommendations=use_ai_recommendations,
+                resolve_conflicts=resolve_conflicts
+            )
+
+            # Run async generation in sync context
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                response = loop.run_until_complete(
+                    service.generate_schedule(request, user_id)
+                )
+            finally:
+                loop.close()
+
+            # Return result as dict
+            return {
+                "task_id": task_id,
+                "channel_id": response.channel_id,
+                "status": response.status,
+                "date_range": response.date_range,
+                "slots_created": response.slots_created,
+                "gaps_filled": response.gaps_filled,
+                "conflicts_resolved": response.conflicts_resolved,
+                "error_message": response.error_message,
+            }
+
+        except Exception as e:
+            logger.exception(f"Error in generate_schedule_task for {task_id}")
+            # Retry on temporary errors
+            error_msg = str(e).lower()
+            if any(err in error_msg for err in ["timeout", "network", "connection", "database"]):
+                raise self.retry(exc=e, countdown=60 * (self.request.retries + 1))
+
+            return {
+                "task_id": task_id,
+                "channel_id": channel_id,
+                "status": "failed",
+                "date_range": {"start": date_range_start, "end": date_range_end},
+                "slots_created": 0,
+                "gaps_filled": 0,
+                "conflicts_resolved": 0,
+                "error_message": str(e),
+            }
+
+        finally:
+            db.close()
 
 
 def get_auto_pilot_service(db: Session) -> AutoPilotService:
