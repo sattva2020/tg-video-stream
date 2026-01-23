@@ -685,6 +685,11 @@ class HybridRecommender:
     """
     Гибридная рекомендательная система.
     Комбинирует коллаборативную фильтрацию и content-based подходы.
+
+    Стратегии комбинирования:
+    - Weighted hybrid: взвешенная сумма скоров обоих алгоритмов
+    - Switching hybrid: выбор одного алгоритма в зависимости от ситуации
+    - Cascade hybrid: сначала один алгоритм, затем другой для уточнения
     """
 
     def __init__(self, collaborative_engine: CollaborativeFilteringEngine, content_engine: ContentBasedFilteringEngine):
@@ -692,24 +697,225 @@ class HybridRecommender:
         self.content = content_engine
         self.collaborative_weight = 0.7  # Вес коллаборативной фильтрации
         self.content_weight = 0.3  # Вес content-based
+        self.min_collaborative_score = 0.3  # Минимальный скор для использования коллаборативной фильтрации
 
-    def predict_for_user(
+    async def predict_for_user(
         self,
         user_id: str,
+        liked_items: Optional[List[str]] = None,
         exclude_items: Optional[List[str]] = None,
-        n: int = N_RECOMMENDATIONS
+        n: int = N_RECOMMENDATIONS,
+        strategy: str = 'weighted'
     ) -> List[Dict[str, Any]]:
         """
         Сгенерировать гибридные рекомендации.
 
         Args:
             user_id: ID пользователя
+            liked_items: Список элементов, понравившихся пользователю
             exclude_items: Список ID элементов для исключения
             n: Количество рекомендаций
+            strategy: Стратегия комбинирования ('weighted', 'switching', 'cascade')
 
         Returns:
-            Список рекомендаций
+            Список рекомендаций с полями: playlist_item_id, score, reason, algorithm
         """
-        # TODO: Реализация в следующем сабтаске
-        logger.info("Гибридная рекомендация будет реализована в следующем сабтаске")
-        return self.collaborative.predict_for_user(user_id, exclude_items, n)
+        try:
+            logger.info(f"Генерация {n} гибридных рекомендаций для пользователя {user_id} (стратегия: {strategy})")
+
+            # Получаем рекомендации от обоих алгоритмов
+            collaborative_recs = self.collaborative.predict_for_user(
+                user_id=user_id,
+                exclude_items=exclude_items,
+                n=n * 2  # Берем больше, чтобы потом выбрать лучшие
+            )
+
+            content_recs = []
+            if liked_items:
+                content_recs = self.content.predict_for_user(
+                    user_id=user_id,
+                    liked_items=liked_items,
+                    exclude_items=exclude_items,
+                    n=n * 2
+                )
+
+            # Выбираем стратегию комбинирования
+            if strategy == 'weighted':
+                recommendations = self._weighted_hybrid(collaborative_recs, content_recs, n)
+            elif strategy == 'switching':
+                recommendations = self._switching_hybrid(collaborative_recs, content_recs, n, user_id)
+            elif strategy == 'cascade':
+                recommendations = self._cascade_hybrid(collaborative_recs, content_recs, n)
+            else:
+                logger.warning(f"Неизвестная стратегия: {strategy}, используем weighted")
+                recommendations = self._weighted_hybrid(collaborative_recs, content_recs, n)
+
+            logger.info(f"Сгенерировано {len(recommendations)} гибридных рекомендаций для пользователя {user_id}")
+            return recommendations
+
+        except Exception as e:
+            logger.error(f"Ошибка генерации гибридных рекомендаций: {e}")
+            # Fallback: возвращаем только коллаборативные рекомендации
+            return self.collaborative.predict_for_user(user_id, exclude_items, n)
+
+    def _weighted_hybrid(
+        self,
+        collaborative_recs: List[Dict[str, Any]],
+        content_recs: List[Dict[str, Any]],
+        n: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Weighted hybrid: взвешенная сумма скоров.
+
+        Формула: final_score = w1 * collaborative_score + w2 * content_score
+        """
+        try:
+            # Создаем словарь для агрегации скоров
+            item_scores: Dict[str, Dict[str, Any]] = {}
+
+            # Добавляем коллаборативные рекомендации
+            for rec in collaborative_recs:
+                item_id = rec['playlist_item_id']
+                if item_id not in item_scores:
+                    item_scores[item_id] = {
+                        'collaborative_score': 0.0,
+                        'content_score': 0.0,
+                        'algorithms': []
+                    }
+                item_scores[item_id]['collaborative_score'] = rec['score']
+                item_scores[item_id]['algorithms'].append('collaborative')
+
+            # Добавляем content-based рекомендации
+            for rec in content_recs:
+                item_id = rec['playlist_item_id']
+                if item_id not in item_scores:
+                    item_scores[item_id] = {
+                        'collaborative_score': 0.0,
+                        'content_score': 0.0,
+                        'algorithms': []
+                    }
+                item_scores[item_id]['content_score'] = rec['score']
+                if 'content' not in item_scores[item_id]['algorithms']:
+                    item_scores[item_id]['algorithms'].append('content')
+
+            # Вычисляем гибридный скор
+            recommendations = []
+            for item_id, scores in item_scores.items():
+                # Нормализуем скоры (если отсутствуют, считаем равными 0)
+                collab_score = scores['collaborative_score']
+                content_score = scores['content_score']
+
+                # Weighted combination
+                hybrid_score = (
+                    self.collaborative_weight * collab_score +
+                    self.content_weight * content_score
+                )
+
+                # Определяем причину рекомендации
+                if collab_score > 0 and content_score > 0:
+                    reason = 'Рекомендовано на основе ваших предпочтений и похожего контента'
+                elif collab_score > 0:
+                    reason = 'Рекомендовано на основе ваших предпочтений'
+                else:
+                    reason = 'Похоже на то, что вам нравилось ранее'
+
+                recommendations.append({
+                    'playlist_item_id': item_id,
+                    'score': float(hybrid_score),
+                    'reason': reason,
+                    'algorithm': 'hybrid_weighted',
+                    'algorithms_used': scores['algorithms']
+                })
+
+            # Сортируем по гибридному скору и берем топ-n
+            recommendations.sort(key=lambda x: x['score'], reverse=True)
+            return recommendations[:n]
+
+        except Exception as e:
+            logger.error(f"Ошибка в weighted hybrid: {e}")
+            # Fallback: возвращаем коллаборативные рекомендации
+            return collaborative_recs[:n]
+
+    def _switching_hybrid(
+        self,
+        collaborative_recs: List[Dict[str, Any]],
+        content_recs: List[Dict[str, Any]],
+        n: int,
+        user_id: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Switching hybrid: выбор алгоритма в зависимости от ситуации.
+
+        Логика:
+        - Если пользователь в системе достаточно давно и есть хорошие коллаборативные рекомендации → используем их
+        - Если новый пользователь или коллаборативные рекомендации слабые → используем content-based
+        """
+        try:
+            # Проверяем качество коллаборативных рекомендаций
+            if collaborative_recs and len(collaborative_recs) > 0:
+                avg_collab_score = np.mean([rec['score'] for rec in collaborative_recs])
+
+                # Если средний скор достаточно высок, используем коллаборативную фильтрацию
+                if avg_collab_score >= self.min_collaborative_score:
+                    logger.info(f"Используем коллаборативную фильтрацию для пользователя {user_id} (score: {avg_collab_score:.3f})")
+                    recommendations = collaborative_recs[:n]
+                    for rec in recommendations:
+                        rec['algorithm'] = 'hybrid_switching_collaborative'
+                    return recommendations
+
+            # Иначе используем content-based
+            logger.info(f"Используем content-based для пользователя {user_id}")
+            recommendations = content_recs[:n] if content_recs else []
+            for rec in recommendations:
+                rec['algorithm'] = 'hybrid_switching_content'
+            return recommendations
+
+        except Exception as e:
+            logger.error(f"Ошибка в switching hybrid: {e}")
+            return collaborative_recs[:n]
+
+    def _cascade_hybrid(
+        self,
+        collaborative_recs: List[Dict[str, Any]],
+        content_recs: List[Dict[str, Any]],
+        n: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Cascade hybrid: сначала коллаборативная фильтрация, затем content-based для заполнения.
+
+        Логика:
+        1. Берем топ-k рекомендаций из коллаборативной фильтрации
+        2. Если недостаточно, дополняем content-based рекомендациями
+        3. Ранжируем и берем топ-n
+        """
+        try:
+            recommendations = []
+
+            # Сначала добавляем коллаборативные рекомендации
+            collab_count = min(int(n * 0.7), len(collaborative_recs))  # 70% от коллаборативных
+            for rec in collaborative_recs[:collab_count]:
+                rec_copy = rec.copy()
+                rec_copy['algorithm'] = 'hybrid_cascade_collaborative'
+                rec_copy['algorithms_used'] = ['collaborative']
+                recommendations.append(rec_copy)
+
+            # Затем дополняем content-based
+            remaining = n - len(recommendations)
+            if remaining > 0 and content_recs:
+                # Исключаем уже рекомендованные элементы
+                recommended_ids = {rec['playlist_item_id'] for rec in recommendations}
+
+                for rec in content_recs:
+                    if len(recommendations) >= n:
+                        break
+                    if rec['playlist_item_id'] not in recommended_ids:
+                        rec_copy = rec.copy()
+                        rec_copy['algorithm'] = 'hybrid_cascade_content'
+                        rec_copy['algorithms_used'] = ['content']
+                        recommendations.append(rec_copy)
+
+            return recommendations
+
+        except Exception as e:
+            logger.error(f"Ошибка в cascade hybrid: {e}")
+            return collaborative_recs[:n]
