@@ -2,7 +2,6 @@
  * API resource classes for interacting with different endpoints
  */
 
-import { SattvaClient } from './client';
 import type {
   Stream,
   Channel,
@@ -11,16 +10,33 @@ import type {
   WebhookEvent,
   APIKey,
 } from './types';
+import type { SattvaClient } from './client';
+
+/**
+ * Base resource class
+ */
+class BaseResource {
+  constructor(protected client: SattvaClient) {}
+}
 
 /**
  * Streams resource
  */
-export class StreamsResource extends SattvaClient {
-  async list(params?: { limit?: number; offset?: number }): Promise<Stream[]> {
-    return this.get<Stream[]>('/streams');
+export class StreamsResource extends BaseResource {
+  private get: <T>(path: string) => Promise<T>;
+  private post: <T>(path: string, body?: any) => Promise<T>;
+
+  constructor(client: SattvaClient) {
+    super(client);
+    this.get = (path: string) => (client as any).get(path);
+    this.post = (path: string, body?: any) => (client as any).post(path, body);
   }
 
-  async get(streamId: string): Promise<Stream> {
+  async list(): Promise<Stream[]> {
+    return this.get('/streams');
+  }
+
+  async getStream(streamId: string): Promise<Stream> {
     return this.get<Stream>(`/streams/${streamId}`);
   }
 
@@ -40,44 +56,70 @@ export class StreamsResource extends SattvaClient {
 /**
  * Channels resource
  */
-export class ChannelsResource extends SattvaClient {
-  async list(): Promise<Channel[]> {
-    return this.get<Channel[]>('/channels');
+export class ChannelsResource extends BaseResource {
+  private get: <T>(path: string) => Promise<T>;
+  private post: <T>(path: string, body?: any) => Promise<T>;
+  private patch: <T>(path: string, body?: any) => Promise<T>;
+  private del: <T>(path: string) => Promise<T>;
+
+  constructor(client: SattvaClient) {
+    super(client);
+    this.get = (path: string) => (client as any).get(path);
+    this.post = (path: string, body?: any) => (client as any).post(path, body);
+    this.patch = (path: string, body?: any) => (client as any).patch(path, body);
+    this.del = (path: string) => (client as any).delete(path);
   }
 
-  async get(channelId: string): Promise<Channel> {
-    return this.get<Channel>(`/channels/${channelId}`);
+  async list(): Promise<Channel[]> {
+    return this.get('/channels');
+  }
+
+  async getChannel(channelId: string): Promise<Channel> {
+    return this.get(`/channels/${channelId}`);
   }
 
   async create(data: {
     name: string;
     description?: string;
   }): Promise<Channel> {
-    return this.post<Channel>('/channels', data);
+    return this.post('/channels', data);
   }
 
   async update(
     channelId: string,
     data: { name?: string; description?: string }
   ): Promise<Channel> {
-    return this.patch<Channel>(`/channels/${channelId}`, data);
+    return this.patch(`/channels/${channelId}`, data);
   }
 
   async delete(channelId: string): Promise<void> {
-    return this.delete<void>(`/channels/${channelId}`);
+    return this.del(`/channels/${channelId}`);
   }
 }
 
 /**
  * Playlists resource
  */
-export class PlaylistsResource extends SattvaClient {
-  async list(): Promise<Playlist[]> {
-    return this.get<Playlist[]>('/playlists');
+export class PlaylistsResource extends BaseResource {
+  private get: <T>(path: string) => Promise<T>;
+  private post: <T>(path: string, body?: any) => Promise<T>;
+  private patch: <T>(path: string, body?: any) => Promise<T>;
+  private del: <T>(path: string) => Promise<T>;
+
+  constructor(client: SattvaClient) {
+    super(client);
+    this.get = (path: string) => (client as any).get(path);
+    this.post = (path: string, body?: any) => (client as any).post(path, body);
+    this.patch = (path: string, body?: any) => (client as any).patch(path, body);
+    this.del = (path: string) => (client as any).delete(path);
   }
 
-  async get(playlistId: string): Promise<Playlist> {
-    return this.get<Playlist>(`/playlists/${playlistId}`);
+  async list(): Promise<Playlist[]> {
+    return this.get('/playlists');
+  }
+
+  async getPlaylist(playlistId: string): Promise<Playlist> {
+    return this.get(`/playlists/${playlistId}`);
   }
 
   async create(data: {
@@ -85,82 +127,108 @@ export class PlaylistsResource extends SattvaClient {
     description?: string;
     track_ids: string[];
   }): Promise<Playlist> {
-    return this.post<Playlist>('/playlists', data);
+    return this.post('/playlists', data);
   }
 
   async update(
     playlistId: string,
     data: { name?: string; description?: string }
   ): Promise<Playlist> {
-    return this.patch<Playlist>(`/playlists/${playlistId}`, data);
+    return this.patch(`/playlists/${playlistId}`, data);
   }
 
   async reorder(playlistId: string, data: { track_ids: string[] }): Promise<Playlist> {
-    return this.patch<Playlist>(`/playlists/${playlistId}/reorder`, data);
+    return this.patch(`/playlists/${playlistId}/reorder`, data);
   }
 
   async delete(playlistId: string): Promise<void> {
-    return this.delete<void>(`/playlists/${playlistId}`);
+    return this.del(`/playlists/${playlistId}`);
   }
 }
 
 /**
  * Webhooks resource
  */
-export class WebhooksResource extends SattvaClient {
-  async list(): Promise<Webhook[]> {
-    return this.get<Webhook[]>('/webhooks');
+export class WebhooksResource extends BaseResource {
+  private get: <T>(path: string) => Promise<T>;
+  private post: <T>(path: string, body?: any) => Promise<T>;
+  private patch: <T>(path: string, body?: any) => Promise<T>;
+  private del: <T>(path: string) => Promise<T>;
+
+  constructor(client: SattvaClient) {
+    super(client);
+    this.get = (path: string) => (client as any).get(path);
+    this.post = (path: string, body?: any) => (client as any).post(path, body);
+    this.patch = (path: string, body?: any) => (client as any).patch(path, body);
+    this.del = (path: string) => (client as any).delete(path);
   }
 
-  async get(webhookId: string): Promise<Webhook> {
-    return this.get<Webhook>(`/webhooks/${webhookId}`);
+  async list(): Promise<Webhook[]> {
+    return this.get('/webhooks');
+  }
+
+  async getWebhook(webhookId: string): Promise<Webhook> {
+    return this.get(`/webhooks/${webhookId}`);
   }
 
   async create(data: {
     url: string;
     event_types: string[];
   }): Promise<Webhook> {
-    return this.post<Webhook>('/webhooks', data);
+    return this.post('/webhooks', data);
   }
 
   async update(
     webhookId: string,
     data: { url?: string; event_types?: string[]; is_active?: boolean }
   ): Promise<Webhook> {
-    return this.patch<Webhook>(`/webhooks/${webhookId}`, data);
+    return this.patch(`/webhooks/${webhookId}`, data);
   }
 
   async delete(webhookId: string): Promise<void> {
-    return this.delete<void>(`/webhooks/${webhookId}`);
+    return this.del(`/webhooks/${webhookId}`);
   }
 
   async test(webhookId: string): Promise<{ success: boolean; message: string }> {
-    return this.post<{ success: boolean; message: string }>(
+    return this.post(
       `/webhooks/${webhookId}/test`
     );
   }
 
   async rotateSecret(webhookId: string): Promise<{ secret: string }> {
-    return this.post<{ secret: string }>(
+    return this.post(
       `/webhooks/${webhookId}/rotate-secret`
     );
   }
 
   async listEvents(webhookId: string): Promise<WebhookEvent[]> {
-    return this.get<WebhookEvent[]>(`/webhooks/${webhookId}/events`);
+    return this.get(`/webhooks/${webhookId}/events`);
   }
 }
 
 /**
  * API Keys resource
  */
-export class APIKeysResource extends SattvaClient {
-  async list(): Promise<APIKey[]> {
-    return this.get<APIKey[]>('/keys');
+export class APIKeysResource extends BaseResource {
+  private get: <T>(path: string) => Promise<T>;
+  private post: <T>(path: string, body?: any) => Promise<T>;
+  private patch: <T>(path: string, body?: any) => Promise<T>;
+  private del: <T>(path: string) => Promise<T>;
+
+  constructor(client: SattvaClient) {
+    super(client);
+    this.get = (path: string) => (client as any).get(path);
+    this.post = (path: string, body?: any) => (client as any).post(path, body);
+    this.patch = (path: string, body?: any) => (client as any).patch(path, body);
+    this.del = (path: string) => (client as any).delete(path);
   }
 
-  async get(keyId: string): Promise<APIKey> {
-    return this.get<APIKey>(`/keys/${keyId}`);
+  async list(): Promise<APIKey[]> {
+    return this.get('/keys');
+  }
+
+  async getAPIKey(keyId: string): Promise<APIKey> {
+    return this.get(`/keys/${keyId}`);
   }
 
   async create(data: {
@@ -169,21 +237,21 @@ export class APIKeysResource extends SattvaClient {
     rate_limit?: number;
     expires_at?: string;
   }): Promise<APIKey & { key: string }> {
-    return this.post<APIKey & { key: string }>('/keys', data);
+    return this.post('/keys', data);
   }
 
   async update(
     keyId: string,
     data: { name?: string; is_active?: boolean }
   ): Promise<APIKey> {
-    return this.patch<APIKey>(`/keys/${keyId}`, data);
+    return this.patch(`/keys/${keyId}`, data);
   }
 
   async delete(keyId: string): Promise<void> {
-    return this.delete<void>(`/keys/${keyId}`);
+    return this.del(`/keys/${keyId}`);
   }
 
   async revoke(keyId: string): Promise<void> {
-    return this.post<void>(`/keys/${keyId}/revoke`);
+    return this.post(`/keys/${keyId}/revoke`);
   }
 }

@@ -10,9 +10,21 @@ import {
   NotFoundError,
   ValidationError,
 } from './exceptions';
+import {
+  StreamsResource,
+  ChannelsResource,
+  PlaylistsResource,
+  WebhooksResource,
+  APIKeysResource,
+} from './resources';
 
 export class SattvaClient {
   private config: Required<SattvaClientConfig>;
+  public readonly streams: StreamsResource;
+  public readonly channels: ChannelsResource;
+  public readonly playlists: PlaylistsResource;
+  public readonly webhooks: WebhooksResource;
+  public readonly apiKeys: APIKeysResource;
 
   constructor(config: SattvaClientConfig) {
     this.config = {
@@ -22,6 +34,13 @@ export class SattvaClient {
       maxRetries: config.maxRetries || 3,
       retryDelay: config.retryDelay || 1000,
     };
+
+    // Initialize resource managers
+    this.streams = new StreamsResource(this);
+    this.channels = new ChannelsResource(this);
+    this.playlists = new PlaylistsResource(this);
+    this.webhooks = new WebhooksResource(this);
+    this.apiKeys = new APIKeysResource(this);
   }
 
   /**

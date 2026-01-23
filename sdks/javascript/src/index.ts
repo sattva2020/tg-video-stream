@@ -1,6 +1,8 @@
 /**
  * @sattva/api-client
  * Official JavaScript/TypeScript SDK for Sattva Streaming Platform API
+ *
+ * Provides access to streams, channels, playlists, webhooks, and API keys.
  */
 
 // Export main client
