@@ -4,7 +4,8 @@ import { Activity, Music, Video, RefreshCw, AlertTriangle, Gauge, Zap, TrendingU
 import { useTranslation } from 'react-i18next';
 import { adminApi, StreamQualityResponse } from '../../api/admin';
 import { useToast } from '../../hooks/useToast';
-import { AdaptiveStreamingStatus } from '../../types/adaptive-streaming';
+import { useAdaptiveStreamingWebSocket } from '../../hooks/useAdaptiveStreamingWebSocket';
+import { AdaptiveStreamingStatus, QualityChangeEvent } from '../../types/adaptive-streaming';
 
 interface StreamQualityCardProps {
   streamUrl?: string | null;
@@ -12,10 +13,10 @@ interface StreamQualityCardProps {
   autoAnalyze?: boolean;
 }
 
-export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({ 
-  streamUrl, 
+export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
+  streamUrl,
   title,
-  autoAnalyze = true 
+  autoAnalyze = true
 }) => {
   const { t } = useTranslation();
   const toast = useToast();
@@ -24,6 +25,36 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
   const [loading, setLoading] = useState(false);
   const [adaptiveLoading, setAdaptiveLoading] = useState(false);
   const [analyzedUrl, setAnalyzedUrl] = useState<string | null>(null);
+  const [lastQualityChange, setLastQualityChange] = useState<QualityChangeEvent | null>(null);
+
+  // WebSocket integration for real-time quality updates
+  const {
+    qualityChange: wsQualityChange,
+    status: wsStatus,
+    isConnected: wsConnected
+  } = useAdaptiveStreamingWebSocket({
+    streamId: streamUrl || undefined,
+    enabled: !!streamUrl,
+    onQualityChange: (event) => {
+      setLastQualityChange(event);
+      // Refresh adaptive status when quality changes
+      if (streamUrl) {
+        refreshAdaptiveStatus();
+      }
+    },
+    onStatusUpdate: (statusData) => {
+      // Update adaptive status when WebSocket sends status update
+      if (adaptiveStatus) {
+        setAdaptiveStatus({
+          ...adaptiveStatus,
+          current_quality: statusData.current_quality as any,
+          current_bandwidth_kbps: statusData.current_bandwidth_kbps,
+          smoothed_bandwidth_kbps: statusData.smoothed_bandwidth_kbps,
+          is_adapting: statusData.is_adapting,
+        });
+      }
+    }
+  });
 
   const analyzeStream = useCallback(async (force = false) => {
     if (!streamUrl) return;
@@ -38,20 +69,8 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
       setAnalyzedUrl(streamUrl);
 
       // Try to fetch adaptive streaming status (may fail if not configured)
-      try {
-        const encodedStreamId = encodeURIComponent(streamUrl);
-        const adaptiveData = await adminApi.getAdaptiveStatus(encodedStreamId, 'desktop');
-        setAdaptiveStatus(adaptiveData);
-      } catch (adaptiveError) {
-        // Adaptive streaming might not be configured for this stream
-        setAdaptiveStatus(null);
-      }
-
-      if (force) {
-        toast.success(t('quality.analysisComplete', 'Анализ завершен'));
-      }
+      await refreshAdaptiveStatus();
     } catch (error) {
-      console.error('Quality analysis failed:', error);
       // Don't show toast on auto-analyze to avoid spam
       if (force) {
         toast.error(t('quality.analysisFailed', 'Не удалось проанализировать поток'));
@@ -61,6 +80,19 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
       setAdaptiveLoading(false);
     }
   }, [streamUrl, toast, t]);
+
+  const refreshAdaptiveStatus = useCallback(async () => {
+    if (!streamUrl) return;
+
+    try {
+      const encodedStreamId = encodeURIComponent(streamUrl);
+      const adaptiveData = await adminApi.getAdaptiveStatus(encodedStreamId, 'desktop');
+      setAdaptiveStatus(adaptiveData);
+    } catch (adaptiveError) {
+      // Adaptive streaming might not be configured for this stream
+      setAdaptiveStatus(null);
+    }
+  }, [streamUrl]);
 
   useEffect(() => {
     if (autoAnalyze && streamUrl && streamUrl !== analyzedUrl) {
@@ -123,15 +155,22 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
               <h3 className="text-lg font-semibold text-[color:var(--color-text)]">
                 {title || t('quality.title', 'Качество потока')}
               </h3>
-              <p className="text-sm text-[color:var(--color-text-secondary)]">
-                {quality?.overall_quality ? (
-                  <span className={`text-${getQualityColor(quality.overall_quality)} capitalize`}>
-                    {quality.overall_quality} Quality
-                  </span>
-                ) : (
-                  t('quality.analyzing', 'Анализ...')
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-[color:var(--color-text-secondary)]">
+                  {quality?.overall_quality ? (
+                    <span className={`text-${getQualityColor(quality.overall_quality)} capitalize`}>
+                      {quality.overall_quality} Quality
+                    </span>
+                  ) : (
+                    t('quality.analyzing', 'Анализ...')
+                  )}
+                </p>
+                {wsConnected && (
+                  <Chip size="sm" variant="flat" color="success" className="text-xs">
+                    Live
+                  </Chip>
                 )}
-              </p>
+              </div>
             </div>
           </div>
           <Button
@@ -153,6 +192,30 @@ export const StreamQualityCard: React.FC<StreamQualityCardProps> = ({
           </div>
         ) : quality ? (
           <div className="space-y-6">
+            {/* Quality Change Notification */}
+            {lastQualityChange && (
+              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 animate-pulse">
+                <div className="flex items-center gap-2 text-sm">
+                  <TrendingUp size={16} className="text-primary" />
+                  <span className="font-medium text-[color:var(--color-text)]">
+                    {t('quality.qualityChanged', 'Качество изменено')}
+                  </span>
+                  <Chip size="sm" variant="flat" color={getQualityColor(lastQualityChange.previous_quality || 'medium')}>
+                    {lastQualityChange.previous_quality || 'N/A'}
+                  </Chip>
+                  <span className="text-[color:var(--color-text-secondary)]">→</span>
+                  <Chip size="sm" variant="flat" color={getQualityColor(lastQualityChange.new_quality)}>
+                    {lastQualityChange.new_quality}
+                  </Chip>
+                </div>
+                {lastQualityChange.reason && (
+                  <p className="text-xs text-[color:var(--color-text-secondary)] mt-1">
+                    {t('quality.reason', 'Причина')}: {lastQualityChange.reason}
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* Audio Metrics */}
             {quality.audio && (
               <div className="space-y-3">
