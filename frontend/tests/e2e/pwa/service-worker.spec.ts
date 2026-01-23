@@ -382,7 +382,7 @@ test.describe('Service Worker Lifecycle', () => {
     await page.waitForTimeout(2000);
 
     // Get initial service worker state
-    const initialState = await page.evaluate(async () => {
+    await page.evaluate(async () => {
       const registration = await navigator.serviceWorker.getRegistration();
       return {
         active: registration?.active?.state,
