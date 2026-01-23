@@ -27,6 +27,12 @@ class ChannelCreate(BaseModel):
     video_quality: Optional[str] = "best"
     stream_type: Optional[str] = "video"
     playlist_id: Optional[uuid.UUID] = None
+    # Encoding profile settings
+    video_codec: Optional[str] = "h264"
+    audio_codec: Optional[str] = "aac"
+    video_bitrate: Optional[int] = None
+    audio_bitrate: Optional[int] = None
+    resolution: Optional[str] = None
 
 class ChannelResponse(BaseModel):
     id: uuid.UUID
@@ -40,6 +46,12 @@ class ChannelResponse(BaseModel):
     video_quality: str
     stream_type: str
     placeholder_image: Optional[str] = None
+    # Encoding profile settings
+    video_codec: Optional[str] = "h264"
+    audio_codec: Optional[str] = "aac"
+    video_bitrate: Optional[int] = None
+    audio_bitrate: Optional[int] = None
+    resolution: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -87,6 +99,11 @@ def list_channels(
             "placeholder_image": channel.placeholder_image,
             "status": current_status or "stopped",
             "error_message": error_message,
+            "video_codec": channel.video_codec or "h264",
+            "audio_codec": channel.audio_codec or "aac",
+            "video_bitrate": channel.video_bitrate,
+            "audio_bitrate": channel.audio_bitrate,
+            "resolution": channel.resolution,
         }
         
         # Get real-time status from Redis
@@ -133,6 +150,11 @@ def create_channel(
         ffmpeg_args=channel_in.ffmpeg_args,
         video_quality=channel_in.video_quality,
         stream_type=channel_in.stream_type,
+        video_codec=channel_in.video_codec,
+        audio_codec=channel_in.audio_codec,
+        video_bitrate=channel_in.video_bitrate,
+        audio_bitrate=channel_in.audio_bitrate,
+        resolution=channel_in.resolution,
         status="stopped"
     )
     
@@ -303,7 +325,12 @@ def update_channel(
     channel.ffmpeg_args = channel_in.ffmpeg_args
     channel.video_quality = channel_in.video_quality
     channel.stream_type = channel_in.stream_type
-    
+    channel.video_codec = channel_in.video_codec
+    channel.audio_codec = channel_in.audio_codec
+    channel.video_bitrate = channel_in.video_bitrate
+    channel.audio_bitrate = channel_in.audio_bitrate
+    channel.resolution = channel_in.resolution
+
     # Note: We don't update account_id or chat_id usually, but if needed:
     # channel.chat_id = channel_in.chat_id
     
