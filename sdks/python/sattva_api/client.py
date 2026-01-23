@@ -15,6 +15,13 @@ from sattva_api.exceptions import (
     SattvaAPIError,
     ValidationError,
 )
+from sattva_api.resources import (
+    APIKeysResource,
+    ChannelsResource,
+    PlaylistsResource,
+    StreamsResource,
+    WebhooksResource,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +72,12 @@ class SattvaClient:
         self._client.mount("http://", adapter)
         self._client.mount("https://", adapter)
 
-        # Resource attributes will be populated in subtask-5-3
-        self.streams = None
-        self.playlists = None
-        self.channels = None
-        self.webhooks = None
-        self.api_keys = None
+        # Initialize resource managers
+        self.streams = StreamsResource(self)
+        self.playlists = PlaylistsResource(self)
+        self.channels = ChannelsResource(self)
+        self.webhooks = WebhooksResource(self)
+        self.api_keys = APIKeysResource(self)
 
     def __repr__(self) -> str:
         """Return string representation of the client."""
