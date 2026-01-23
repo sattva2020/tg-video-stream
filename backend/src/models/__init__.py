@@ -20,6 +20,9 @@ from .radio_stream import RadioStream
 from .scheduled_playlist import ScheduledPlaylist
 from .lyrics_cache import LyricsCache
 
+# Analytics (Feature 012)
+from .engagement import EngagementEvent
+
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
 
@@ -76,6 +79,7 @@ __all__ = [
     "ScheduledPlaylist",
     "LyricsCache",
     # Analytics
+    "EngagementEvent",
     "TrackPlay",
     "MonthlyAnalytics",
     # Support & Incidents
