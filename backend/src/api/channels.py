@@ -5,6 +5,7 @@ from src.models.user import User
 from src.models.telegram import Channel, TelegramAccount
 from src.models.schedule import ScheduleSlot, RepeatType, Playlist
 from api.auth import get_current_user
+from src.api.auth.dependencies import get_current_organization
 from src.services.redis_stream_controller import RedisStreamController
 from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
@@ -48,8 +49,20 @@ def list_channels(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Return channels where the associated account belongs to the current user
-    channels = db.query(Channel).join(TelegramAccount).filter(TelegramAccount.user_id == current_user.id).all()
+    # Return channels where the associated account belongs to users in the same organization
+    # If user has no organization, return only their own channels
+    if current_user.organization_id:
+        # Multi-tenant: filter by organization
+        channels = db.query(Channel).join(TelegramAccount).join(
+            User, TelegramAccount.user_id == User.id
+        ).filter(
+            User.organization_id == current_user.organization_id
+        ).all()
+    else:
+        # Single-tenant fallback: return only user's own channels
+        channels = db.query(Channel).join(TelegramAccount).filter(
+            TelegramAccount.user_id == current_user.id
+        ).all()
     
     # Enrich with real-time status from Redis
     controller = RedisStreamController(db)
@@ -107,14 +120,23 @@ def create_channel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify account belongs to user
+    # Verify account belongs to user or same organization
     account = db.query(TelegramAccount).filter(
-        TelegramAccount.id == channel_in.account_id,
-        TelegramAccount.user_id == current_user.id
+        TelegramAccount.id == channel_in.account_id
     ).first()
-    
+
     if not account:
         raise HTTPException(status_code=404, detail="Telegram account not found or access denied")
+
+    # Verify organization access
+    if current_user.organization_id:
+        # Multi-tenant: account must be owned by someone in the same organization
+        if account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Telegram account does not belong to your organization")
+    else:
+        # Single-tenant: account must belong to current user
+        if account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Telegram account does not belong to you")
         
     # Check if channel already exists for this account and chat_id
     existing = db.query(Channel).filter(
@@ -142,13 +164,19 @@ def create_channel(
 
     # If playlist_id is provided, create a default schedule slot
     if channel_in.playlist_id:
-        # Verify playlist exists and belongs to user
+        # Verify playlist exists and belongs to user or same organization
         playlist = db.query(Playlist).filter(
-            Playlist.id == channel_in.playlist_id,
-            Playlist.user_id == current_user.id
+            Playlist.id == channel_in.playlist_id
         ).first()
 
         if playlist:
+            # Verify organization access
+            if current_user.organization_id:
+                if playlist.user.organization_id != current_user.organization_id:
+                    raise HTTPException(status_code=403, detail="Playlist does not belong to your organization")
+            else:
+                if playlist.user_id != current_user.id:
+                    raise HTTPException(status_code=403, detail="Playlist does not belong to you")
             default_slot = ScheduleSlot(
                 channel_id=new_channel.id,
                 playlist_id=playlist.id,
@@ -172,12 +200,20 @@ def start_channel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check ownership or admin
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    # Check ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
-    
-    # TODO: Check if current_user owns the channel's account
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
     
     controller = RedisStreamController(db)
     try:
@@ -197,9 +233,20 @@ def stop_channel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    # Check ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
         
     controller = RedisStreamController(db)
     try:
@@ -240,9 +287,20 @@ def get_channel_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    channel = db.query(Channel).filter(Channel.id == channel_id).first()
+    # Check ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
     
     # Get real-time status from Redis
     controller = RedisStreamController(db)
@@ -259,14 +317,21 @@ def delete_channel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify ownership
-    channel = db.query(Channel).join(TelegramAccount).filter(
-        Channel.id == channel_id,
-        TelegramAccount.user_id == current_user.id
-    ).first()
-    
+    # Verify ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
+
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
         
     # Stop channel if running
     if channel.status in ["running", "starting"]:
@@ -289,14 +354,21 @@ def update_channel(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify ownership
-    channel = db.query(Channel).join(TelegramAccount).filter(
-        Channel.id == channel_id,
-        TelegramAccount.user_id == current_user.id
-    ).first()
-    
+    # Verify ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
+
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
         
     # Update fields
     channel.name = channel_in.name
@@ -319,14 +391,21 @@ async def upload_placeholder(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Verify ownership
-    channel = db.query(Channel).join(TelegramAccount).filter(
-        Channel.id == channel_id,
-        TelegramAccount.user_id == current_user.id
-    ).first()
-    
+    # Verify ownership or organization access
+    channel = db.query(Channel).join(TelegramAccount).join(
+        User, TelegramAccount.user_id == User.id
+    ).filter(Channel.id == channel_id).first()
+
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if channel.account.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to your organization")
+    else:
+        if channel.account.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Channel does not belong to you")
         
     # Ensure directory exists
     upload_dir = "data/placeholders"

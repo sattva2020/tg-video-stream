@@ -74,12 +74,22 @@ class ReorderRequest(BaseModel):
 @router.get("/", response_model=List[PlaylistItemResponse])
 def get_playlist(
     channel_id: Optional[uuid.UUID] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(PlaylistItem)
+    # Filter by organization context
+    query = db.query(PlaylistItem).join(User, PlaylistItem.created_by == User.id)
     if channel_id:
         query = query.filter(PlaylistItem.channel_id == channel_id)
-        
+
+    # Apply organization filter
+    if current_user.organization_id:
+        # Multi-tenant: filter by organization
+        query = query.filter(User.organization_id == current_user.organization_id)
+    else:
+        # Single-tenant: filter by current user
+        query = query.filter(User.id == current_user.id)
+
     items = query.order_by(PlaylistItem.position.asc(), PlaylistItem.created_at.asc()).all()
     # Convert datetime to string for simple response
     return [
@@ -161,14 +171,25 @@ async def add_playlist_item(
 
 @router.delete("/{item_id}")
 async def delete_playlist_item(
-    item_id: uuid.UUID, 
+    item_id: uuid.UUID,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db), 
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
+    # Get item with user join for organization check
+    item = db.query(PlaylistItem).join(User, PlaylistItem.created_by == User.id).filter(
+        PlaylistItem.id == item_id
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+
+    # Verify organization access
+    if current_user.organization_id:
+        if item.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Item does not belong to your organization")
+    else:
+        if item.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Item does not belong to you")
     
     channel_id = str(item.channel_id) if item.channel_id else None
     item_id_str = str(item.id)
@@ -212,10 +233,21 @@ async def reorder_playlist(
     Принимает массив {id, position} и обновляет позиции.
     """
     updated_count = 0
-    
+
     for item_update in request.items:
-        item = db.query(PlaylistItem).filter(PlaylistItem.id == item_update.id).first()
+        # Get item with user join for organization check
+        item = db.query(PlaylistItem).join(User, PlaylistItem.created_by == User.id).filter(
+            PlaylistItem.id == item_update.id
+        ).first()
         if item:
+            # Verify organization access
+            if current_user.organization_id:
+                if item.user.organization_id != current_user.organization_id:
+                    continue  # Skip items from other organizations
+            else:
+                if item.created_by != current_user.id:
+                    continue  # Skip items from other users
+
             item.position = item_update.position
             db.add(item)
             updated_count += 1
@@ -333,13 +365,24 @@ async def refresh_item_metadata(
     """
     Принудительно обновляет метаданные playlist item через yt-dlp.
     """
-    item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
+    # Get item with user join for organization check
+    item = db.query(PlaylistItem).join(User, PlaylistItem.created_by == User.id).filter(
+        PlaylistItem.id == item_id
+    ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
+    # Verify organization access
+    if current_user.organization_id:
+        if item.user.organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Item does not belong to your organization")
+    else:
+        if item.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Item does not belong to you")
+
     if item.type != "youtube":
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="Metadata refresh only supported for YouTube items"
         )
     

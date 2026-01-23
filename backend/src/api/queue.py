@@ -30,6 +30,7 @@ from src.models.queue import (
     QueueSource,
 )
 from src.models.stream_state import StreamState, StreamStatus
+from src.models.telegram import Channel, TelegramAccount
 from src.services.queue_service import (
     QueueFullError,
     QueueEmptyError,
@@ -169,6 +170,31 @@ def get_queue_svc() -> UnifiedQueueService:
     return get_unified_queue_service()
 
 
+async def verify_channel_access_for_queue(chat_id: int, current_user: User, db: Session) -> bool:
+    """
+    Verify that the current user has access to the specified channel by Telegram chat_id.
+    For multi-tenant: checks organization membership.
+    For single-tenant: checks user ownership.
+    """
+    # Look up channel by chat_id
+    channel = db.query(Channel).filter(Channel.chat_id == chat_id).first()
+    if not channel:
+        return False  # Channel doesn't exist
+
+    # Get the account owner
+    account = db.query(TelegramAccount).filter(TelegramAccount.id == channel.account_id).first()
+    if not account:
+        return False  # Account doesn't exist
+
+    # Check organization access
+    if current_user.organization_id:
+        # Multi-tenant: account owner must be in same organization
+        return account.user.organization_id == current_user.organization_id
+    else:
+        # Single-tenant: account must belong to current user
+        return account.user_id == current_user.id
+
+
 # ==============================================================================
 # Endpoints
 # ==============================================================================
@@ -214,9 +240,17 @@ async def add_queue_item(
     item_data: QueueItemCreateRequest,
     priority: bool = Query(False, description="Добавить в начало очереди (только для FIFO режима)"),
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> QueueItemResponse:
     """Добавить элемент в очередь."""
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     item_create = QueueItemCreate(
         title=item_data.title,
         url=item_data.url,
@@ -274,9 +308,17 @@ async def remove_queue_item(
     channel_id: int,
     item_id: str,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> SuccessResponse:
     """Удалить элемент из очереди."""
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     try:
         await queue_service.remove(channel_id=channel_id, item_id=item_id)
 
@@ -311,9 +353,17 @@ async def move_queue_item(
     item_id: str,
     move_data: MoveRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> QueueResponse:
     """Переместить элемент на новую позицию (FIFO режим)."""
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     try:
         items = await queue_service.move(
             channel_id=channel_id,
@@ -357,9 +407,17 @@ async def move_queue_item(
 async def skip_current_track(
     channel_id: int,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> SkipResponse:
     """Пропустить текущий трек."""
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     try:
         next_item = await queue_service.skip(channel_id=channel_id)
         
@@ -393,9 +451,17 @@ async def skip_current_track(
 async def clear_queue(
     channel_id: int,
     current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> SuccessResponse:
     """Очистить очередь (только для админов)."""
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     count = await queue_service.clear(channel_id=channel_id)
     
     record_queue_operation(channel_id, "clear")
@@ -508,15 +574,23 @@ async def set_queue_mode(
     channel_id: int,
     mode_request: QueueModeRequest,
     current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> QueueModeResponse:
     """
     Установить режим очереди (только для админов).
-    
+
     ВНИМАНИЕ: При смене режима существующая очередь НЕ мигрируется автоматически.
-    Рекомендуется очистить очередь перед сменой режима или использовать 
+    Рекомендуется очистить очередь перед сменой режима или использовать
     POST /{channel_id}/migrate для миграции.
     """
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     mode = QueueMode(mode_request.mode)
     await queue_service.set_mode(channel_id, mode)
     
@@ -543,14 +617,22 @@ async def migrate_queue_mode(
     from_mode: str = Query(..., pattern="^(fifo|priority)$", description="Исходный режим"),
     to_mode: str = Query(..., pattern="^(fifo|priority)$", description="Целевой режим"),
     current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
     queue_service: UnifiedQueueService = Depends(get_queue_svc)
 ) -> SuccessResponse:
     """
     Мигрировать очередь между режимами (только для админов).
-    
+
     Переносит все элементы из исходного режима в целевой,
     затем очищает исходную очередь.
     """
+    # Verify channel access
+    has_access = await verify_channel_access_for_queue(channel_id, current_user, db)
+    if not has_access:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this channel's queue"
+        )
     from_mode_enum = QueueMode(from_mode)
     to_mode_enum = QueueMode(to_mode)
     
