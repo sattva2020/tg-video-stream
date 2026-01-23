@@ -23,7 +23,7 @@ from streamer.ffprobe_utils import (
     _normalize_codec
 )
 
-log = logging.getLogger("tg_video_streamer")
+logger = logging.getLogger(__name__)
 
 
 class VideoFormat(str, Enum):
@@ -109,7 +109,11 @@ class VideoValidator:
 
     def __init__(self):
         """Инициализация валидатора."""
-        log.debug("VideoValidator initialized")
+        logger.debug("VideoValidator initialized", extra={
+            "supported_video_codecs": self.TELEGRAM_SUPPORTED_VIDEO_CODECS,
+            "supported_audio_codecs": self.TELEGRAM_SUPPORTED_AUDIO_CODECS,
+            "supported_formats": self.TELEGRAM_SUPPORTED_FORMATS,
+        })
 
     @staticmethod
     def detect_orientation(ffprobe_json: Dict[str, Any]) -> Optional[int]:
@@ -139,9 +143,18 @@ class VideoValidator:
             if key in format_tags:
                 try:
                     value = int(format_tags[key])
-                    log.debug(f"Found orientation in format tags: {key}={value}")
+                    logger.debug("Found orientation in format tags", extra={
+                        "key": key,
+                        "orientation": value,
+                        "location": "format_tags"
+                    })
                     return value
                 except (ValueError, TypeError):
+                    logger.debug("Failed to parse orientation from format tags", extra={
+                        "key": key,
+                        "value": format_tags[key],
+                        "error": "invalid_value_type"
+                    })
                     continue
 
         # Check in video stream tags
@@ -153,9 +166,18 @@ class VideoValidator:
                     if key in stream_tags:
                         try:
                             value = int(stream_tags[key])
-                            log.debug(f"Found orientation in stream tags: {key}={value}")
+                            logger.debug("Found orientation in stream tags", extra={
+                                "key": key,
+                                "orientation": value,
+                                "location": "stream_tags"
+                            })
                             return value
                         except (ValueError, TypeError):
+                            logger.debug("Failed to parse orientation from stream tags", extra={
+                                "key": key,
+                                "value": stream_tags[key],
+                                "error": "invalid_value_type"
+                            })
                             continue
 
                 # Check side_data_list for rotate
@@ -164,12 +186,21 @@ class VideoValidator:
                     if "rotate" in side_data:
                         try:
                             value = int(side_data["rotate"])
-                            log.debug(f"Found orientation in side_data: rotate={value}")
+                            logger.debug("Found orientation in side_data", extra={
+                                "orientation": value,
+                                "location": "side_data_list"
+                            })
                             return value
                         except (ValueError, TypeError):
+                            logger.debug("Failed to parse orientation from side_data", extra={
+                                "value": side_data.get("rotate"),
+                                "error": "invalid_value_type"
+                            })
                             continue
 
-        log.debug("No orientation metadata found")
+        logger.debug("No orientation metadata found", extra={
+            "keys_searched": orientation_keys
+        })
         return None
 
     async def validate_url(self, url: str, timeout: int = 10) -> ValidationResult:
@@ -188,7 +219,10 @@ class VideoValidator:
             >>> result = await validator.validate_url("https://example.com/video.mp4")
             >>> print(result.to_dict())
         """
-        log.info(f"Validating video URL: {url}")
+        logger.info("Starting video URL validation", extra={
+            "url": url,
+            "timeout": timeout
+        })
 
         errors = []
         warnings = []
@@ -198,7 +232,12 @@ class VideoValidator:
         stream_quality = await analyze_stream_quality(url, timeout)
 
         if not stream_quality:
-            log.error(f"Failed to analyze stream quality for {url}")
+            logger.error("Failed to analyze stream quality", extra={
+                "url": url,
+                "timeout": timeout,
+                "reason": "ffprobe_analysis_failed",
+                "action": "check_url_accessibility"
+            })
             return ValidationResult(
                 valid=False,
                 is_compatible=False,
@@ -212,6 +251,11 @@ class VideoValidator:
         if not video_meta:
             errors.append("No video stream found in URL")
             is_compatible = False
+            logger.warning("No video stream found", extra={
+                "url": url,
+                "reason": "no_video_stream",
+                "action": "verify_url_contains_video"
+            })
         else:
             # Validate video codec
             video_codec = _normalize_codec(video_meta.codec or "unknown")
@@ -220,26 +264,56 @@ class VideoValidator:
                 video_codec = "h265"
             if video_codec not in self.TELEGRAM_SUPPORTED_VIDEO_CODECS:
                 is_compatible = False
-                errors.append(
+                error_msg = (
                     f"Video codec '{video_codec}' is not supported by Telegram. "
                     f"Supported: {', '.join(self.TELEGRAM_SUPPORTED_VIDEO_CODECS)}. "
                     f"Action: Transcode to h264 or h265."
                 )
-                log.warning(f"Unsupported video codec: {video_codec}")
+                errors.append(error_msg)
+                logger.warning("Unsupported video codec detected", extra={
+                    "url": url,
+                    "codec": video_codec,
+                    "supported_codecs": self.TELEGRAM_SUPPORTED_VIDEO_CODECS,
+                    "reason": "unsupported_video_codec",
+                    "action": "transcode_to_h264_or_h265"
+                })
+            else:
+                logger.debug("Video codec validated", extra={
+                    "url": url,
+                    "codec": video_codec,
+                    "status": "compatible"
+                })
 
         if audio_meta:
             # Validate audio codec
             audio_codec = _normalize_codec(audio_meta.codec or "unknown")
             if audio_codec not in self.TELEGRAM_SUPPORTED_AUDIO_CODECS:
                 is_compatible = False
-                errors.append(
+                error_msg = (
                     f"Audio codec '{audio_codec}' is not supported by Telegram. "
                     f"Supported: {', '.join(self.TELEGRAM_SUPPORTED_AUDIO_CODECS)}. "
                     f"Action: Transcode audio to aac, mp3, or opus."
                 )
-                log.warning(f"Unsupported audio codec: {audio_codec}")
+                errors.append(error_msg)
+                logger.warning("Unsupported audio codec detected", extra={
+                    "url": url,
+                    "codec": audio_codec,
+                    "supported_codecs": self.TELEGRAM_SUPPORTED_AUDIO_CODECS,
+                    "reason": "unsupported_audio_codec",
+                    "action": "transcode_to_aac_mp3_or_opus"
+                })
+            else:
+                logger.debug("Audio codec validated", extra={
+                    "url": url,
+                    "codec": audio_codec,
+                    "status": "compatible"
+                })
         else:
             warnings.append("No audio stream found (video-only file)")
+            logger.info("No audio stream found in video", extra={
+                "url": url,
+                "warning": "video_only_file"
+            })
 
         # Detect orientation (requires raw ffprobe data)
         # For now, we'll mark it as not detected
@@ -247,10 +321,17 @@ class VideoValidator:
 
         valid = len(errors) == 0
 
-        log.info(
-            f"Validation complete for {url}: compatible={is_compatible}, "
-            f"valid={valid}, errors={len(errors)}, warnings={len(warnings)}"
-        )
+        logger.info("Validation complete", extra={
+            "url": url,
+            "compatible": is_compatible,
+            "valid": valid,
+            "video_codec": video_meta.codec if video_meta else None,
+            "audio_codec": audio_meta.codec if audio_meta else None,
+            "errors_count": len(errors),
+            "warnings_count": len(warnings),
+            "errors": errors,
+            "warnings": warnings
+        })
 
         return ValidationResult(
             valid=valid,
@@ -279,6 +360,11 @@ class VideoValidator:
             >>> result = validator.validate_codecs('h264', 'aac')
             >>> print(result['valid'])  # True
         """
+        logger.debug("Validating codecs", extra={
+            "video_codec": video_codec,
+            "audio_codec": audio_codec
+        })
+
         errors = []
 
         # Normalize codec names
@@ -296,6 +382,10 @@ class VideoValidator:
                     f"Video codec '{video_codec_norm}' is not supported. "
                     f"Supported: {', '.join(self.TELEGRAM_SUPPORTED_VIDEO_CODECS)}"
                 )
+                logger.warning("Codec validation failed: video codec not supported", extra={
+                    "codec": video_codec_norm,
+                    "supported_codecs": self.TELEGRAM_SUPPORTED_VIDEO_CODECS
+                })
 
         # Validate audio codec
         if audio_codec_norm and audio_codec_norm != "unknown":
@@ -304,6 +394,15 @@ class VideoValidator:
                     f"Audio codec '{audio_codec_norm}' is not supported. "
                     f"Supported: {', '.join(self.TELEGRAM_SUPPORTED_AUDIO_CODECS)}"
                 )
+                logger.warning("Codec validation failed: audio codec not supported", extra={
+                    "codec": audio_codec_norm,
+                    "supported_codecs": self.TELEGRAM_SUPPORTED_AUDIO_CODECS
+                })
+
+        logger.debug("Codec validation complete", extra={
+            "valid": len(errors) == 0,
+            "errors_count": len(errors)
+        })
 
         return {
             "valid": len(errors) == 0,
@@ -328,6 +427,10 @@ class VideoValidator:
             ...     print(f"Transcoding needed: {check['reasons']}")
         """
         if result.is_compatible:
+            logger.debug("Transcoding not required: video is compatible", extra={
+                "video_codec": result.video_codec,
+                "audio_codec": result.audio_codec
+            })
             return {"required": False, "reasons": []}
 
         reasons = []
@@ -350,6 +453,14 @@ class VideoValidator:
         # Check orientation
         if result.has_orientation and result.orientation_value and result.orientation_value != 0:
             reasons.append(f"Video orientation correction ({result.orientation_value}°)")
+
+        logger.info("Transcoding requirement check", extra={
+            "required": len(reasons) > 0,
+            "reasons": reasons,
+            "video_codec": result.video_codec,
+            "audio_codec": result.audio_codec,
+            "orientation": result.orientation_value
+        })
 
         return {
             "required": len(reasons) > 0,

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, AsyncIterator, Dict, Any
 
-log = logging.getLogger("tg_video_streamer")
+logger = logging.getLogger(__name__)
 
 
 class QualityProfile(str, Enum):
@@ -138,7 +138,11 @@ class VideoTranscoder:
 
     def __init__(self):
         """Инициализация транскодера."""
-        log.debug("VideoTranscoder initialized")
+        logger.debug("VideoTranscoder initialized", extra={
+            "supported_video_codecs": self.SUPPORTED_VIDEO_CODECS,
+            "supported_audio_codecs": self.SUPPORTED_AUDIO_CODECS,
+            "supported_formats": self.SUPPORTED_FORMATS
+        })
 
     @staticmethod
     def build_ffmpeg_command(
@@ -179,6 +183,20 @@ class VideoTranscoder:
             ... )
             >>> print(cmd[0])  # 'ffmpeg'
         """
+        logger.debug("Building FFmpeg command", extra={
+            "source_url": source_url,
+            "video_codec": video_codec,
+            "audio_codec": audio_codec,
+            "output_format": output_format,
+            "quality": quality.value,
+            "orientation": orientation,
+            "bitrate": bitrate,
+            "audio_bitrate": audio_bitrate,
+            "width": width,
+            "height": height,
+            "fps": fps
+        })
+
         # Base command
         cmd = [
             "ffmpeg",
@@ -197,6 +215,12 @@ class VideoTranscoder:
         else:
             target_height = height or quality.get_video_settings()[0]
             target_bitrate = bitrate or quality.get_video_settings()[1]
+
+        logger.debug("Transcoding quality settings determined", extra={
+            "target_height": target_height,
+            "target_bitrate": target_bitrate,
+            "quality_profile": quality.value
+        })
 
         # Bitrate
         cmd.extend(["-b:v", f"{target_bitrate}k"])
@@ -301,6 +325,12 @@ class VideoTranscoder:
             ... )
             >>> print("transpose" in " ".join(cmd))  # True
         """
+        logger.debug("Building orientation correction command", extra={
+            "source_url": source_url,
+            "orientation": orientation,
+            "output_url": output_url
+        })
+
         cmd = [
             "ffmpeg",
             "-hide_banner",
@@ -312,13 +342,18 @@ class VideoTranscoder:
         # Build transpose filter based on orientation
         if orientation == 90:
             cmd.extend(["-vf", "transpose=2"])  # 90° CCW
+            logger.debug("Orientation correction: 90° counter-clockwise")
         elif orientation == 180:
             cmd.extend(["-vf", "transpose=1,transpose=1"])  # 180°
+            logger.debug("Orientation correction: 180° rotation")
         elif orientation == 270:
             cmd.extend(["-vf", "transpose=1"])  # 90° CW (270° CCW)
+            logger.debug("Orientation correction: 270° counter-clockwise (90° clockwise)")
         else:
             # No correction needed
-            log.debug(f"No orientation correction needed for {orientation}°")
+            logger.debug("No orientation correction needed", extra={
+                "orientation": orientation
+            })
             cmd.extend(["-c", "copy"])  # Stream copy
 
         cmd.extend(["-c:a", "copy"])  # Copy audio without re-encoding
@@ -346,7 +381,19 @@ class VideoTranscoder:
             ...     # Process chunks
             ...     pass
         """
-        log.info(f"Starting video transcoding: {request.to_dict()}")
+        logger.info("Starting video transcoding", extra={
+            "source_url": request.source_url,
+            "video_codec": request.video_codec,
+            "audio_codec": request.audio_codec,
+            "format": request.format,
+            "quality": request.quality.value,
+            "orientation": request.orientation,
+            "bitrate": request.bitrate,
+            "audio_bitrate": request.audio_bitrate,
+            "width": request.width,
+            "height": request.height,
+            "fps": request.fps
+        })
 
         cmd = self.build_ffmpeg_command(
             source_url=request.source_url,
@@ -362,7 +409,10 @@ class VideoTranscoder:
             fps=request.fps,
         )
 
-        log.debug(f"FFmpeg command: {' '.join(cmd)}")
+        logger.debug("FFmpeg command built", extra={
+            "command": " ".join(cmd),
+            "source_url": request.source_url
+        })
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -370,26 +420,69 @@ class VideoTranscoder:
             stderr=asyncio.subprocess.PIPE,
         )
 
+        chunk_count = 0
+        total_bytes = 0
+
         try:
+            logger.debug("Starting to read transcoded video chunks", extra={
+                "source_url": request.source_url
+            })
+
             while True:
                 chunk = await process.stdout.read(8192)  # 8KB chunks for video
                 if not chunk:
+                    logger.debug("End of stream reached", extra={
+                        "source_url": request.source_url,
+                        "chunks_read": chunk_count,
+                        "total_bytes": total_bytes
+                    })
                     break
+                chunk_count += 1
+                total_bytes += len(chunk)
                 yield chunk
+
+                # Log progress every 100 chunks (~800KB)
+                if chunk_count % 100 == 0:
+                    logger.debug("Transcoding progress", extra={
+                        "source_url": request.source_url,
+                        "chunks": chunk_count,
+                        "total_bytes": total_bytes
+                    })
 
             returncode = await process.wait()
 
             if returncode != 0:
                 stderr = await process.stderr.read()
                 error_msg = stderr.decode(errors="replace")
-                log.error(f"FFmpeg transcoding failed: {error_msg}")
+                logger.error("FFmpeg transcoding failed", extra={
+                    "source_url": request.source_url,
+                    "returncode": returncode,
+                    "error": error_msg,
+                    "video_codec": request.video_codec,
+                    "audio_codec": request.audio_codec,
+                    "action": "check_ffmpeg_logs_and_source_video"
+                })
                 raise RuntimeError(f"Video transcoding failed with code {returncode}: {error_msg}")
 
-            log.info(f"Video transcoding completed successfully for {request.source_url}")
+            logger.info("Video transcoding completed successfully", extra={
+                "source_url": request.source_url,
+                "output_format": request.format,
+                "chunks": chunk_count,
+                "total_bytes": total_bytes
+            })
 
         except Exception as e:
-            log.exception(f"Error during video transcoding: {e}")
+            logger.exception("Error during video transcoding", extra={
+                "source_url": request.source_url,
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "chunks_processed": chunk_count,
+                "total_bytes": total_bytes
+            })
             if process.returncode is None:
+                logger.debug("Terminating transcoding process", extra={
+                    "source_url": request.source_url
+                })
                 process.terminate()
                 await process.wait()
             raise
@@ -415,7 +508,14 @@ class VideoTranscoder:
             >>> result = await transcoder.transcode_to_file(request, "output.mp4")
             >>> print(result['success'])
         """
-        log.info(f"Transcoding video to file: {output_path}")
+        logger.info("Starting video transcoding to file", extra={
+            "source_url": request.source_url,
+            "output_path": output_path,
+            "video_codec": request.video_codec,
+            "audio_codec": request.audio_codec,
+            "format": request.format,
+            "quality": request.quality.value
+        })
 
         cmd = self.build_ffmpeg_command(
             source_url=request.source_url,
@@ -434,7 +534,11 @@ class VideoTranscoder:
         # Replace pipe:1 with output path
         cmd[-1] = output_path
 
-        log.debug(f"FFmpeg command: {' '.join(cmd)}")
+        logger.debug("FFmpeg command for file transcoding", extra={
+            "command": " ".join(cmd),
+            "source_url": request.source_url,
+            "output_path": output_path
+        })
 
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -446,14 +550,26 @@ class VideoTranscoder:
 
         if process.returncode != 0:
             error_msg = stderr.decode(errors="replace")
-            log.error(f"FFmpeg transcoding to file failed: {error_msg}")
+            logger.error("FFmpeg transcoding to file failed", extra={
+                "source_url": request.source_url,
+                "output_path": output_path,
+                "returncode": process.returncode,
+                "error": error_msg,
+                "action": "check_ffmpeg_logs_and_source_video"
+            })
             return {
                 "success": False,
                 "error": error_msg,
                 "returncode": process.returncode,
             }
 
-        log.info(f"Video transcoding to file completed: {output_path}")
+        logger.info("Video transcoding to file completed successfully", extra={
+            "source_url": request.source_url,
+            "output_path": output_path,
+            "returncode": process.returncode,
+            "video_codec": request.video_codec,
+            "audio_codec": request.audio_codec
+        })
 
         return {
             "success": True,
