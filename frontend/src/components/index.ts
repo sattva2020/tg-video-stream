@@ -4,3 +4,4 @@
 
 export { default as PollManager } from './interactions/PollManager';
 export { default as QAManager } from './interactions/QAManager';
+export { default as ReactionOverlay } from './interactions/ReactionOverlay';
