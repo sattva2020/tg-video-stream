@@ -266,6 +266,25 @@ jobs:
             }
 
             echo "✅ All service health checks passed!"
+
+            # Run post-deployment smoke tests
+            echo "🔥 Running post-deployment smoke tests..."
+            if [ -f "./scripts/ci/post-deploy-smoke-tests.sh" ]; then
+              bash ./scripts/ci/post-deploy-smoke-tests.sh \
+                --backend-host localhost \
+                --backend-port 8000 \
+                --frontend-host localhost \
+                --frontend-port 3000 \
+                --timeout 15 || {
+                echo "❌ Smoke tests failed, initiating rollback..."
+                rollback_deployment "Smoke tests failed" "$PREVIOUS_COMMIT"
+                exit 1
+              }
+              echo "✅ Smoke tests passed!"
+            else
+              echo "⚠️ Smoke test script not found, skipping..."
+            fi
+
             echo "✅ Deployment successful!"
             echo "Deployed commit: $(git rev-parse HEAD)"
 
@@ -541,6 +560,24 @@ jobs:
             else
               rollback_production "Final verification failed" "$PREVIOUS_COMMIT"
               exit 1
+            fi
+
+            # Run post-deployment smoke tests for production
+            echo "🔥 Running post-deployment smoke tests (PRODUCTION)..."
+            if [ -f "./scripts/ci/post-deploy-smoke-tests.sh" ]; then
+              bash ./scripts/ci/post-deploy-smoke-tests.sh \
+                --backend-host localhost \
+                --backend-port 8000 \
+                --frontend-host localhost \
+                --frontend-port 3000 \
+                --timeout 15 || {
+                echo "❌ Production smoke tests failed, initiating rollback..."
+                rollback_production "Production smoke tests failed" "$PREVIOUS_COMMIT"
+                exit 1
+              }
+              echo "✅ Production smoke tests passed!"
+            else
+              echo "⚠️ Smoke test script not found, skipping..."
             fi
 
             echo "✅ Production deployment successful!"
