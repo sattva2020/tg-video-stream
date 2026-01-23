@@ -14,6 +14,7 @@ Services модуль для обработки бизнес-логики.
 - WebRTCSignalingService: управление WebRTC сигналингом для guest co-hosting (Feature 019)
 - StreamSwitchingService: управление переключением между live и pre-recorded контентом (Feature 019)
 - RecordingService: управление записями live streams (Feature 019)
+- LatencyMonitorService: мониторинг задержки (latency) live streams (Feature 019)
 """
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "WebRTCSignalingService",
     "StreamSwitchingService",
     "RecordingService",
+    "LatencyMonitorService",
 ]
