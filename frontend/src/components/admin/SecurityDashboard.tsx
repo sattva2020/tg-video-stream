@@ -20,6 +20,7 @@ import {
   Eye
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { ComplianceStatus, ComplianceStatusGrid } from './ComplianceStatus';
 
 interface SecurityDashboardProps {
   className?: string;
@@ -187,6 +188,25 @@ export const SecurityDashboard: React.FC<SecurityDashboardProps> = ({ className 
           </Button>
         </div>
       </div>
+
+      {/* Compliance Status Badges */}
+      <ComplianceStatusGrid
+        frameworks={[
+          {
+            framework: 'SOC 2',
+            status: dashboard.compliance_status.overall_status.toLowerCase() as any,
+            description: `${dashboard.compliance_status.framework} compliance status`,
+            lastUpdated: dashboard.generated_at,
+          },
+          {
+            framework: 'GDPR',
+            status: 'compliant' as any, // Would come from API in production
+            description: 'General Data Protection Regulation compliance',
+            lastUpdated: dashboard.generated_at,
+          },
+        ]}
+        loading={isLoading}
+      />
 
       {/* Compliance Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
