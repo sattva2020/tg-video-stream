@@ -215,5 +215,5 @@ def create_app() -> FastAPI:
     app.include_router(solutions_router, prefix="/api", tags=["Solutions"])
     app.include_router(settings_router, prefix="/api/admin", tags=["Settings"])
     app.include_router(video_validation_router, prefix="/api", tags=["Video Validation"])
-    
+
     return app
