@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features/**)",
+      "Glob(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features/**)",
+      "Grep(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features/**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features\\.auto-claude\\specs\\025-advanced-security-compliance-features/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features\\.auto-claude\\specs\\025-advanced-security-compliance-features/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\025-advanced-security-compliance-features\\.auto-claude\\specs\\025-advanced-security-compliance-features/**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Glob(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Grep(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}

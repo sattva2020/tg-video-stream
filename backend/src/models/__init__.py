@@ -42,6 +42,9 @@ from .app_settings import (
     SettingCategory,
 )
 
+# Security & Compliance (Feature 025-advanced-security-compliance-features)
+from .saml_config import SAMLConfig
+
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
@@ -83,6 +86,8 @@ __all__ = [
     "AppSetting",
     "SettingAuditLog",
     "SettingCategory",
+    # Security & Compliance
+    "SAMLConfig",
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
