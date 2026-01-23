@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Broadcast, Radio, UserPlus, Settings, Eye, AlertCircle } from 'lucide-react';
 import { AppLayout } from '../components/layout';
 import { useTranslation } from 'react-i18next';
+import { LatencyMonitor } from '../components/live';
 
 interface LiveStream {
   id: string;
@@ -227,6 +228,26 @@ const LiveStreaming: React.FC = () => {
             <p>
               <strong className="text-[color:var(--color-text)]">{t('live.switchingTitle', 'Stream Switching:')}</strong> {t('live.switchingDesc', 'Seamlessly switch between live and pre-recorded content without interrupting your broadcast.')}
             </p>
+          </div>
+        </div>
+
+        {/* Latency Monitor Demo */}
+        <div className="mt-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <LatencyMonitor
+              currentLatency={120}
+              history={[100, 110, 105, 120, 115, 130, 125, 118, 122, 119, 121, 117, 123, 120, 118, 122, 120, 119, 121, 120]}
+              thresholdWarning={200}
+              thresholdCritical={500}
+              updateInterval={1000}
+            />
+            <LatencyMonitor
+              currentLatency={350}
+              history={[300, 310, 320, 330, 340, 350, 360, 355, 350, 345, 350, 355, 350, 348, 352, 350, 349, 351, 350, 350]}
+              thresholdWarning={200}
+              thresholdCritical={500}
+              updateInterval={1000}
+            />
           </div>
         </div>
       </div>

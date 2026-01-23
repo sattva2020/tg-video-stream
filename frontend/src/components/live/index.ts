@@ -6,3 +6,6 @@ export type { GuestManagerProps, GuestSession, GuestPermissions } from './GuestM
 
 export { StreamPreview } from './StreamPreview';
 export type { StreamPreviewProps } from './StreamPreview';
+
+export { LatencyMonitor } from './LatencyMonitor';
+export type { LatencyMonitorProps } from './LatencyMonitor';
