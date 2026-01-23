@@ -82,6 +82,7 @@ class RedisCommandHandler:
         self.on_volume: Optional[Callable[[str, int], Awaitable[bool]]] = None
         self.on_get_time: Optional[Callable[[str], Awaitable[Optional[int]]]] = None
         self.on_get_participants: Optional[Callable[[str], Awaitable[Optional[list]]]] = None
+        self.on_switch_stream: Optional[Callable[[str, str, str], Awaitable[bool]]] = None
     
     @staticmethod
     def _get_redis_url() -> str:
@@ -189,6 +190,8 @@ class RedisCommandHandler:
                 await self._handle_get_time(command)
             elif action == "get_participants":
                 await self._handle_get_participants(command)
+            elif action == "switch_stream":
+                await self._handle_switch_stream(command)
             else:
                 logger.warning(f"Unknown command action: {action}")
                 
@@ -545,6 +548,37 @@ class RedisCommandHandler:
                 logger.info(f"Channel {channel_id} has {len(participants)} listeners")
         except Exception as e:
             logger.exception(f"Error getting participants for channel {channel_id}: {e}")
+
+    async def _handle_switch_stream(self, command: Dict[str, Any]):
+        """Handle switch_stream command - switch to a different stream."""
+        channel_id = command.get("channel_id")
+        stream_url = command.get("stream_url")
+        stream_type = command.get("stream_type", "auto")
+
+        if not channel_id:
+            logger.error("Switch stream command missing channel_id")
+            return
+
+        if not stream_url:
+            logger.error("Switch stream command missing stream_url")
+            await self.update_status(channel_id, "error", error="Missing stream_url")
+            return
+
+        if not self.on_switch_stream:
+            logger.warning("No on_switch_stream callback registered")
+            await self.update_status(channel_id, "error", error="No switch stream handler")
+            return
+
+        try:
+            success = await self.on_switch_stream(channel_id, stream_url, stream_type)
+            if success:
+                logger.info(f"Channel {channel_id} switched to stream: {stream_url[:80]}...")
+            else:
+                logger.warning(f"Failed to switch stream for channel {channel_id}")
+                await self.update_status(channel_id, "error", error="Stream switch failed")
+        except Exception as e:
+            logger.exception(f"Error switching stream for channel {channel_id}: {e}")
+            await self.update_status(channel_id, "error", error=str(e))
 
     async def _listen_loop(self):
         """Main loop for listening to Redis commands."""

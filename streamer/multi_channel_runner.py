@@ -1416,19 +1416,116 @@ async def get_channel_participants(channel_id: str) -> Optional[list]:
 async def update_channel_playlist(channel_id: str) -> bool:
     """
     Handle playlist update notification.
-    
+
     Signals the playback loop to wake up and re-fetch the playlist immediately.
     """
     if channel_id not in running_channels:
         log.warning(f"Channel {channel_id} not running, cannot update playlist")
         return False
-    
+
     if channel_id in playlist_update_events:
         playlist_update_events[channel_id].set()
         log.info(f"Channel {channel_id}: Playlist update signal sent")
         return True
-    
+
     return False
+
+
+async def switch_stream(channel_id: str, stream_url: str, stream_type: str = "auto") -> bool:
+    """
+    Switch to a different stream immediately.
+
+    This allows seamless transition between:
+    - Pre-recorded content to live stream
+    - Live stream to pre-recorded content
+    - Different live streams (e.g., RTMP to WebRTC)
+    - Different media sources
+
+    Args:
+        channel_id: Channel identifier
+        stream_url: URL of the stream to switch to
+        stream_type: Type of stream ('auto', 'live', 'scheduled').
+                     'auto' detects based on URL protocol.
+
+    Returns:
+        True if switch initiated successfully
+    """
+    if channel_id not in running_channels:
+        log.warning(f"Channel {channel_id} not running, cannot switch stream")
+        return False
+
+    log.info(f"Channel {channel_id}: Switching to stream {stream_url[:80]}... (type={stream_type})")
+
+    try:
+        channel_data = running_channels[channel_id]
+        pytg = channel_data.get("pytg")
+        chat_id = channel_data.get("chat_id")
+
+        if not pytg or not chat_id:
+            log.error(f"Channel {channel_id}: PyTgCalls or chat_id not available")
+            return False
+
+        # Detect stream type if auto
+        if stream_type == "auto":
+            if stream_url.lower().startswith(('rtmp://', 'rtmps://', 'srt://')):
+                stream_type = "live"
+            else:
+                stream_type = "scheduled"
+
+        # Trigger stream ended event to stop current playback
+        # This signals the playback loop to move to next item
+        if chat_id in stream_ended_events:
+            log.info(f"Channel {channel_id}: Stopping current stream via StreamEnded event")
+            stream_ended_events[chat_id].set()
+
+        # For live streams, we need to handle differently
+        # Live streams play indefinitely, so we need to force a switch
+        if stream_type == "live":
+            # Store the new stream URL in a temporary location for the playback loop
+            # The playback loop will check this after the current stream ends
+            if not hasattr(channel_data, "pending_stream_switch"):
+                channel_data["pending_stream_switch"] = {}
+
+            channel_data["pending_stream_switch"]["url"] = stream_url
+            channel_data["pending_stream_switch"]["type"] = stream_type
+            channel_data["pending_stream_switch"]["timestamp"] = asyncio.get_event_loop().time()
+
+            log.info(f"Channel {channel_id}: Pending live stream switch queued: {stream_url[:50]}...")
+
+            # Force stop current stream by leaving the call
+            # This will trigger the playback loop to restart with new stream
+            try:
+                await pytg.leave_call(chat_id)
+                log.info(f"Channel {channel_id}: Left call to force stream switch")
+            except Exception as e:
+                log.warning(f"Channel {channel_id}: Error leaving call for switch: {e}")
+
+            # Update status to indicate switching
+            if command_handler:
+                await command_handler.update_status(
+                    channel_id,
+                    "switching",
+                    current_item=f"Switching to: {stream_url[:50]}..."
+                )
+        else:
+            # For scheduled content, just signal the playlist update
+            # The playback loop will pick up the new content
+            if channel_id in playlist_update_events:
+                playlist_update_events[channel_id].set()
+                log.info(f"Channel {channel_id}: Playlist update signaled for scheduled stream switch")
+
+        log.info(f"Channel {channel_id}: Stream switch initiated successfully")
+        return True
+
+    except Exception as e:
+        log.exception(f"Error switching stream for channel {channel_id}: {e}")
+        if command_handler:
+            await command_handler.update_status(
+                channel_id,
+                "error",
+                error=f"Stream switch failed: {str(e)}"
+            )
+        return False
 
 
 async def main():
@@ -1458,6 +1555,7 @@ async def main():
     command_handler.on_get_time = get_channel_time
     command_handler.on_get_participants = get_channel_participants
     command_handler.on_update_playlist = update_channel_playlist
+    command_handler.on_switch_stream = switch_stream
     
     # Start command handler
     await command_handler.start()
