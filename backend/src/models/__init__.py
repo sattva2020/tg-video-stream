@@ -59,6 +59,14 @@ from .recovery_log import (
     RecoveryStatus,
 )
 
+# Analytics (Feature 012) - Scheduled Reports
+from .scheduled_report import (
+    ScheduledReport,
+    ReportFrequency,
+    ReportType,
+    ReportStatus,
+)
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -107,5 +115,10 @@ __all__ = [
     "RecoveryFailureType",
     "RecoveryStrategy",
     "RecoveryStatus",
+    # Scheduled Reports
+    "ScheduledReport",
+    "ReportFrequency",
+    "ReportType",
+    "ReportStatus",
 ]
 
