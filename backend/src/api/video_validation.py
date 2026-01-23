@@ -255,6 +255,53 @@ async def get_validation_errors(
         )
 
 
+@router.get("/errors/{transcode_id}", response_model=ValidationErrorResponse)
+async def get_transcode_errors(
+    transcode_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get transcoding errors and recommendations.
+
+    Returns detailed error information for a transcoding operation.
+    Provides actionable recommendations for fixing transcoding issues.
+    """
+    try:
+        service = VideoValidationService(db_session=db)
+
+        # Try to get transcoding result from cache
+        result = await service.get_validation_result(transcode_id)
+
+        if not result:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcoding result not found: {transcode_id}"
+            )
+
+        # Extract error information
+        errors = result.get("errors", [])
+        transcoding_required = result.get("transcoding_required", False)
+        transcoding_reasons = result.get("transcoding_reasons", [])
+
+        return ValidationErrorResponse(
+            validation_id=transcode_id,
+            url=result.get("url"),
+            timestamp=result.get("timestamp"),
+            errors=errors,
+            transcoding_required=transcoding_required,
+            transcoding_reasons=transcoding_reasons
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve transcoding errors: {str(e)}"
+        )
+
+
 @router.delete("/validate/{validation_id}")
 async def delete_validation_result(
     validation_id: str,
