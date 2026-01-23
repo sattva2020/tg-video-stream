@@ -289,6 +289,30 @@ pub struct VideoTranscodeRequest {
     /// Целевой уровень громкости в LUFS
     #[serde(default = "default_target_loudness")]
     pub target_loudness: f32,
+
+    /// Включить адаптивный битрейт (automatic adjustment based on bandwidth)
+    #[serde(default)]
+    pub adaptive_bitrate: bool,
+
+    /// Минимальный битрейт видео в kbps (для adaptive bitrate)
+    #[serde(default)]
+    pub min_video_bitrate: Option<u32>,
+
+    /// Максимальный битрейт видео в kbps (для adaptive bitrate)
+    #[serde(default)]
+    pub max_video_bitrate: Option<u32>,
+
+    /// Минимальный битрейт аудио в kbps (для adaptive bitrate)
+    #[serde(default)]
+    pub min_audio_bitrate: Option<u32>,
+
+    /// Максимальный битрейт аудио в kbps (для adaptive bitrate)
+    #[serde(default)]
+    pub max_audio_bitrate: Option<u32>,
+
+    /// Целевая пропускная способность сети в kbps (для quality selection)
+    #[serde(default)]
+    pub target_bandwidth: Option<u32>,
 }
 
 fn default_video_format() -> VideoFormat {
@@ -367,6 +391,82 @@ impl VideoTranscodeRequest {
                 "video_codec {} is not compatible with format {}",
                 self.video_codec, self.format
             ));
+        }
+
+        // Валидация полей адаптивного битрейта
+        if self.adaptive_bitrate {
+            // Проверка min_video_bitrate
+            if let Some(min_vbr) = self.min_video_bitrate {
+                if min_vbr < 100 || min_vbr > 50000 {
+                    return Err("min_video_bitrate must be between 100 and 50000 kbps".to_string());
+                }
+                // Проверка что min_video_bitrate <= video_bitrate (если указан)
+                if let Some(vbr) = self.video_bitrate {
+                    if min_vbr > vbr {
+                        return Err("min_video_bitrate must be <= video_bitrate".to_string());
+                    }
+                }
+            }
+
+            // Проверка max_video_bitrate
+            if let Some(max_vbr) = self.max_video_bitrate {
+                if max_vbr < 100 || max_vbr > 50000 {
+                    return Err("max_video_bitrate must be between 100 and 50000 kbps".to_string());
+                }
+                // Проверка что max_video_bitrate >= video_bitrate (если указан)
+                if let Some(vbr) = self.video_bitrate {
+                    if max_vbr < vbr {
+                        return Err("max_video_bitrate must be >= video_bitrate".to_string());
+                    }
+                }
+            }
+
+            // Проверка что min <= max для видео
+            if let (Some(min_vbr), Some(max_vbr)) = (self.min_video_bitrate, self.max_video_bitrate) {
+                if min_vbr > max_vbr {
+                    return Err("min_video_bitrate must be <= max_video_bitrate".to_string());
+                }
+            }
+
+            // Проверка min_audio_bitrate
+            if let Some(min_abr) = self.min_audio_bitrate {
+                if min_abr < 32 || min_abr > 320 {
+                    return Err("min_audio_bitrate must be between 32 and 320 kbps".to_string());
+                }
+                // Проверка что min_audio_bitrate <= audio_bitrate (если указан)
+                if let Some(abr) = self.audio_bitrate {
+                    if min_abr > abr {
+                        return Err("min_audio_bitrate must be <= audio_bitrate".to_string());
+                    }
+                }
+            }
+
+            // Проверка max_audio_bitrate
+            if let Some(max_abr) = self.max_audio_bitrate {
+                if max_abr < 32 || max_abr > 320 {
+                    return Err("max_audio_bitrate must be between 32 and 320 kbps".to_string());
+                }
+                // Проверка что max_audio_bitrate >= audio_bitrate (если указан)
+                if let Some(abr) = self.audio_bitrate {
+                    if max_abr < abr {
+                        return Err("max_audio_bitrate must be >= audio_bitrate".to_string());
+                    }
+                }
+            }
+
+            // Проверка что min <= max для аудио
+            if let (Some(min_abr), Some(max_abr)) = (self.min_audio_bitrate, self.max_audio_bitrate) {
+                if min_abr > max_abr {
+                    return Err("min_audio_bitrate must be <= max_audio_bitrate".to_string());
+                }
+            }
+
+            // Проверка target_bandwidth
+            if let Some(bandwidth) = self.target_bandwidth {
+                if bandwidth < 100 || bandwidth > 100000 {
+                    return Err("target_bandwidth must be between 100 and 100000 kbps".to_string());
+                }
+            }
         }
 
         Ok(())
@@ -780,5 +880,180 @@ mod tests {
         assert_eq!(resp.video_codec, "libx264");
         assert_eq!(resp.audio_codec, "aac");
         assert_eq!(resp.quality, "high");
+    }
+
+    // Adaptive bitrate tests
+    fn valid_adaptive_request() -> VideoTranscodeRequest {
+        VideoTranscodeRequest {
+            source_url: "https://example.com/video.mp4".to_string(),
+            format: VideoFormat::Mp4,
+            video_codec: VideoCodec::H264,
+            audio_codec: AudioCodec::Aac,
+            quality: VideoQuality::Medium,
+            video_bitrate: Some(2500),
+            audio_bitrate: Some(128),
+            width: None,
+            height: None,
+            fps: None,
+            orientation: None,
+            normalize: false,
+            target_loudness: -16.0,
+            adaptive_bitrate: true,
+            min_video_bitrate: Some(1000),
+            max_video_bitrate: Some(5000),
+            min_audio_bitrate: Some(64),
+            max_audio_bitrate: Some(192),
+            target_bandwidth: Some(3000),
+        }
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_valid_request() {
+        let req = valid_adaptive_request();
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_video_bitrate_too_low() {
+        let mut req = valid_adaptive_request();
+        req.min_video_bitrate = Some(50); // < 100
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_video_bitrate_too_high() {
+        let mut req = valid_adaptive_request();
+        req.min_video_bitrate = Some(60000); // > 50000
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_video_bitrate_too_low() {
+        let mut req = valid_adaptive_request();
+        req.max_video_bitrate = Some(50); // < 100
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_video_bitrate_too_high() {
+        let mut req = valid_adaptive_request();
+        req.max_video_bitrate = Some(60000); // > 50000
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_gt_max_video() {
+        let mut req = valid_adaptive_request();
+        req.min_video_bitrate = Some(5000);
+        req.max_video_bitrate = Some(3000);
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_gt_current_video_bitrate() {
+        let mut req = valid_adaptive_request();
+        req.video_bitrate = Some(2000);
+        req.min_video_bitrate = Some(2500); // > video_bitrate
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_lt_current_video_bitrate() {
+        let mut req = valid_adaptive_request();
+        req.video_bitrate = Some(3000);
+        req.max_video_bitrate = Some(2500); // < video_bitrate
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_audio_bitrate_too_low() {
+        let mut req = valid_adaptive_request();
+        req.min_audio_bitrate = Some(16); // < 32
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_audio_bitrate_too_high() {
+        let mut req = valid_adaptive_request();
+        req.min_audio_bitrate = Some(400); // > 320
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_audio_bitrate_too_low() {
+        let mut req = valid_adaptive_request();
+        req.max_audio_bitrate = Some(16); // < 32
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_audio_bitrate_too_high() {
+        let mut req = valid_adaptive_request();
+        req.max_audio_bitrate = Some(400); // > 320
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_gt_max_audio() {
+        let mut req = valid_adaptive_request();
+        req.min_audio_bitrate = Some(192);
+        req.max_audio_bitrate = Some(128);
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_min_gt_current_audio_bitrate() {
+        let mut req = valid_adaptive_request();
+        req.audio_bitrate = Some(128);
+        req.min_audio_bitrate = Some(160); // > audio_bitrate
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_max_lt_current_audio_bitrate() {
+        let mut req = valid_adaptive_request();
+        req.audio_bitrate = Some(128);
+        req.max_audio_bitrate = Some(96); // < audio_bitrate
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_target_bandwidth_too_low() {
+        let mut req = valid_adaptive_request();
+        req.target_bandwidth = Some(50); // < 100
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_target_bandwidth_too_high() {
+        let mut req = valid_adaptive_request();
+        req.target_bandwidth = Some(200000); // > 100000
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_disabled_no_validation() {
+        let mut req = valid_video_request();
+        req.adaptive_bitrate = false;
+        // Adaptive bitrate fields should not be validated when disabled
+        req.min_video_bitrate = Some(100000); // Invalid value
+        req.max_video_bitrate = Some(10); // Invalid value
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn test_adaptive_bitrate_valid_boundary_values() {
+        let mut req = valid_adaptive_request();
+        // Test minimum valid values
+        req.min_video_bitrate = Some(100);
+        req.max_video_bitrate = Some(50000);
+        req.min_audio_bitrate = Some(32);
+        req.max_audio_bitrate = Some(320);
+        req.target_bandwidth = Some(100);
+        assert!(req.validate().is_ok());
+
+        // Test maximum valid values
+        req.target_bandwidth = Some(100000);
+        assert!(req.validate().is_ok());
     }
 }
