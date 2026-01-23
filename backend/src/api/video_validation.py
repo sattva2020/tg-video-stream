@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from src.api.auth.dependencies import get_current_user
+from src.lib.ssrf_protection import SSRFProtection
 from src.models.user import User
 from src.services.video_validation_service import VideoValidationService
 
@@ -31,10 +32,18 @@ class VideoValidationRequest(BaseModel):
 
     @validator('url')
     def validate_url(cls, v):
-        """Basic URL validation."""
+        """URL validation with SSRF protection."""
         if not v or not v.strip():
             raise ValueError('URL cannot be empty')
-        return v.strip()
+
+        v = v.strip()
+
+        # SSRF protection
+        is_safe, error = SSRFProtection.validate_url(v)
+        if not is_safe:
+            raise ValueError(f'URL validation failed: {error}')
+
+        return v
 
 
 class CodecValidationRequest(BaseModel):
@@ -95,10 +104,18 @@ class VideoProcessRequest(BaseModel):
 
     @validator('url')
     def validate_url(cls, v):
-        """Basic URL validation."""
+        """URL validation with SSRF protection."""
         if not v or not v.strip():
             raise ValueError('URL cannot be empty')
-        return v.strip()
+
+        v = v.strip()
+
+        # SSRF protection
+        is_safe, error = SSRFProtection.validate_url(v)
+        if not is_safe:
+            raise ValueError(f'URL validation failed: {error}')
+
+        return v
 
     @validator('quality')
     def validate_quality(cls, v):

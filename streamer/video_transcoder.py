@@ -136,13 +136,64 @@ class VideoTranscoder:
     SUPPORTED_AUDIO_CODECS = ["aac", "mp3", "opus"]
     SUPPORTED_FORMATS = ["mp4", "mkv", "webm"]
 
+    # Resource limits to prevent DoS
+    # Лимиты ресурсов для предотвращения DoS атак
+    MAX_VIDEO_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2GB
+
     def __init__(self):
         """Инициализация транскодера."""
         logger.debug("VideoTranscoder initialized", extra={
             "supported_video_codecs": self.SUPPORTED_VIDEO_CODECS,
             "supported_audio_codecs": self.SUPPORTED_AUDIO_CODECS,
-            "supported_formats": self.SUPPORTED_FORMATS
+            "supported_formats": self.SUPPORTED_FORMATS,
+            "max_video_size_bytes": self.MAX_VIDEO_SIZE_BYTES
         })
+
+    async def _get_file_size(self, url: str) -> Optional[int]:
+        """
+        Get file size from URL without downloading the entire file.
+
+        Получает размер файла по URL без полной загрузки.
+
+        Uses HTTP HEAD request to check Content-Length header.
+        This is a lightweight check that prevents downloading large files.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            File size in bytes, or None if not available
+        """
+        try:
+            # Use asyncio with aiohttp for non-blocking HTTP HEAD request
+            import aiohttp
+
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.head(url) as response:
+                    if response.status == 200:
+                        content_length = response.headers.get('Content-Length')
+                        if content_length:
+                            size = int(content_length)
+                            logger.debug("Got file size from HEAD request", extra={
+                                "url": url,
+                                "size_bytes": size,
+                                "size_mb": size / (1024 * 1024)
+                            })
+                            return size
+
+            logger.debug("No Content-Length header available", extra={"url": url})
+            return None
+
+        except asyncio.TimeoutError:
+            logger.warning("Timeout while checking file size", extra={"url": url})
+            return None
+        except Exception as e:
+            logger.debug("Failed to get file size", extra={
+                "url": url,
+                "error": str(e)
+            })
+            return None
 
     @staticmethod
     def build_ffmpeg_command(
@@ -394,6 +445,18 @@ class VideoTranscoder:
             "height": request.height,
             "fps": request.fps
         })
+
+        # Check file size before transcoding to prevent DoS
+        # Проверяем размер файла до транскодирования для предотвращения DoS
+        file_size = await self._get_file_size(request.source_url)
+        if file_size and file_size > self.MAX_VIDEO_SIZE_BYTES:
+            logger.error("Video file too large for transcoding", extra={
+                "source_url": request.source_url,
+                "size": file_size,
+                "max_size": self.MAX_VIDEO_SIZE_BYTES,
+                "action": "reject_large_file"
+            })
+            raise ValueError(f"Video file too large: {file_size} bytes (max: {self.MAX_VIDEO_SIZE_BYTES} bytes = {self.MAX_VIDEO_SIZE_BYTES / (1024**3):.1f}GB)")
 
         cmd = self.build_ffmpeg_command(
             source_url=request.source_url,

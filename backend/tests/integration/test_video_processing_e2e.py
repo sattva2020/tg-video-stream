@@ -795,6 +795,139 @@ class TestVideoProcessingEdgeCases:
                     assert call_args[1]['output_format'] == fmt
 
 
+# ==================== SSRF Protection Tests ====================
+
+class TestSSRFProtection:
+    """SSRF (Server-Side Request Forgery) protection tests"""
+
+    def test_validate_private_ip_blocked(self, client, user_token):
+        """Private IP addresses should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://192.168.1.1/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert 'detail' in data
+        error_msg = data['detail'][0]['msg'].lower() if isinstance(data['detail'], list) else data['detail'].lower()
+        assert 'private' in error_msg or 'blocked' in error_msg
+
+    def test_validate_localhost_blocked(self, client, user_token):
+        """localhost should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://localhost:8000/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert 'detail' in data
+
+    def test_validate_127_0_0_1_blocked(self, client, user_token):
+        """127.0.0.1 should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://127.0.0.1/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert 'detail' in data
+
+    def test_validate_10_x_private_ip_blocked(self, client, user_token):
+        """10.x.x.x private IP range should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://10.0.0.1/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+
+    def test_validate_172_16_private_ip_blocked(self, client, user_token):
+        """172.16.x.x private IP range should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://172.16.0.1/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+
+    def test_validate_cloud_metadata_endpoint_blocked(self, client, user_token):
+        """Cloud metadata endpoint 169.254.169.254 should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "http://169.254.169.254/latest/meta-data/"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert 'detail' in data
+        error_msg = data['detail'][0]['msg'].lower() if isinstance(data['detail'], list) else data['detail'].lower()
+        assert 'metadata' in error_msg or 'blocked' in error_msg
+
+    def test_validate_file_scheme_blocked(self, client, user_token):
+        """file:// scheme should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "file:///etc/passwd"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+        data = response.json()
+        assert 'detail' in data
+        error_msg = data['detail'][0]['msg'].lower() if isinstance(data['detail'], list) else data['detail'].lower()
+        assert 'scheme' in error_msg or 'not allowed' in error_msg
+
+    def test_validate_ftp_scheme_blocked(self, client, user_token):
+        """ftp:// scheme should be blocked"""
+        response = client.post(
+            '/api/video/validate',
+            json={"url": "ftp://example.com/video.mp4"},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+
+    def test_process_video_private_ip_blocked(self, client, user_token):
+        """Process endpoint should also block private IPs"""
+        response = client.post(
+            '/api/video/process',
+            json={"url": "http://192.168.1.1/video.mp4", "auto_transcode": True},
+            headers={'Authorization': f'Bearer {user_token}'}
+        )
+        assert response.status_code == 422
+
+    def test_validate_public_ip_allowed(self, client, user_token):
+        """Public IP addresses should be allowed"""
+        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+            mock_validator_instance = MagicMock()
+            mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
+                valid=True,
+                is_compatible=True,
+                video_codec="h264",
+                audio_codec="aac",
+                format="mp4",
+                has_orientation=False,
+                orientation_value=None,
+                errors=[],
+                warnings=[]
+            ))
+            mock_validator_instance.check_transcoding_required = MagicMock(return_value={
+                "required": False,
+                "reasons": []
+            })
+            MockValidator.return_value = mock_validator_instance
+
+            response = client.post(
+                '/api/video/validate',
+                json={"url": "http://8.8.8.8/video.mp4"},  # Google DNS - public IP
+                headers={'Authorization': f'Bearer {user_token}'}
+            )
+            # Should pass SSRF check (will fail later due to mock, but that's ok)
+            # The important thing is it doesn't get rejected at the URL validation stage
+            assert response.status_code in [200, 500]  # Not 422
+
+
 # ==================== Summary ====================
 
 def test_video_processing_integration_coverage_summary():

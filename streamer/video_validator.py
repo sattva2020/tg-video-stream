@@ -11,6 +11,7 @@ Architecture:
 - Validation results with actionable error messages
 """
 
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
@@ -107,13 +108,66 @@ class VideoValidator:
     # Telegram поддерживаемые форматы
     TELEGRAM_SUPPORTED_FORMATS = ["mp4", "mkv", "avi", "mov", "webm"]
 
+    # Resource limits to prevent DoS
+    # Лимиты ресурсов для предотвращения DoS атак
+    MAX_VIDEO_SIZE_BYTES = 2 * 1024 * 1024 * 1024  # 2GB
+    MAX_VIDEO_DURATION_SECONDS = 3600  # 1 hour
+
     def __init__(self):
         """Инициализация валидатора."""
         logger.debug("VideoValidator initialized", extra={
             "supported_video_codecs": self.TELEGRAM_SUPPORTED_VIDEO_CODECS,
             "supported_audio_codecs": self.TELEGRAM_SUPPORTED_AUDIO_CODECS,
             "supported_formats": self.TELEGRAM_SUPPORTED_FORMATS,
+            "max_video_size_bytes": self.MAX_VIDEO_SIZE_BYTES,
+            "max_duration_seconds": self.MAX_VIDEO_DURATION_SECONDS,
         })
+
+    async def _get_file_size(self, url: str) -> Optional[int]:
+        """
+        Get file size from URL without downloading the entire file.
+
+        Получает размер файла по URL без полной загрузки.
+
+        Uses HTTP HEAD request to check Content-Length header.
+        This is a lightweight check that prevents downloading large files.
+
+        Args:
+            url: URL to check
+
+        Returns:
+            File size in bytes, or None if not available
+        """
+        try:
+            # Use asyncio with aiohttp for non-blocking HTTP HEAD request
+            import aiohttp
+
+            timeout = aiohttp.ClientTimeout(total=5)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.head(url) as response:
+                    if response.status == 200:
+                        content_length = response.headers.get('Content-Length')
+                        if content_length:
+                            size = int(content_length)
+                            logger.debug("Got file size from HEAD request", extra={
+                                "url": url,
+                                "size_bytes": size,
+                                "size_mb": size / (1024 * 1024)
+                            })
+                            return size
+
+            logger.debug("No Content-Length header available", extra={"url": url})
+            return None
+
+        except asyncio.TimeoutError:
+            logger.warning("Timeout while checking file size", extra={"url": url})
+            return None
+        except Exception as e:
+            logger.debug("Failed to get file size", extra={
+                "url": url,
+                "error": str(e)
+            })
+            return None
 
     @staticmethod
     def detect_orientation(ffprobe_json: Dict[str, Any]) -> Optional[int]:
@@ -227,6 +281,22 @@ class VideoValidator:
         errors = []
         warnings = []
         is_compatible = True
+
+        # Check file size before validation to prevent DoS
+        # Проверяем размер файла до валидации для предотвращения DoS
+        file_size = await self._get_file_size(url)
+        if file_size and file_size > self.MAX_VIDEO_SIZE_BYTES:
+            logger.warning("Video file too large", extra={
+                "url": url,
+                "size": file_size,
+                "max_size": self.MAX_VIDEO_SIZE_BYTES,
+                "action": "reject_large_file"
+            })
+            return ValidationResult(
+                valid=False,
+                is_compatible=False,
+                errors=[f"Video file too large: {file_size} bytes (max: {self.MAX_VIDEO_SIZE_BYTES} bytes = {self.MAX_VIDEO_SIZE_BYTES / (1024**3):.1f}GB)"]
+            )
 
         # Analyze stream quality using existing ffprobe_utils
         stream_quality = await analyze_stream_quality(url, timeout)
