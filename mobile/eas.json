@@ -4,6 +4,10 @@
     "appVersionSource": "local"
   },
   "build": {
+    "cache": {
+      "key": "eas-cache-{{ platform }}-{{ profile }}"
+    },
+    "node": "18.18.0",
     "development": {
       "developmentClient": true,
       "distribution": "internal",
@@ -12,6 +16,9 @@
       },
       "android": {
         "resourceClass": "medium"
+      },
+      "env": {
+        "APP_ENV": "development"
       }
     },
     "preview": {
