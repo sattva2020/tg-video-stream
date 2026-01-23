@@ -301,7 +301,13 @@ class ConflictResolutionRequest(BaseModel):
     """Запрос на разрешение конфликтов."""
     channel_id: str = Field(..., description="ID канала")
     date: date = Field(..., description="Дата разрешения")
-    resolutions: List[ConflictResolutionAction] = Field(..., description="Действия по разрешению")
+    resolutions: Optional[List[ConflictResolutionAction]] = Field(None, description="Действия по разрешению (опционально для автоматического разрешения)")
+
+
+class SingleDayConflictResolutionRequest(BaseModel):
+    """Упрощённый запрос на разрешение конфликтов за один день."""
+    channel_id: str = Field(..., description="ID канала")
+    date: date = Field(..., description="Дата разрешения")
 
 
 class ConflictResolutionResponse(BaseModel):

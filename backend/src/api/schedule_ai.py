@@ -34,6 +34,7 @@ from src.schemas.schedule_ai import (
     ConflictDetectionRequest,
     ConflictDetectionResponse,
     ConflictResolutionResponse,
+    SingleDayConflictResolutionRequest,
     GapDetectionRequest,
     GapDetectionResponse,
 )
@@ -284,20 +285,108 @@ async def detect_conflicts(
     try:
         service = ScheduleOptimizationService(db)
 
-        conflicts = await service.detect_conflicts(
-            channel_id=request.channel_id,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
+        # Call service with request object
+        result = await service.detect_conflicts(request)
 
-        return ConflictDetectionResponse(
-            channel_id=request.channel_id,
-            period={"start": str(request.start_date), "end": str(request.end_date)},
-            total_conflicts=len(conflicts),
-            conflicts=conflicts
-        )
+        return result
     except Exception as e:
         logger.error(f"Error detecting conflicts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/resolve-conflicts", response_model=ConflictResolutionResponse)
+async def resolve_conflicts(
+    request: SingleDayConflictResolutionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Разрешить конфликты в расписании.
+
+    Анализирует конфликты и предлагает действия для их разрешения на основе приоритетов.
+    """
+    try:
+        service = ScheduleOptimizationService(db)
+
+        # Create request for single day
+        detection_request = ConflictDetectionRequest(
+            channel_id=request.channel_id,
+            start_date=request.date,
+            end_date=request.date
+        )
+
+        # Get conflict detection and resolution suggestions
+        detection_result = await service.resolve_conflicts(detection_request)
+
+        # Calculate resolution stats from detection result
+        # The service returns conflicts with highest priority slot as "winner"
+        resolutions_applied = 0
+        slots_removed = 0
+        slots_modified = 0
+
+        for conflict in detection_result.conflicts:
+            if len(conflict.conflicts) > 1:
+                # First slot (highest priority) is kept, others would be removed/modified
+                resolutions_applied += len(conflict.conflicts) - 1
+                slots_removed += len(conflict.conflicts) - 1
+
+        return ConflictResolutionResponse(
+            channel_id=request.channel_id,
+            date=request.date,
+            resolutions_applied=resolutions_applied,
+            slots_removed=slots_removed,
+            slots_modified=slots_modified,
+            remaining_conflicts=detection_result.total_conflicts
+        )
+    except Exception as e:
+        logger.error(f"Error resolving conflicts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/resolve-conflicts-single-day", response_model=ConflictResolutionResponse)
+async def resolve_conflicts_single_day(
+    request: SingleDayConflictResolutionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Разрешить конфликты в расписании на отдельную дату.
+
+    Упрощённый метод для разрешения конфликтов за один день.
+    """
+    try:
+        service = ScheduleOptimizationService(db)
+
+        # Create request for single day
+        detection_request = ConflictDetectionRequest(
+            channel_id=request.channel_id,
+            start_date=request.date,
+            end_date=request.date
+        )
+
+        # Get conflict detection and resolution suggestions
+        detection_result = await service.resolve_conflicts(detection_request)
+
+        # Calculate resolution stats
+        resolutions_applied = 0
+        slots_removed = 0
+        slots_modified = 0
+
+        for conflict in detection_result.conflicts:
+            if len(conflict.conflicts) > 1:
+                resolutions_applied += len(conflict.conflicts) - 1
+                slots_removed += len(conflict.conflicts) - 1
+
+        return ConflictResolutionResponse(
+            channel_id=request.channel_id,
+            date=request.date,
+            resolutions_applied=resolutions_applied,
+            slots_removed=slots_removed,
+            slots_modified=slots_modified,
+            remaining_conflicts=detection_result.total_conflicts
+        )
+    except Exception as e:
+        logger.error(f"Error resolving conflicts for single day: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -310,21 +399,25 @@ async def resolve_conflicts(
     """
     Разрешить конфликты в расписании.
 
-    Предлагает действия для разрешения обнаруженных конфликтов.
+    Анализирует конфликты и автоматически применяет разрешения на основе приоритетов.
     """
     try:
         service = ScheduleOptimizationService(db)
 
-        resolution = await service.resolve_conflicts(
-            channel_id=request.channel_id,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
+        # Get conflict detection and resolution suggestions
+        detection_result = await service.resolve_conflicts(request)
 
-        # Calculate stats from resolution
-        resolutions_applied = len(resolution.get("resolutions", []))
-        slots_removed = sum(1 for r in resolution.get("resolutions", []) if r.get("action") == "remove")
-        slots_modified = sum(1 for r in resolution.get("resolutions", []) if r.get("action") in ["modify_time", "lower_priority"])
+        # Calculate resolution stats from detection result
+        # The service returns conflicts with highest priority slot as "winner"
+        resolutions_applied = 0
+        slots_removed = 0
+        slots_modified = 0
+
+        for conflict in detection_result.conflicts:
+            if len(conflict.conflicts) > 1:
+                # First slot (highest priority) is kept, others would be removed/modified
+                resolutions_applied += len(conflict.conflicts) - 1
+                slots_removed += len(conflict.conflicts) - 1
 
         return ConflictResolutionResponse(
             channel_id=request.channel_id,
@@ -332,7 +425,7 @@ async def resolve_conflicts(
             resolutions_applied=resolutions_applied,
             slots_removed=slots_removed,
             slots_modified=slots_modified,
-            remaining_conflicts=resolution.get("remaining_conflicts", 0)
+            remaining_conflicts=detection_result.total_conflicts
         )
     except Exception as e:
         logger.error(f"Error resolving conflicts: {e}")
@@ -355,25 +448,10 @@ async def detect_gaps(
     try:
         service = ScheduleOptimizationService(db)
 
-        gaps = await service.detect_gaps(
-            channel_id=request.channel_id,
-            start_date=request.start_date,
-            end_date=request.end_date
-        )
+        # Call service with request object
+        result = await service.detect_gaps(request)
 
-        # Calculate stats
-        total_gap_hours = sum(g.get("duration_hours", 0) for g in gaps)
-        peak_hours_gap = sum(g.get("duration_hours", 0) for g in gaps if g.get("is_peak_hour", False))
-        fillable_gaps = len(gaps)
-
-        return GapDetectionResponse(
-            channel_id=request.channel_id,
-            period={"start": str(request.start_date), "end": str(request.end_date)},
-            total_gap_hours=total_gap_hours,
-            peak_hours_gap=peak_hours_gap,
-            gaps=gaps,
-            fillable_gaps=fillable_gaps
-        )
+        return result
     except Exception as e:
         logger.error(f"Error detecting gaps: {e}")
         raise HTTPException(status_code=500, detail=str(e))
