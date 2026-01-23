@@ -7,9 +7,10 @@ aggregated security events for the admin dashboard.
 Admin-only access.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any
+from sqlalchemy import func, case, literal_column
+from typing import Optional, Dict, Any, List, Literal
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
 
@@ -82,6 +83,27 @@ class SecurityDashboardResponse(BaseModel):
     security_configs: SecurityConfigSummary
     recent_critical_events: list
     generated_at: str
+
+
+class SecurityEventBucket(BaseModel):
+    """Schema for a single time bucket in security events history."""
+    timestamp: str
+    total_events: int
+    by_severity: Dict[str, int]
+    by_status: Dict[str, int]
+    by_category: Dict[str, int]
+    critical_events: int
+    high_events: int
+    resolved_events: int
+
+
+class SecurityEventsHistoryResponse(BaseModel):
+    """Schema for security events history response."""
+    period: Dict[str, str]
+    interval: str
+    total_events: int
+    buckets: List[SecurityEventBucket]
+    summary: Dict[str, Any]
 
 
 # ============================================================================
@@ -337,3 +359,152 @@ def get_recent_critical_events(
             for event in events
         ]
     }
+
+
+@router.get("/security/events", response_model=SecurityEventsHistoryResponse)
+def get_security_events_history(
+    period: Literal["1d", "7d", "30d", "90d", "1y"] = Query("7d", description="Time period for aggregation"),
+    interval: Literal["hour", "day", "week"] = Query("day", description="Aggregation interval"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    severity: Optional[str] = Query(None, description="Filter by severity"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin)
+):
+    """
+    Get security events history for dashboard charts.
+
+    Returns aggregated security events over time, grouped by the specified interval.
+    Suitable for displaying trends and patterns in security events.
+    """
+    try:
+        # Calculate date range based on period
+        period_days = {
+            "1d": 1,
+            "7d": 7,
+            "30d": 30,
+            "90d": 90,
+            "1y": 365
+        }
+        days = period_days.get(period, 7)
+
+        end_date = datetime.now(timezone.utc)
+        start_date = end_date - timedelta(days=days)
+
+        # Build base query
+        query = db.query(ComplianceLog).filter(
+            ComplianceLog.timestamp >= start_date,
+            ComplianceLog.timestamp <= end_date
+        )
+
+        # Apply filters if provided
+        if category:
+            query = query.filter(ComplianceLog.category == category)
+        if severity:
+            query = query.filter(ComplianceLog.severity == severity)
+
+        # Get total count
+        total_events = query.count()
+
+        # Determine truncation function based on interval
+        if interval == "hour":
+            # Truncate to hour
+            time_trunc = func.date_trunc('hour', ComplianceLog.timestamp)
+        elif interval == "week":
+            # Truncate to week
+            time_trunc = func.date_trunc('week', ComplianceLog.timestamp)
+        else:  # day
+            # Truncate to day
+            time_trunc = func.date_trunc('day', ComplianceLog.timestamp)
+
+        # Aggregate events by time bucket
+        events_by_time = query.with_entities(
+            time_trunc.label('time_bucket'),
+            func.count().label('total'),
+            func.sum(case((ComplianceLog.severity == SeverityLevel.CRITICAL, 1), else_=0)).label('critical'),
+            func.sum(case((ComplianceLog.severity == SeverityLevel.HIGH, 1), else_=0)).label('high'),
+            func.sum(case((ComplianceLog.compliance_status == ComplianceStatus.COMPLIANT, 1), else_=0)).label('compliant'),
+            func.sum(case((ComplianceLog.compliance_status == ComplianceStatus.NON_COMPLIANT, 1), else_=0)).label('non_compliant'),
+            func.sum(case((ComplianceLog.compliance_status == ComplianceStatus.PENDING_REVIEW, 1), else_=0)).label('pending_review'),
+            func.sum(case((ComplianceLog.compliance_status == ComplianceStatus.RESOLVED, 1), else_=0)).label('resolved')
+        ).group_by(time_trunc).order_by(time_bucket).all()
+
+        # Build response buckets
+        buckets = []
+        for row in events_by_time:
+            # Get detailed breakdown for this bucket
+            bucket_start = row.time_bucket
+            if interval == "hour":
+                bucket_end = bucket_start + timedelta(hours=1)
+            elif interval == "week":
+                bucket_end = bucket_start + timedelta(weeks=1)
+            else:  # day
+                bucket_end = bucket_start + timedelta(days=1)
+
+            # Query events in this bucket for detailed breakdown
+            bucket_query = db.query(ComplianceLog).filter(
+                ComplianceLog.timestamp >= bucket_start,
+                ComplianceLog.timestamp < bucket_end
+            )
+            if category:
+                bucket_query = bucket_query.filter(ComplianceLog.category == category)
+            if severity:
+                bucket_query = bucket_query.filter(ComplianceLog.severity == severity)
+
+            # Get breakdown by severity
+            severity_breakdown = dict(bucket_query.with_entities(
+                ComplianceLog.severity,
+                func.count()
+            ).group_by(ComplianceLog.severity).all())
+
+            # Get breakdown by status
+            status_breakdown = dict(bucket_query.with_entities(
+                ComplianceLog.compliance_status,
+                func.count()
+            ).group_by(ComplianceLog.compliance_status).all())
+
+            # Get breakdown by category
+            category_breakdown = dict(bucket_query.with_entities(
+                ComplianceLog.category,
+                func.count()
+            ).group_by(ComplianceLog.category).all())
+
+            # Convert string keys to proper format
+            severity_breakdown_str = {str(k): v for k, v in severity_breakdown.items()}
+            status_breakdown_str = {str(k): v for k, v in status_breakdown.items()}
+            category_breakdown_str = {str(k) if k else "unknown": v for k, v in category_breakdown.items()}
+
+            buckets.append(SecurityEventBucket(
+                timestamp=bucket_start.isoformat(),
+                total_events=row.total or 0,
+                by_severity=severity_breakdown_str,
+                by_status=status_breakdown_str,
+                by_category=category_breakdown_str,
+                critical_events=int(row.critical or 0),
+                high_events=int(row.high or 0),
+                resolved_events=int(row.resolved or 0)
+            ))
+
+        # Calculate summary statistics
+        resolved_count = sum(b.resolved_events for b in buckets)
+        critical_count = sum(b.critical_events for b in buckets)
+        high_count = sum(b.high_events for b in buckets)
+
+        return SecurityEventsHistoryResponse(
+            period={
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+                "days": days
+            },
+            interval=interval,
+            total_events=total_events,
+            buckets=buckets,
+            summary={
+                "resolved_events": resolved_count,
+                "critical_events": critical_count,
+                "high_events": high_count,
+                "unresolved_events": total_events - resolved_count
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get security events history: {str(e)}")
