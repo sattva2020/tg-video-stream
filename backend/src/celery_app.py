@@ -43,6 +43,7 @@ def make_celery():
             'tasks.notifications',
             'tasks.media',
             'src.services.notifications.worker',
+            'src.tasks.cdn_tasks',
         ]
     )
     
@@ -71,6 +72,7 @@ def make_celery():
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
+            'tasks.check_cdn_health': {'queue': 'cdn'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
         },
@@ -79,6 +81,7 @@ def make_celery():
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('cdn', routing_key='cdn'),
         ],
         
         # Rate limits
