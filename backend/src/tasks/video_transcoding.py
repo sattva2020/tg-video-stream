@@ -128,8 +128,9 @@ def perform_transcode(
             file_size = None
             try:
                 file_size = os.path.getsize(output_file)
-            except Exception:
-                pass
+            except Exception as e:
+                # Логируем, но не прерываем выполнение: размер файла является необязательной метаинформацией
+                logger.warning("Failed to get file size for %s: %s", output_file, e)
 
             return {
                 "success": True,
