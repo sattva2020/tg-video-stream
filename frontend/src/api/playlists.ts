@@ -6,7 +6,10 @@ export interface PlaylistEntry {
   duration: number;
   type: string;
   file_id?: string;
+  thumbnail?: string;
 }
+
+export type RepeatMode = 'none' | 'one' | 'all';
 
 export interface Playlist {
   id: string;
@@ -18,6 +21,7 @@ export interface Playlist {
   icon: string;
   source_type?: string;
   source_url?: string;
+  repeat_mode?: RepeatMode;
   items: PlaylistEntry[];
   items_count: number;
   total_duration: number;
@@ -45,6 +49,7 @@ export interface PlaylistUpdate {
   icon?: string;
   source_type?: string;
   source_url?: string;
+  repeat_mode?: RepeatMode;
   items?: PlaylistEntry[];
 }
 
