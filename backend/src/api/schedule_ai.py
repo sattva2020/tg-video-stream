@@ -64,7 +64,7 @@ async def health_check():
 @router.get("/recommendations", response_model=ScheduleRecommendationResponse)
 async def get_recommendations(
     channel_id: str = Query(..., description="ID канала"),
-    target_date: date = Query(..., description="Целевая дата (YYYY-MM-DD)"),
+    date: date = Query(..., description="Целевая дата (YYYY-MM-DD)"),
     recommendation_types: Optional[List[str]] = Query(None, description="Фильтр по типам"),
     max_recommendations: int = Query(10, ge=1, le=50, description="Макс. количество"),
     min_confidence: float = Query(50.0, ge=0, le=100, description="Мин. уверенность"),
@@ -78,23 +78,20 @@ async def get_recommendations(
     """
     try:
         service = ScheduleRecommendationService(db)
-        recommendations = await service.get_recommendations(
+
+        # Construct the request object
+        request = ScheduleRecommendationRequest(
             channel_id=channel_id,
-            target_date=target_date,
-            min_confidence=min_confidence / 100.0,  # Convert to 0-1 range
-            limit=max_recommendations
+            target_date=date,
+            recommendation_types=recommendation_types,
+            max_recommendations=max_recommendations,
+            min_confidence=min_confidence
         )
 
-        items = recommendations.get("recommendations", [])
-        high_conf_count = sum(1 for item in items if item.get("confidence_score", 0) >= min_confidence)
+        # Get recommendations from service
+        response = await service.get_recommendations(request)
 
-        return ScheduleRecommendationResponse(
-            recommendations=items,
-            total_count=len(items),
-            high_confidence_count=high_conf_count,
-            target_date=target_date,
-            generated_at=datetime.utcnow()
-        )
+        return response
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -256,27 +253,13 @@ async def get_peak_hours(
     try:
         service = ScheduleRecommendationService(db)
 
-        # Parse period (e.g., "30d" -> 30 days)
-        days = int(period.replace("d", ""))
-
-        peak_hours = await service.get_peak_hours(
+        # Get peak hours from service (period format: "7d", "30d", "90d")
+        response = await service.get_peak_hours(
             channel_id=channel_id,
-            days=days
+            period=period
         )
 
-        # Calculate period dates
-        end_date = date.today()
-        start_date = end_date - timedelta(days=days)
-
-        return PeakHoursResponse(
-            channel_id=channel_id,
-            period_start=start_date,
-            period_end=end_date,
-            sample_size=days,
-            peak_hours_data=peak_hours.get("peak_hours_data", []),
-            best_hours=peak_hours.get("best_hours", []),
-            updated_at=datetime.utcnow()
-        )
+        return response
     except Exception as e:
         logger.error(f"Error getting peak hours: {e}")
         raise HTTPException(status_code=500, detail=str(e))
