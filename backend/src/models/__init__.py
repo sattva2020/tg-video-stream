@@ -45,6 +45,9 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# Viewer Interaction & Engagement (Feature 020)
+from .poll import Poll, PollOption, PollVote, PollType, PollStatus
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +89,11 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # Viewer Interaction & Engagement
+    "Poll",
+    "PollOption",
+    "PollVote",
+    "PollType",
+    "PollStatus",
 ]
 

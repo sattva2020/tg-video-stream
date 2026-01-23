@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "020-viewer-interaction-engagement-features",
+  "state": "planning",
+  "subtasks": {
+    "completed": 0,
+    "total": 0,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Backend Data Models & Domain Layer",
+    "id": null,
+    "total": 6
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 2,
+    "started_at": "2026-01-23T16:04:01.373829"
+  },
+  "last_update": "2026-01-23T16:13:06.035155"
+}
