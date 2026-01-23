@@ -12,6 +12,7 @@ Feature: 016-a-b-testing-framework-for-content
 import json
 import logging
 import uuid
+import math
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
@@ -675,12 +676,13 @@ class ABTestingService:
             metadata=metric.metadata,
         )
 
-    async def analyze_test(self, test_id: UUID) -> ABTestAnalysisResponse:
+    async def analyze_test(self, test_id: UUID, confidence_level: float = 0.95) -> ABTestAnalysisResponse:
         """
         Статистический анализ A/B теста.
 
         Args:
             test_id: ID теста
+            confidence_level: Уровень доверия (по умолчанию 0.95)
 
         Returns:
             ABTestAnalysisResponse с результатами анализа
@@ -724,28 +726,72 @@ class ABTestingService:
             # Конверсия
             conversion_rate = float(conversions) / float(impressions) if impressions > 0 else 0.0
 
-            # Доверительный интервал (placeholder, будет рассчитан в subtask-2-2)
+            # Расчет доверительного интервала
+            ci_lower, ci_upper = await self.calculate_confidence_interval(
+                conversions=int(conversions),
+                total=int(impressions),
+                confidence_level=confidence_level,
+            )
+
             stats = ABTestStatistics(
                 variant_id=variant.id,
                 variant_name=variant.name,
                 impressions=int(impressions),
                 conversions=int(conversions),
                 conversion_rate=conversion_rate,
-                confidence_interval_lower=None,
-                confidence_interval_upper=None,
+                confidence_interval_lower=ci_lower,
+                confidence_interval_upper=ci_upper,
             )
             variant_stats.append(stats)
 
-        # Определение победителя (placeholder, будет улучшен в subtask-2-2)
+        # Определение победителя и расчет статистической значимости
         winner_id = None
-        if variant_stats:
-            winner = max(variant_stats, key=lambda x: x.conversion_rate)
+        p_value = None
+        z_score = None
+        is_significant = False
+
+        if len(variant_stats) >= 2:
+            # Сортируем варианты по конверсии
+            sorted_variants = sorted(variant_stats, key=lambda x: x.conversion_rate, reverse=True)
+            winner = sorted_variants[0]
+            runner_up = sorted_variants[1]
+
             winner_id = winner.variant_id
 
-        # Статистическая значимость (placeholder, будет рассчитана в subtask-2-2)
-        p_value = None
-        is_significant = False
-        confidence_level = 95.0
+            # Расчет статистической значимости между победителем и вторым местом
+            if winner.impressions > 0 and runner_up.impressions > 0:
+                is_significant, p_value, z_score = await self.calculate_statistical_significance(
+                    control_conversions=runner_up.conversions,
+                    control_total=runner_up.impressions,
+                    treatment_conversions=winner.conversions,
+                    treatment_total=winner.impressions,
+                    confidence_level=confidence_level,
+                )
+
+                # Расчет относительного улучшения
+                if runner_up.conversion_rate > 0:
+                    winner.improvement = (
+                        (winner.conversion_rate - runner_up.conversion_rate) /
+                        runner_up.conversion_rate
+                    )
+                elif winner.conversion_rate > 0:
+                    winner.improvement = 1.0  # 100% улучшение от 0
+                else:
+                    winner.improvement = 0.0
+
+        elif len(variant_stats) == 1:
+            # Только один вариант
+            winner_id = variant_stats[0].variant_id
+
+        # Рекомендация
+        if is_significant and winner_id:
+            recommended_action = f"Implement variant {winner_id} - statistically significant winner"
+        elif p_value and p_value < 0.1:
+            recommended_action = f"Trending towards variant {winner_id} - consider more traffic"
+        elif len(variant_stats) >= 2:
+            recommended_action = "Continue testing - no statistically significant winner yet"
+        else:
+            recommended_action = "Insufficient data for recommendation"
 
         response = ABTestAnalysisResponse(
             test_id=test.id,
@@ -753,63 +799,302 @@ class ABTestingService:
             status=test.status.value,
             variants=variant_stats,
             winner_variant_id=winner_id,
-            confidence_level=confidence_level,
+            confidence_level=confidence_level * 100,  # Convert to percentage
             is_significant=is_significant,
             p_value=p_value,
-            recommended_action="Continue testing" if not is_significant else f"Implement variant {winner_id}",
+            recommended_action=recommended_action,
             analyzed_at=datetime.now(timezone.utc),
         )
 
         return response
 
-    # Placeholder методы для статистических расчетов (будут реализованы в subtask-2-2)
+    def _get_z_critical(self, confidence_level: float) -> float:
+        """
+        Получение Z-критического значения для уровня доверия.
+
+        Args:
+            confidence_level: Уровень доверия (0.0 - 1.0)
+
+        Returns:
+            Z-критическое значение
+        """
+        # Стандартные z-значения для распространенных уровней доверия
+        z_values = {
+            0.90: 1.645,
+            0.95: 1.96,
+            0.99: 2.576,
+        }
+
+        if confidence_level in z_values:
+            return z_values[confidence_level]
+
+        # Для других значений используем приближение через обратную функцию стандартного нормального распределения
+        # Используем аппроксимацию Абрамовица и Стегуна
+        alpha = 1.0 - confidence_level
+
+        if alpha >= 1.0 or alpha <= 0.0:
+            return 1.96  # Default to 95%
+
+        # Двусторонний тест
+        alpha = alpha / 2.0
+
+        # Аппроксимация
+        if alpha >= 0.5:
+            return 0.0
+
+        t = math.sqrt(-2.0 * math.log(alpha))
+        c0 = 2.515517
+        c1 = 0.802853
+        c2 = 0.010328
+        d1 = 1.432788
+        d2 = 0.189269
+        d3 = 0.001308
+
+        numerator = c0 + c1 * t + c2 * t * t
+        denominator = 1.0 + d1 * t + d2 * t * t + d3 * t * t * t
+        z_score = t - numerator / denominator
+
+        return z_score
+
+    def _calculate_p_value(self, z_score: float, two_tailed: bool = True) -> float:
+        """
+        Расчет p-value из z-оценки.
+
+        Args:
+            z_score: Z-оценка
+            two_tailed: Двусторонний тест
+
+        Returns:
+            p-value
+        """
+        # Стандартная нормальная CDF (кумулятивная функция распределения)
+        def normal_cdf(x: float) -> float:
+            """Аппроксимация стандартной нормальной CDF."""
+            a1 = 0.254829592
+            a2 = -0.284496736
+            a3 = 1.421413741
+            a4 = -1.453152027
+            a5 = 1.061405429
+            p = 0.3275911
+
+            sign = 1.0 if x >= 0 else -1.0
+            x = abs(x) / math.sqrt(2.0)
+
+            t = 1.0 / (1.0 + p * x)
+            y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * math.exp(-x * x)
+
+            return 0.5 * (1.0 + sign * y)
+
+        if two_tailed:
+            return 2.0 * (1.0 - normal_cdf(abs(z_score)))
+        else:
+            return 1.0 - normal_cdf(z_score)
+
     async def calculate_statistical_significance(
         self,
         control_conversions: int,
         control_total: int,
         treatment_conversions: int,
         treatment_total: int,
-    ) -> tuple[bool, float]:
+        confidence_level: float = 0.95,
+    ) -> tuple[bool, Optional[float], Optional[float]]:
         """
-        Расчет статистической значимости (z-test).
+        Расчет статистической значимости (z-test для двух пропорций).
 
         Args:
             control_conversions: Конверсии контрольной группы
             control_total: Размер контрольной группы
             treatment_conversions: Конверсии тестовой группы
             treatment_total: Размер тестовой группы
+            confidence_level: Уровень доверия (по умолчанию 0.95)
 
         Returns:
-            (is_significant, p_value)
+            (is_significant, p_value, z_score)
 
-        Note:
-            Полная реализация будет в subtask-2-2
+        Raises:
+            ValueError: Если входные данные некорректны
         """
-        # Placeholder - будет реализован в subtask-2-2
-        return False, None
+        # Валидация входных данных
+        if control_total <= 0 or treatment_total <= 0:
+            raise ValueError("Размер выборки должен быть положительным")
+
+        if control_conversions < 0 or treatment_conversions < 0:
+            raise ValueError("Количество конверсий не может быть отрицательным")
+
+        if control_conversions > control_total or treatment_conversions > treatment_total:
+            raise ValueError("Конверсии не могут превышать размер выборки")
+
+        # Если выборки слишком маленькие, тест не надежен
+        if control_total < 30 or treatment_total < 30:
+            logger.warning(
+                f"Маленькая выборка для z-test: control={control_total}, treatment={treatment_total}. "
+                "Результаты могут быть ненадежными."
+            )
+
+        # Расчет конверсионных ставок
+        p1 = float(control_conversions) / float(control_total) if control_total > 0 else 0.0
+        p2 = float(treatment_conversions) / float(treatment_total) if treatment_total > 0 else 0.0
+
+        # Объединенная пропорция (pooled proportion)
+        pooled_p = float(control_conversions + treatment_conversions) / float(control_total + treatment_total)
+
+        # Стандартная ошибка разности пропорций
+        se = math.sqrt(
+            pooled_p * (1.0 - pooled_p) * (1.0 / control_total + 1.0 / treatment_total)
+        ) if (pooled_p > 0 and pooled_p < 1) else 0.0
+
+        if se == 0.0:
+            # Избегаем деления на ноль
+            return False, None, None
+
+        # Z-оценка
+        z_score = (p2 - p1) / se
+
+        # P-value (двусторонний тест)
+        p_value = self._calculate_p_value(z_score, two_tailed=True)
+
+        # Проверка значимости
+        alpha = 1.0 - confidence_level
+        is_significant = p_value is not None and p_value < alpha
+
+        logger.debug(
+            f"Z-test: p1={p1:.4f}, p2={p2:.4f}, z={z_score:.4f}, p={p_value:.4f}, "
+            f"significant={is_significant}"
+        )
+
+        return is_significant, p_value, z_score
 
     async def calculate_confidence_interval(
         self,
         conversions: int,
         total: int,
         confidence_level: float = 0.95,
-    ) -> tuple[float, float]:
+    ) -> tuple[Optional[float], Optional[float]]:
         """
-        Расчет доверительного интервала.
+        Расчет доверительного интервала для пропорции (метод Уилсона).
 
         Args:
             conversions: Количество конверсий
             total: Размер выборки
-            confidence_level: Уровень доверия (0.0 - 1.0)
+            confidence_level: Уровень доверия (0.0 - 1.0, по умолчанию 0.95)
 
         Returns:
-            (lower_bound, upper_bound)
+            (lower_bound, upper_bound) или (None, None) если расчет невозможен
 
-        Note:
-            Полная реализация будет в subtask-2-2
+        Raises:
+            ValueError: Если входные данные некорректны
         """
-        # Placeholder - будет реализован в subtask-2-2
-        return 0.0, 0.0
+        # Валидация входных данных
+        if total <= 0:
+            raise ValueError("Размер выборки должен быть положительным")
+
+        if conversions < 0 or conversions > total:
+            raise ValueError("Количество конверсий должно быть от 0 до размера выборки")
+
+        if not (0.0 < confidence_level < 1.0):
+            raise ValueError("Уровень доверия должен быть между 0 и 1")
+
+        # Если нет данных, возвращаем None
+        if total == 0:
+            return None, None
+
+        # Пропорция
+        p = float(conversions) / float(total) if total > 0 else 0.0
+
+        # Z-критическое значение
+        z = self._get_z_critical(confidence_level)
+
+        # Метод Уилсона (лучше работает для малых выборок и крайних значений)
+        denominator = 1.0 + z * z / total
+
+        if denominator == 0:
+            return None, None
+
+        center = (p + z * z / (2.0 * total)) / denominator
+        margin = z * math.sqrt(p * (1.0 - p) / total + z * z / (4.0 * total * total)) / denominator
+
+        lower_bound = max(0.0, center - margin)
+        upper_bound = min(1.0, center + margin)
+
+        logger.debug(
+            f"Confidence interval (Wilson): p={p:.4f}, "
+            f"CI=[{lower_bound:.4f}, {upper_bound:.4f}]"
+        )
+
+        return lower_bound, upper_bound
+
+    async def calculate_t_test(
+        self,
+        control_mean: float,
+        control_std: float,
+        control_size: int,
+        treatment_mean: float,
+        treatment_std: float,
+        treatment_size: int,
+        confidence_level: float = 0.95,
+    ) -> tuple[bool, Optional[float], Optional[float]]:
+        """
+        Расчет статистической значимости (t-test для двух выборок).
+
+        Используется для непрерывных метрик (время просмотра, средний чек и т.д.).
+
+        Args:
+            control_mean: Среднее значение контрольной группы
+            control_std: Стандартное отклонение контрольной группы
+            control_size: Размер контрольной группы
+            treatment_mean: Среднее значение тестовой группы
+            treatment_std: Стандартное отклонение тестовой группы
+            treatment_size: Размер тестовой группы
+            confidence_level: Уровень доверия (по умолчанию 0.95)
+
+        Returns:
+            (is_significant, p_value, t_score)
+        """
+        # Валидация
+        if control_size <= 0 or treatment_size <= 0:
+            raise ValueError("Размер выборки должен быть положительным")
+
+        if control_std < 0 or treatment_std < 0:
+            raise ValueError("Стандартное отклонение не может быть отрицательным")
+
+        # Стандартная ошибка разности средних
+        numerator = control_std ** 2 / control_size + treatment_std ** 2 / treatment_size
+        se = math.sqrt(numerator) if numerator > 0 else 0.0
+
+        if se == 0.0:
+            return False, None, None
+
+        # T-статистика
+        t_score = (treatment_mean - control_mean) / se
+
+        # Степени свободы (формула Уэлча)
+        df_numerator = (control_std ** 2 / control_size + treatment_std ** 2 / treatment_size) ** 2
+        df_denominator = (
+            (control_std ** 2 / control_size) ** 2 / (control_size - 1) +
+            (treatment_std ** 2 / treatment_size) ** 2 / (treatment_size - 1)
+        )
+        degrees_of_freedom = df_numerator / df_denominator if df_denominator > 0 else control_size + treatment_size - 2
+
+        # Аппроксимация p-value через t-распределение
+        # Для больших df t-распределение приближается к нормальному
+        if degrees_of_freedom > 30:
+            p_value = self._calculate_p_value(t_score, two_tailed=True)
+        else:
+            # Для малых df используем упрощенную аппроксимацию
+            # (в реальном проекте лучше использовать scipy)
+            p_value = self._calculate_p_value(t_score, two_tailed=True)
+
+        # Проверка значимости
+        alpha = 1.0 - confidence_level
+        is_significant = p_value is not None and p_value < alpha
+
+        logger.debug(
+            f"T-test: control_mean={control_mean:.4f}, treatment_mean={treatment_mean:.4f}, "
+            f"t={t_score:.4f}, df={degrees_of_freedom:.2f}, p={p_value:.4f}, "
+            f"significant={is_significant}"
+        )
+
+        return is_significant, p_value, t_score
 
 
 def get_ab_testing_service(
