@@ -20,6 +20,9 @@ from .radio_stream import RadioStream
 from .scheduled_playlist import ScheduledPlaylist
 from .lyrics_cache import LyricsCache
 
+# Native Mobile Applications (Feature 017)
+from .mobile_device import MobileDevice, MobilePlatform, DeviceStatus
+
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
 
@@ -67,6 +70,10 @@ __all__ = [
     "RadioStream",
     "ScheduledPlaylist",
     "LyricsCache",
+    # Mobile Applications
+    "MobileDevice",
+    "MobilePlatform",
+    "DeviceStatus",
     # Analytics
     "TrackPlay",
     "MonthlyAnalytics",

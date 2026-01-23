@@ -69,6 +69,13 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="select"
     )
+    # Feature: 017-native-mobile-applications - Mobile devices
+    mobile_devices = relationship(
+        "MobileDevice",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<User(email='{self.email}', telegram_id={self.telegram_id})>"
