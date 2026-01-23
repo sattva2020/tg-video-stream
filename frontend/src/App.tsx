@@ -31,6 +31,7 @@ const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const ABTestingPage = lazy(() => import('./pages/admin/ABTestingPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -97,6 +98,7 @@ const App: React.FC = () => {
             <Route element={<ProtectedRoute allowedRoles={MODERATOR_AND_ABOVE} />}>
               <Route path="/admin/analytics" element={<Analytics />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
+              <Route path="/admin/ab-testing" element={<ABTestingPage />} />
             </Route>
 
             {/* Routes for ADMIN and above (stream quality) */}
