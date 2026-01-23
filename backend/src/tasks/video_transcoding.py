@@ -345,6 +345,9 @@ def _notify_transcoding_completed(item_id: str, result: Dict[str, Any]):
         finally:
             db.close()
     except ImportError:
+        # Optional dependencies (websocket/database models) may be unavailable
+        # in some runtimes (e.g. worker-only processes); skip best-effort
+        # notification if imports fail.
         pass
 
 
