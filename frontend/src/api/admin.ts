@@ -65,6 +65,34 @@ export interface UsersListParams {
   search?: string;
 }
 
+export interface Organization {
+  id: string;
+  name: string;
+  slug?: string;
+  logo_url?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  custom_domain?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PaginatedOrganizationsResponse {
+  items: Organization[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface OrganizationsListParams {
+  page?: number;
+  page_size?: number;
+  include_inactive?: boolean;
+  search?: string;
+}
+
 // Feature 022 Phase 2: Stream Quality Types
 export interface AudioQualityMetrics {
   codec?: string;
@@ -246,6 +274,57 @@ export const adminApi = {
 
   getQualityAlertConfig: async (streamUrl: string): Promise<QualityAlertConfigResponse | null> => {
     const response = await client.get(`/api/admin/stream/quality/alert/config/${encodeURIComponent(streamUrl)}`);
+    return response.data;
+  },
+
+  // Organizations API
+  listOrganizations: async (params?: OrganizationsListParams): Promise<PaginatedOrganizationsResponse> => {
+    const response = await client.get('/api/organizations', { params });
+    return response.data;
+  },
+  getOrganization: async (id: string): Promise<Organization> => {
+    const response = await client.get(`/api/organizations/${id}`);
+    return response.data;
+  },
+  createOrganization: async (data: {
+    name: string;
+    slug?: string;
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    custom_domain?: string;
+  }): Promise<Organization> => {
+    const response = await client.post('/api/organizations', data);
+    return response.data;
+  },
+  updateOrganization: async (id: string, data: {
+    name?: string;
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+    custom_domain?: string;
+    is_active?: boolean;
+  }): Promise<Organization> => {
+    const response = await client.put(`/api/organizations/${id}`, data);
+    return response.data;
+  },
+  deactivateOrganization: async (id: string): Promise<Organization> => {
+    const response = await client.post(`/api/organizations/${id}/deactivate`);
+    return response.data;
+  },
+  deleteOrganization: async (id: string) => {
+    const response = await client.delete(`/api/organizations/${id}`);
+    return response.data;
+  },
+  addOrganizationMember: async (organizationId: string, userId: string, roleId?: string) => {
+    const response = await client.post(`/api/organizations/${organizationId}/members`, {
+      user_id: userId,
+      role_id: roleId
+    });
+    return response.data;
+  },
+  removeOrganizationMember: async (organizationId: string, userId: string) => {
+    const response = await client.delete(`/api/organizations/${organizationId}/members/${userId}`);
     return response.data;
   },
 };
