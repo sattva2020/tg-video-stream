@@ -81,12 +81,26 @@ export const authApi = {
   logout: () => {
     localStorage.removeItem('token');
   },
-  
+
+  // SAML SSO methods
+  initiateSAMLLogin: (idpId?: string) => {
+    // Redirect to SAML login endpoint
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+    const params = idpId ? `?idp_id=${encodeURIComponent(idpId)}` : '';
+    window.location.href = `${apiUrl}/api/auth/saml/login${params}`;
+  },
+
+  initiateSAMLLogout: () => {
+    // Redirect to SAML logout endpoint
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+    window.location.href = `${apiUrl}/api/auth/saml/logout`;
+  },
+
   checkStatus: async (email: string): Promise<{ status: string }> => {
     const response = await client.get<{ status: string }>(`/api/auth/status?email=${encodeURIComponent(email)}`);
     return response.data;
   },
-  
+
   getMe: async (): Promise<User> => {
     const response = await client.get<User>('/api/users/me');
     return response.data;
