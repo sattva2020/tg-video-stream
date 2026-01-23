@@ -18,6 +18,15 @@ from src.services.monitors.api_rate_limit_monitor import (
     shutdown_api_rate_limit_monitor,
 )
 
+from src.services.monitors.system_resource_monitor import (
+    SystemResourceMonitor,
+    SystemResourceMonitorError,
+    SystemResourceStatus,
+    SystemResourceConfig,
+    get_system_resource_monitor,
+    shutdown_system_resource_monitor,
+)
+
 __all__ = [
     # Viewer Count Monitor
     "ViewerCountMonitor",
@@ -33,4 +42,11 @@ __all__ = [
     "ApiRateLimitConfig",
     "get_api_rate_limit_monitor",
     "shutdown_api_rate_limit_monitor",
+    # System Resource Monitor
+    "SystemResourceMonitor",
+    "SystemResourceMonitorError",
+    "SystemResourceStatus",
+    "SystemResourceConfig",
+    "get_system_resource_monitor",
+    "shutdown_system_resource_monitor",
 ]
