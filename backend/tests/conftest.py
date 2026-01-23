@@ -107,6 +107,11 @@ from src.models.audit_log import AdminAuditLog
 from src.models.telegram import TelegramAccount, Channel
 from src.models.schedule import ScheduleSlot, ScheduleTemplate, Playlist
 from src.models.playlist import PlaylistItem
+# Security models for spec 025
+from src.models.saml_config import SAMLConfig
+from src.models.ip_whitelist import IPWhitelist
+from src.models.security_policy import SecurityPolicy
+from src.models.compliance_log import ComplianceLog
 
 test_db_url = None
 test_engine = None
