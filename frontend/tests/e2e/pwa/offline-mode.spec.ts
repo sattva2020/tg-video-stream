@@ -88,8 +88,12 @@ test.describe('Offline Fallback Page', () => {
     const retryButton = page.locator('button:has-text("Retry"), button:has-text("Попробовать снова"), a:has-text("reload")');
     const hasRetryOption = await retryButton.count() > 0;
 
-    // Retry option is recommended but not strictly required
-    expect(hasRetryOption || page.url()).toBeTruthy();
+    // Check that page loaded with some content (either retry option or offline page)
+    const pageContent = await page.content();
+    const hasOfflinePage = pageContent.includes('offline') || pageContent.includes('Offline') || 
+                           pageContent.includes('Нет подключения') || hasRetryOption;
+    
+    expect(hasOfflinePage).toBeTruthy();
   });
 });
 

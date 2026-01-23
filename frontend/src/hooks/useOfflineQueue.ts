@@ -205,18 +205,18 @@ export function useOfflineQueue() {
    * @param options Опции мутации
    */
   const queueMutation = useCallback(
-    <T = any>(options: QueueMutationOptions<T>) => {
+    (options: QueueMutationOptions<any>) => {
       const { mutationFn, onSuccess, onError } = options;
 
       if (isOnline) {
         // Онлайн — выполняем сразу
         mutationFn()
-          .then((data) => {
+          .then((data: any) => {
             if (onSuccess) {
               onSuccess(data);
             }
           })
-          .catch((error) => {
+          .catch((error: unknown) => {
             const errorObj = error instanceof Error ? error : new Error(String(error));
             if (onError) {
               onError(errorObj);
@@ -233,7 +233,7 @@ export function useOfflineQueue() {
           return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
         };
 
-        const item: QueuedMutation<T> = {
+        const item: QueuedMutation<any> = {
           id: generateId(),
           timestamp: Date.now(),
           mutationFn,
@@ -250,7 +250,7 @@ export function useOfflineQueue() {
       }
     },
     [isOnline, toast, saveQueue]
-  );
+  ) as <T = any>(options: QueueMutationOptions<T>) => void;
 
   /**
    * Очищает всю очередь
