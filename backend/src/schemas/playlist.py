@@ -72,3 +72,45 @@ class ApplyTemplateRequest(BaseModel):
     playlist_description: Optional[str] = None
     group_id: Optional[uuid.UUID] = None
     channel_id: Optional[uuid.UUID] = None
+
+# Smart Playlist Schemas
+class SmartPlaylistCriteria(BaseModel):
+    """Criteria for filtering and ordering playlist items."""
+    filters: Optional[dict] = None  # e.g., {"duration_min": 0, "type": "youtube"}
+    order_by: Optional[str] = "date_added"  # "date_added", "duration", "name"
+    order_direction: Optional[str] = "desc"  # "asc" or "desc"
+    limit: Optional[int] = None
+    shuffle: Optional[bool] = False
+
+class SmartPlaylistBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_public: bool = False
+    criteria: SmartPlaylistCriteria
+    auto_update: Optional[bool] = False
+    auto_update_interval: Optional[int] = 24  # hours
+    group_id: Optional[uuid.UUID] = None
+
+class SmartPlaylistCreate(SmartPlaylistBase):
+    pass
+
+class SmartPlaylistUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
+    criteria: Optional[SmartPlaylistCriteria] = None
+    auto_update: Optional[bool] = None
+    auto_update_interval: Optional[int] = None
+    group_id: Optional[uuid.UUID] = None
+
+class SmartPlaylistResponse(SmartPlaylistBase):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    items_count: int
+    total_duration: int
+    playlist_id: Optional[uuid.UUID] = None  # ID of the generated playlist
+    last_refreshed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

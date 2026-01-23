@@ -7,10 +7,12 @@ from src.database import get_db
 from src.schemas.playlist import (
     PlaylistCreate, PlaylistUpdate, PlaylistResponse,
     PlaylistTemplateCreate, PlaylistTemplateUpdate, PlaylistTemplateResponse,
-    ApplyTemplateRequest
+    ApplyTemplateRequest,
+    SmartPlaylistCreate, SmartPlaylistUpdate, SmartPlaylistResponse
 )
 from src.services.user_playlist_service import UserPlaylistService
 from src.services.playlist_template_service import PlaylistTemplateService
+from src.services.smart_playlist_service import SmartPlaylistService
 from api.auth import get_current_user
 from src.models.user import User
 
@@ -322,3 +324,140 @@ def clone_template(
         raise HTTPException(status_code=403, detail="Not authorized to clone this template")
 
     return PlaylistTemplateService.clone_template(db, template, current_user.id)
+
+# Smart Playlists Routes
+@router.get("/smart", response_model=List[SmartPlaylistResponse])
+def get_my_smart_playlists(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get current user's smart playlists."""
+    return SmartPlaylistService.get_user_smart_playlists(db, current_user.id, skip, limit)
+
+@router.get("/smart/public", response_model=List[SmartPlaylistResponse])
+def get_public_smart_playlists(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all public smart playlists."""
+    return SmartPlaylistService.get_public_smart_playlists(db, skip, limit)
+
+@router.post("/smart", response_model=SmartPlaylistResponse, status_code=status.HTTP_201_CREATED)
+def create_smart_playlist(
+    smart_playlist: SmartPlaylistCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Create a new smart playlist."""
+    criteria_dict = smart_playlist.criteria.model_dump()
+    return SmartPlaylistService.create_smart_playlist(
+        db,
+        name=smart_playlist.name,
+        user_id=current_user.id,
+        criteria=criteria_dict,
+        description=smart_playlist.description,
+        is_public=smart_playlist.is_public,
+        group_id=smart_playlist.group_id,
+        auto_update=smart_playlist.auto_update,
+        auto_update_interval=smart_playlist.auto_update_interval
+    )
+
+@router.get("/smart/{smart_playlist_id}", response_model=SmartPlaylistResponse)
+def get_smart_playlist(
+    smart_playlist_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get smart playlist details. Must be owner or smart playlist must be public."""
+    smart_playlist = SmartPlaylistService.get_smart_playlist(db, smart_playlist_id)
+    if not smart_playlist:
+        raise HTTPException(status_code=404, detail="Smart playlist not found")
+
+    if smart_playlist.user_id != current_user.id and not smart_playlist.is_public:
+        raise HTTPException(status_code=403, detail="Not authorized to view this smart playlist")
+
+    return smart_playlist
+
+@router.put("/smart/{smart_playlist_id}", response_model=SmartPlaylistResponse)
+def update_smart_playlist(
+    smart_playlist_id: uuid.UUID,
+    update_data: SmartPlaylistUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Update smart playlist. Owner only."""
+    smart_playlist = SmartPlaylistService.get_smart_playlist(db, smart_playlist_id)
+    if not smart_playlist:
+        raise HTTPException(status_code=404, detail="Smart playlist not found")
+
+    if smart_playlist.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this smart playlist")
+
+    criteria_dict = update_data.criteria.model_dump() if update_data.criteria else None
+
+    return SmartPlaylistService.update_smart_playlist(
+        db,
+        db_smart_playlist=smart_playlist,
+        name=update_data.name,
+        description=update_data.description,
+        is_public=update_data.is_public,
+        criteria=criteria_dict,
+        auto_update=update_data.auto_update,
+        auto_update_interval=update_data.auto_update_interval,
+        group_id=update_data.group_id
+    )
+
+@router.delete("/smart/{smart_playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_smart_playlist(
+    smart_playlist_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete smart playlist. Owner only."""
+    smart_playlist = SmartPlaylistService.get_smart_playlist(db, smart_playlist_id)
+    if not smart_playlist:
+        raise HTTPException(status_code=404, detail="Smart playlist not found")
+
+    if smart_playlist.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this smart playlist")
+
+    SmartPlaylistService.delete_smart_playlist(db, smart_playlist)
+
+@router.post("/smart/{smart_playlist_id}/refresh", response_model=PlaylistResponse, status_code=status.HTTP_200_OK)
+def refresh_smart_playlist(
+    smart_playlist_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Regenerate the smart playlist based on its criteria."""
+    smart_playlist = SmartPlaylistService.get_smart_playlist(db, smart_playlist_id)
+    if not smart_playlist:
+        raise HTTPException(status_code=404, detail="Smart playlist not found")
+
+    if smart_playlist.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to refresh this smart playlist")
+
+    try:
+        return SmartPlaylistService.refresh_smart_playlist(db, smart_playlist)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.post("/smart/{smart_playlist_id}/clone", response_model=SmartPlaylistResponse, status_code=status.HTTP_201_CREATED)
+def clone_smart_playlist(
+    smart_playlist_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Clone a smart playlist to my library. Source must be public or owned by me."""
+    smart_playlist = SmartPlaylistService.get_smart_playlist(db, smart_playlist_id)
+    if not smart_playlist:
+        raise HTTPException(status_code=404, detail="Smart playlist not found")
+
+    if smart_playlist.user_id != current_user.id and not smart_playlist.is_public:
+        raise HTTPException(status_code=403, detail="Not authorized to clone this smart playlist")
+
+    return SmartPlaylistService.clone_smart_playlist(db, smart_playlist, current_user.id)
