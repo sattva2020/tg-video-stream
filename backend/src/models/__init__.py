@@ -48,6 +48,7 @@ from .stream import Stream, StreamStatus
 # Viewer Interaction & Engagement (Feature 020)
 from .poll import Poll, PollOption, PollVote, PollType, PollStatus
 from .qa import Question, QuestionUpvote, QuestionStatus
+from .interaction import EmojiReaction, ChatMessage, ReactionDisplayStatus, ChatMessageStatus
 
 __all__ = [
     "User",
@@ -99,5 +100,9 @@ __all__ = [
     "Question",
     "QuestionUpvote",
     "QuestionStatus",
+    "EmojiReaction",
+    "ChatMessage",
+    "ReactionDisplayStatus",
+    "ChatMessageStatus",
 ]
 
