@@ -126,10 +126,102 @@ function getActualPath(targetPath: string): string {
   }
 }
 
+/**
+ * Bundle size monitoring plugin for Vite
+ * Reports bundle sizes and warnings for chunks exceeding size limits
+ */
+function bundleSizeMonitor() {
+  const sizeLimits = {
+    // Critical vendor chunks that should be kept small
+    'react-vendor': 200,
+    'router-vendor': 100,
+    'query-vendor': 150,
+    'ui-vendor': 300,
+    // Feature chunks
+    'pages-admin': 200,
+    'pages-notifications': 150,
+    'components-auth': 100,
+    // Default limit for other chunks
+    'default': 250,
+  }
+
+  return {
+    name: 'bundle-size-monitor',
+
+    generateBundle(options: any, bundle: any) {
+      const chunkSizes: Array<{ name: string; size: number; limit: number }> = []
+      let totalSize = 0
+      const warnings: string[] = []
+
+      // Calculate sizes for all chunks
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        if (chunk.type === 'chunk') {
+          const size = chunk.code.length / 1024 // Convert to KB
+          totalSize += size
+
+          // Determine limit based on chunk name
+          let limit = sizeLimits.default
+          for (const [chunkName, chunkLimit] of Object.entries(sizeLimits)) {
+            if (chunkName !== 'default' && fileName.includes(chunkName)) {
+              limit = chunkLimit
+              break
+            }
+          }
+
+          chunkSizes.push({ name: fileName, size, limit })
+
+          // Check if chunk exceeds limit
+          if (size > limit) {
+            warnings.push(
+              `  ⚠️  ${fileName}: ${size.toFixed(2)} KB (limit: ${limit} KB)`
+            )
+          }
+        }
+      }
+
+      // Sort chunks by size (descending)
+      chunkSizes.sort((a, b) => b.size - a.size)
+
+      // Report bundle sizes
+      console.log('\n' + '='.repeat(80))
+      console.log('📦 Bundle Size Report')
+      console.log('='.repeat(80))
+
+      // Report largest chunks
+      console.log('\n📊 Largest chunks:')
+      chunkSizes.slice(0, 10).forEach(({ name, size, limit }) => {
+        const status = size > limit ? '❌' : '✅'
+        const percentage = ((size / limit) * 100).toFixed(0)
+        console.log(
+          `  ${status} ${name}\n` +
+          `     Size: ${size.toFixed(2)} KB / ${limit} KB (${percentage}%)\n`
+        )
+      })
+
+      // Report total size
+      console.log(`\n💾 Total bundle size: ${totalSize.toFixed(2)} KB`)
+      console.log(`📦 Total chunks: ${chunkSizes.length}`)
+
+      // Report warnings
+      if (warnings.length > 0) {
+        console.log('\n⚠️  Size Warnings:')
+        warnings.forEach(warning => console.log(warning))
+        console.log(`\n${warnings.length} chunk(s) exceed size limits.`)
+        console.log('Consider code splitting or lazy loading to reduce bundle sizes.\n')
+      } else {
+        console.log('\n✅ All chunks within size limits!\n')
+      }
+
+      console.log('='.repeat(80) + '\n')
+    },
+  }
+}
+
 export default defineConfig({
   plugins: [
     react(),
     caseSensitivityCheck(),
+    bundleSizeMonitor(),
     process.env.ANALYZE === 'true' && visualizer({
       filename: '../.internal/frontend-logs/perf/profiling/bundle-report.html',
       open: false,
