@@ -42,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'tasks.recommendation_tasks',
             'src.services.notifications.worker',
         ]
     )
@@ -71,6 +72,8 @@ def make_celery():
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
+            'tasks.train_collaborative_model': {'queue': 'ml_training'},
+            'tasks.train_content_based_model': {'queue': 'ml_training'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
         },
@@ -79,6 +82,7 @@ def make_celery():
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('ml_training', routing_key='ml_training'),
         ],
         
         # Rate limits
@@ -88,6 +92,12 @@ def make_celery():
             },
             'tasks.fetch_playlist_metadata': {
                 'rate_limit': '2/m',  # Max 2 playlists per minute
+            },
+            'tasks.train_collaborative_model': {
+                'rate_limit': '6/h',  # Max 6 trainings per hour (ML training is expensive)
+            },
+            'tasks.train_content_based_model': {
+                'rate_limit': '6/h',  # Max 6 trainings per hour
             },
         },
         
