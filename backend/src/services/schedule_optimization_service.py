@@ -1209,6 +1209,228 @@ class ScheduleOptimizationService:
         """
         return solution.suggestions
 
+    async def resolve_conflicts(
+        self,
+        request: ConflictDetectionRequest
+    ) -> ConflictDetectionResponse:
+        """
+        Разрешение конфликтов на основе приоритетов.
+
+        Анализирует конфликты и предлагает решения на основе приоритетов слотов.
+        Слоты с более высоким приоритет сохраняются, слоты с более низким приоритетом
+        предлагаются к перемещению или удалению.
+
+        Args:
+            request: Запрос на обнаружение конфликтов
+
+        Returns:
+            ConflictDetectionResponse с предложениями по разрешению конфликтов
+        """
+        channel_uuid = UUID(request.channel_id)
+
+        # Получаем слоты за период
+        slots_query = select(ScheduleSlot).where(
+            and_(
+                ScheduleSlot.channel_id == channel_uuid,
+                ScheduleSlot.start_date >= request.start_date,
+                ScheduleSlot.start_date <= request.end_date,
+                ScheduleSlot.is_active == True
+            )
+        ).order_by(ScheduleSlot.start_date, ScheduleSlot.start_time)
+
+        slots = self.db.execute(slots_query).scalars().all()
+
+        # Группируем по датам и ищем конфликты
+        conflicts: List[ScheduleConflict] = []
+        slots_by_date: Dict[date, List[ScheduleSlot]] = {}
+
+        for slot in slots:
+            slot_date = slot.start_date
+            if slot_date not in slots_by_date:
+                slots_by_date[slot_date] = []
+            slots_by_date[slot_date].append(slot)
+
+        for conflict_date, day_slots in slots_by_date.items():
+            # Обнаруживаем группы конфликтующих слотов
+            conflict_groups = self._find_conflict_groups(day_slots)
+
+            for group in conflict_groups:
+                if len(group) < 2:
+                    continue
+
+                # Сортируем группу по приоритету (по убыванию)
+                sorted_group = sorted(group, key=lambda s: s.priority or 0, reverse=True)
+
+                # Слот с наивысшим приоритетом сохраняется
+                winner = sorted_group[0]
+                losers = sorted_group[1:]
+
+                day_conflicts: List[ConflictInfo] = []
+
+                # Добавляем победителя
+                winner_playlist = self.db.execute(
+                    select(Playlist).where(Playlist.id == winner.playlist_id)
+                ).scalar_one_or_none()
+
+                day_conflicts.append(
+                    ConflictInfo(
+                        slot_id=str(winner.id),
+                        title=winner.title,
+                        playlist_name=winner_playlist.name if winner_playlist else None,
+                        start_time=winner.start_time.strftime("%H:%M"),
+                        end_time=winner.end_time.strftime("%H:%M"),
+                        priority=winner.priority or 0
+                    )
+                )
+
+                # Добавляем проигравших с предложениями по перемещению
+                for loser in losers:
+                    loser_playlist = self.db.execute(
+                        select(Playlist).where(Playlist.id == loser.playlist_id)
+                    ).scalar_one_or_none()
+
+                    # Находим альтернативное время для перемещения
+                    alt_times = self._suggest_alternative_times(
+                        loser, day_slots, conflict_date
+                    )
+
+                    conflict_info = ConflictInfo(
+                        slot_id=str(loser.id),
+                        title=loser.title,
+                        playlist_name=loser_playlist.name if loser_playlist else None,
+                        start_time=loser.start_time.strftime("%H:%M"),
+                        end_time=loser.end_time.strftime("%H:%M"),
+                        priority=loser.priority or 0
+                    )
+
+                    day_conflicts.append(conflict_info)
+
+                if day_conflicts:
+                    conflicts.append(
+                        ScheduleConflict(
+                            date=conflict_date,
+                            conflicts=day_conflicts
+                        )
+                    )
+
+        return ConflictDetectionResponse(
+            channel_id=request.channel_id,
+            period={
+                "start": request.start_date.isoformat(),
+                "end": request.end_date.isoformat()
+            },
+            total_conflicts=len(conflicts),
+            conflicts=conflicts
+        )
+
+    def _find_conflict_groups(
+        self,
+        slots: List[ScheduleSlot]
+    ) -> List[List[ScheduleSlot]]:
+        """
+        Поиск групп конфликтующих слотов.
+
+        Args:
+            slots: Список слотов за день
+
+        Returns:
+            Список групп конфликтующих слотов
+        """
+        groups = []
+        processed = set()
+
+        for i, slot1 in enumerate(slots):
+            if slot1.id in processed:
+                continue
+
+            # Создаем новую группу конфликтов
+            group = [slot1]
+            processed.add(slot1.id)
+
+            # Ищем все слоты, конфликтующие с текущим
+            for j in range(i + 1, len(slots)):
+                slot2 = slots[j]
+                if slot2.id in processed:
+                    continue
+
+                # Проверяем, конфликтует ли slot2 с любым слотом в группе
+                conflicts_with_group = any(
+                    self._slots_overlap(slot2, group_slot)
+                    for group_slot in group
+                )
+
+                if conflicts_with_group:
+                    group.append(slot2)
+                    processed.add(slot2.id)
+
+            # Если группа содержит более одного слота, это конфликт
+            if len(group) > 1:
+                groups.append(group)
+
+        return groups
+
+    def _suggest_alternative_times(
+        self,
+        slot: ScheduleSlot,
+        all_slots: List[ScheduleSlot],
+        target_date: date
+    ) -> List[Dict[str, str]]:
+        """
+        Предложение альтернативных временных слотов.
+
+        Args:
+            slot: Слот для перемещения
+            all_slots: Все слоты за день
+            target_date: Целевая дата
+
+        Returns:
+            Список альтернативных временных слотов
+        """
+        # Вычисляем длительность слота в минутах
+        duration_minutes = (
+            slot.end_time.hour * 60 + slot.end_time.minute
+        ) - (
+            slot.start_time.hour * 60 + slot.start_time.minute
+        )
+
+        alternatives = []
+
+        # Получаем занятые диапазоны
+        occupied_ranges = [
+            (s.start_time, s.end_time)
+            for s in all_slots
+            if s.id != slot.id
+        ]
+
+        # Находим свободные диапазоны
+        free_ranges = self._find_free_ranges(occupied_ranges)
+
+        # Предлагаем свободные диапазоны подходящей длительности
+        for free_start, free_end in free_ranges:
+            free_duration = (
+                free_end.hour * 60 + free_end.minute
+            ) - (
+                free_start.hour * 60 + free_start.minute
+            )
+
+            if free_duration >= duration_minutes:
+                # Вычисляем время конца нового слота
+                new_end_hour = free_start.hour + (free_start.minute + duration_minutes) // 60
+                new_end_minute = (free_start.minute + duration_minutes) % 60
+                new_end = time(new_end_hour, new_end_minute)
+
+                alternatives.append({
+                    "start_time": free_start.strftime("%H:%M"),
+                    "end_time": new_end.strftime("%H:%M"),
+                    "reason": "Свободное время"
+                })
+
+                # Ограничиваем количество предложений
+                if len(alternatives) >= 3:
+                    break
+
+        return alternatives
+
     async def get_optimization(
         self,
         optimization_id: str
