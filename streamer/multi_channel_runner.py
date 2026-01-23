@@ -190,6 +190,87 @@ def get_redis_url() -> str:
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
 
 
+def build_ffmpeg_params_from_profile(config: ChannelConfig) -> str:
+    """
+    Build FFmpeg parameters from encoding profile or fall back to video_quality.
+
+    If encoding profile fields (video_codec, audio_codec, video_bitrate, etc.) are set,
+    use them to build custom FFmpeg parameters. Otherwise, fall back to the standard
+    build_ffmpeg_av_args function based on video_quality.
+
+    Args:
+        config: ChannelConfig with encoding profile fields
+
+    Returns:
+        FFmpeg parameters as a string
+    """
+    from utils import build_ffmpeg_av_args
+
+    # Check if custom encoding profile is set
+    has_custom_codec = config.video_codec or config.audio_codec
+    has_custom_bitrate = config.video_bitrate or config.audio_bitrate
+    has_custom_resolution = config.resolution
+
+    # If any encoding profile field is set, build custom parameters
+    if has_custom_codec or has_custom_bitrate or has_custom_resolution:
+        params = []
+
+        # Base video args with low-latency presets
+        params.extend(["-preset", "ultrafast", "-tune", "zerolatency"])
+
+        # Video codec
+        video_codec = config.video_codec or "libx264"
+        if video_codec == "h264":
+            video_codec = "libx264"
+        elif video_codec == "h265":
+            video_codec = "libx265"
+        elif video_codec == "vp9":
+            video_codec = "libvpx-vp9"
+        params.extend(["-c:v", video_codec])
+
+        # Resolution
+        if config.resolution:
+            params.extend(["-vf", f"scale={config.resolution}"])
+        else:
+            # Fall back to video_quality for resolution
+            if config.video_quality == "1080p":
+                params.extend(["-vf", "scale=-2:1080"])
+            elif config.video_quality == "480p":
+                params.extend(["-vf", "scale=-2:480"])
+            else:  # 720p or default
+                params.extend(["-vf", "scale=-2:720"])
+
+        # Video bitrate
+        if config.video_bitrate:
+            params.extend(["-b:v", f"{config.video_bitrate}k"])
+        else:
+            # Fall back to video_quality for bitrate
+            if config.video_quality == "1080p":
+                params.extend(["-b:v", "3500k"])
+            elif config.video_quality == "480p":
+                params.extend(["-b:v", "900k"])
+            else:  # 720p or default
+                params.extend(["-b:v", "1800k"])
+
+        # Audio codec
+        audio_codec = config.audio_codec or "aac"
+        params.extend(["-c:a", audio_codec])
+
+        # Audio bitrate
+        if config.audio_bitrate:
+            params.extend(["-b:a", f"{config.audio_bitrate}k"])
+        else:
+            # Default audio bitrate
+            params.extend(["-ar", "48000", "-b:a", "128k"])
+
+        return " ".join(params)
+    else:
+        # No custom encoding profile, use standard video_quality
+        v_args, a_args = build_ffmpeg_av_args(config.video_quality or "720p")
+        ffmpeg_params_list = v_args + a_args
+        return " ".join(ffmpeg_params_list)
+
+
 # NOTE: ensure_group_call() was removed - PyTgCalls handles this automatically!
 # When calling pytg.play() with GroupCallConfig(auto_start=True) (default),
 # PyTgCalls creates the group call if it doesn't exist.
@@ -690,7 +771,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     Fetches playlist from backend and plays items.
     """
     import requests
-    from utils import expand_playlist, build_ffmpeg_av_args, best_stream_url
+    from utils import expand_playlist, best_stream_url
     
     backend_url = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
     
@@ -703,9 +784,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     
     pytg = channel_data["pytg"]
     chat_id = channel_data["chat_id"]  # Use resolved chat_id from start_channel_stream
-    
-    v_args, a_args = build_ffmpeg_av_args(config.video_quality)
-    
+
     try:
         while channel_id in running_channels:
             # Fetch playlist from backend (new unified playlist API)
@@ -836,10 +915,21 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             }
                             
                             # Prepare FFmpeg parameters
-                            # We use build_ffmpeg_av_args to get optimized parameters for the target quality
-                            v_args, a_args = build_ffmpeg_av_args(config.video_quality or "480p")
-                            ffmpeg_params_list = v_args + a_args
-                            ffmpeg_params_str = " ".join(ffmpeg_params_list)
+                            # Use encoding profile if set, otherwise fall back to video_quality
+                            ffmpeg_params_str = build_ffmpeg_params_from_profile(config)
+
+                            # Log encoding configuration
+                            if config.video_codec or config.audio_codec or config.video_bitrate or config.audio_bitrate or config.resolution:
+                                log.info(
+                                    f"Channel {channel_id}: Using custom encoding profile - "
+                                    f"video_codec={config.video_codec or 'default'}, "
+                                    f"audio_codec={config.audio_codec or 'default'}, "
+                                    f"video_bitrate={config.video_bitrate or 'default'}, "
+                                    f"audio_bitrate={config.audio_bitrate or 'default'}, "
+                                    f"resolution={config.resolution or 'default'}"
+                                )
+
+                            log.info(f"Channel {channel_id}: Using FFmpeg params: {ffmpeg_params_str}")
                             
                             # Add ffmpeg_parameters if configured
                             if config.ffmpeg_args:
