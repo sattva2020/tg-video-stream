@@ -31,7 +31,9 @@
     "syncing": "Syncing...",
     "sync": "Sync",
     "pendingChanges": "{{count}} pending changes",
-    "lastSync": "Last synced: {{time}}"
+    "lastSync": "Last synced: {{time}}",
+    "noData": "No Data",
+    "noDataDesc": "There is nothing to display yet"
   },
   "auth": {
     "signIn": "Sign In",
