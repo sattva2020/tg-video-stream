@@ -9,7 +9,8 @@ from src.schemas.playlist import (
     PlaylistTemplateCreate, PlaylistTemplateUpdate, PlaylistTemplateResponse,
     ApplyTemplateRequest,
     SmartPlaylistCreate, SmartPlaylistUpdate, SmartPlaylistResponse,
-    PlaylistGroupCreate, PlaylistGroupUpdate, PlaylistGroupResponse
+    PlaylistGroupCreate, PlaylistGroupUpdate, PlaylistGroupResponse,
+    BulkDeleteRequest, BulkMoveRequest, BulkCopyRequest, BulkOperationResponse
 )
 from src.services.user_playlist_service import UserPlaylistService
 from src.services.playlist_template_service import PlaylistTemplateService
@@ -183,6 +184,34 @@ def export_playlist_m3u(
         media_type="audio/x-mpegurl",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+# Bulk Operations Routes
+@router.post("/bulk/delete", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
+def bulk_delete_playlists(
+    request: BulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Bulk delete multiple playlists. Only playlists owned by the user will be deleted."""
+    return UserPlaylistService.bulk_delete_playlists(db, request.playlist_ids, current_user.id)
+
+@router.post("/bulk/move", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
+def bulk_move_playlists(
+    request: BulkMoveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Bulk move multiple playlists to a group. Only playlists owned by the user will be moved."""
+    return UserPlaylistService.bulk_move_playlists(db, request.playlist_ids, request.group_id, current_user.id)
+
+@router.post("/bulk/copy", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
+def bulk_copy_playlists(
+    request: BulkCopyRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Bulk copy multiple playlists. Only playlists owned by or public to the user will be copied."""
+    return UserPlaylistService.bulk_copy_playlists(db, request.playlist_ids, current_user.id)
 
 # Playlist Templates Routes
 @router.get("/templates", response_model=List[PlaylistTemplateResponse])

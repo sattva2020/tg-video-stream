@@ -147,3 +147,23 @@ class PlaylistGroupResponse(PlaylistGroupBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+# Bulk Operation Schemas
+class BulkDeleteRequest(BaseModel):
+    """Request schema for bulk deleting playlists."""
+    playlist_ids: List[uuid.UUID]
+
+class BulkMoveRequest(BaseModel):
+    """Request schema for bulk moving playlists to a group."""
+    playlist_ids: List[uuid.UUID]
+    group_id: Optional[uuid.UUID] = None  # None means move to root (no group)
+
+class BulkCopyRequest(BaseModel):
+    """Request schema for bulk copying playlists."""
+    playlist_ids: List[uuid.UUID]
+
+class BulkOperationResponse(BaseModel):
+    """Response schema for bulk operations."""
+    success_count: int
+    failed_count: int
+    errors: List[str] = []

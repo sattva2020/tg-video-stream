@@ -225,3 +225,114 @@ class UserPlaylistService:
             # We might want to return a warning
             
         return {"status": "playing", "channel_id": channel.id, "slot_id": slot.id}
+
+    @staticmethod
+    def bulk_delete_playlists(db: Session, playlist_ids: list[uuid.UUID], user_id: uuid.UUID):
+        """
+        Bulk delete multiple playlists. Only playlists owned by the user will be deleted.
+        Returns a dict with success_count, failed_count, and errors.
+        """
+        success_count = 0
+        failed_count = 0
+        errors = []
+
+        for playlist_id in playlist_ids:
+            playlist = UserPlaylistService.get_playlist(db, playlist_id)
+            if not playlist:
+                failed_count += 1
+                errors.append(f"Playlist {playlist_id} not found")
+                continue
+
+            if playlist.user_id != user_id:
+                failed_count += 1
+                errors.append(f"Not authorized to delete playlist {playlist_id}")
+                continue
+
+            try:
+                UserPlaylistService.delete_playlist(db, playlist)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"Failed to delete playlist {playlist_id}: {str(e)}")
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "errors": errors
+        }
+
+    @staticmethod
+    def bulk_move_playlists(db: Session, playlist_ids: list[uuid.UUID], group_id: uuid.UUID, user_id: uuid.UUID):
+        """
+        Bulk move multiple playlists to a group. Only playlists owned by the user will be moved.
+        Returns a dict with success_count, failed_count, and errors.
+        """
+        success_count = 0
+        failed_count = 0
+        errors = []
+
+        for playlist_id in playlist_ids:
+            playlist = UserPlaylistService.get_playlist(db, playlist_id)
+            if not playlist:
+                failed_count += 1
+                errors.append(f"Playlist {playlist_id} not found")
+                continue
+
+            if playlist.user_id != user_id:
+                failed_count += 1
+                errors.append(f"Not authorized to move playlist {playlist_id}")
+                continue
+
+            try:
+                playlist.group_id = group_id
+                db.commit()
+                db.refresh(playlist)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"Failed to move playlist {playlist_id}: {str(e)}")
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "errors": errors
+        }
+
+    @staticmethod
+    def bulk_copy_playlists(db: Session, playlist_ids: list[uuid.UUID], user_id: uuid.UUID):
+        """
+        Bulk copy multiple playlists. Only playlists owned by or public to the user will be copied.
+        Returns a dict with success_count, failed_count, errors, and copied_playlists.
+        """
+        success_count = 0
+        failed_count = 0
+        errors = []
+        copied_playlists = []
+
+        for playlist_id in playlist_ids:
+            playlist = UserPlaylistService.get_playlist(db, playlist_id)
+            if not playlist:
+                failed_count += 1
+                errors.append(f"Playlist {playlist_id} not found")
+                continue
+
+            # Check access rights (owner or public)
+            if playlist.user_id != user_id and not playlist.is_public:
+                failed_count += 1
+                errors.append(f"Not authorized to copy playlist {playlist_id}")
+                continue
+
+            try:
+                new_playlist = UserPlaylistService.clone_playlist(db, playlist, user_id)
+                copied_playlists.append(new_playlist)
+                success_count += 1
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"Failed to copy playlist {playlist_id}: {str(e)}")
+
+        return {
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "errors": errors,
+            "copied_playlists": copied_playlists
+        }
