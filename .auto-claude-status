@@ -3,23 +3,23 @@
   "spec": "020-viewer-interaction-engagement-features",
   "state": "building",
   "subtasks": {
-    "completed": 23,
+    "completed": 25,
     "total": 41,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Frontend Type Definitions",
+    "current": "Frontend UI Components",
     "id": null,
-    "total": 1
+    "total": 7
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 25,
+    "number": 27,
     "started_at": "2026-01-23T16:04:01.373829"
   },
-  "last_update": "2026-01-23T19:01:24.629253"
+  "last_update": "2026-01-23T19:10:32.027779"
 }
