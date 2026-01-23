@@ -12,24 +12,8 @@ import { useTranslation } from 'react-i18next';
 import type { DashboardStackParamList, UserRole } from '../types';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
-// Placeholder screens (will be implemented in later subtasks)
-const DashboardHomeScreen = React.lazy(() =>
-  import('../../screens/dashboard/DashboardScreen').then((m) => ({
-    default: m.DashboardScreen,
-  }))
-);
-
-const AnalyticsScreen = React.lazy(() =>
-  import('../../screens/analytics/AnalyticsScreen').then((m) => ({
-    default: m.AnalyticsScreen,
-  }))
-);
-
-const MonitoringScreen = React.lazy(() =>
-  import('../../screens/monitoring/MonitoringScreen').then((m) => ({
-    default: m.MonitoringScreen,
-  }))
-);
+// Screens
+import DashboardScreen from '../../screens/DashboardScreen';
 
 const Stack = createNativeStackNavigator<DashboardStackParamList>();
 
@@ -46,12 +30,15 @@ const MODERATOR_AND_ABOVE: UserRole[] = [
 export const DashboardStackNavigator: React.FC<DashboardStackProps> = ({ userRole }) => {
   const { t } = useTranslation();
 
-  // Temporary placeholder component until screens are implemented
-  const PlaceholderScreen: React.FC = () => {
-    const { View } = require('react-native');
+  // Placeholder component for Analytics and Monitoring (to be implemented in later subtasks)
+  const PlaceholderScreen: React.FC<{ title: string }> = ({ title }) => {
+    const { View, Text } = require('react-native');
     return (
-      <View style={{ flex: 1, backgroundColor: '#fff' }}>
-        {/* Placeholder - will be replaced with actual screens in subtask-3-3 */}
+      <View style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ fontSize: 16, color: '#6b7280' }}>{title}</Text>
+        <Text style={{ fontSize: 14, color: '#9ca3af', marginTop: 8 }}>
+          {t('common.comingSoon', 'Coming soon')}
+        </Text>
       </View>
     );
   };
@@ -71,20 +58,20 @@ export const DashboardStackNavigator: React.FC<DashboardStackProps> = ({ userRol
     >
       <Stack.Screen
         name="DashboardHome"
-        component={PlaceholderScreen as any}
-        options={{ title: t('navigation.dashboard', 'Dashboard') }}
+        component={DashboardScreen}
+        options={{ title: t('nav.dashboard', 'Dashboard') }}
       />
 
       {/* Analytics - Available to MODERATOR and above */}
       <Stack.Screen
         name="Analytics"
-        options={{ title: t('navigation.analytics', 'Analytics') }}
+        options={{ title: t('nav.analytics', 'Analytics') }}
       >
         {(props) => (
           <ProtectedRoute
             allowedRoles={MODERATOR_AND_ABOVE}
             userRole={userRole}
-            component={PlaceholderScreen as any}
+            component={() => <PlaceholderScreen title={t('nav.analytics', 'Analytics')} />}
             {...props}
           />
         )}
@@ -93,13 +80,13 @@ export const DashboardStackNavigator: React.FC<DashboardStackProps> = ({ userRol
       {/* Monitoring - Available to MODERATOR and above */}
       <Stack.Screen
         name="Monitoring"
-        options={{ title: t('navigation.monitoring', 'Monitoring') }}
+        options={{ title: t('nav.monitoring', 'Monitoring') }}
       >
         {(props) => (
           <ProtectedRoute
             allowedRoles={MODERATOR_AND_ABOVE}
             userRole={userRole}
-            component={PlaceholderScreen as any}
+            component={() => <PlaceholderScreen title={t('nav.monitoring', 'Monitoring')} />}
             {...props}
           />
         )}

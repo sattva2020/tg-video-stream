@@ -22,7 +22,10 @@
     "done": "Done",
     "retry": "Retry",
     "submit": "Submit",
-    "reset": "Reset"
+    "reset": "Reset",
+    "user": "User",
+    "noTrack": "No track",
+    "comingSoon": "Coming soon"
   },
   "auth": {
     "signIn": "Sign In",
@@ -60,19 +63,31 @@
     "settings": "Settings"
   },
   "dashboard": {
-    "welcome": "Welcome, {{name}}!",
+    "welcome": "Welcome",
     "overview": "Overview",
     "streamStatus": "Stream Status",
     "online": "Online",
     "offline": "Offline",
+    "liveNow": "LIVE",
     "currentTrack": "Now Playing: {{track}}",
     "listeners": "{{count}} listeners",
+    "totalListeners": "Total Listeners",
+    "activeChannels": "Active Channels",
     "quickActions": "Quick Actions",
     "recentActivity": "Recent Activity",
     "stats": "Statistics",
     "totalTracks": "Total Tracks",
     "totalPlays": "Total Plays",
-    "uptime": "Uptime"
+    "uptime": "Uptime",
+    "queueWaiting": "Waiting",
+    "streamStarted": "Stream started",
+    "streamStopped": "Stream stopped",
+    "streamRestarted": "Stream restarted",
+    "startStream": "Start",
+    "stopStream": "Stop",
+    "restart": "Restart",
+    "confirmRestart": "Confirm Restart",
+    "restartDesc": "Restart the stream? This will interrupt current playback."
   },
   "audio": {
     "player": {
