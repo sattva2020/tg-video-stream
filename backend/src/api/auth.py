@@ -280,7 +280,7 @@ async def logout():
 
 
 @router.post("/register")
-def register_user(request: RegisterRequest, fastapi_request: Request = None, db: Session = Depends(get_db)):
+def register_user(request: RegisterRequest, db: Session = Depends(get_db), fastapi_request: Request = Depends()):
     # prevent registration if Google-only user exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:
