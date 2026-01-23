@@ -36,24 +36,32 @@ async def app_lifespan(fastapi_app: FastAPI) -> AsyncGenerator:
         try:
             import redis.asyncio as aioredis
             from fastapi_limiter import FastAPILimiter
-            
+
             redis_connection = await aioredis.from_url(
-                redis_url, 
-                encoding="utf-8", 
+                redis_url,
+                encoding="utf-8",
                 decode_responses=True
             )
             await FastAPILimiter.init(redis_connection)
             print(f"FastAPILimiter initialized with Redis: {redis_url}")
         except Exception as e:
             print(f"Failed to initialize Redis rate limiter: {e}")
-    
+
     # Setup admin panel
     try:
         from src.frameworks.admin import setup_admin
         await setup_admin(fastapi_app, engine)
     except Exception as e:  # pragma: no cover
         print(f"Failed to setup admin panel: {e}")
-    
+
+    # Initialize stream alert integration (subtask-7-1)
+    try:
+        from src.services.stream_alert_integration import initialize_stream_alert_integration
+        await initialize_stream_alert_integration()
+        print("[OK] Stream alert integration initialized")
+    except Exception as e:  # pragma: no cover
+        print(f"[WARN] Failed to initialize stream alert integration: {e}")
+
     yield
 
 

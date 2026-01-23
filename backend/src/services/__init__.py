@@ -11,6 +11,7 @@ Services модуль для обработки бизнес-логики.
 - BackupService: автоматизированные резервные копии
 - ChannelService: управление мульти-канальной трансляцией
 - AlertService: CRUD операции для правил, экземпляров и групп алертов
+- StreamAlertIntegrationService: интеграция мониторинга отказов с алертами
 """
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "BackupService",
     "ChannelService",
     "AlertService",
+    "StreamAlertIntegrationService",
 ]
