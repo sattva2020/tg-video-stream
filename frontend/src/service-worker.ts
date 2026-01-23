@@ -61,7 +61,7 @@ const saveRequestToQueue = async (request: Request, requestBody?: string): Promi
     const store = transaction.objectStore(QUEUE_STORE_NAME);
 
     const queuedRequest: QueuedRequest = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       url: request.url,
       method: request.method,
       headers: Object.fromEntries(request.headers.entries()),
