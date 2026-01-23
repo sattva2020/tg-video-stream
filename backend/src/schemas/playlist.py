@@ -189,3 +189,16 @@ class PlaylistRepeatUpdate(BaseModel):
     """Request schema for updating playlist repeat settings."""
     mode: Optional[RepeatMode] = None
     repeat_count: Optional[int] = None
+
+# Bulk Import Schemas
+class BulkImportRequest(BaseModel):
+    """Request schema for bulk importing playlist URLs."""
+    urls: List[str]
+    channel_id: Optional[uuid.UUID] = None
+
+class BulkImportResponse(BaseModel):
+    """Response schema for bulk import operations."""
+    success_count: int
+    failed_count: int
+    results: List[dict]
+    message: str

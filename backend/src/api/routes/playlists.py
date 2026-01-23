@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Response, UploadFile, File, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import uuid
 
 from src.database import get_db
@@ -10,14 +10,17 @@ from src.schemas.playlist import (
     ApplyTemplateRequest,
     SmartPlaylistCreate, SmartPlaylistUpdate, SmartPlaylistResponse,
     PlaylistGroupCreate, PlaylistGroupUpdate, PlaylistGroupResponse,
-    BulkDeleteRequest, BulkMoveRequest, BulkCopyRequest, BulkOperationResponse
+    BulkDeleteRequest, BulkMoveRequest, BulkCopyRequest, BulkOperationResponse,
+    BulkImportRequest, BulkImportResponse
 )
 from src.services.user_playlist_service import UserPlaylistService
 from src.services.playlist_template_service import PlaylistTemplateService
 from src.services.smart_playlist_service import SmartPlaylistService
 from src.services.playlist_group_service import PlaylistGroupService
+from src.services.activity_service import ActivityService
 from api.auth import get_current_user
 from src.models.user import User
+from tasks.media import import_playlist_async
 
 router = APIRouter()
 
@@ -171,19 +174,113 @@ def export_playlist_m3u(
     playlist = UserPlaylistService.get_playlist(db, playlist_id)
     if not playlist:
         raise HTTPException(status_code=404, detail="Playlist not found")
-        
+
     if playlist.user_id != current_user.id and not playlist.is_public:
         raise HTTPException(status_code=403, detail="Not authorized to export this playlist")
-        
+
     content = UserPlaylistService.generate_m3u(playlist)
-    
+
     filename = f"{playlist.name.replace(' ', '_')}.m3u"
-    
+
     return Response(
         content=content,
         media_type="audio/x-mpegurl",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+@router.post("/import/bulk", response_model=BulkImportResponse, status_code=status.HTTP_200_OK)
+async def bulk_import_playlists(
+    request: BulkImportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Bulk import multiple YouTube and Vimeo playlist URLs.
+    Each playlist is imported asynchronously in the background.
+    """
+    if not request.urls:
+        raise HTTPException(status_code=400, detail="At least one URL is required")
+
+    # Validate URLs
+    youtube_patterns = ['youtube.com', 'youtu.be', 'youtube']
+    vimeo_patterns = ['vimeo.com', 'vimeo']
+
+    results = []
+    success_count = 0
+    failed_count = 0
+
+    channel_id_str = str(request.channel_id) if request.channel_id else None
+
+    for url in request.urls:
+        url = url.strip()
+        if not url:
+            failed_count += 1
+            results.append({
+                "url": url,
+                "success": False,
+                "error": "Empty URL"
+            })
+            continue
+
+        url_lower = url.lower()
+        is_youtube = any(p in url_lower for p in youtube_patterns)
+        is_vimeo = any(p in url_lower for p in vimeo_patterns)
+
+        if not (is_youtube or is_vimeo):
+            failed_count += 1
+            results.append({
+                "url": url,
+                "success": False,
+                "error": "Only YouTube and Vimeo playlists are supported"
+            })
+            continue
+
+        # Attempt to import the playlist
+        try:
+            success = import_playlist_async(url, channel_id_str)
+            if success:
+                success_count += 1
+                results.append({
+                    "url": url,
+                    "success": True,
+                    "message": "Playlist import started"
+                })
+
+                # Log the import event
+                activity_service = ActivityService(db)
+                activity_service.log_event(
+                    event_type="playlist_import",
+                    message=f"Started importing playlist from: {url}",
+                    user_id=current_user.id,
+                    user_email=current_user.email,
+                    details={
+                        "url": url,
+                        "platform": "youtube" if is_youtube else "vimeo"
+                    }
+                )
+            else:
+                failed_count += 1
+                results.append({
+                    "url": url,
+                    "success": False,
+                    "error": "Failed to start playlist import. Check the URL and try again."
+                })
+        except Exception as e:
+            failed_count += 1
+            results.append({
+                "url": url,
+                "success": False,
+                "error": f"Internal error: {str(e)}"
+            })
+
+    return BulkImportResponse(
+        success_count=success_count,
+        failed_count=failed_count,
+        results=results,
+        message=f"Processed {len(request.urls)} URLs. {success_count} succeeded, {failed_count} failed."
+    )
+
 
 # Bulk Operations Routes
 @router.post("/bulk/delete", response_model=BulkOperationResponse, status_code=status.HTTP_200_OK)
