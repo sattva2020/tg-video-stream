@@ -92,6 +92,12 @@ celery_app.conf.update(
         "cleanup-old-results": {
             "task": "backend.src.tasks.cleanup_old_results",
             "schedule": crontab(minute=0, hour=3),  # 3 AM daily
+        },
+
+        # Stream health check - every 5 minutes
+        "check-stream-health": {
+            "task": "backend.src.tasks.stream_health_check.check_all_streams_health",
+            "schedule": 300.0,  # Every 5 minutes
         }
     }
 )
