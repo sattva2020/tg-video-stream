@@ -11,8 +11,8 @@ const scanModes: { key: ScanMode; label: string; icon: typeof Folder | typeof Fi
 ]
 
 interface LocalImportFormProps {
-  /** Callback when import is successfully submitted */
-  onImported?: () => void
+  /** Callback when import is submitted with request data */
+  onImported?: (data: { source_path: string; options: Record<string, unknown> }) => void
   /** Optional className for custom styling */
   className?: string
 }
@@ -28,13 +28,20 @@ const LocalImportForm: React.FC<LocalImportFormProps> = ({ onImported, className
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // TODO: Validate that files/folder were selected
-    // For now, we'll simulate the import
+    // TODO: Implement actual file/folder picker
+    // For now, use placeholder path
+    const placeholderPath = scanMode === 'folder' ? '/path/to/media/folder' : '/path/to/files'
+
     setLoading(true)
     try {
-      // TODO: Implement actual import service call
-      // For now, simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const requestData = {
+        source_path: placeholderPath,
+        options: {
+          recursive: scanMode === 'folder' ? recursive : false,
+          fetch_metadata: fetchMetadata,
+          scan_mode: scanMode,
+        },
+      }
 
       toast.success(
         t(
@@ -45,7 +52,7 @@ const LocalImportForm: React.FC<LocalImportFormProps> = ({ onImported, className
         )
       )
 
-      if (onImported) onImported()
+      if (onImported) onImported(requestData)
     } catch (err) {
       toast.error(t('import.local.importError', 'Не удалось начать импорт'))
     } finally {

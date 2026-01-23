@@ -20,8 +20,8 @@ const qualityOptions: { key: QualityOption; label: string }[] = [
 ]
 
 interface VimeoImportFormProps {
-  /** Callback when import is successfully submitted */
-  onImported?: () => void
+  /** Callback when import is submitted with request data */
+  onImported?: (data: { source_url: string; options: Record<string, unknown> }) => void
   /** Optional className for custom styling */
   className?: string
 }
@@ -64,9 +64,23 @@ const VimeoImportForm: React.FC<VimeoImportFormProps> = ({ onImported, className
 
     setLoading(true)
     try {
-      // TODO: Implement actual import service call
-      // For now, simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Map quality option to backend format
+      const qualityMap: Record<QualityOption, string> = {
+        'auto': 'best',
+        '1080p': 'high',
+        '720p': 'medium',
+        '480p': 'low',
+        'audio-only': 'audio',
+      }
+
+      const requestData = {
+        source_url: url.trim(),
+        options: {
+          quality: qualityMap[quality],
+          fetch_metadata: true,
+          import_type: importType,
+        },
+      }
 
       toast.success(
         t(
@@ -78,7 +92,7 @@ const VimeoImportForm: React.FC<VimeoImportFormProps> = ({ onImported, className
       )
 
       setUrl('')
-      if (onImported) onImported()
+      if (onImported) onImported(requestData)
     } catch (err) {
       toast.error(t('import.vimeo.importError', 'Не удалось начать импорт'))
     } finally {
