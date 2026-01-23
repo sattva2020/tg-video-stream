@@ -560,6 +560,177 @@ async def notify_chat_message(
         await manager.broadcast_all(message)
 
 
+# === Shoutout & CTA Events (US4 - Viewer Engagement) ===
+
+def _serialize_shoutout(shoutout) -> dict:
+    """Сериализовать shoutout для отправки через WebSocket."""
+    return {
+        "id": str(shoutout.id),
+        "stream_id": str(shoutout.stream_id),
+        "shoutout_type": shoutout.shoutout_type if hasattr(shoutout, 'shoutout_type') else 'custom',
+        "status": shoutout.status if hasattr(shoutout, 'status') else 'pending',
+        "recipient_name": shoutout.recipient_name if hasattr(shoutout, 'recipient_name') else '',
+        "recipient_handle": shoutout.recipient_handle if hasattr(shoutout, 'recipient_handle') else None,
+        "recipient_avatar_url": shoutout.recipient_avatar_url if hasattr(shoutout, 'recipient_avatar_url') else None,
+        "title": shoutout.title if hasattr(shoutout, 'title') else None,
+        "message": shoutout.message if hasattr(shoutout, 'message') else None,
+        "display_duration": shoutout.display_duration if hasattr(shoutout, 'display_duration') else 10,
+        "priority": shoutout.priority if hasattr(shoutout, 'priority') else 0,
+        "is_pinned": shoutout.is_pinned if hasattr(shoutout, 'is_pinned') else False,
+        "trigger_type": shoutout.trigger_type if hasattr(shoutout, 'trigger_type') else 'manual',
+        "created_at": shoutout.created_at.isoformat() if hasattr(shoutout, 'created_at') and shoutout.created_at else None,
+        "displayed_at": shoutout.displayed_at.isoformat() if hasattr(shoutout, 'displayed_at') and shoutout.displayed_at else None,
+        "expires_at": shoutout.expires_at.isoformat() if hasattr(shoutout, 'expires_at') and shoutout.expires_at else None,
+    }
+
+
+def _serialize_cta(cta) -> dict:
+    """Сериализовать CTA для отправки через WebSocket."""
+    return {
+        "id": str(cta.id),
+        "stream_id": str(cta.stream_id),
+        "action_type": cta.action_type if hasattr(cta, 'action_type') else 'custom',
+        "status": cta.status if hasattr(cta, 'status') else 'draft',
+        "title": cta.title if hasattr(cta, 'title') else '',
+        "message": cta.message if hasattr(cta, 'message') else None,
+        "action_url": cta.action_url if hasattr(cta, 'action_url') else None,
+        "button_text": cta.button_text if hasattr(cta, 'button_text') else 'Learn More',
+        "button_color": cta.button_color if hasattr(cta, 'button_color') else None,
+        "is_dismissable": cta.is_dismissable if hasattr(cta, 'is_dismissable') else True,
+        "display_duration": cta.display_duration if hasattr(cta, 'display_duration') else None,
+        "position": cta.position if hasattr(cta, 'position') else 'bottom-right',
+        "priority": cta.priority if hasattr(cta, 'priority') else 0,
+        "scheduled_at": cta.scheduled_at.isoformat() if hasattr(cta, 'scheduled_at') and cta.scheduled_at else None,
+        "expires_at": cta.expires_at.isoformat() if hasattr(cta, 'expires_at') and cta.expires_at else None,
+        "display_count": cta.display_count if hasattr(cta, 'display_count') else 0,
+        "dismiss_count": cta.dismiss_count if hasattr(cta, 'dismiss_count') else 0,
+        "click_count": cta.click_count if hasattr(cta, 'click_count') else 0,
+        "conversion_rate": cta.conversion_rate if hasattr(cta, 'conversion_rate') else None,
+        "created_at": cta.created_at.isoformat() if hasattr(cta, 'created_at') and cta.created_at else None,
+        "updated_at": cta.updated_at.isoformat() if hasattr(cta, 'updated_at') and cta.updated_at else None,
+    }
+
+
+async def notify_shoutout_triggered(shoutout, channel_id: Optional[str] = None):
+    """
+    Уведомить клиентов о triggered shoutout.
+
+    Args:
+        shoutout: Объект shoutout
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "shoutout_triggered",
+        "data": _serialize_shoutout(shoutout),
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_shoutout_displayed(
+    shoutout_id: str,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о том, что shoutout отображается.
+
+    Args:
+        shoutout_id: ID shoutout
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "shoutout_displayed",
+        "shoutout_id": shoutout_id,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_cta_displayed(cta, channel_id: Optional[str] = None):
+    """
+    Уведомить клиентов о displayed CTA.
+
+    Args:
+        cta: Объект CTA
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "cta_displayed",
+        "data": _serialize_cta(cta),
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_cta_dismissed(
+    cta_id: str,
+    dismiss_count: int,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о том, что CTA был закрыт.
+
+    Args:
+        cta_id: ID CTA
+        dismiss_count: Новое количество dismissals
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "cta_dismissed",
+        "cta_id": cta_id,
+        "dismiss_count": dismiss_count,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_cta_clicked(
+    cta_id: str,
+    click_count: int,
+    conversion_rate: Optional[int] = None,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о клике на CTA.
+
+    Args:
+        cta_id: ID CTA
+        click_count: Новое количество кликов
+        conversion_rate: Новый коэффициент конверсии (опционально)
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "cta_clicked",
+        "cta_id": cta_id,
+        "click_count": click_count,
+        "timestamp": _get_timestamp()
+    }
+
+    if conversion_rate is not None:
+        message["conversion_rate"] = conversion_rate
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
 # === Helper functions ===
 
 def _get_timestamp() -> str:
