@@ -201,3 +201,118 @@ class QualityAlertEvent(BaseModel):
     failed_checks: list[str]  # Какие пороги были нарушены
     triggered_at: datetime
 
+
+# ========== Feature 010: Encoding Profiles ==========
+
+
+class EncodingProfileUpdate(BaseModel):
+    """
+    Feature 010: Запрос для создания/обновления encoding profile
+
+    Позволяет настраивать кодеки, битрейт и разрешение для канала
+    """
+    # Видеокодек: h264, h265, vp9
+    video_codec: Optional[str] = None
+
+    # Аудиокодек: aac, mp3, opus
+    audio_codec: Optional[str] = None
+
+    # Битрейт видео в kbps (килобит в секунду)
+    video_bitrate: Optional[int] = None
+
+    # Битрейт аудио в kbps
+    audio_bitrate: Optional[int] = None
+
+    # Разрешение видео, например "1920x1080", "1280x720"
+    resolution: Optional[str] = None
+
+    # Дополнительные параметры FFmpeg
+    custom_ffmpeg_args: Optional[str] = None
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "video_codec": "h264",
+                "audio_codec": "aac",
+                "video_bitrate": 2500,
+                "audio_bitrate": 128,
+                "resolution": "1920x1080",
+                "custom_ffmpeg_args": "-preset fast -tune zerolatency"
+            }
+        }
+
+
+class EncodingProfileResponse(BaseModel):
+    """
+    Feature 010: Ответ с encoding profile канала
+    """
+    id: int
+    channel_id: int
+    video_codec: str
+    audio_codec: str
+    video_bitrate: Optional[int]
+    audio_bitrate: Optional[int]
+    resolution: Optional[str]
+    custom_ffmpeg_args: Optional[str]
+    is_active: bool  # Используется ли этот профиль сейчас
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CodecValidationResult(BaseModel):
+    """
+    Feature 010: Результат валидации кодека
+
+    Возвращает информацию о поддержке кодека и рекомендации
+    """
+    # Валидна ли комбинация кодеков
+    is_valid: bool
+
+    # Выбранные кодеки
+    video_codec: str
+    audio_codec: str
+
+    # Поддерживается ли видеокодек в FFmpeg
+    video_codec_supported: bool
+
+    # Поддерживается ли аудиокодек в FFmpeg
+    audio_codec_supported: bool
+
+    # Список поддерживаемых видеокодеков
+    supported_video_codecs: list[str]
+
+    # Список поддерживаемых аудиокодеков
+    supported_audio_codecs: list[str]
+
+    # Предупреждения (некритичные проблемы)
+    warnings: list[str] = []
+
+    # Ошибки (критичные проблемы, делающие комбинацию непригодной)
+    errors: list[str] = []
+
+    # Рекомендации по оптимизации
+    recommendations: list[str] = []
+
+    # Совместимость с Telegram (если применимо)
+    telegram_compatible: bool
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "is_valid": True,
+                "video_codec": "h264",
+                "audio_codec": "aac",
+                "video_codec_supported": True,
+                "audio_codec_supported": True,
+                "supported_video_codecs": ["h264", "h265", "vp9"],
+                "supported_audio_codecs": ["aac", "mp3", "opus"],
+                "warnings": ["H.265 требует больше CPU ресурсов"],
+                "errors": [],
+                "recommendations": ["Используйте H.264 для максимальной совместимости"],
+                "telegram_compatible": True
+            }
+        }
+
