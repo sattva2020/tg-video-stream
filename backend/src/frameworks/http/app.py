@@ -122,7 +122,18 @@ def create_app() -> FastAPI:
         print(f"[OK] Rate limiter middleware initialized (Redis: {redis_url})")
     except Exception as e:
         print(f"[WARN] Rate limiter middleware disabled: {e}")
-    
+
+    # IP whitelist middleware
+    from src.frameworks.http.middleware.ip_whitelist import IPWhitelistMiddleware
+    try:
+        app.add_middleware(IPWhitelistMiddleware)
+        if settings.IP_WHITELIST_ENABLED:
+            print(f"[OK] IP whitelist middleware enabled (strict_mode={settings.IP_WHITELIST_STRICT_MODE})")
+        else:
+            print("[OK] IP whitelist middleware registered (disabled by config)")
+    except Exception as e:
+        print(f"[WARN] IP whitelist middleware initialization failed: {e}")
+
     # Базовые метрики FastAPI/Starlette
     Instrumentator(
         excluded_handlers={"/metrics", "/health", "/api/health", "/healthz"}
