@@ -170,6 +170,41 @@ services:
         reservations:
           memory: 128M
 
+  # WebRTC Signaling Server (TURN/STUN) for guest co-hosting
+  webrtc-signaling:
+    image: coturn/coturn:4.6.2
+    container_name: coturn
+    command: ["turnserver", "-c", "/etc/coturn/signaling-server.conf", "-v"]
+    ports:
+      - "3478:3478"    # TURN/STUN
+      - "3478:3478/udp"  # TURN/STUN UDP
+      - "5349:5349"    # TURN/TLS
+      - "5349:5349/udp"  # TURN/DTLS
+      - "49152-65535:49152-65535/udp"  # Relay ports range
+    environment:
+      - TURN_STATIC_AUTH_SECRET=${TURN_STATIC_AUTH_SECRET:-sattva_turn_secret_change_in_production_2025}
+      - TURN_SERVER_NAME=sattva-streamer.top
+    volumes:
+      - ./config/webrtc/signaling-server.conf:/etc/coturn/signaling-server.conf:ro
+    networks:
+      - external
+      - internal
+      - streamer
+      - monitoring
+    healthcheck:
+      test: ["CMD", "turnutils_uclient", "-p", "3478", "127.0.0.1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
   # Monitoring stack
   prometheus:
     image: prom/prometheus:v2.48.0
