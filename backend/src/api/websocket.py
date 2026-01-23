@@ -349,6 +349,90 @@ async def notify_auto_end_triggered(channel_id: int, reason: str):
     await manager.broadcast_to_channel(None, message)
 
 
+# === Poll Events (US3 - Interactive Polls) ===
+
+def _serialize_poll(poll) -> dict:
+    """Сериализовать опрос для отправки через WebSocket."""
+    return {
+        "id": str(poll.id),
+        "question": poll.question,
+        "options": poll.options if hasattr(poll, 'options') else [],
+        "active": poll.active if hasattr(poll, 'active') else True,
+        "total_votes": poll.total_votes if hasattr(poll, 'total_votes') else 0,
+        "created_at": poll.created_at.isoformat() if hasattr(poll, 'created_at') and poll.created_at else "",
+        "ends_at": poll.ends_at.isoformat() if hasattr(poll, 'ends_at') and poll.ends_at else None,
+    }
+
+
+async def notify_poll_created(poll, channel_id: Optional[str] = None):
+    """
+    Уведомить клиентов о создании нового опроса.
+
+    Args:
+        poll: Объект опроса
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "poll_created",
+        "data": _serialize_poll(poll),
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_poll_updated(poll, channel_id: Optional[str] = None):
+    """
+    Уведомить клиентов об обновлении опроса.
+
+    Args:
+        poll: Объект опроса
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "poll_updated",
+        "data": _serialize_poll(poll),
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_vote_cast(
+    poll_id: str,
+    option_id: str,
+    total_votes: int,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о том, что голос был отдан.
+
+    Args:
+        poll_id: ID опроса
+        option_id: ID выбранной опции
+        total_votes: Общее количество голосов в опросе
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "vote_cast",
+        "poll_id": poll_id,
+        "option_id": option_id,
+        "total_votes": total_votes,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
 # === Helper functions ===
 
 def _get_timestamp() -> str:
