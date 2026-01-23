@@ -810,7 +810,9 @@
             "command": "cd sdks/go && go test -v ./... | grep 'PASS'",
             "expected": "PASS"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Implemented complete Go SDK resource classes for all API endpoints. Created 5 resource files: streams.go (list, get, start, stop, pause, resume, restart), webhooks.go (list, get, create, update, delete, test, rotateSecret, listEvents), playlists.go (list, get, create, update, delete, getStatus, reorder), channels.go (list, get, create, update, delete), and apikeys.go (list, get, create, update, delete, revoke). All resources follow interface-based pattern from types.go, include proper error handling with wrapped errors, context support for all operations, comprehensive debug logging, and JSON marshaling. Updated client.go to initialize all resources. Created client_test.go with 6 test suites covering client initialization, configuration options, resource initialization, query string building, and resource verification. All 9 test cases pass successfully.",
+          "updated_at": "2026-01-23T17:00:00.000000+00:00"
         },
         {
           "id": "subtask-7-4",
