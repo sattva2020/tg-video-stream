@@ -31,6 +31,7 @@ const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const ApiKeysPage = lazy(() => import('./pages/api-keys'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -72,6 +73,7 @@ const App: React.FC = () => {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/playlist" element={<PlaylistPage />} />
+              <Route path="/api-keys" element={<ApiKeysPage />} />
               <Route path="/user-playlists" element={<UserPlaylistsPage />} />
               <Route path="/user-playlists/:id" element={<UserPlaylistEditor />} />
             </Route>

@@ -943,7 +943,9 @@
             "command": "curl -s http://localhost:8000/openapi.json | python -m json.tool > /dev/null && echo 'OpenAPI valid'",
             "expected": "OpenAPI valid"
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Created openapi.v1.json with v1 API specification. File contains all API endpoints with metadata updated to version 1.0.0 and title 'Telegram Broadcast API v1'. JSON validated and ready for publication.",
+          "updated_at": "2026-01-23T17:15:00.000000+00:00"
         }
       ]
     },
@@ -1426,6 +1428,6 @@
   "qa_signoff": null,
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-01-23T14:50:39.138Z",
+  "updated_at": "2026-01-23T14:58:52.616Z",
   "last_updated": "2026-01-23T13:01:46.603507+00:00"
 }
