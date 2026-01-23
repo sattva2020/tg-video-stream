@@ -29,6 +29,7 @@ from src.models.recommendation import (
     UserItemInteraction,
 )
 from src.models.playlist import PlaylistItem
+from src.models.analytics import TrackPlay
 from src.schemas.recommendation import (
     RecommendationRequest,
     RecommendationResponse,
@@ -565,6 +566,131 @@ class RecommendationService:
             logger.error(f"Ошибка записи взаимодействия: {e}")
             self.db.rollback()
             raise
+
+    async def sync_track_plays_to_interactions(
+        self, hours: int = 24, batch_size: int = 100
+    ) -> Dict[str, Any]:
+        """
+        Синхронизирует данные TrackPlay с UserItemInteraction для рекомендаций.
+
+        Конвертирует записи о воспроизведении треков (TrackPlay) в взаимодействия
+        пользователей (UserItemInteraction), которые используются для коллаборативной
+        фильтрации. Избегает дублирования по комбинации (playlist_item_id, played_at).
+
+        Args:
+            hours: Количество часов для синхронизации (по умолчанию 24)
+            batch_size: Размер пакета для обработки (по умолчанию 100)
+
+        Returns:
+            dict со статистикой синхронизации: synced_count, skipped_count, error
+        """
+        try:
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+            # Получаем TrackPlay записи за указанный период
+            track_plays_query = select(TrackPlay).where(
+                and_(
+                    TrackPlay.played_at >= cutoff_time,
+                    TrackPlay.playlist_item_id.isnot(None),
+                )
+            ).order_by(TrackPlay.played_at)
+
+            track_plays = self.db.execute(track_plays_query).scalars().all()
+
+            if not track_plays:
+                return {
+                    "synced_count": 0,
+                    "skipped_count": 0,
+                    "error": None,
+                    "message": f"No TrackPlay records found in the last {hours} hours",
+                }
+
+            synced_count = 0
+            skipped_count = 0
+
+            # Обрабатываем пачками
+            for i in range(0, len(track_plays), batch_size):
+                batch = track_plays[i : i + batch_size]
+
+                for track_play in batch:
+                    try:
+                        # Проверяем, существует ли уже взаимодействие для этой записи
+                        existing_interaction = self.db.execute(
+                            select(UserItemInteraction).where(
+                                and_(
+                                    UserItemInteraction.playlist_item_id == track_play.playlist_item_id,
+                                    UserItemInteraction.interacted_at == track_play.played_at,
+                                )
+                            ).limit(1)
+                        ).scalar_one_or_none()
+
+                        if existing_interaction:
+                            skipped_count += 1
+                            continue
+
+                        # Определяем тип взаимодействия и completion_rate
+                        interaction_type = "watch"
+                        duration_seconds = track_play.duration_seconds
+
+                        # Вычисляем completion_rate на основе длительности
+                        # Предполагаем среднюю длительность трека 180 секунд (3 минуты)
+                        completion_rate = 1.0
+                        if duration_seconds and duration_seconds > 0:
+                            # Получаем реальную длительность трека из PlaylistItem
+                            playlist_item = self.db.execute(
+                                select(PlaylistItem).where(PlaylistItem.id == track_play.playlist_item_id)
+                            ).scalar_one_or_none()
+
+                            if playlist_item and playlist_item.duration:
+                                # PlaylistItem.duration в секундах
+                                completion_rate = min(1.0, duration_seconds / playlist_item.duration)
+                            else:
+                                # Fallback: считаем что 180 секунд = 100%
+                                completion_rate = min(1.0, duration_seconds / 180)
+
+                        # Создаем UserItemInteraction
+                        # Для системных воспроизведений без конкретного пользователя используем "system"
+                        interaction = UserItemInteraction(
+                            user_id="system",  #TrackPlay не содержит user_id, используем "system"
+                            playlist_item_id=track_play.playlist_item_id,
+                            interaction_type=interaction_type,
+                            duration_seconds=duration_seconds,
+                            completion_rate=completion_rate,
+                            interacted_at=track_play.played_at,
+                        )
+
+                        self.db.add(interaction)
+                        synced_count += 1
+
+                    except Exception as e:
+                        logger.warning(f"Ошибка при обработке TrackPlay id={track_play.id}: {e}")
+                        skipped_count += 1
+                        continue
+
+                # Commit после каждой пачки
+                self.db.commit()
+
+            logger.info(
+                f"Синхронизация TrackPlay → UserItemInteraction завершена: "
+                f"{synced_count} создано, {skipped_count} пропущено"
+            )
+
+            return {
+                "synced_count": synced_count,
+                "skipped_count": skipped_count,
+                "error": None,
+                "message": f"Successfully synced {synced_count} TrackPlay records to UserItemInteraction",
+            }
+
+        except Exception as e:
+            logger.error(f"Ошибка синхронизации TrackPlay: {e}")
+            self.db.rollback()
+            return {
+                "synced_count": 0,
+                "skipped_count": 0,
+                "error": str(e),
+                "message": f"Error during TrackPlay sync: {str(e)}",
+            }
 
     async def get_stats(self, period: str = "7d") -> RecommendationStatsResponse:
         """
