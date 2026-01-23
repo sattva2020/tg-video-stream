@@ -3,9 +3,19 @@ Redis Command Handler for multi-channel stream control.
 
 Listens for control commands from backend via Redis pub/sub:
 - start: Start streaming for a specific channel
-- stop: Stop streaming for a channel  
+- stop: Stop streaming for a channel
 - restart: Restart a channel's stream
 - update_playlist: Reload playlist for a channel
+
+Multi-platform streaming commands:
+- add_platform: Add a platform destination to a channel
+- remove_platform: Remove a platform destination from a channel
+- start_platform: Start streaming to a specific platform
+- stop_platform: Stop streaming to a specific platform
+- start_all_platforms: Start streaming to all platforms for a channel
+- stop_all_platforms: Stop streaming to all platforms for a channel
+- get_platform_status: Get status of a specific platform
+- get_all_platform_statuses: Get status of all platforms for a channel
 
 Status updates are published back to Redis.
 """
@@ -68,7 +78,7 @@ class RedisCommandHandler:
         self._pubsub: Optional[Any] = None
         self._running = False
         self._task: Optional[asyncio.Task] = None
-        
+
         # Callbacks for command handling
         self.on_start: Optional[Callable[[ChannelConfig], Awaitable[bool]]] = None
         self.on_stop: Optional[Callable[[str], Awaitable[bool]]] = None
@@ -82,6 +92,16 @@ class RedisCommandHandler:
         self.on_volume: Optional[Callable[[str, int], Awaitable[bool]]] = None
         self.on_get_time: Optional[Callable[[str], Awaitable[Optional[int]]]] = None
         self.on_get_participants: Optional[Callable[[str], Awaitable[Optional[list]]]] = None
+
+        # Multi-platform streaming callbacks
+        self.on_add_platform: Optional[Callable[[str, Dict[str, Any]], Awaitable[bool]]] = None
+        self.on_remove_platform: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_start_platform: Optional[Callable[[str, str, str], Awaitable[bool]]] = None
+        self.on_stop_platform: Optional[Callable[[str], Awaitable[bool]]] = None
+        self.on_start_all_platforms: Optional[Callable[[str, str], Awaitable[Dict[str, bool]]]] = None
+        self.on_stop_all_platforms: Optional[Callable[[str], Awaitable[Dict[str, bool]]]] = None
+        self.on_get_platform_status: Optional[Callable[[str], Awaitable[Optional[Dict[str, Any]]]]] = None
+        self.on_get_all_platform_statuses: Optional[Callable[[str], Awaitable[list]]] = None
     
     @staticmethod
     def _get_redis_url() -> str:
@@ -189,6 +209,23 @@ class RedisCommandHandler:
                 await self._handle_get_time(command)
             elif action == "get_participants":
                 await self._handle_get_participants(command)
+            # Multi-platform streaming commands
+            elif action == "add_platform":
+                await self._handle_add_platform(command)
+            elif action == "remove_platform":
+                await self._handle_remove_platform(command)
+            elif action == "start_platform":
+                await self._handle_start_platform(command)
+            elif action == "stop_platform":
+                await self._handle_stop_platform(command)
+            elif action == "start_all_platforms":
+                await self._handle_start_all_platforms(command)
+            elif action == "stop_all_platforms":
+                await self._handle_stop_all_platforms(command)
+            elif action == "get_platform_status":
+                await self._handle_get_platform_status(command)
+            elif action == "get_all_platform_statuses":
+                await self._handle_get_all_platform_statuses(command)
             else:
                 logger.warning(f"Unknown command action: {action}")
                 
@@ -545,6 +582,191 @@ class RedisCommandHandler:
                 logger.info(f"Channel {channel_id} has {len(participants)} listeners")
         except Exception as e:
             logger.exception(f"Error getting participants for channel {channel_id}: {e}")
+
+    # Multi-platform streaming command handlers
+
+    async def _handle_add_platform(self, command: Dict[str, Any]):
+        """Handle add_platform command - add a platform destination to a channel."""
+        channel_id = command.get("channel_id")
+        platform_config = command.get("platform_config", {})
+
+        if not channel_id:
+            logger.error("Add platform command missing channel_id")
+            return
+
+        if not platform_config:
+            logger.error("Add platform command missing platform_config")
+            return
+
+        if not self.on_add_platform:
+            logger.warning("No on_add_platform callback registered")
+            await self.update_status(channel_id, "error", error="No add_platform handler")
+            return
+
+        try:
+            success = await self.on_add_platform(channel_id, platform_config)
+            if success:
+                logger.info(f"Added platform to channel {channel_id}")
+            else:
+                logger.warning(f"Failed to add platform to channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error adding platform to channel {channel_id}: {e}")
+
+    async def _handle_remove_platform(self, command: Dict[str, Any]):
+        """Handle remove_platform command - remove a platform destination from a channel."""
+        channel_id = command.get("channel_id")
+        platform_id = command.get("platform_id")
+
+        if not channel_id or not platform_id:
+            logger.error("Remove platform command missing channel_id or platform_id")
+            return
+
+        if not self.on_remove_platform:
+            logger.warning("No on_remove_platform callback registered")
+            return
+
+        try:
+            success = await self.on_remove_platform(platform_id)
+            if success:
+                logger.info(f"Removed platform {platform_id} from channel {channel_id}")
+            else:
+                logger.warning(f"Failed to remove platform {platform_id}")
+        except Exception as e:
+            logger.exception(f"Error removing platform {platform_id}: {e}")
+
+    async def _handle_start_platform(self, command: Dict[str, Any]):
+        """Handle start_platform command - start streaming to a specific platform."""
+        channel_id = command.get("channel_id")
+        platform_id = command.get("platform_id")
+        source_url = command.get("source_url")
+
+        if not channel_id or not platform_id:
+            logger.error("Start platform command missing channel_id or platform_id")
+            return
+
+        if not self.on_start_platform:
+            logger.warning("No on_start_platform callback registered")
+            await self.update_status(channel_id, "error", error="No start_platform handler")
+            return
+
+        try:
+            success = await self.on_start_platform(channel_id, platform_id, source_url or "")
+            if success:
+                logger.info(f"Started platform {platform_id} for channel {channel_id}")
+            else:
+                logger.warning(f"Failed to start platform {platform_id}")
+        except Exception as e:
+            logger.exception(f"Error starting platform {platform_id}: {e}")
+
+    async def _handle_stop_platform(self, command: Dict[str, Any]):
+        """Handle stop_platform command - stop streaming to a specific platform."""
+        channel_id = command.get("channel_id")
+        platform_id = command.get("platform_id")
+
+        if not channel_id or not platform_id:
+            logger.error("Stop platform command missing channel_id or platform_id")
+            return
+
+        if not self.on_stop_platform:
+            logger.warning("No on_stop_platform callback registered")
+            return
+
+        try:
+            success = await self.on_stop_platform(platform_id)
+            if success:
+                logger.info(f"Stopped platform {platform_id} for channel {channel_id}")
+            else:
+                logger.warning(f"Failed to stop platform {platform_id}")
+        except Exception as e:
+            logger.exception(f"Error stopping platform {platform_id}: {e}")
+
+    async def _handle_start_all_platforms(self, command: Dict[str, Any]):
+        """Handle start_all_platforms command - start streaming to all platforms."""
+        channel_id = command.get("channel_id")
+        source_url = command.get("source_url", "")
+
+        if not channel_id:
+            logger.error("Start all platforms command missing channel_id")
+            return
+
+        if not self.on_start_all_platforms:
+            logger.warning("No on_start_all_platforms callback registered")
+            await self.update_status(channel_id, "error", error="No start_all_platforms handler")
+            return
+
+        try:
+            results = await self.on_start_all_platforms(channel_id, source_url)
+            started_count = sum(1 for success in results.values() if success)
+            logger.info(f"Started {started_count}/{len(results)} platforms for channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error starting all platforms for channel {channel_id}: {e}")
+
+    async def _handle_stop_all_platforms(self, command: Dict[str, Any]):
+        """Handle stop_all_platforms command - stop streaming to all platforms."""
+        channel_id = command.get("channel_id")
+
+        if not channel_id:
+            logger.error("Stop all platforms command missing channel_id")
+            return
+
+        if not self.on_stop_all_platforms:
+            logger.warning("No on_stop_all_platforms callback registered")
+            return
+
+        try:
+            results = await self.on_stop_all_platforms(channel_id)
+            stopped_count = sum(1 for success in results.values() if success)
+            logger.info(f"Stopped {stopped_count}/{len(results)} platforms for channel {channel_id}")
+        except Exception as e:
+            logger.exception(f"Error stopping all platforms for channel {channel_id}: {e}")
+
+    async def _handle_get_platform_status(self, command: Dict[str, Any]):
+        """Handle get_platform_status command - get status of a specific platform."""
+        channel_id = command.get("channel_id")
+        platform_id = command.get("platform_id")
+
+        if not channel_id or not platform_id:
+            logger.error("Get platform status command missing channel_id or platform_id")
+            return
+
+        if not self.on_get_platform_status:
+            logger.warning("No on_get_platform_status callback registered")
+            return
+
+        try:
+            status = await self.on_get_platform_status(platform_id)
+            if status:
+                await self.update_status(
+                    channel_id,
+                    status.get("status", "unknown"),
+                    extra={"platform_status": status}
+                )
+                logger.debug(f"Platform {platform_id} status: {status.get('status')}")
+        except Exception as e:
+            logger.exception(f"Error getting status for platform {platform_id}: {e}")
+
+    async def _handle_get_all_platform_statuses(self, command: Dict[str, Any]):
+        """Handle get_all_platform_statuses command - get status of all platforms."""
+        channel_id = command.get("channel_id")
+
+        if not channel_id:
+            logger.error("Get all platform statuses command missing channel_id")
+            return
+
+        if not self.on_get_all_platform_statuses:
+            logger.warning("No on_get_all_platform_statuses callback registered")
+            return
+
+        try:
+            statuses = await self.on_get_all_platform_statuses(channel_id)
+            await self.update_status(
+                channel_id,
+                "platforms_active" if statuses else "no_platforms",
+                extra={"platform_statuses": statuses, "platform_count": len(statuses)}
+            )
+            logger.info(f"Channel {channel_id} has {len(statuses)} platforms")
+        except Exception as e:
+            logger.exception(f"Error getting all platform statuses for channel {channel_id}: {e}")
 
     async def _listen_loop(self):
         """Main loop for listening to Redis commands."""
