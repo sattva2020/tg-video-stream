@@ -6,3 +6,5 @@ export { ScheduleCalendar } from './ScheduleCalendar';
 export { SlotEditorModal } from './SlotEditorModal';
 export { CopyScheduleModal } from './CopyScheduleModal';
 export { PlaylistManager } from './PlaylistManager';
+export { AutoPilotPanel } from './AutoPilotPanel';
+export { ScheduleOptimizationModal } from './ScheduleOptimizationModal';
