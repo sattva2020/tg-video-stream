@@ -36,6 +36,14 @@ from queue_manager import StreamQueue, QueueManager
 from radio_handler import get_radio_handler, RadioStreamHandler
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 
+# Platform streaming imports (multi-platform broadcasting)
+try:
+    from platform_streamer import PlatformStreamer, get_platform_streamer
+    PLATFORM_STREAMER_AVAILABLE = True
+except ImportError:
+    PLATFORM_STREAMER_AVAILABLE = False
+    logging.getLogger("tg_video_streamer").warning("platform_streamer module not available — multi-platform streaming disabled")
+
 # Rust transcoder client (optional - for health checks and future streaming)
 try:
     from transcode_client import TranscodeClient
@@ -49,6 +57,9 @@ queue_manager: QueueManager = None
 
 # Global Redis command handler instance
 redis_command_handler: RedisCommandHandler = None
+
+# Global platform streamer instance (multi-platform broadcasting)
+platform_streamer: PlatformStreamer = None
 
 # Active channel streams (channel_id -> asyncio.Task)
 active_streams: dict = {}
@@ -512,8 +523,8 @@ async def handle_playlist_update(channel_id: str):
 
 
 async def main():
-    global redis_command_handler
-    
+    global redis_command_handler, platform_streamer
+
     # Start Redis command handler immediately to ensure we can receive commands
     # even if the main app fails to start or is in degraded mode.
     redis_command_handler = RedisCommandHandler()
@@ -526,12 +537,27 @@ async def main():
     except Exception as e:
         log.error("Failed to start Redis command handler: %s", e)
 
+    # Initialize platform streamer for multi-platform broadcasting
+    if PLATFORM_STREAMER_AVAILABLE:
+        try:
+            platform_streamer = get_platform_streamer()
+            await platform_streamer.initialize()
+            log.info("Platform streamer initialized")
+        except Exception as e:
+            log.error("Failed to initialize platform streamer: %s", e)
+            platform_streamer = None
+
     if not RUN_APP:
         log.info("Starting in degraded idle mode (missing critical credentials).")
         try:
             while True:
                 await asyncio.sleep(60)
         finally:
+            if platform_streamer:
+                try:
+                    await platform_streamer.shutdown()
+                except Exception:
+                    pass
             if redis_command_handler:
                 await redis_command_handler.stop()
         return
@@ -542,6 +568,11 @@ async def main():
             while True:
                 await asyncio.sleep(60)
         finally:
+            if platform_streamer:
+                try:
+                    await platform_streamer.shutdown()
+                except Exception:
+                    pass
             if redis_command_handler:
                 await redis_command_handler.stop()
         return
@@ -628,7 +659,15 @@ async def main():
                     log.info("Auto-end handler stopped")
                 except Exception as e:
                     log.warning("Error stopping auto-end handler: %s", e)
-            
+
+            # Stop platform streamer
+            if platform_streamer:
+                try:
+                    await platform_streamer.shutdown()
+                    log.info("Platform streamer stopped")
+                except Exception as e:
+                    log.warning("Error stopping platform streamer: %s", e)
+
             # Stop Redis command handler
             if redis_command_handler:
                 try:
