@@ -48,6 +48,7 @@ from .stream import Stream, StreamStatus
 # Social Media Integration (Feature 021-social-media-integration)
 from .streaming_platform import StreamingPlatform
 from .broadcast_destination import BroadcastDestination
+from .social_media_post import SocialMediaPost
 
 __all__ = [
     "User",
@@ -93,5 +94,6 @@ __all__ = [
     # Social Media Integration
     "StreamingPlatform",
     "BroadcastDestination",
+    "SocialMediaPost",
 ]
 
