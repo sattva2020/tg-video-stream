@@ -3,7 +3,7 @@
   "spec": "019-real-time-live-streaming-capabilities",
   "state": "building",
   "subtasks": {
-    "completed": 1,
+    "completed": 3,
     "total": 35,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 3,
+    "number": 5,
     "started_at": "2026-01-23T16:04:30.779289"
   },
-  "last_update": "2026-01-23T16:20:21.871567"
+  "last_update": "2026-01-23T16:29:42.442380"
 }
