@@ -46,6 +46,13 @@ from .app_settings import (
 from .saml_config import SAMLConfig
 from .ip_whitelist import IPWhitelist
 from .security_policy import SecurityPolicy, PolicyType, EnforcementLevel
+from .compliance_log import (
+    ComplianceLog,
+    ComplianceEventType,
+    ComplianceCategory,
+    SeverityLevel,
+    ComplianceStatus,
+)
 
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
@@ -94,6 +101,11 @@ __all__ = [
     "SecurityPolicy",
     "PolicyType",
     "EnforcementLevel",
+    "ComplianceLog",
+    "ComplianceEventType",
+    "ComplianceCategory",
+    "SeverityLevel",
+    "ComplianceStatus",
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
