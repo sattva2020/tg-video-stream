@@ -45,6 +45,10 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# Multi-Tenant Architecture (Feature 022)
+from .organization import Organization
+from .organization_user import OrganizationUser, OrganizationRole, OrganizationUserStatus
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +90,10 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # Multi-Tenant Architecture
+    "Organization",
+    "OrganizationUser",
+    "OrganizationRole",
+    "OrganizationUserStatus",
 ]
 
