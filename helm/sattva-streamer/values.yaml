@@ -1,0 +1,617 @@
+# Default values for sattva-streamer
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  # Image registry to use if not specified per service
+  imageRegistry: ""
+  # Image pull policy to use if not specified per service
+  imagePullPolicy: IfNotPresent
+  # Common environment variables for all services
+  env: {}
+  # Override DNS policy for all services
+  dnsPolicy: ""
+  # Override DNS config for all services
+  dnsConfig: {}
+
+# Backend service configuration
+backend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: sattva/backend
+    pullPolicy: IfNotPresent
+    tag: "1.0.0"
+
+  # Container configuration
+  containerPort: 8000
+  command: []
+  args: []
+
+  # Autoscaling configuration
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    # Custom metrics for stream-based scaling
+    customMetrics: []
+    # - type: External
+    #   external:
+    #     metric:
+    #       name: active_streams
+    #     target:
+    #       type: AverageValue
+    #       value: "5"
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+  # Health check configuration
+  livenessProbe:
+    httpGet:
+      path: /api/health/live
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /api/health/ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Environment variables (will be merged with secrets)
+  env:
+    DATABASE_URL: "postgresql://postgres:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/telegram_db"
+    REDIS_URL: "redis://{{ .Release.Name }}-redis-master:6379"
+
+  # Secret environment variables (loaded from Kubernetes secrets)
+  secretEnv:
+    JWT_SECRET: "jwt-secret"
+    GOOGLE_DRIVE_API_KEY: "google-drive-api-key"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Pod security context
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Container security context
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity rules
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - backend
+            topologyKey: kubernetes.io/hostname
+
+# Frontend service configuration
+frontend:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: sattva/frontend
+    pullPolicy: IfNotPresent
+    tag: "1.0.0"
+
+  containerPort: 80
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Build arguments
+  buildArgs:
+    VITE_API_BASE_URL: "https://sattva-streamer.top"
+    VITE_API_URL: "https://sattva-streamer.top"
+    VITE_ENABLE_BASIC_LOGIN: "false"
+    VITE_TELEGRAM_BOT_USERNAME: ""
+
+  service:
+    type: ClusterIP
+    port: 80
+    annotations: {}
+
+  podAnnotations: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    fsGroup: 101
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: true
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Streamer service configuration (StatefulSet)
+streamer:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: sattva/streamer
+    pullPolicy: IfNotPresent
+    tag: "1.0.0"
+
+  containerPort: 8080
+
+  # Streamer uses StatefulSet for persistent identity
+  # Autoscaling not recommended for stateful streamer
+  autoscaling:
+    enabled: false
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 200m
+      memory: 128Mi
+
+  livenessProbe:
+    exec:
+      command:
+        - python
+        - -c
+        - import sys; sys.exit(0)
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+
+  readinessProbe:
+    exec:
+      command:
+        - python
+        - -c
+        - import sys; sys.exit(0)
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Environment variables
+  env:
+    REDIS_URL: "redis://{{ .Release.Name }}-redis-master:6379"
+    BACKEND_URL: "http://{{ .Release.Name }}-backend:8000"
+    CHAT_ID: "3211053168"
+    VIDEO_QUALITY: "720p"
+    LOOP: "1"
+    MUSIC_ROOT: "/app/data/music"
+
+  # Secret environment variables (from .env file)
+  secretEnv:
+    API_ID: "telegram-api-id"
+    API_HASH: "telegram-api-hash"
+
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+
+  podAnnotations: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
+  # Persistent volume for streamer session data
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 1Gi
+
+  nodeSelector: {}
+  tolerations: []
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - streamer
+          topologyKey: kubernetes.io/hostname
+
+# Rust transcoder service configuration
+rustTranscoder:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: sattva/rust-transcoder
+    pullPolicy: IfNotPresent
+    tag: "1.0.0"
+
+  containerPort: 8090
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 10
+    successThreshold: 1
+    failureThreshold: 3
+
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  env:
+    RUST_LOG: "info"
+    MAX_CONCURRENT_STREAMS: "50"
+
+  service:
+    type: ClusterIP
+    port: 8090
+    annotations: {}
+
+  podAnnotations: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    readOnlyRootFilesystem: false
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# PostgreSQL database configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "sattva_db_pass_2025_9f3c0f"
+    database: "telegram_db"
+  primary:
+    service:
+      ports:
+        postgresql: 5432
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    service:
+      ports:
+        redis: 6379
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Monitoring stack configuration
+monitoring:
+  # Prometheus Operator integration
+  serviceMonitor:
+    enabled: false
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+
+  # ServiceMonitor for each service
+  backend:
+    serviceMonitor:
+      enabled: false
+      path: /metrics
+      port: http
+
+  frontend:
+    serviceMonitor:
+      enabled: false
+
+  streamer:
+    serviceMonitor:
+      enabled: false
+
+  rustTranscoder:
+    serviceMonitor:
+      enabled: false
+      path: /metrics
+      port: http
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations: {
+    cert-manager.io/cluster-issuer: "letsencrypt-prod",
+    nginx.ingress.kubernetes.io/ssl-redirect: "true",
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true",
+    nginx.ingress.kubernetes.io/rate-limit: "100",
+  }
+
+  # Frontend host
+  frontend:
+    enabled: true
+    hostname: "sattva-streamer.top"
+    path: "/"
+    pathType: Prefix
+    service:
+      name: frontend
+      port: 80
+    tls: true
+    secretName: "sattva-frontend-tls"
+
+  # Backend API host
+  backend:
+    enabled: true
+    hostname: "api.sattva-streamer.top"
+    path: "/api"
+    pathType: Prefix
+    service:
+      name: backend
+      port: 8000
+    tls: true
+    secretName: "sattva-backend-tls"
+
+  # Grafana host
+  grafana:
+    enabled: false
+    hostname: "grafana.sattva-streamer.top"
+    path: "/"
+    pathType: Prefix
+    service:
+      name: grafana
+      port: 3000
+    tls: true
+    secretName: "sattva-grafana-tls"
+
+  # Docs host
+  docs:
+    enabled: false
+    hostname: "docs.sattva-streamer.top"
+    path: "/"
+    pathType: Prefix
+    service:
+      name: docs
+      port: 8080
+    tls: true
+    secretName: "sattva-docs-tls"
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  backend:
+    enabled: true
+    minAvailable: 1
+  frontend:
+    enabled: true
+    minAvailable: 1
+  rustTranscoder:
+    enabled: true
+    minAvailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: false
+  # Enable when you need strict network segmentation
+
+# Service accounts
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# RBAC configuration
+rbac:
+  create: true
+  rules: []
+
+# Secrets configuration
+secrets:
+  # Create secrets from values
+  create: true
+
+  # JWT secret
+  jwtSecret: "change-me-in-production"
+
+  # Google Drive API key
+  googleDriveApiKey: ""
+
+  # Telegram credentials
+  telegramApiId: ""
+  telegramApiHash: ""
+
+  # Alertmanager Telegram credentials
+  alertmanagerTelegramBotToken: ""
+  alertmanagerTelegramChatId: ""
+
+  # AI provider API keys
+  openaiApiKey: ""
+  anthropicApiKey: ""
+  openrouterApiKey: ""
+  deepseekApiKey: ""
+  qwenApiKey: ""
+  zaiApiKey: ""
+  geminiApiKey: ""
+
+# ConfigMaps configuration
+configMaps:
+  # Create ConfigMaps from values
+  create: true
+
+  # Application configuration
+  appConfig: |
+    LOG_LEVEL=info
+    ANOMALY_CHECK_INTERVAL=60
+    ANOMALY_TRAIN_INTERVAL_HOURS=6
+    ANOMALY_CONTAMINATION=0.05
+    ANOMALY_ALERTMANAGER_ENABLED=true
+
+# Volume storage class
+storageClass: ""
+
+# Resource quotas
+resourceQuota:
+  enabled: false
+  limits:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    requests.storage: "20Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+
+# Limit ranges
+limitRange:
+  enabled: false
+  limits:
+    - type: Container
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "100m"
+        memory: "128Mi"
+      max:
+        cpu: "2"
+        memory: "2Gi"
+      min:
+        cpu: "50m"
+        memory: "64Mi"
