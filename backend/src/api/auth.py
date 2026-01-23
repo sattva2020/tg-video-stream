@@ -148,8 +148,23 @@ MESSAGE_LOCALIZATIONS = {
 def _format_auth_error(code: str, hint: str, message: str | None = None, message_key: str | None = None, req: Request | None = None) -> dict:
     """Return the error payload for auth endpoints.
 
-    If Accept-Language includes 'ru', return localized `message` when possible.
-    Otherwise return `message_key` when available so frontend can localize.
+    When Accept-Language includes 'ru', attempts to return a localized 'message' by:
+    1. Looking up message_key in MESSAGE_LOCALIZATIONS['ru']
+    2. Using the provided message parameter
+    3. Falling back to message_key as the message value
+
+    When 'ru' is not preferred, returns message_key for client-side localization when available,
+    otherwise falls back to the provided message parameter.
+
+    Args:
+        code: Error code enum value
+        hint: Action hint for the user (required)
+        message: Pre-localized message (optional)
+        message_key: Localization key for client-side translation (optional)
+        req: FastAPI Request object for header inspection (optional)
+
+    Returns:
+        Dictionary with 'code', 'hint', and either 'message' or 'message_key'
     """
     accept = ''
     if req:
