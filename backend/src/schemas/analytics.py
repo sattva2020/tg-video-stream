@@ -77,3 +77,31 @@ class TrackPlayResponse(BaseModel):
     """Ответ на запись воспроизведения трека."""
     id: int = Field(..., description="ID записи")
     played_at: datetime = Field(..., description="Время записи")
+
+
+# === Multi-Platform Analytics Schemas ===
+
+class PlatformMetrics(BaseModel):
+    """Метрики для отдельной платформы."""
+    platform_type: str = Field(..., description="Тип платформы (youtube, twitch, etc.)")
+    platform_name: str = Field(..., description="Название платформы")
+    status: str = Field(..., description="Текущий статус")
+    stream_count: int = Field(..., ge=0, description="Количество стримов")
+    total_stream_hours: float = Field(..., ge=0, description="Общее время стриминга в часах")
+    post_count: int = Field(..., ge=0, description="Количество постов")
+    successful_posts: int = Field(..., ge=0, description="Успешные посты")
+    failed_posts: int = Field(..., ge=0, description="Неудачные посты")
+    last_activity: Optional[datetime] = Field(None, description="Последняя активность")
+
+
+class MultiPlatformAnalyticsResponse(BaseModel):
+    """Агрегированная аналитика по всем платформам."""
+    period: AnalyticsPeriod = Field(..., description="Период данных")
+    total_platforms: int = Field(..., ge=0, description="Общее количество платформ")
+    active_platforms: int = Field(..., ge=0, description="Активные платформы")
+    platforms: List[PlatformMetrics] = Field(default_factory=list, description="Метрики по платформам")
+    total_streams: int = Field(..., ge=0, description="Общее количество стримов")
+    total_stream_hours: float = Field(..., ge=0, description="Общее время стриминга в часах")
+    total_posts: int = Field(..., ge=0, description="Общее количество постов")
+    successful_posts_rate: float = Field(..., ge=0, le=100, description="Процент успешных постов")
+    cached_at: datetime = Field(..., description="Время кэширования")

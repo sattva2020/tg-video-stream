@@ -7,6 +7,7 @@ Feature: 021-admin-analytics-menu
 - GET /analytics/listeners - Статистика слушателей
 - GET /analytics/listeners/history - История слушателей
 - GET /analytics/top-tracks - Топ треков
+- GET /analytics/multi-platform - Мультиплатформенная аналитика
 - POST /internal/track-play - Запись воспроизведения (для streamer)
 """
 
@@ -33,8 +34,13 @@ from src.schemas.analytics import (
     TrackPlayResponse,
     AnalyticsPeriod,
     HistoryInterval,
+    MultiPlatformAnalyticsResponse,
 )
 from src.services.analytics_service import AnalyticsService, get_analytics_service
+from src.services.multi_platform_analytics import (
+    MultiPlatformAnalyticsService,
+    get_multi_platform_analytics_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +69,14 @@ async def get_analytics_service_dep(
     """Dependency для получения AnalyticsService."""
     redis_client = await get_redis_client()
     return get_analytics_service(db=db, redis_client=redis_client)
+
+
+async def get_multi_platform_analytics_service_dep(
+    db: Session = Depends(get_db)
+) -> MultiPlatformAnalyticsService:
+    """Dependency для получения MultiPlatformAnalyticsService."""
+    redis_client = await get_redis_client()
+    return get_multi_platform_analytics_service(db=db, redis_client=redis_client)
 
 
 # ============ Analytics Endpoints (require ADMIN/MODERATOR role) ============
@@ -154,7 +168,7 @@ async def get_top_tracks(
 ):
     """
     Получить топ треков.
-    
+
     Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
     """
     try:
@@ -162,6 +176,30 @@ async def get_top_tracks(
     except Exception as e:
         logger.error(f"Error getting top tracks: {e}")
         raise HTTPException(status_code=500, detail="Failed to get top tracks")
+
+
+@router.get(
+    "/multi-platform",
+    response_model=MultiPlatformAnalyticsResponse,
+    summary="Получить мультиплатформенную аналитику",
+    description="Агрегированная статистика по всем платформам стриминга"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_multi_platform_analytics(
+    request: Request,
+    period: AnalyticsPeriod = Query("7d", description="Период для агрегации данных"),
+    service: MultiPlatformAnalyticsService = Depends(get_multi_platform_analytics_service_dep)
+):
+    """
+    Получить агрегированную аналитику по всем платформам.
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+    """
+    try:
+        return await service.get_multi_platform_analytics(period=period)
+    except Exception as e:
+        logger.error(f"Error getting multi-platform analytics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get multi-platform analytics")
 
 
 # ============ Internal Endpoints (for streamer service) ============
