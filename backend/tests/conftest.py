@@ -492,3 +492,60 @@ def test_playlist(db_session, admin_user: User) -> Playlist:
     return playlist
 
 
+# ============================================================================
+# Helper Functions for E2E Verification Scripts
+# ============================================================================
+
+def get_test_admin_token() -> str:
+    """
+    Get a valid admin JWT token for E2E testing.
+
+    Returns:
+        JWT access token string
+    """
+    from src.auth.jwt import create_access_token
+    from src.models.user import User, UserRole, UserStatus
+
+    # Create a test admin user (in-memory for E2E tests)
+    admin_user = User(
+        email='e2e-admin@test',
+        hashed_password='x',
+        role=UserRole.ADMIN,
+        status=UserStatus.APPROVED
+    )
+
+    token = create_access_token(data={
+        "sub": str(admin_user.id),
+        "role": admin_user.role
+    })
+    return token
+
+
+def create_test_user(email: str = "test-user@example.com", role: str = "user") -> User:
+    """
+    Create a test user for E2E testing.
+
+    Args:
+        email: User email address
+        role: User role (user, admin, superadmin)
+
+    Returns:
+        User object
+    """
+    from src.models.user import User, UserRole, UserStatus
+
+    role_map = {
+        "user": UserRole.USER,
+        "admin": UserRole.ADMIN,
+        "superadmin": UserRole.SUPERADMIN
+    }
+
+    user = User(
+        email=email,
+        hashed_password='x',
+        role=role_map.get(role, UserRole.USER),
+        status=UserStatus.APPROVED
+    )
+    return user
+
+
