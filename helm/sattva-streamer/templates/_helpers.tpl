@@ -227,6 +227,13 @@ Get the frontend service name
 {{- end }}
 
 {{/*
+Get the frontend name
+*/}}
+{{- define "sattva-streamer.frontend.name" -}}
+{{- printf "%s-frontend" (include "sattva-streamer.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
 Get the streamer service name
 */}}
 {{- define "sattva-streamer.streamer.serviceName" -}}

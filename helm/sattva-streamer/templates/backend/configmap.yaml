@@ -1,0 +1,18 @@
+{{- if and .Values.backend.enabled .Values.backend.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.backend.serviceName" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.backend.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.backend.env }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+  {{- with .Values.global.env }}
+  {{- range $key, $value := . }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+  {{- end }}
+{{- end }}

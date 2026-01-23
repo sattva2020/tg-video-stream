@@ -1,0 +1,293 @@
+{{- if include "sattva-streamer.canCreateNetworkPolicy" . -}}
+{{- $fullName := include "sattva-streamer.fullname" . -}}
+{{- $frontendServiceName := include "sattva-streamer.frontend.serviceName" . -}}
+{{- $backendServiceName := include "sattva-streamer.backend.serviceName" . -}}
+{{- $streamerServiceName := include "sattva-streamer.streamer.serviceName" . -}}
+{{- $rustTranscoderServiceName := include "sattva-streamer.rustTranscoder.serviceName" . -}}
+{{- $postgresServiceName := printf "%s-postgresql" .Release.Name -}}
+{{- $redisServiceName := printf "%s-redis-master" .Release.Name -}}
+
+# NetworkPolicy for Frontend
+# Frontend can talk to Backend
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sattva-streamer.frontend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from Ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: http
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow communication with backend
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.backend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    # Allow external HTTPS (for API calls)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+# NetworkPolicy for Backend
+# Backend can talk to PostgreSQL, Redis, Streamer
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sattva-streamer.backend.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from frontend
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.frontend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    # Allow traffic from transcoder
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    # Allow traffic from Ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: http
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow communication with PostgreSQL
+    {{- if .Values.postgresql.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 5432
+    {{- end }}
+    # Allow communication with Redis
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 6379
+    {{- end }}
+    # Allow communication with Streamer
+    {{- if .Values.streamer.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    {{- end }}
+    # Allow external HTTPS (for external APIs)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+# NetworkPolicy for Streamer
+# Streamer can talk to Backend and Redis
+---
+{{- if .Values.streamer.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-streamer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: streamer
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.backend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow communication with Redis
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: 6379
+    {{- end }}
+    # Allow communication with Backend
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.backend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+    # Allow external traffic (Telegram API)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+{{- end }}
+
+# NetworkPolicy for Rust Transcoder
+# Transcoder can talk to Backend
+---
+{{- if .Values.rustTranscoder.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-rust-transcoder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rust-transcoder
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from backend
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.backend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    # Allow communication with Backend
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- include "sattva-streamer.backend.selectorLabels" . | nindent 12 }}
+      ports:
+        - protocol: TCP
+          port: http
+{{- end }}
+
+# NetworkPolicy for Monitoring
+# Allow Prometheus to scrape all services
+---
+{{- if .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullName }}-monitoring
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: prometheus
+  policyTypes:
+    - Egress
+  egress:
+    # Allow scraping all services
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - protocol: TCP
+          port: http
+{{- end }}
+{{- end }}

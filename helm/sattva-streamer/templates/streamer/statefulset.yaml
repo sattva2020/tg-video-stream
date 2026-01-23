@@ -1,0 +1,95 @@
+{{- if .Values.streamer.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "sattva-streamer.streamer.serviceName" . }}
+  labels:
+    {{- include "sattva-streamer.streamer.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "sattva-streamer.streamer.serviceName" . }}
+  replicas: {{ .Values.streamer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/streamer/configmap.yaml") . | sha256sum }}
+        {{- with .Values.streamer.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "sattva-streamer.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "sattva-streamer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.streamer.podSecurityContext | nindent 8 }}
+      containers:
+      - name: streamer
+        securityContext:
+          {{- toYaml .Values.streamer.securityContext | nindent 10 }}
+        image: "{{ include "sattva-streamer.streamer.image" . }}"
+        imagePullPolicy: {{ .Values.streamer.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.streamer.containerPort }}
+          protocol: TCP
+        env:
+        {{- include "sattva-streamer.envVars" (dict "env" .Values.streamer.env "$" $) | nindent 8 }}
+        {{- include "sattva-streamer.secretEnvVars" (dict "secretEnv" .Values.streamer.secretEnv "$" $) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.streamer.resources | nindent 10 }}
+        {{- with .Values.streamer.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.streamer.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: streamer-data
+          mountPath: /app/data
+        {{- with .Values.streamer.volumeMounts }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.streamer.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.streamer.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.streamer.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.streamer.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.streamer.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.streamer.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: streamer-data
+    spec:
+      {{- if .Values.streamer.persistence.existingClaim }}
+      # This is a workaround to avoid creating a new PVC when an existing one is provided
+      # The actual existing claim should be used as a volume directly in the pod template
+      {{- else }}
+      accessModes:
+        - {{ .Values.streamer.persistence.accessMode }}
+      {{- if .Values.streamer.persistence.storageClass }}
+      storageClassName: {{ .Values.streamer.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.streamer.persistence.size }}
+      {{- end }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,302 @@
+{{- if .Values.monitoring.prometheusRules.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}-prometheus-rules
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  # Resource Usage Alerts
+  - name: sattva-resource-usage
+    interval: 30s
+    rules:
+    # High CPU usage alert
+    - alert: HighCPUUsage
+      expr: |
+        sum(rate(container_cpu_usage_seconds_total{namespace="{{ .Release.Namespace }}", container!="", container!="POD"}[5m])) by (pod)
+        /
+        sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}", resource="cpu"}) by (pod)
+        > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High CPU usage detected for pod {{ $labels.pod }}"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is using more than 80% of CPU limit for 5 minutes"
+        runbook_url: "https://runbooks.example.com/high-cpu-usage"
+
+    # High memory usage alert
+    - alert: HighMemoryUsage
+      expr: |
+        sum(container_memory_working_set_bytes{namespace="{{ .Release.Namespace }}", container!="", container!="POD"}) by (pod)
+        /
+        sum(kube_pod_container_resource_limits{namespace="{{ .Release.Namespace }}", resource="memory"}) by (pod)
+        > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High memory usage detected for pod {{ $labels.pod }}"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is using more than 80% of memory limit for 5 minutes"
+        runbook_url: "https://runbooks.example.com/high-memory-usage"
+
+  # Pod Health Alerts
+  - name: sattva-pod-health
+    interval: 30s
+    rules:
+    # Pod crash looping
+    - alert: PodCrashLooping
+      expr: |
+        rate(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > 0
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Pod {{ $labels.pod }} is crash looping"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has restarted {{ $value }} times in the last 15 minutes"
+        runbook_url: "https://runbooks.example.com/pod-crash-looping"
+
+    # Pod not ready
+    - alert: PodNotReady
+      expr: |
+        sum(kube_pod_status_phase{namespace="{{ .Release.Namespace }}", phase!="Running"} > 0) by (pod)
+      for: 10m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Pod {{ $labels.pod }} is not ready"
+        description: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been in a non-Running state for more than 10 minutes"
+        runbook_url: "https://runbooks.example.com/pod-not-ready"
+
+    # Service down (no ready pods)
+    - alert: ServiceDown
+      expr: |
+        sum(kube_pod_status_ready{namespace="{{ .Release.Namespace }}", condition="true"} == 0) by (service) > 0
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Service {{ $labels.service }} has no ready pods"
+        description: "Service {{ $labels.service }} in namespace {{ $labels.namespace }} has no ready pods for 5 minutes"
+        runbook_url: "https://runbooks.example.com/service-down"
+
+  # Application Performance Alerts
+  - name: sattva-application-performance
+    interval: 30s
+    rules:
+    # High request latency
+    - alert: HighRequestLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(http_request_duration_seconds_bucket{namespace="{{ .Release.Namespace }}"}[5m])) by (le, job)
+        ) > 1
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High request latency detected for {{ $labels.job }}"
+        description: "P95 request latency for {{ $labels.job }} is {{ $value }}s, which is above the 1s threshold for 5 minutes"
+        runbook_url: "https://runbooks.example.com/high-request-latency"
+
+    # High error rate
+    - alert: HighErrorRate
+      expr: |
+        sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}", status=~"5.."}[5m])) by (job)
+        /
+        sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}"}[5m])) by (job)
+        > 0.05
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High error rate detected for {{ $labels.job }}"
+        description: "Error rate for {{ $labels.job }} is {{ $value | humanizePercentage }}, which is above 5% for 5 minutes"
+        runbook_url: "https://runbooks.example.com/high-error-rate"
+
+  # Database Alerts
+  - name: sattva-database
+    interval: 30s
+    rules:
+    # Database connection failures
+    - alert: DatabaseConnectionFailures
+      expr: |
+        rate(pg_stat_database_deadlocks{datname="{{ .Values.postgresql.auth.database }}"}[5m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Database deadlocks detected"
+        description: "Database {{ $labels.datname }} is experiencing deadlocks at a rate of {{ $value }} per second"
+        runbook_url: "https://runbooks.example.com/database-deadlocks"
+
+    # High database connection count
+    - alert: HighDatabaseConnections
+      expr: |
+        pg_stat_database_numbackends{datname="{{ .Values.postgresql.auth.database }}"}
+        /
+        pg_settings_max_connections
+        > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High database connection count"
+        description: "Database connection usage is at {{ $value | humanizePercentage }} of maximum"
+        runbook_url: "https://runbooks.example.com/high-database-connections"
+
+  # Redis Alerts
+  - name: sattva-redis
+    interval: 30s
+    rules:
+    # Redis connection failures
+    - alert: RedisConnectionFailures
+      expr: |
+        rate(redis_connections_received_total{namespace="{{ .Release.Namespace }}"}[5m]) == 0
+        and
+        rate(redis_commands_processed_total{namespace="{{ .Release.Namespace }}"}[5m]) == 0
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Redis connection failures detected"
+        description: "Redis instance in namespace {{ $labels.namespace }} is not accepting connections or processing commands"
+        runbook_url: "https://runbooks.example.com/redis-connection-failures"
+
+    # High Redis memory usage
+    - alert: HighRedisMemoryUsage
+      expr: |
+        redis_memory_used_bytes{namespace="{{ .Release.Namespace }}"}
+        /
+        redis_memory_max_bytes{namespace="{{ .Release.Namespace }}"}
+        > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High Redis memory usage"
+        description: "Redis memory usage is at {{ $value | humanizePercentage }} of maximum"
+        runbook_url: "https://runbooks.example.com/high-redis-memory"
+
+  # Autoscaling Alerts
+  - name: sattva-autoscaling
+    interval: 30s
+    rules:
+    # HPA at max replicas
+    - alert: HPAAtMaxReplicas
+      expr: |
+        kube_horizontalpodautoscaler_status_current_replicas{namespace="{{ .Release.Namespace }}"}
+        ==
+        kube_horizontalpodautoscaler_spec_max_replicas{namespace="{{ .Release.Namespace }}"}
+      for: 15m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "HPA {{ $labels.horizontalpodautoscaler }} is at maximum replicas"
+        description: "HPA {{ $labels.horizontalpodautoscaler }} has been running at maximum replica count ({{ $value }}) for 15 minutes"
+        runbook_url: "https://runbooks.example.com/hpa-at-max-replicas"
+
+    # HPA scaling event (rapid scaling)
+    - alert: RapidScalingEvents
+      expr: |
+        increase(kube_horizontalpodautoscaler_status_desired_replicas{namespace="{{ .Release.Namespace }}"}[1h]) > 5
+      labels:
+        severity: info
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Rapid scaling events detected for {{ $labels.horizontalpodautoscaler }}"
+        description: "HPA {{ $labels.horizontalpodautoscaler }} has scaled more than 5 times in the last hour"
+        runbook_url: "https://runbooks.example.com/rapid-scaling-events"
+
+  # Streaming Service Alerts
+  - name: sattva-streaming
+    interval: 30s
+    rules:
+    # High number of active streams
+    - alert: HighActiveStreams
+      expr: |
+        streamer_active_streams_total{namespace="{{ .Release.Namespace }}"} > 100
+      for: 10m
+      labels:
+        severity: info
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High number of active streams detected"
+        description: "There are {{ $value }} active streams, which may require additional resources"
+        runbook_url: "https://runbooks.example.com/high-active-streams"
+
+    # High transcoding job queue
+    - alert: HighTranscodingQueue
+      expr: |
+        transcoding_jobs_pending_total{namespace="{{ .Release.Namespace }}"} > 50
+      for: 10m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High transcoding job queue detected"
+        description: "There are {{ $value }} pending transcoding jobs, consider scaling up transcoder pods"
+        runbook_url: "https://runbooks.example.com/high-transcoding-queue"
+
+    # Streamer service not healthy
+    - alert: StreamerServiceDown
+      expr: |
+        up{job="streamer", namespace="{{ .Release.Namespace }}"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Streamer service is down"
+        description: "Streamer service in namespace {{ $labels.namespace }} is not responding to health checks"
+        runbook_url: "https://runbooks.example.com/streamer-service-down"
+
+  # Transcoder Alerts
+  - name: sattva-transcoder
+    interval: 30s
+    rules:
+    # Transcoder service not healthy
+    - alert: TranscoderServiceDown
+      expr: |
+        up{job="rust-transcoder", namespace="{{ .Release.Namespace }}"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "Transcoder service is down"
+        description: "Rust transcoder service in namespace {{ $labels.namespace }} is not responding to health checks"
+        runbook_url: "https://runbooks.example.com/transcoder-service-down"
+
+    # High transcoding failure rate
+    - alert: HighTranscodingFailureRate
+      expr: |
+        sum(rate(transcoding_jobs_failed_total{namespace="{{ .Release.Namespace }}"}[5m]))
+        /
+        sum(rate(transcoding_jobs_total{namespace="{{ .Release.Namespace }}"}[5m]))
+        > 0.1
+      for: 5m
+      labels:
+        severity: warning
+        namespace: {{ .Release.Namespace }}
+      annotations:
+        summary: "High transcoding failure rate detected"
+        description: "Transcoding failure rate is {{ $value | humanizePercentage }}, which is above 10%"
+        runbook_url: "https://runbooks.example.com/high-transcoding-failure-rate"
+{{- end }}

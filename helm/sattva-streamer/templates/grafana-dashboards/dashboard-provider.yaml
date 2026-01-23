@@ -1,0 +1,24 @@
+{{- if .Values.monitoring.grafana.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}-grafana-dashboard-provider
+  namespace: {{ .Release.Namespace | default .Values.monitoring.grafana.namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+data:
+  provider.yaml: |
+    apiVersion: 1
+
+    providers:
+    - name: '{{ .Release.Name }}-dashboards'
+      orgId: 1
+      folder: '{{ .Release.Name }}'
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /var/lib/grafana/dashboards/{{ .Release.Name }}
+        foldersFromFilesStructure: true
+{{- end }}

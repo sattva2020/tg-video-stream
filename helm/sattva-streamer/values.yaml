@@ -435,6 +435,9 @@ monitoring:
     namespace: monitoring
     interval: 30s
     scrapeTimeout: 10s
+    labels: {}
+    relabelings: []
+    metricRelabelings: []
 
   # ServiceMonitor for each service
   backend:
@@ -446,16 +449,41 @@ monitoring:
   frontend:
     serviceMonitor:
       enabled: false
+      path: /metrics
+      port: http
 
   streamer:
     serviceMonitor:
       enabled: false
+      path: /metrics
+      port: http
 
   rustTranscoder:
     serviceMonitor:
       enabled: false
       path: /metrics
       port: http
+
+  # Prometheus Adapter configuration
+  prometheusAdapter:
+    enabled: false
+    namespace: monitoring
+
+  # Prometheus Rules configuration
+  prometheusRules:
+    enabled: false
+    namespace: monitoring
+
+  # Grafana configuration
+  grafana:
+    namespace: monitoring
+    dashboards:
+      enabled: false
+      folder: ""
+      folderId: 0
+      folderTitle: "Sattva Streamer"
+      updateTimeInterval: 10s
+      allowUiUpdates: true
 
 # Ingress configuration
 ingress:

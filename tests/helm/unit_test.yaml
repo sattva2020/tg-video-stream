@@ -1,0 +1,178 @@
+suite: Test Backend Deployment
+templates:
+  - backend/deployment.yaml
+tests:
+  - it: Should render backend Deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-backend
+      - equal:
+          path: spec.replicas
+          value: 2
+      - exists:
+          path: spec.template.spec.containers[0].resources
+      - exists:
+          path: spec.template.spec.containers[0].livenessProbe
+      - exists:
+          path: spec.template.spec.containers[0].readinessProbe
+
+---
+suite: Test Frontend Deployment
+templates:
+  - frontend/deployment.yaml
+tests:
+  - it: Should render frontend Deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-frontend
+      - equal:
+          path: spec.replicas
+          value: 2
+      - exists:
+          path: spec.template.spec.containers[0].resources
+
+---
+suite: Test Streamer StatefulSet
+templates:
+  - streamer/statefulset.yaml
+tests:
+  - it: Should render streamer StatefulSet
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-streamer
+      - exists:
+          path: spec.volumeClaimTemplates
+
+---
+suite: Test Transcoder Deployment
+templates:
+  - rustTranscoder/deployment.yaml
+tests:
+  - it: Should render transcoder Deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - hasDocuments:
+          count: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-rust-transcoder
+
+---
+suite: Test Backend Service
+templates:
+  - backend/service.yaml
+tests:
+  - it: Should render backend Service
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-backend
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+---
+suite: Test Backend HPA
+templates:
+  - backend/hpa.yaml
+tests:
+  - it: Should render backend HPA when autoscaling enabled
+    set:
+      backend.autoscaling.enabled: true
+    asserts:
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - equal:
+          path: spec.minReplicas
+          value: 2
+      - equal:
+          path: spec.maxReplicas
+          value: 10
+
+  - it: Should not render HPA when autoscaling disabled
+    set:
+      backend.autoscaling.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+---
+suite: Test Ingress
+templates:
+  - ingress.yaml
+tests:
+  - it: Should render Ingress when enabled
+    set:
+      ingress.enabled: true
+    asserts:
+      - isKind:
+          of: Ingress
+      - exists:
+          path: spec.rules
+
+  - it: Should not render Ingress when disabled
+    set:
+      ingress.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+---
+suite: Test ServiceMonitor
+templates:
+  - backend/servicemonitor.yaml
+tests:
+  - it: Should render ServiceMonitor when enabled
+    set:
+      backend.serviceMonitor.enabled: true
+    asserts:
+      - isKind:
+          of: ServiceMonitor
+      - exists:
+          path: spec.selector
+
+  - it: Should not render ServiceMonitor when disabled
+    set:
+      backend.serviceMonitor.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+---
+suite: Test PodDisruptionBudget
+templates:
+  - backend/pdb.yaml
+tests:
+  - it: Should render PDB when enabled
+    set:
+      podDisruptionBudget.backend.enabled: true
+    asserts:
+      - isKind:
+          of: PodDisruptionBudget
+      - exists:
+          path: spec.minAvailable
+
+  - it: Should not render PDB when disabled
+    set:
+      podDisruptionBudget.backend.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

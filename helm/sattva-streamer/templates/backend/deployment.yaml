@@ -1,0 +1,92 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sattva-streamer.backend.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.backend.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.backend.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/backend/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/backend/secret.yaml") . | sha256sum }}
+        {{- with .Values.backend.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "sattva-streamer.backend.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "sattva-streamer.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "sattva-streamer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+      - name: backend
+        securityContext:
+          {{- toYaml .Values.backend.securityContext | nindent 10 }}
+        image: "{{ include "sattva-streamer.backend.image" . }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.backend.containerPort }}
+          protocol: TCP
+        {{- with .Values.backend.command }}
+        command:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.backend.args }}
+        args:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        env:
+        {{- include "sattva-streamer.envVars" (dict "env" .Values.backend.env "context" $) | nindent 8 }}
+        {{- include "sattva-streamer.secretEnvVars" (dict "secretEnv" .Values.backend.secretEnv "context" $) | nindent 8 }}
+        {{- with .Values.global.env }}
+        {{- include "sattva-streamer.envVars" (dict "env" . "context" $) | nindent 8 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+        {{- with .Values.backend.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.backend.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

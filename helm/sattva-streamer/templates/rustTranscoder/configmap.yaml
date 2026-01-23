@@ -1,0 +1,12 @@
+{{- if and .Values.rustTranscoder.enabled .Values.rustTranscoder.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.rustTranscoder.serviceName" . }}-config
+  labels:
+    {{- include "sattva-streamer.rustTranscoder.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.rustTranscoder.env }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+{{- end }}
