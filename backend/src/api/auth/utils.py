@@ -1,7 +1,11 @@
 """
 Вспомогательные утилиты для auth модуля.
 """
+from datetime import timedelta
+from typing import Optional
+
 from fastapi import Request
+from auth import jwt
 
 # Серверная локализация (fallback). В продакшене использовать i18n.
 MESSAGE_LOCALIZATIONS = {
@@ -47,3 +51,25 @@ def format_auth_error(
     if message:
         return {'code': code, 'message': message, 'hint': hint}
     return {'code': code, 'hint': hint}
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Создаёт JWT access токен с поддержкой организации.
+
+    Args:
+        data: Словарь с данными для включения в токен.
+              Поддерживаемые поля:
+              - sub (str): ID пользователя (обязательное)
+              - org_id (str, optional): ID организации
+              - role (str, optional): Роль пользователя
+        expires_delta: Опциональное время жизни токена.
+
+    Returns:
+        str: Закодированный JWT токен.
+
+    Examples:
+        >>> token = create_access_token({'sub': 'user-123', 'org_id': 'org-456'})
+        >>> token = create_access_token({'sub': 'user-123', 'role': 'admin'})
+    """
+    return jwt.create_access_token(data=data, expires_delta=expires_delta)
