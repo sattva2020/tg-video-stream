@@ -317,7 +317,7 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
       // Delete old caches that aren't in our current cache names
       await Promise.all(
         cacheNames
-          .filter((name) => !Object.values(CACHE_NAMES).includes(name as keyof typeof CACHE_NAMES))
+          .filter((name) => !Object.values(CACHE_NAMES).includes(name))
           .map((name) => caches.delete(name))
       );
       // Take control of all clients immediately
