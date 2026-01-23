@@ -3,23 +3,23 @@
   "spec": "020-viewer-interaction-engagement-features",
   "state": "building",
   "subtasks": {
-    "completed": 22,
+    "completed": 23,
     "total": 41,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Backend Business Logic Services",
+    "current": "Frontend Type Definitions",
     "id": null,
-    "total": 4
+    "total": 1
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 24,
+    "number": 25,
     "started_at": "2026-01-23T16:04:01.373829"
   },
-  "last_update": "2026-01-23T18:53:10.415823"
+  "last_update": "2026-01-23T19:01:24.629253"
 }
