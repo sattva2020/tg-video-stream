@@ -17,6 +17,8 @@ class PlaylistItem(Base):
     status = Column(String, default="queued")
     # NEW: duration in seconds, NULL if unknown
     duration = Column(BigInteger, nullable=True)
+    # NEW: thumbnail URL
+    thumbnail = Column(String(2048), nullable=True)
     position = Column(BigInteger, default=0)
     created_by = Column(GUID(), ForeignKey("users.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
