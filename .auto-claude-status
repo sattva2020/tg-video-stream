@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "022-multi-tenant-architecture-organization-management",
+  "state": "building",
+  "subtasks": {
+    "completed": 3,
+    "total": 28,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Database Schema & Migrations",
+    "id": null,
+    "total": 5
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 5,
+    "started_at": "2026-01-23T16:03:38.241828"
+  },
+  "last_update": "2026-01-23T16:34:56.962554"
+}

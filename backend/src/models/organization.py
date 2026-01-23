@@ -1,5 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, DateTime, func, Boolean
+from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
 
@@ -17,6 +18,13 @@ class Organization(Base):
     is_active = Column(Boolean, nullable=False, default=True, server_default='true')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    members = relationship(
+        "User",
+        back_populates="organization",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<Organization(id='{self.id}', name='{self.name}')>"
