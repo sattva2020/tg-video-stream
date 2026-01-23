@@ -9,7 +9,7 @@ Celery tasks для проверки здоровья потоков и авто
 import os
 import logging
 import uuid
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 

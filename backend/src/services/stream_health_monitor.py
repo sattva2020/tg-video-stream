@@ -22,8 +22,8 @@ Storage: Redis Hash (stream_health:{stream_id}) для хранения метр
 import asyncio
 import logging
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Callable, Awaitable, Any, Dict
+from datetime import datetime, timezone
+from typing import Optional, Callable, Awaitable, Dict
 
 import redis.asyncio as redis
 
@@ -423,6 +423,7 @@ class StreamHealthMonitor:
             try:
                 await task
             except asyncio.CancelledError:
+                # Expected exception when monitoring task is cancelled during shutdown
                 pass
             log.info(f"Stopped monitoring for stream {stream_id}")
 

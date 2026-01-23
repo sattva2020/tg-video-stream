@@ -3,15 +3,12 @@ Integration tests для Stream Health API endpoints.
 Тесты соответствуют спецификации src/api/routes/stream_health.py
 """
 
-import pytest
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 from src.models.stream import Stream, StreamStatus
 from src.models.recovery_log import RecoveryLog, RecoveryFailureType, RecoveryStatus, RecoveryStrategy
-from src.models.user import User, UserRole, UserStatus
 
 
 class TestStreamHealthEndpoint:

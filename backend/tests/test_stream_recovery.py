@@ -8,9 +8,8 @@ Tests the intelligent auto-recovery system for stream failures with:
 """
 
 import uuid
-import time
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -767,7 +766,6 @@ class TestEdgeCases:
 
     def test_recovery_log_duration_calculation(self, stream_recovery_service, test_stream):
         """Test that recovery log duration is calculated correctly."""
-        start_time = datetime.now(timezone.utc)
 
         result = stream_recovery_service.recover_stream(
             stream_id=test_stream.id,

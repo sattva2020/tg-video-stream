@@ -7,15 +7,13 @@ Coverage Target: End-to-end recovery flow testing
 import pytest
 import time
 import uuid
-from datetime import datetime, timezone, timedelta
-from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
-from src.models.user import User
 from src.models.stream import Stream, StreamStatus
 from src.models.recovery_log import RecoveryLog, RecoveryFailureType, RecoveryStatus, RecoveryStrategy
 from src.services.stream_recovery_service import StreamRecoveryService, RecoveryConfig
 from src.services.stream_health_monitor import StreamHealthMonitor, StreamHealthStatus
-from src.services.circuit_breaker import CircuitBreaker, CircuitBreakerState
+from src.services.circuit_breaker import CircuitBreakerState
 
 
 @pytest.fixture
@@ -219,7 +217,7 @@ class TestCircuitBreakerE2E:
             )
 
         # Get circuit breaker
-        cb = service._get_or_create_circuit_breaker(test_stream.id)
+        cb = service._get_circuit_breaker(test_stream.id)
 
         # Verify circuit breaker is OPEN
         assert cb.state == CircuitBreakerState.OPEN
@@ -237,11 +235,12 @@ class TestCircuitBreakerE2E:
                     failure_reason=f"Codec error {i+1}",
                     recovery_strategy=RecoveryStrategy.RESTART
                 )
-            except:
+            except BaseException:
+                # Expected - recovery may fail during circuit breaker testing
                 pass
 
         # Verify circuit is open
-        cb = service._get_or_create_circuit_breaker(test_stream.id)
+        cb = service._get_circuit_breaker(test_stream.id)
         assert cb.state == CircuitBreakerState.OPEN
 
         # Try another recovery - should be blocked by circuit breaker
@@ -269,10 +268,11 @@ class TestCircuitBreakerE2E:
                     failure_reason=f"Session error {i+1}",
                     recovery_strategy=RecoveryStrategy.RESTART
                 )
-            except:
+            except BaseException:
+                # Expected - recovery may fail during circuit breaker testing
                 pass
 
-        cb = service._get_or_create_circuit_breaker(test_stream.id)
+        cb = service._get_circuit_breaker(test_stream.id)
         assert cb.state == CircuitBreakerState.OPEN
 
         # Wait for timeout (10 seconds for fast config)
@@ -454,7 +454,7 @@ class TestFullRecoveryScenario:
 
         # Simulate multiple failures
         for i in range(3):
-            result = service.recover_stream(
+            service.recover_stream(
                 stream_id=test_stream.id,
                 failure_type=RecoveryFailureType.NETWORK,
                 failure_reason=f"Network failure {i+1}",
@@ -479,7 +479,7 @@ class TestFullRecoveryScenario:
 
         # Trigger enough failures to open circuit
         for i in range(5):
-            result = service.recover_stream(
+            service.recover_stream(
                 stream_id=test_stream.id,
                 failure_type=RecoveryFailureType.API_RATE_LIMIT,
                 failure_reason=f"Rate limit {i+1}",
@@ -487,7 +487,7 @@ class TestFullRecoveryScenario:
             )
 
         # Verify circuit is open
-        cb = service._get_or_create_circuit_breaker(test_stream.id)
+        cb = service._get_circuit_breaker(test_stream.id)
         assert cb.state == CircuitBreakerState.OPEN
 
         # Try one more recovery - should be blocked

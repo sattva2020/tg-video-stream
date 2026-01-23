@@ -14,9 +14,7 @@ SQLAlchemy model для логирования попыток автоматич
 """
 
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
-from typing import Optional
 
 from sqlalchemy import Column, String, BigInteger, DateTime, Enum as SQLEnum, ForeignKey, func, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB
