@@ -45,6 +45,7 @@ from .app_settings import (
 # Security & Compliance (Feature 025-advanced-security-compliance-features)
 from .saml_config import SAMLConfig
 from .ip_whitelist import IPWhitelist
+from .security_policy import SecurityPolicy, PolicyType, EnforcementLevel
 
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
@@ -90,6 +91,9 @@ __all__ = [
     # Security & Compliance
     "SAMLConfig",
     "IPWhitelist",
+    "SecurityPolicy",
+    "PolicyType",
+    "EnforcementLevel",
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
