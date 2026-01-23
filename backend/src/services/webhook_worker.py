@@ -9,6 +9,7 @@ import httpx
 import json
 import logging
 import time
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional
 from uuid import UUID
 
@@ -216,7 +217,7 @@ def log_webhook_delivery(
     response_body: Optional[str],
     duration_ms: Optional[int],
     should_retry: bool = False,
-    next_retry_at: Optional[time.time] = None,
+    next_retry_at: Optional[datetime] = None,
 ):
     """
     Логирование результата доставки вебхука.
@@ -357,7 +358,6 @@ if celery_app:
                 next_retry_at = None
                 if should_retry:
                     retry_delay = calculate_retry_delay(attempt_number)
-                    from datetime import datetime, timezone, timedelta
                     next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=retry_delay)
 
                     # Schedule retry via Celery
