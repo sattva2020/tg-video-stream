@@ -430,3 +430,165 @@ class VideoValidationService:
         except Exception as e:
             self.logger.error(f"Error deleting validation result: {e}", exc_info=True)
             return False
+
+    async def process_video(
+        self,
+        url: str,
+        auto_transcode: bool = False,
+        quality: str = "medium",
+        output_format: str = "mp4",
+        video_codec: str = "h264",
+        audio_codec: str = "aac",
+        timeout: int = 10,
+        cache_result: bool = True
+    ) -> Dict[str, Any]:
+        """
+        End-to-end video processing workflow: validate and optionally transcode.
+
+        This method orchestrates the complete video processing pipeline:
+        1. Validates video URL for Telegram compatibility
+        2. Checks if transcoding is required
+        3. If auto_transcode=True and transcoding required, triggers transcoding task
+        4. Returns comprehensive processing result
+
+        Args:
+            url: Video URL to process
+            auto_transcode: If True, automatically trigger transcoding when needed
+            quality: Quality profile for transcoding (low, medium, high, ultra)
+            output_format: Output format for transcoding (mp4, mkv, webm)
+            video_codec: Target video codec (h264, h265)
+            audio_codec: Target audio codec (aac, mp3, opus)
+            timeout: Validation timeout in seconds
+            cache_result: Whether to cache validation result
+
+        Returns:
+            Processing result dictionary with:
+            - validation_id: Unique validation ID
+            - url: Original video URL
+            - timestamp: ISO timestamp of processing
+            - valid: bool - video passed basic validation
+            - is_compatible: bool - video is compatible with Telegram
+            - transcoding_required: bool - whether transcoding is needed
+            - transcoding_reasons: list of reasons for transcoding
+            - transcoding_triggered: bool - whether transcoding was triggered
+            - transcode_id: str or None - transcoding operation ID
+            - errors: list of error strings
+            - warnings: list of warning strings
+            - metadata: dict with codec, format, orientation info
+
+        Raises:
+            Exception: If validation fails critically
+
+        Examples:
+            >>> service = VideoValidationService()
+            >>> result = await service.process_video(
+            ...     "https://example.com/video.avi",
+            ...     auto_transcode=True,
+            ...     quality="high"
+            ... )
+            >>> if result['transcoding_triggered']:
+            ...     print(f"Transcoding started: {result['transcode_id']}")
+        """
+        try:
+            self.logger.info(f"Processing video: {url}, auto_transcode={auto_transcode}")
+
+            # Step 1: Validate video
+            validation_result = await self.validate_video(
+                url=url,
+                timeout=timeout,
+                cache_result=cache_result
+            )
+
+            # Extract key validation info
+            validation_id = validation_result.get("validation_id")
+            is_compatible = validation_result.get("is_compatible", False)
+            transcoding_required = validation_result.get("transcoding_required", False)
+            transcoding_reasons = validation_result.get("transcoding_reasons", [])
+
+            # Build base response
+            response = {
+                "validation_id": validation_id,
+                "url": url,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "valid": validation_result.get("valid", False),
+                "is_compatible": is_compatible,
+                "transcoding_required": transcoding_required,
+                "transcoding_reasons": transcoding_reasons,
+                "transcoding_triggered": False,
+                "transcode_id": None,
+                "errors": validation_result.get("errors", []),
+                "warnings": validation_result.get("warnings", []),
+                "metadata": {
+                    "video_codec": validation_result.get("video_codec"),
+                    "audio_codec": validation_result.get("audio_codec"),
+                    "format": validation_result.get("format"),
+                    "has_orientation": validation_result.get("has_orientation"),
+                    "orientation_value": validation_result.get("orientation_value"),
+                }
+            }
+
+            # Step 2: Check if we need to transcode
+            if not is_compatible and transcoding_required and auto_transcode:
+                self.logger.info(
+                    f"Video requires transcoding: {url}, "
+                    f"reasons: {transcoding_reasons}"
+                )
+
+                # Step 3: Trigger transcoding
+                try:
+                    from src.tasks.video_transcoding import transcode_video_async
+
+                    # Generate transcode ID
+                    transcode_id = str(uuid.uuid4())
+
+                    # Determine orientation for correction
+                    orientation = validation_result.get("orientation_value")
+                    if orientation and orientation not in [0, 90, 180, 270]:
+                        orientation = None
+
+                    # Trigger async transcoding
+                    success = transcode_video_async(
+                        transcode_id=transcode_id,
+                        source_url=url,
+                        video_codec=video_codec,
+                        audio_codec=audio_codec,
+                        output_format=output_format,
+                        quality=quality,
+                        orientation=orientation
+                    )
+
+                    if success:
+                        response["transcoding_triggered"] = True
+                        response["transcode_id"] = transcode_id
+                        self.logger.info(
+                            f"Transcoding triggered for {url}: {transcode_id}"
+                        )
+                    else:
+                        response["warnings"].append("Failed to trigger transcoding task")
+                        self.logger.warning(f"Transcoding trigger failed for {url}")
+
+                except ImportError as e:
+                    self.logger.error(f"Transcoding module not available: {e}")
+                    response["warnings"].append("Transcoding module not available")
+                except Exception as e:
+                    self.logger.error(f"Error triggering transcoding: {e}", exc_info=True)
+                    response["warnings"].append(f"Transcoding trigger error: {str(e)}")
+            elif not is_compatible and not auto_transcode:
+                self.logger.info(
+                    f"Video requires transcoding but auto_transcode is disabled: {url}"
+                )
+                response["warnings"].append(
+                    "Video requires transcoding but auto_transcode is disabled"
+                )
+
+            self.logger.info(
+                f"Video processing complete for {url}: "
+                f"compatible={is_compatible}, "
+                f"transcoding_triggered={response['transcoding_triggered']}"
+            )
+
+            return response
+
+        except Exception as e:
+            self.logger.error(f"Error processing video {url}: {e}", exc_info=True)
+            raise
