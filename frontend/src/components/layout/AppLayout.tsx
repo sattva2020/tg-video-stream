@@ -7,6 +7,9 @@ import { LanguageSwitcher } from '../auth/LanguageSwitcher';
 import { ThemeToggle } from '../auth/ThemeToggle';
 import UserBadge from '../UserBadge';
 import { useAuth } from '../../context/AuthContext';
+import OfflineBanner from '../pwa/OfflineBanner';
+import PWAInstallPrompt from '../pwa/PWAInstallPrompt';
+import InstallButton from '../pwa/InstallButton';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -46,6 +49,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, title }) => {
 
   return (
     <div className="min-h-screen bg-[color:var(--color-surface)] text-[color:var(--color-text)]">
+      {/* PWA Components */}
+      <OfflineBanner />
+      <PWAInstallPrompt />
+
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
@@ -65,6 +72,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, title }) => {
           
           <div className="flex items-center gap-2">
             {user && <UserBadge role={user.role} />}
+            <InstallButton variant="ghost" size="sm" />
             <LanguageSwitcher className="text-[color:var(--color-text)]" />
             <ThemeToggle className="text-[color:var(--color-text)]" />
           </div>
@@ -80,6 +88,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children, title }) => {
         {/* Desktop top bar with user info */}
         <div className="hidden lg:flex items-center justify-end gap-3 h-16 px-6 border-b border-[color:var(--color-border)] bg-[color:var(--color-surface)]">
           {user && <UserBadge role={user.role} />}
+          <InstallButton variant="ghost" size="sm" />
           <LanguageSwitcher className="text-[color:var(--color-text)]" />
           <ThemeToggle className="text-[color:var(--color-text)]" />
         </div>

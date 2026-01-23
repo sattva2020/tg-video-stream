@@ -8,11 +8,18 @@ import App from './App';
 import { queryClient } from './lib/queryClient';
 import { ThemePreferenceProvider, useThemePreference } from './hooks/useThemePreference';
 import { initSentry } from './instrumentation/sentry';
+import { registerServiceWorker } from './service-worker-registration';
 import './styles/tokens.css';
 import './index.css';
 
 // Инициализировать Sentry ПЕРЕД рендерингом приложения
 initSentry();
+
+// Register service worker for PWA functionality
+registerServiceWorker().catch((error) => {
+  // Service worker registration is non-critical - log but don't block app startup
+  console.error('Failed to register service worker:', error);
+});
 
 // Компонент-обёртка для Toaster с учётом темы
 const ThemedToaster: React.FC = () => {
