@@ -22,10 +22,11 @@ import pandas as pd
 from sklearn.decomposition import TruncatedSVD
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
+from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, hstack as sparse_hstack
 
 # Настройка логирования
 logging.basicConfig(
@@ -391,12 +392,20 @@ class ContentBasedFilteringEngine:
     """
     ML-модель для контент-based рекомендаций.
     Базируется на схожести метаданных контента.
+
+    Использует:
+    - TF-IDF для текстовых признаков (название)
+    - One-hot encoding для категориальных признаков (тип, канал)
+    - Косинусное сходство для поиска похожих элементов
     """
 
     def __init__(self):
-        self.item_features: Optional[pd.DataFrame] = None
+        self.tfidf_vectorizer: Optional[TfidfVectorizer] = None
+        self.item_features_matrix: Optional[csr_matrix] = None
         self.item_similarity_matrix: Optional[np.ndarray] = None
         self.item_ids: List[str] = []
+        self.item_mapping: Dict[str, int] = {}  # item_id -> matrix index
+        self.reverse_item_mapping: Dict[int, str] = {}  # matrix index -> item_id
         self.trained_at: Optional[datetime] = None
 
     async def train(self, database_url: str) -> bool:
@@ -410,28 +419,266 @@ class ContentBasedFilteringEngine:
             True если обучение прошло успешно
         """
         try:
-            # TODO: Реализация в следующем сабтаске
-            logger.info("Content-based фильтрация будет реализована в следующем сабтаске")
-            return False
+            from src.models.playlist import PlaylistItem
+
+            engine = create_engine(database_url)
+            SessionLocal = sessionmaker(bind=engine)
+
+            session = SessionLocal()
+            try:
+                # Получаем все элементы плейлиста с метаданными
+                items = session.query(
+                    PlaylistItem.id,
+                    PlaylistItem.title,
+                    PlaylistItem.type,
+                    PlaylistItem.duration,
+                    PlaylistItem.channel_id
+                ).all()
+
+                if not items or len(items) < 2:
+                    logger.warning(f"Недостаточно элементов для обучения: {len(items) if items else 0}")
+                    return False
+
+                logger.info(f"Начало обучения на {len(items)} элементах")
+
+                # Подготовка данных
+                item_data = []
+                for item in items:
+                    item_data.append({
+                        'id': str(item.id),
+                        'title': item.title or '',
+                        'type': item.type or 'youtube',
+                        'duration': float(item.duration) if item.duration else 0.0,
+                        'channel_id': str(item.channel_id) if item.channel_id else 'unknown'
+                    })
+
+                df = pd.DataFrame(item_data)
+
+                # Создаем маппинги
+                self.item_ids = df['id'].tolist()
+                self.item_mapping = {item_id: idx for idx, item_id in enumerate(self.item_ids)}
+                self.reverse_item_mapping = {idx: item_id for item_id, idx in self.item_mapping.items()}
+
+                # 1. TF-IDF для текстовых признаков (название)
+                self.tfidf_vectorizer = TfidfVectorizer(
+                    max_features=100,
+                    ngram_range=(1, 2),
+                    min_df=1,
+                    stop_words='english'
+                )
+                title_features = self.tfidf_vectorizer.fit_transform(df['title'].fillna(''))
+
+                # 2. One-hot encoding для категориальных признаков
+                # Type (youtube, local, stream)
+                type_features = pd.get_dummies(df['type'], prefix='type').values
+
+                # Channel ID (закодирован как индекс)
+                unique_channels = df['channel_id'].unique()
+                channel_mapping = {ch: idx for idx, ch in enumerate(unique_channels)}
+                channel_features = np.array([[channel_mapping.get(ch, 0)] for ch in df['channel_id']])
+
+                # 3. Нормализуем числовые признаки
+                duration_features = df[['duration']].values
+                scaler = StandardScaler()
+                duration_features_scaled = scaler.fit_transform(duration_features)
+
+                # Объединяем все признаки в разреженную матрицу
+                from scipy.sparse import csr_matrix
+                type_sparse = csr_matrix(type_features)
+                channel_sparse = csr_matrix(channel_features)
+                duration_sparse = csr_matrix(duration_features_scaled)
+
+                # Комбинируем все признаки
+                self.item_features_matrix = sparse_hstack([
+                    title_features,
+                    type_sparse,
+                    channel_sparse,
+                    duration_sparse
+                ])
+
+                # Вычисляем матрицу сходства (косинусное сходство)
+                self.item_similarity_matrix = cosine_similarity(self.item_features_matrix)
+
+                # Сохраняем модель
+                self._save_model()
+
+                self.trained_at = datetime.now()
+                logger.info(
+                    f"Модель обучена: {len(self.item_ids)} элементов, "
+                    f"признаков: {self.item_features_matrix.shape[1]}"
+                )
+                return True
+
+            finally:
+                session.close()
 
         except Exception as e:
             logger.error(f"Ошибка обучения content-based модели: {e}")
             return False
 
-    def predict_for_user(self, user_id: str, liked_items: List[str], n: int = N_RECOMMENDATIONS) -> List[Dict[str, Any]]:
+    def predict_for_user(
+        self,
+        user_id: str,
+        liked_items: List[str],
+        exclude_items: Optional[List[str]] = None,
+        n: int = N_RECOMMENDATIONS
+    ) -> List[Dict[str, Any]]:
         """
         Сгенерировать рекомендации на основе похожести контента.
 
         Args:
             user_id: ID пользователя
             liked_items: Список элементов, которые понравились пользователю
+            exclude_items: Список ID элементов для исключения
             n: Количество рекомендаций
 
         Returns:
-            Список рекомендаций
+            Список рекомендаций с полями: playlist_item_id, score, reason
         """
-        # TODO: Реализация в следующем сабтаске
-        return []
+        if self.item_similarity_matrix is None:
+            self._load_model()
+
+        if self.item_similarity_matrix is None:
+            logger.warning("Модель не обучена")
+            return []
+
+        try:
+            if not liked_items:
+                logger.warning(f"Нет понравившихся элементов для пользователя {user_id}")
+                return []
+
+            # Фильтруем понравившиеся элементы, которые есть в модели
+            valid_liked_items = [item_id for item_id in liked_items if item_id in self.item_mapping]
+
+            if not valid_liked_items:
+                logger.warning(f"Нет валидных понравившихся элементов для пользователя {user_id}")
+                return []
+
+            exclude_set = set(exclude_items) if exclude_items else set()
+            exclude_set.update(liked_items)  # Исключаем уже понравившиеся
+
+            # Вычисляем среднее сходство со всеми понравившимися элементами
+            item_scores = {}
+
+            for liked_item_id in valid_liked_items:
+                liked_idx = self.item_mapping[liked_item_id]
+
+                # Получаем сходства со всеми элементами
+                similarities = self.item_similarity_matrix[liked_idx]
+
+                # Добавляем к общему скору
+                for item_idx, similarity in enumerate(similarities):
+                    item_id = self.reverse_item_mapping[item_idx]
+                    if item_id not in exclude_set:
+                        if item_id not in item_scores:
+                            item_scores[item_id] = []
+                        item_scores[item_id].append(float(similarity))
+
+            # Усредняем сходства от всех понравившихся элементов
+            recommendations = []
+            for item_id, similarities in item_scores.items():
+                avg_similarity = np.mean(similarities)
+                recommendations.append({
+                    'playlist_item_id': item_id,
+                    'score': float(avg_similarity)
+                })
+
+            # Сортируем по score и берем топ-n
+            recommendations.sort(key=lambda x: x['score'], reverse=True)
+            recommendations = recommendations[:n]
+
+            # Добавляем причину рекомендации
+            for rec in recommendations:
+                rec['reason'] = 'Похоже на то, что вам нравилось ранее'
+                rec['algorithm'] = 'content_based'
+
+            logger.info(f"Сгенерировано {len(recommendations)} content-based рекомендаций для пользователя {user_id}")
+            return recommendations
+
+        except Exception as e:
+            logger.error(f"Ошибка генерации content-based рекомендаций: {e}")
+            return []
+
+    def find_similar_items(self, item_id: str, n: int = 5) -> List[Tuple[str, float]]:
+        """
+        Найти похожие элементы на основе метаданных.
+
+        Args:
+            item_id: ID элемента
+            n: Количество похожих элементов
+
+        Returns:
+            Список пар (item_id, similarity_score)
+        """
+        if self.item_similarity_matrix is None:
+            self._load_model()
+
+        if self.item_similarity_matrix is None or item_id not in self.item_mapping:
+            return []
+
+        try:
+            item_idx = self.item_mapping[item_id]
+
+            # Получаем сходства для этого элемента
+            similarities = self.item_similarity_matrix[item_idx]
+
+            # Находим топ-n похожих элементов (исключая сам элемент)
+            similar_indices = np.argsort(similarities)[::-1][1:n + 1]
+
+            similar_items = [
+                (self.reverse_item_mapping[idx], float(similarities[idx]))
+                for idx in similar_indices
+            ]
+
+            return similar_items
+
+        except Exception as e:
+            logger.error(f"Ошибка поиска похожих элементов: {e}")
+            return []
+
+    def _save_model(self):
+        """Сохранить модель на диск."""
+        try:
+            os.makedirs(MODEL_PATH, exist_ok=True)
+
+            model_data = {
+                'tfidf_vectorizer': self.tfidf_vectorizer,
+                'item_features_matrix': self.item_features_matrix,
+                'item_similarity_matrix': self.item_similarity_matrix,
+                'item_mapping': self.item_mapping,
+                'reverse_item_mapping': self.reverse_item_mapping,
+                'item_ids': self.item_ids,
+                'trained_at': self.trained_at.isoformat() if self.trained_at else None
+            }
+
+            joblib.dump(model_data, f'{MODEL_PATH}/content_based_model.joblib')
+            logger.info("Content-based модель сохранена")
+
+        except Exception as e:
+            logger.error(f"Ошибка сохранения content-based модели: {e}")
+
+    def _load_model(self):
+        """Загрузить модель с диска."""
+        try:
+            model_file = f'{MODEL_PATH}/content_based_model.joblib'
+
+            if os.path.exists(model_file):
+                model_data = joblib.load(model_file)
+
+                self.tfidf_vectorizer = model_data['tfidf_vectorizer']
+                self.item_features_matrix = model_data['item_features_matrix']
+                self.item_similarity_matrix = model_data['item_similarity_matrix']
+                self.item_mapping = model_data['item_mapping']
+                self.reverse_item_mapping = model_data['reverse_item_mapping']
+                self.item_ids = model_data['item_ids']
+                self.trained_at = datetime.fromisoformat(model_data['trained_at']) if model_data.get('trained_at') else None
+
+                logger.info(f"Content-based модель загружена (обучена {self.trained_at})")
+            else:
+                logger.warning("Файл content-based модели не найден")
+
+        except Exception as e:
+            logger.error(f"Ошибка загрузки content-based модели: {e}")
 
 
 class HybridRecommender:
