@@ -29,6 +29,48 @@ def _get_celery_app():
     return Celery('tg_video_streamer', broker=broker)
 
 
+def _detect_video_type(url: str = None, extractor: str = None) -> str:
+    """
+    Определяет тип видео по URL или extractor.
+
+    Args:
+        url: URL видео
+        extractor: Extractor name от yt-dlp (youtube, vimeo, etc.)
+
+    Returns:
+        Тип видео: youtube, vimeo, local, stream
+    """
+    if extractor:
+        # Mapping extractor к нашим типам
+        extractor_map = {
+            'youtube': 'youtube',
+            'vimeo': 'vimeo',
+            'generic': 'stream',  # Для прямых ссылок
+        }
+        extractor_lower = extractor.lower()
+        for key, value in extractor_map.items():
+            if key in extractor_lower:
+                return value
+        return 'stream'  # Fallback для неизвестных extractors
+
+    if url:
+        url_lower = url.lower()
+        # Проверяем YouTube
+        if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+            return 'youtube'
+        # Проверяем Vimeo
+        elif 'vimeo.com' in url_lower:
+            return 'vimeo'
+        # Локальные файлы
+        elif url_lower.startswith(('http://', 'https://', 'file://')):
+            return 'stream'
+        # Локальный путь
+        else:
+            return 'local'
+
+    return 'youtube'  # Default fallback
+
+
 def extract_video_metadata(url: str, extract_audio_only: bool = False) -> dict:
     """
     Извлекает метаданные видео/аудио через yt-dlp.
@@ -109,49 +151,59 @@ def extract_video_metadata(url: str, extract_audio_only: bool = False) -> dict:
 def update_playlist_item_metadata(item_id: str, metadata: dict) -> bool:
     """
     Обновляет playlist item в БД с полученными метаданными.
-    
+
     Args:
         item_id: UUID playlist item
         metadata: dict с метаданными от extract_video_metadata
-        
+
     Returns:
         True если успешно, False если ошибка
     """
     if metadata.get("error"):
         logger.warning(f"Cannot update item {item_id}: {metadata['error']}")
         return False
-        
+
     from database import SessionLocal
     from src.models.playlist import PlaylistItem
-    
+
     db = SessionLocal()
     try:
         item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
         if not item:
             logger.warning(f"Playlist item {item_id} not found")
             return False
-        
+
+        # Определяем тип видео из extractor или URL
+        video_type = _detect_video_type(
+            url=metadata.get("url"),
+            extractor=metadata.get("extractor")
+        )
+
+        # Обновляем тип если он не установлен или отличается
+        if not item.type or item.type == "youtube":
+            item.type = video_type
+
         # Обновляем поля
         if metadata.get("title") and not item.title:
             item.title = metadata["title"]
-        
+
         if metadata.get("duration"):
             item.duration = int(metadata["duration"])
-        
+
         # Дополнительные поля (если есть в модели)
         if hasattr(item, 'thumbnail') and metadata.get("thumbnail"):
             item.thumbnail = metadata["thumbnail"]
-        
+
         if hasattr(item, 'uploader') and metadata.get("uploader"):
             item.uploader = metadata["uploader"]
-            
+
         if hasattr(item, 'metadata_fetched_at'):
             item.metadata_fetched_at = datetime.utcnow()
-        
+
         db.commit()
-        logger.info(f"Updated metadata for playlist item {item_id}")
+        logger.info(f"Updated metadata for playlist item {item_id} (type: {video_type})")
         return True
-        
+
     except Exception as e:
         logger.exception(f"Error updating playlist item {item_id}")
         db.rollback()
@@ -204,38 +256,41 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
     @celery_app.task(name='tasks.fetch_playlist_metadata')
     def fetch_playlist_metadata_task(playlist_url: str, channel_id: Optional[str] = None):
         """
-        Celery task: извлекает все видео из YouTube плейлиста и добавляет их в очередь.
+        Celery task: извлекает все видео из YouTube/Vimeo плейлиста и добавляет их в очередь.
         """
         logger.info(f"[worker] fetch_playlist_metadata_task for {playlist_url}")
-        
+
         metadata = extract_video_metadata(playlist_url)
-        
+
         if metadata.get("error"):
             return {"success": False, "error": metadata["error"]}
-        
+
         if not metadata.get("is_playlist"):
             return {"success": False, "error": "URL is not a playlist"}
-        
+
         entries = metadata.get("entries", [])
         added_count = 0
-        
+
         from database import SessionLocal
         from src.models.playlist import PlaylistItem
-        
+
         db = SessionLocal()
         try:
             # Получаем последнюю позицию
             last_item = db.query(PlaylistItem).order_by(PlaylistItem.position.desc()).first()
             position = (last_item.position + 1) if last_item else 0
-            
+
             for entry in entries:
                 if not entry.get("url"):
                     continue
-                    
+
+                # Определяем тип видео из URL
+                video_type = _detect_video_type(url=entry.get("url"))
+
                 new_item = PlaylistItem(
                     url=entry["url"],
                     title=entry.get("title") or entry["url"],
-                    type="youtube",
+                    type=video_type,
                     position=position,
                     duration=entry.get("duration"),
                     channel_id=channel_id,
@@ -243,16 +298,16 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
                 db.add(new_item)
                 position += 1
                 added_count += 1
-            
+
             db.commit()
             logger.info(f"Added {added_count} items from playlist {playlist_url}")
-            
+
             return {
                 "success": True,
                 "playlist_title": metadata.get("playlist_title"),
                 "added_count": added_count,
             }
-            
+
         except Exception as e:
             logger.exception(f"Error adding playlist items")
             db.rollback()
@@ -347,30 +402,34 @@ def import_playlist_async(playlist_url: str, channel_id: Optional[str] = None) -
     try:
         from database import SessionLocal
         from src.models.playlist import PlaylistItem
-        
+
         metadata = extract_video_metadata(playlist_url)
         if metadata.get("error") or not metadata.get("is_playlist"):
             return False
-        
+
         db = SessionLocal()
         try:
             last_item = db.query(PlaylistItem).order_by(PlaylistItem.position.desc()).first()
             position = (last_item.position + 1) if last_item else 0
-            
+
             for entry in metadata.get("entries", []):
                 if not entry.get("url"):
                     continue
+
+                # Определяем тип видео из URL
+                video_type = _detect_video_type(url=entry.get("url"))
+
                 new_item = PlaylistItem(
                     url=entry["url"],
                     title=entry.get("title") or entry["url"],
-                    type="youtube",
+                    type=video_type,
                     position=position,
                     duration=entry.get("duration"),
                     channel_id=channel_id,
                 )
                 db.add(new_item)
                 position += 1
-            
+
             db.commit()
             return True
         finally:
