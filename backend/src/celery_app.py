@@ -42,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'tasks.alerts',
             'src.services.notifications.worker',
         ]
     )
@@ -71,6 +72,7 @@ def make_celery():
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
+            'alerts.check_periodic': {'queue': 'alerts'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
         },
@@ -79,6 +81,7 @@ def make_celery():
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('alerts', routing_key='alerts'),
         ],
         
         # Rate limits
