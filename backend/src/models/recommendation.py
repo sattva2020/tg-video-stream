@@ -86,3 +86,52 @@ class RecommendationFeedback(Base):
 
     def __repr__(self):
         return f"<RecommendationFeedback(id={self.id}, user_id={self.user_id}, feedback_type={self.feedback_type})>"
+
+
+class UserItemInteraction(Base):
+    """
+    Запись о взаимодействии пользователя с контентом.
+    Основной источник данных для коллаборативной фильтрации.
+    Агрегирует данные из TrackPlay для построения матрицы пользователь-предмет.
+    """
+    __tablename__ = "user_item_interactions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    # Пользователь, взаимодействовавший с контентом
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Элемент плейлиста, с которым было взаимодействие
+    playlist_item_id = Column(GUID(), ForeignKey("playlist_items.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Тип взаимодействия: watch, skip, like, share
+    interaction_type = Column(String(20), nullable=False, comment='Тип взаимодействия')
+    # Длительность взаимодействия в секундах (для watch)
+    duration_seconds = Column(BigInteger, nullable=True, comment='Длительность просмотра в секундах')
+    # Доля просмотра от 0 до 1 (например, 0.5 = просмотрено 50%)
+    completion_rate = Column(Numeric(5, 4), nullable=True, comment='Доля просмотра от 0 до 1')
+    # Время взаимодействия (timezone-aware)
+    interacted_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), index=True)
+    # Дополнительные метаданные (JSON) для расширения
+    metadata = Column(String, nullable=True, comment='Дополнительные метаданные в формате JSON')
+
+    # Relationships
+    user = relationship("User", backref="item_interactions")
+    playlist_item = relationship("PlaylistItem", backref="user_interactions")
+
+    # Indexes and constraints for performance
+    __table_args__ = (
+        Index('idx_user_item_interactions_user_id', 'user_id'),
+        Index('idx_user_item_interactions_playlist_item_id', 'playlist_item_id'),
+        Index('idx_user_item_interactions_interaction_type', 'interaction_type'),
+        Index('idx_user_item_interactions_interacted_at', 'interacted_at'),
+        Index('idx_user_item_interactions_user_item', 'user_id', 'playlist_item_id'),
+        CheckConstraint(
+            "interaction_type IN ('watch', 'skip', 'like', 'share', 'click')",
+            name='ck_user_item_interactions_type'
+        ),
+        CheckConstraint(
+            "(completion_rate IS NULL OR completion_rate >= 0 AND completion_rate <= 1)",
+            name='ck_user_item_interactions_completion_rate'
+        ),
+    )
+
+    def __repr__(self):
+        return f"<UserItemInteraction(id={self.id}, user_id={self.user_id}, interaction_type={self.interaction_type})>"
