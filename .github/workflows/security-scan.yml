@@ -550,3 +550,195 @@ jobs:
         with:
           name: security-report-combined
           path: security-reports/
+
+  # ========================================
+  # Dependency Update Automation
+  # ========================================
+
+  dependency-update:
+    name: Automatic Dependency Update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    needs: dependency-audit
+    # Only run on schedule or manual dispatch
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      # Check for Python vulnerabilities
+      - name: Check Python dependencies
+        id: python-check
+        run: |
+          echo "## Checking Python dependencies for vulnerabilities..." >> $GITHUB_STEP_SUMMARY
+
+          # Run pip-audit and capture output
+          pip-audit -r backend/requirements.txt --format json > python-vulns.json 2>&1 || true
+
+          # Check if vulnerabilities exist
+          if [ -s python-vulns.json ] && [ "$(cat python-vulns.json | jq '. | length')" -gt "0" ]; then
+            echo "Vulnerabilities found:" >> $GITHUB_STEP_SUMMARY
+            cat python-vulns.json | jq -r '.[] | "\(.name)@\(.installed_version): \(.vulnerabilities | length) vulnerabilities"' >> $GITHUB_STEP_SUMMARY
+            echo "has_vulns=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No Python vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "has_vulns=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Check for JavaScript vulnerabilities
+      - name: Check JavaScript dependencies
+        id: js-check
+        run: |
+          echo "## Checking JavaScript dependencies for vulnerabilities..." >> $GITHUB_STEP_SUMMARY
+
+          # Install dependencies
+          cd frontend && pnpm install --frozen-lockfile
+
+          # Run pnpm audit and save output
+          pnpm audit --json > ../js-vulns.json 2>&1 || true
+          cd ..
+
+          # Parse vulnerabilities
+          if [ -s js-vulns.json ]; then
+            vuln_count=$(cat js-vulns.json | jq '.metadata.vulnerabilities.total // 0')
+            if [ "$vuln_count" -gt "0" ]; then
+              echo "Found $vuln_count vulnerabilities" >> $GITHUB_STEP_SUMMARY
+              echo "has_vulns=true" >> $GITHUB_OUTPUT
+            else
+              echo "✅ No JavaScript vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+              echo "has_vulns=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "✅ No JavaScript vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+            echo "has_vulns=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Update Python dependencies
+      - name: Update Python dependencies
+        if: steps.python-check.outputs.has_vulns == 'true'
+        run: |
+          echo "Updating Python dependencies..." >> $GITHUB_STEP_SUMMARY
+
+          # Create backup
+          cp backend/requirements.txt backend/requirements.txt.bak
+
+          # Upgrade packages with vulnerabilities
+          pip-audit -r backend/requirements.txt --fix 2>&1 || true
+
+          # Alternative: Use pip-compile-style updates
+          # For each vulnerable package, upgrade to latest safe version
+          for pkg in $(cat python-vulns.json | jq -r '.[].name'); do
+            echo "Updating $pkg..." >> $GITHUB_STEP_SUMMARY
+            pip install --upgrade "$pkg" --target backend/temp_deps 2>&1 || true
+          done
+
+          # Update requirements.txt with new versions
+          if [ -d backend/temp_deps ]; then
+            pip freeze --path backend/temp_deps | grep -v "^\-e" > backend/requirements-new.txt
+            mv backend/requirements-new.txt backend/requirements.txt
+          fi
+
+      # Update JavaScript dependencies
+      - name: Update JavaScript dependencies
+        if: steps.js-check.outputs.has_vulns == 'true'
+        run: |
+          echo "Updating JavaScript dependencies..." >> $GITHUB_STEP_SUMMARY
+
+          cd frontend
+
+          # Update packages with vulnerabilities
+          pnpm update --latest 2>&1 || true
+
+          # If update fails, try individual packages
+          if [ -s ../js-vulns.json ]; then
+            for pkg in $(cat ../js-vulns.json | jq -r '.advisories | keys[]' 2>/dev/null || true); do
+              pkg_name=$(cat ../js-vulns.json | jq -r ".advisories[$pkg].module_name")
+              echo "Updating $pkg_name..." >> $GITHUB_STEP_SUMMARY
+              pnpm update "$pkg_name" --latest 2>&1 || true
+            done
+          fi
+
+          cd ..
+
+      # Create Pull Request
+      - name: Create dependency update PR
+        if: steps.python-check.outputs.has_vulns == 'true' || steps.js-check.outputs.has_vulns == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            [Security] Automatic dependency update
+
+            - Update vulnerable Python dependencies
+            - Update vulnerable JavaScript/TypeScript dependencies
+            - Fixes security vulnerabilities found in automated scan
+          title: '[Security] Automatic Dependency Update'
+          body: |
+            ## 🔒 Security Dependency Update
+
+            This PR automatically updates dependencies to fix security vulnerabilities.
+
+            ### Changes
+
+            - **Python**: Updated vulnerable packages in `backend/requirements.txt`
+            - **JavaScript**: Updated vulnerable packages in `frontend/package.json`
+
+            ### Next Steps
+
+            1. Review the updated dependencies
+            2. Run the test suite to ensure compatibility
+            3. Check the security scan results
+            4. Merge if all tests pass
+
+            ### Vulnerability Details
+
+            Check the workflow run for detailed vulnerability reports.
+
+            ---
+            🤖 *Automatically created by security scan workflow*
+          branch: 'security/dependency-update-${{ github.run_number }}'
+          labels: |
+            security
+            dependencies
+          draft: false
+          reviewers: |
+            ${{ github.actor }}
+
+      - name: Report update status
+        if: steps.python-check.outputs.has_vulns == 'true' || steps.js-check.outputs.has_vulns == 'true'
+        run: |
+          echo "## ✅ Pull Request Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "A pull request has been created with the dependency updates." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the PR" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run tests to verify compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "3. Merge if everything looks good" >> $GITHUB_STEP_SUMMARY
+
+      - name: No updates needed
+        if: steps.python-check.outputs.has_vulns != 'true' && steps.js-check.outputs.has_vulns != 'true'
+        run: |
+          echo "## ✅ No Updates Needed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All dependencies are secure. No action required." >> $GITHUB_STEP_SUMMARY
