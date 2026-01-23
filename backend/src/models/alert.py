@@ -187,3 +187,81 @@ class AlertInstance(Base):
         Index("ix_alert_instances_severity", "severity"),
         Index("ix_alert_instances_alert_type", "alert_type"),
     )
+
+
+class AlertGroup(Base):
+    """
+    AlertGroup groups related alert instances to prevent notification spam.
+
+    When multiple related alerts fire within a short time window (e.g., same rule
+    firing multiple times due to persistent condition), they are grouped together
+    to send fewer notifications. This prevents overwhelming recipients while still
+    keeping them informed of ongoing issues.
+
+    Example:
+    - AlertRule: "CPU usage > 90%"
+    - 10:00 AM: First alert fires, creates AlertGroup #1, sends notification
+    - 10:05 AM: Second alert fires, adds to AlertGroup #1, no notification (grouped)
+    - 10:10 AM: Third alert fires, adds to AlertGroup #1, no notification (grouped)
+    - 10:15 AM: Condition resolves, AlertGroup #1 marked resolved, sends recovery notification
+    """
+    __tablename__ = "alert_groups"
+
+    # Primary key
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    # Reference to the rule that created this group
+    rule_id = Column(GUID(), ForeignKey("alert_rules.id", ondelete="CASCADE"), nullable=False)
+    rule = relationship("AlertRule", back_populates="groups")
+
+    # Group identification
+    group_key = Column(String(255), nullable=False)
+    # Unique key identifying this group (e.g., "cpu_usage_high_server-1")
+    # Allows multiple groups per rule based on different context/conditions
+    name = Column(String(255), nullable=True)
+    # Human-readable name for the group (optional, auto-generated if not provided)
+
+    # Group status
+    status = Column(String(32), nullable=False, default="active")  # active, resolved, suppressed
+
+    # Alert tracking
+    alert_count = Column(BigInteger, nullable=False, default=1)  # Number of alerts in this group
+    first_alert_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_alert_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Notification tracking
+    notification_sent = Column(Boolean, nullable=False, default=False)
+    last_notification_at = Column(DateTime(timezone=True), nullable=True)
+    notification_count = Column(BigInteger, nullable=False, default=0)
+
+    # Group context (metadata about the group)
+    context = Column(JSONB, nullable=True)
+    # Example: {
+    #   "host": "server-1",
+    #   "service": "api",
+    #   "tags": ["production", "critical"],
+    #   "grouping_criteria": ["host", "service"]
+    # }
+
+    # Resolution tracking
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    resolved_by = Column(GUID(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Severity (inherited from first alert, can be escalated)
+    severity = Column(String(32), nullable=False, default="warning")  # critical, warning, info
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    instances = relationship("AlertInstance", back_populates="group", foreign_keys="AlertInstance.group_id")
+
+    # Indexes for common queries
+    __table_args__ = (
+        UniqueConstraint("rule_id", "group_key", name="uq_alert_group_rule_key"),
+        Index("ix_alert_groups_rule_id", "rule_id"),
+        Index("ix_alert_groups_status", "status"),
+        Index("ix_alert_groups_severity", "severity"),
+        Index("ix_alert_groups_created_at", "created_at"),
+    )
