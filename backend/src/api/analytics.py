@@ -1,12 +1,15 @@
 """
 Analytics API endpoints.
-Feature: 021-admin-analytics-menu
+Feature: 021-admin-analytics-menu, 012-comprehensive-analytics-dashboard
 
 Эндпоинты для раздела "Аналитика" в админ-панели:
 - GET /analytics/summary - Сводная статистика
 - GET /analytics/listeners - Статистика слушателей
 - GET /analytics/listeners/history - История слушателей
 - GET /analytics/top-tracks - Топ треков
+- GET /analytics/engagement - Метрики вовлеченности
+- GET /analytics/stream-performance - Производительность потока
+- GET /analytics/content-insights - Аналитика контента
 - POST /internal/track-play - Запись воспроизведения (для streamer)
 """
 
@@ -33,6 +36,9 @@ from src.schemas.analytics import (
     TrackPlayResponse,
     AnalyticsPeriod,
     HistoryInterval,
+    EngagementMetricsResponse,
+    StreamPerformanceResponse,
+    ContentInsightsResponse,
 )
 from src.services.analytics_service import AnalyticsService, get_analytics_service
 
@@ -154,7 +160,7 @@ async def get_top_tracks(
 ):
     """
     Получить топ треков.
-    
+
     Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
     """
     try:
@@ -162,6 +168,78 @@ async def get_top_tracks(
     except Exception as e:
         logger.error(f"Error getting top tracks: {e}")
         raise HTTPException(status_code=500, detail="Failed to get top tracks")
+
+
+@router.get(
+    "/engagement",
+    response_model=EngagementMetricsResponse,
+    summary="Получить метрики вовлеченности",
+    description="Возвращает данные об активности в чате, реакциях и комментариях"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_engagement_metrics(
+    request: Request,
+    period: AnalyticsPeriod = Query("7d", description="Период для агрегации данных"),
+    service: AnalyticsService = Depends(get_analytics_service_dep)
+):
+    """
+    Получить метрики вовлеченности.
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+    """
+    try:
+        return await service.get_engagement(period=period)
+    except Exception as e:
+        logger.error(f"Error getting engagement metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get engagement metrics")
+
+
+@router.get(
+    "/stream-performance",
+    response_model=StreamPerformanceResponse,
+    summary="Получить производительность потока",
+    description="Возвращает данные о качестве, аптайме и буферизации"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_stream_performance_metrics(
+    request: Request,
+    period: AnalyticsPeriod = Query("7d", description="Период для агрегации данных"),
+    service: AnalyticsService = Depends(get_analytics_service_dep)
+):
+    """
+    Получить производительность потока.
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+    """
+    try:
+        return await service.get_stream_performance(period=period)
+    except Exception as e:
+        logger.error(f"Error getting stream performance: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get stream performance")
+
+
+@router.get(
+    "/content-insights",
+    response_model=ContentInsightsResponse,
+    summary="Получить аналитику контента",
+    description="Возвращает данные о популярности контента и точках отказа"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_content_insights_metrics(
+    request: Request,
+    period: AnalyticsPeriod = Query("7d", description="Период для агрегации данных"),
+    service: AnalyticsService = Depends(get_analytics_service_dep)
+):
+    """
+    Получить аналитику контента.
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+    """
+    try:
+        return await service.get_content_insights(period=period)
+    except Exception as e:
+        logger.error(f"Error getting content insights: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get content insights")
 
 
 # ============ Internal Endpoints (for streamer service) ============
