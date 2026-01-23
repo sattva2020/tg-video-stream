@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
 import { playlistsApi } from '../api/playlists';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music, Download } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
 import { AppLayout } from '../components/layout';
+import { ImportWizard } from '../components/import/ImportWizard';
 import { useTranslation } from 'react-i18next';
 import {
   useChannels,
@@ -66,6 +67,7 @@ const ChannelManager: React.FC = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(testMode); // Авто-открытие в тестовом режиме
   const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [formData, setFormData] = useState<CreateChannelData & { playlist_id?: string }>({
     account_id: '',
@@ -199,6 +201,13 @@ const ChannelManager: React.FC = () => {
             >
               <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
               {t('channels.connectAccount', 'Connect Account')}
+            </button>
+            <button
+              onClick={() => setIsImportWizardOpen(true)}
+              className="bg-[color:var(--color-surface-muted)] hover:bg-[color:var(--color-border)] text-[color:var(--color-text)] px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm sm:text-base"
+            >
+              <Download className="w-4 h-4 sm:w-5 sm:h-5" />
+              {t('channels.importContent', 'Import Content')}
             </button>
             <button
               onClick={openCreateModal}
@@ -590,6 +599,18 @@ const ChannelManager: React.FC = () => {
               />
             </div>
           </div>
+        )}
+
+        {/* Import Wizard */}
+        {isImportWizardOpen && (
+          <ImportWizard
+            onClose={() => setIsImportWizardOpen(false)}
+            onComplete={(job) => {
+              setIsImportWizardOpen(false);
+              // Invalidate playlists query to refresh the list after import
+              queryClient.invalidateQueries({ queryKey: ['playlists'] });
+            }}
+          />
         )}
       </div>
     </AppLayout>
