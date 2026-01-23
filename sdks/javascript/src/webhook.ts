@@ -2,7 +2,23 @@
  * Webhook signature verification utilities
  */
 
-import * as crypto from 'crypto';
+/**
+ * Convert string to ArrayBuffer
+ */
+function stringToArrayBuffer(str: string): ArrayBuffer {
+  const encoder = new TextEncoder();
+  return encoder.encode(str).buffer;
+}
+
+/**
+ * Convert ArrayBuffer to hex string
+ */
+function arrayBufferToHex(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 /**
  * Verify webhook signature using HMAC-SHA256
@@ -11,11 +27,11 @@ import * as crypto from 'crypto';
  * @param secret - The webhook secret
  * @returns True if signature is valid
  */
-export function verifyWebhookSignature(
+export async function verifyWebhookSignature(
   payload: string | Record<string, any>,
   signature: string,
   secret: string
-): boolean {
+): Promise<boolean> {
   // Convert payload to string if it's an object
   const payloadString =
     typeof payload === 'string' ? payload : JSON.stringify(payload);
@@ -25,32 +41,30 @@ export function verifyWebhookSignature(
     ? signature.substring(7)
     : signature;
 
-  // Generate expected signature
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payloadString);
-  const expectedSignature = hmac.digest('hex');
+  // Generate expected signature using Web Crypto API
+  const keyData = stringToArrayBuffer(secret);
+  const messageData = stringToArrayBuffer(payloadString);
 
-  // Constant-time comparison to prevent timing attacks
-  return timingSafeEqual(
-    Buffer.from(signatureHash, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['verify']
   );
-}
 
-/**
- * Constant-time comparison to prevent timing attacks
- */
-function timingSafeEqual(a: Buffer, b: Buffer): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
+  const signatureBytes = new Uint8Array(
+    signatureHash.match(/.{1,2}/g)?.map((byte) => parseInt(byte, 16)) || []
+  );
 
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a[i] ^ b[i];
-  }
+  const isValid = await crypto.subtle.verify(
+    'HMAC',
+    cryptoKey,
+    signatureBytes,
+    messageData
+  );
 
-  return result === 0;
+  return isValid;
 }
 
 /**
@@ -59,16 +73,30 @@ function timingSafeEqual(a: Buffer, b: Buffer): boolean {
  * @param secret - The webhook secret
  * @returns The signature in format 'sha256=<hex>'
  */
-export function generateWebhookSignature(
+export async function generateWebhookSignature(
   payload: string | Record<string, any>,
   secret: string
-): string {
+): Promise<string> {
   const payloadString =
     typeof payload === 'string' ? payload : JSON.stringify(payload);
 
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(payloadString);
-  const signature = hmac.digest('hex');
+  const keyData = stringToArrayBuffer(secret);
+  const messageData = stringToArrayBuffer(payloadString);
 
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signatureBuffer = await crypto.subtle.sign(
+    'HMAC',
+    cryptoKey,
+    messageData
+  );
+
+  const signature = arrayBufferToHex(signatureBuffer);
   return `sha256=${signature}`;
 }
