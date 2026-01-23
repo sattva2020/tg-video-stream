@@ -169,6 +169,7 @@ def create_app() -> FastAPI:
     from src.api.audio import router as audio_router
     from src.api.incidents import router as incidents_router, solutions_router
     from src.api.settings import router as settings_router
+    from src.api.video_validation import router as video_validation_router
     
     # Root endpoint
     @app.get("/")
@@ -211,5 +212,6 @@ def create_app() -> FastAPI:
     app.include_router(incidents_router, prefix="/api", tags=["Incidents"])
     app.include_router(solutions_router, prefix="/api", tags=["Solutions"])
     app.include_router(settings_router, prefix="/api/admin", tags=["Settings"])
+    app.include_router(video_validation_router, prefix="/api", tags=["Video Validation"])
     
     return app
