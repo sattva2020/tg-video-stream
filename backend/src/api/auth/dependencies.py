@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from src.models.user import User
 from src.models.organization import Organization
+from src.models.organization_user import OrganizationUser
 from src.services.playback_service import PlaybackService
 from auth import jwt
 
@@ -89,6 +90,122 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="The user doesn't have enough privileges",
         )
     return current_user
+
+
+def require_org_admin(
+    current_user: User = Depends(get_current_user),
+    current_organization: Organization = Depends(get_current_organization),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Зависимость: требует роль администратора в организации.
+    Проверяет, имеет ли пользователь роль с именем 'admin' или 'owner' в организации.
+    """
+    if current_user.organization_id != current_organization.id:
+        logger.warning(f"User {current_user.id} does not belong to organization {current_organization.id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User does not belong to this organization",
+        )
+
+    org_user = db.query(OrganizationUser).filter(
+        OrganizationUser.user_id == current_user.id,
+        OrganizationUser.organization_id == current_organization.id
+    ).first()
+
+    if org_user is None:
+        logger.warning(f"User {current_user.id} is not a member of organization {current_organization.id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not a member of this organization",
+        )
+
+    if org_user.role is None:
+        logger.warning(f"User {current_user.id} does not have a role in organization {current_organization.id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User does not have required privileges in this organization",
+        )
+
+    # Проверяем имя роли (admin, owner)
+    allowed_role_names = {"admin", "owner"}
+    role_name = org_user.role.name.lower() if org_user.role.name else ""
+    if role_name not in allowed_role_names:
+        logger.warning(f"User {current_user.id} has role '{role_name}' which is not admin in organization {current_organization.id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges in this organization",
+        )
+
+    return current_user
+
+
+def require_org_role(
+    required_permission: str = None,
+    required_role_name: str = None
+):
+    """
+    Зависимость: требует определённой роли или права в организации.
+
+    Args:
+        required_permission: Требуемое право (например, 'manage_streams', 'view_analytics')
+        required_role_name: Требуемое название роли (например, 'admin', 'editor')
+
+    Можно указать либо required_permission, либо required_role_name, либо оба.
+    """
+    async def _check_role(
+        current_user: User = Depends(get_current_user),
+        current_organization: Organization = Depends(get_current_organization),
+        db: Session = Depends(get_db)
+    ) -> User:
+        if current_user.organization_id != current_organization.id:
+            logger.warning(f"User {current_user.id} does not belong to organization {current_organization.id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not belong to this organization",
+            )
+
+        org_user = db.query(OrganizationUser).filter(
+            OrganizationUser.user_id == current_user.id,
+            OrganizationUser.organization_id == current_organization.id
+        ).first()
+
+        if org_user is None:
+            logger.warning(f"User {current_user.id} is not a member of organization {current_organization.id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a member of this organization",
+            )
+
+        if org_user.role is None:
+            logger.warning(f"User {current_user.id} does not have a role in organization {current_organization.id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User does not have required privileges in this organization",
+            )
+
+        # Проверяем название роли, если указано
+        if required_role_name is not None:
+            role_name = org_user.role.name.lower() if org_user.role.name else ""
+            if role_name != required_role_name.lower():
+                logger.warning(f"User {current_user.id} has role '{role_name}' but required '{required_role_name}' in organization {current_organization.id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User does not have the required role '{required_role_name}' in this organization",
+                )
+
+        # Проверяем право, если указано
+        if required_permission is not None:
+            if not org_user.role.has_permission(required_permission):
+                logger.warning(f"User {current_user.id} does not have permission '{required_permission}' in organization {current_organization.id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"User does not have the required permission '{required_permission}' in this organization",
+                )
+
+        return current_user
+
+    return _check_role
 
 
 def get_playback_service(db: Session = Depends(get_db)) -> PlaybackService:
