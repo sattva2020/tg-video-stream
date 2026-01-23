@@ -37,7 +37,11 @@ const AuthStateContext = React.createContext<AuthStateContextValue>({
  * Root navigation component
  * Handles authentication flow and main app navigation
  */
-export const AppNavigator: React.FC = () => {
+interface AppNavigatorProps {
+  navigationRef?: React.RefObject<any>;
+}
+
+export const AppNavigator: React.FC<AppNavigatorProps> = ({ navigationRef }) => {
   const { i18n } = useTranslation();
   const [authState, setAuthState] = useState<AuthStateContextValue>({
     isAuthenticated: false,
@@ -82,7 +86,7 @@ export const AppNavigator: React.FC = () => {
 
   return (
     <AuthStateContext.Provider value={authState}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator
           screenOptions={{
             headerShown: false,

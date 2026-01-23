@@ -62,6 +62,22 @@ const NetworkStatusWrapper: React.FC = () => {
 };
 
 /**
+ * Component that manages navigation ref for push notifications
+ */
+const NavigationManager: React.FC = () => {
+  const navigationRef = React.useRef<any>(null);
+  const { setNavigation } = usePushNotifications();
+
+  useEffect(() => {
+    if (navigationRef.current) {
+      setNavigation(navigationRef.current);
+    }
+  }, [setNavigation]);
+
+  return <AppNavigator navigationRef={navigationRef} />;
+};
+
+/**
  * Root component with providers
  */
 const Root: React.FC = () => (
@@ -69,7 +85,7 @@ const Root: React.FC = () => (
     <AuthProvider>
       <NetworkStatusWrapper />
       <PushNotificationInitializer />
-      <AppNavigator />
+      <NavigationManager />
     </AuthProvider>
   </OfflineProvider>
 );
