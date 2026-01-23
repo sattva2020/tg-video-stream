@@ -23,6 +23,7 @@ from src.schemas.stream_quality import (
 from src.services.stream_quality_service import get_stream_quality_service, StreamQualityService
 from src.services.quality_trends_service import get_quality_trends_service, QualityTrendsService
 from src.api.admin.saml_config import router as saml_config_router
+from src.api.admin.ip_whitelist import router as ip_whitelist_router
 
 router = APIRouter()
 
@@ -30,6 +31,11 @@ router = APIRouter()
 # Feature 025: SAML Configuration Management
 # ============================================================================
 router.include_router(saml_config_router, prefix="/saml", tags=["SAML Config"])
+
+# ============================================================================
+# Feature 025: IP Whitelist Management
+# ============================================================================
+router.include_router(ip_whitelist_router, prefix="/ip-whitelist", tags=["IP Whitelist"])
 
 
 class PlaylistUpdate(BaseModel):
