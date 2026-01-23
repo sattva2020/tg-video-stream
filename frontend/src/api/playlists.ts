@@ -48,6 +48,33 @@ export interface PlaylistUpdate {
   items?: PlaylistEntry[];
 }
 
+export interface PlaylistTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  is_public: boolean;
+  items: PlaylistEntry[];
+  items_count: number;
+  total_duration: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PlaylistTemplateCreate {
+  name: string;
+  description?: string;
+  is_public?: boolean;
+  items?: PlaylistEntry[];
+}
+
+export interface PlaylistTemplateUpdate {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+  items?: PlaylistEntry[];
+}
+
 const PLAYLISTS_BASE = '/api/playlists';
 
 export const playlistsApi = {
@@ -122,6 +149,52 @@ export const playlistsApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  // Template methods
+  getMyTemplates: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistTemplate[]>(`${PLAYLISTS_BASE}/templates`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getPublicTemplates: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistTemplate[]>(`${PLAYLISTS_BASE}/templates/public`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getTemplate: async (templateId: string) => {
+    const response = await client.get<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}`);
+    return response.data;
+  },
+
+  createTemplate: async (data: PlaylistTemplateCreate) => {
+    const response = await client.post<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates`, data);
+    return response.data;
+  },
+
+  updateTemplate: async (templateId: string, data: PlaylistTemplateUpdate) => {
+    const response = await client.put<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}`, data);
+    return response.data;
+  },
+
+  deleteTemplate: async (templateId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/templates/${templateId}`);
+  },
+
+  applyTemplate: async (templateId: string, playlistName: string) => {
+    const response = await client.post<Playlist>(`${PLAYLISTS_BASE}/templates/${templateId}/apply`, {
+      name: playlistName,
+    });
+    return response.data;
+  },
+
+  cloneTemplate: async (templateId: string) => {
+    const response = await client.post<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}/clone`);
     return response.data;
   },
 };
