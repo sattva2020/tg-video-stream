@@ -143,7 +143,10 @@ class PlaylistGroup(Base):
     
     # Привязка к каналу (опционально — группа может быть общей)
     channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
-    
+
+    # Привязка к родительской группе (для вложенных папок)
+    parent_id = Column(GUID(), ForeignKey("playlist_groups.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Метаданные
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -164,6 +167,8 @@ class PlaylistGroup(Base):
     # Relationships
     user = relationship("User", backref="playlist_groups")
     channel = relationship("Channel", backref="playlist_groups")
+    parent = relationship("PlaylistGroup", remote_side=[id], back_populates="children")
+    children = relationship("PlaylistGroup", back_populates="parent", cascade="all, delete-orphan")
     playlists = relationship("Playlist", back_populates="group", order_by="Playlist.position")
 
     def __repr__(self):
