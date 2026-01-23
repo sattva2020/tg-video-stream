@@ -20,7 +20,8 @@ celery_app = Celery(
         "backend.src.services.youtube_validation_task",
         "backend.src.services.analytics_aggregation_task",
         "backend.src.services.scheduler",
-        "backend.src.services.conference_tracking_task"
+        "backend.src.services.conference_tracking_task",
+        "backend.src.tasks.stream_health_check"
     ]
 )
 
@@ -91,6 +92,12 @@ celery_app.conf.update(
         "cleanup-old-results": {
             "task": "backend.src.tasks.cleanup_old_results",
             "schedule": crontab(minute=0, hour=3),  # 3 AM daily
+        },
+
+        # Stream health check - every 5 minutes
+        "check-stream-health": {
+            "task": "backend.src.tasks.stream_health_check.check_all_streams_health",
+            "schedule": 300.0,  # Every 5 minutes
         }
     }
 )
@@ -138,6 +145,10 @@ celery_app.conf.task_routes = {
     # Conference tasks
     "backend.src.services.conference_tracking_task.track_conference": {"queue": "conference"},
     "backend.src.services.conference_tracking_task.track_active_conferences": {"queue": "conference"},
+
+    # Stream health check tasks
+    "tasks.check_all_streams_health": {"queue": "health_check"},
+    "tasks.stream_health_check": {"queue": "health_check"},
 }
 
 

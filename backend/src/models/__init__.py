@@ -45,6 +45,14 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# Auto-Recovery System (Feature 001)
+from .recovery_log import (
+    RecoveryLog,
+    RecoveryFailureType,
+    RecoveryStrategy,
+    RecoveryStatus,
+)
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +94,10 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # Auto-Recovery System
+    "RecoveryLog",
+    "RecoveryFailureType",
+    "RecoveryStrategy",
+    "RecoveryStatus",
 ]
 

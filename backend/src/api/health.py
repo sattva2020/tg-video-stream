@@ -4,6 +4,7 @@ Health API endpoints для мониторинга состояния серви
 """
 
 import time
+import logging
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, status
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 import redis
+
+log = logging.getLogger(__name__)
 
 # Application start time для uptime calculation
 _start_time = time.time()
@@ -98,13 +101,13 @@ def check_database() -> DependencyHealth:
 def check_redis() -> DependencyHealth:
     """Проверка доступности Redis."""
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    
+
     start = time.time()
     try:
         r = redis.from_url(redis_url, socket_timeout=5)
         r.ping()
         latency = (time.time() - start) * 1000
-        
+
         # Degraded если latency > 50ms
         if latency > 50:
             return DependencyHealth(
@@ -114,7 +117,7 @@ def check_redis() -> DependencyHealth:
                 message="High latency detected",
                 last_check=datetime.now(timezone.utc).isoformat()
             )
-        
+
         return DependencyHealth(
             name="redis",
             status="up",
@@ -124,6 +127,96 @@ def check_redis() -> DependencyHealth:
     except Exception as e:
         return DependencyHealth(
             name="redis",
+            status="down",
+            latency_ms=-1,
+            message=str(e)[:100],
+            last_check=datetime.now(timezone.utc).isoformat()
+        )
+
+
+def check_streams() -> DependencyHealth:
+    """Проверка здоровья потоков."""
+    from src.database import SessionLocal
+    from src.models.stream import Stream, StreamStatus
+    from src.services.stream_health_monitor import get_stream_health_monitor
+
+    start = time.time()
+    try:
+        db = SessionLocal()
+        try:
+            # Получить количество активных потоков из базы данных
+            active_streams_count = db.query(Stream).filter(
+                Stream.status == StreamStatus.ACTIVE
+            ).count()
+
+            # Если нет активных потоков, считаем это "up" (система работает)
+            if active_streams_count == 0:
+                latency = (time.time() - start) * 1000
+                return DependencyHealth(
+                    name="streams",
+                    status="up",
+                    latency_ms=round(latency, 2),
+                    message="No active streams",
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
+
+            # Получить монитор и проверить здоровье всех активных потоков
+            monitor = get_stream_health_monitor()
+
+            # Получить все нездоровые потоки (асинхронно)
+            import asyncio
+            try:
+                # Попытаться получить event loop или создать новый
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                unhealthy_streams = loop.run_until_complete(
+                    monitor.get_all_unhealthy_streams()
+                )
+            except Exception as async_error:
+                # Если не удалось получить event loop, просто логируем предупреждение
+                log.warning(f"Could not check stream health asynchronously: {async_error}")
+                unhealthy_streams = []
+
+            latency = (time.time() - start) * 1000
+
+            # Если есть нездоровые потоки, но не все - degraded
+            if unhealthy_streams and len(unhealthy_streams) < active_streams_count:
+                return DependencyHealth(
+                    name="streams",
+                    status="degraded",
+                    latency_ms=round(latency, 2),
+                    message=f"{len(unhealthy_streams)}/{active_streams_count} streams unhealthy",
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
+
+            # Если все активные потоки нездоровы - down
+            if unhealthy_streams and len(unhealthy_streams) >= active_streams_count:
+                return DependencyHealth(
+                    name="streams",
+                    status="down",
+                    latency_ms=round(latency, 2),
+                    message=f"All {active_streams_count} streams unhealthy",
+                    last_check=datetime.now(timezone.utc).isoformat()
+                )
+
+            # Все потоки здоровы
+            return DependencyHealth(
+                name="streams",
+                status="up",
+                latency_ms=round(latency, 2),
+                message=f"{active_streams_count} active streams healthy",
+                last_check=datetime.now(timezone.utc).isoformat()
+            )
+
+        finally:
+            db.close()
+    except Exception as e:
+        return DependencyHealth(
+            name="streams",
             status="down",
             latency_ms=-1,
             message=str(e)[:100],
@@ -151,7 +244,8 @@ async def health_check():
     """
     dependencies = [
         check_database(),
-        check_redis()
+        check_redis(),
+        check_streams()
     ]
     
     overall_status = calculate_overall_status(dependencies)

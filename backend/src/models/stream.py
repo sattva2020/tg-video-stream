@@ -43,6 +43,7 @@ class Stream(Base):
     **Relationships**:
     - owner: User (FK to users.id)
     - playlists: List[PlaylistItem] (one-to-many, cascade delete)
+    - recovery_logs: List[RecoveryLog] (one-to-many, cascade delete)
     
     **Timestamps**:
     - created_at: Время создания stream
@@ -98,6 +99,13 @@ class Stream(Base):
         back_populates="stream",
         cascade="all, delete-orphan",
         order_by="src.models.playlist.PlaylistItem.position",
+        lazy="select"
+    )
+    recovery_logs = relationship(
+        "src.models.recovery_log.RecoveryLog",
+        back_populates="stream",
+        cascade="all, delete-orphan",
+        order_by="desc(src.models.recovery_log.RecoveryLog.started_at)",
         lazy="select"
     )
     
