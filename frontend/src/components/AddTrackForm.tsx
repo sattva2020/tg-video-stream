@@ -1,22 +1,76 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Music, Youtube, FileAudio } from 'lucide-react'
+import {
+  Plus,
+  Music,
+  Youtube,
+  FileAudio,
+  Video,
+  Radio,
+  Cloud,
+  FileText,
+  Globe,
+  Loader2
+} from 'lucide-react'
 import * as playlistService from '../services/playlist'
 import { useToast } from '../hooks/useToast'
+import { videoSourcesApi } from '../api/video_sources'
+import type { SourceType } from '../types/video_sources'
 
 const trackTypes = [
   { key: 'stream', label: 'Stream', icon: Music },
   { key: 'youtube', label: 'YouTube', icon: Youtube },
+  { key: 'vimeo', label: 'Vimeo', icon: Video },
+  { key: 'dailymotion', label: 'Dailymotion', icon: Video },
+  { key: 'twitch', label: 'Twitch', icon: Radio },
+  { key: 'direct', label: 'Direct URL', icon: Video },
+  { key: 'hls', label: 'HLS Stream', icon: Radio },
+  { key: 'dash', label: 'DASH Stream', icon: Radio },
+  { key: 'google_drive', label: 'Google Drive', icon: Cloud },
+  { key: 'dropbox', label: 'Dropbox', icon: Cloud },
+  { key: 'onedrive', label: 'OneDrive', icon: Cloud },
+  { key: 'rss_feed', label: 'RSS Feed', icon: FileText },
   { key: 'local', label: 'Local', icon: FileAudio },
-]
+] as const
 
 const AddTrackForm: React.FC<{ onAdded?: () => void }> = ({ onAdded }) => {
   const { t } = useTranslation()
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
-  const [type, setType] = useState<'stream' | 'youtube' | 'local'>('youtube')
+  const [type, setType] = useState<SourceType>('youtube')
   const [loading, setLoading] = useState(false)
+  const [detecting, setDetecting] = useState(false)
+  const [detectedType, setDetectedType] = useState<SourceType | null>(null)
+  const [autoDetectEnabled, setAutoDetectEnabled] = useState(true)
   const toast = useToast()
+
+  // Auto-detect source type from URL
+  useEffect(() => {
+    if (!url.trim() || !autoDetectEnabled) {
+      setDetectedType(null)
+      return
+    }
+
+    const timeoutId = setTimeout(async () => {
+      setDetecting(true)
+      try {
+        const result = await videoSourcesApi.detectSource(url.trim())
+        if (result.valid && result.source_type) {
+          setDetectedType(result.source_type as SourceType)
+          setType(result.source_type as SourceType)
+        } else {
+          setDetectedType(null)
+        }
+      } catch (err) {
+        // Silently fail on detection errors - user can still select manually
+        setDetectedType(null)
+      } finally {
+        setDetecting(false)
+      }
+    }, 500) // Debounce detection
+
+    return () => clearTimeout(timeoutId)
+  }, [url, autoDetectEnabled])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,9 +102,23 @@ const AddTrackForm: React.FC<{ onAdded?: () => void }> = ({ onAdded }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* URL Input */}
         <div>
-          <label className="block text-sm font-medium text-[color:var(--color-text-muted)] mb-1">
-            URL трека *
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-[color:var(--color-text-muted)]">
+              URL трека *
+            </label>
+            {detecting && (
+              <div className="flex items-center gap-1.5 text-xs text-[color:var(--color-text-muted)]">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Detecting...
+              </div>
+            )}
+            {detectedType && !detecting && (
+              <div className="flex items-center gap-1.5 text-xs text-green-600">
+                <Globe className="w-3 h-3" />
+                Detected: {trackTypes.find(t => t.key === detectedType)?.label}
+              </div>
+            )}
+          </div>
           <input
             type="url"
             placeholder="https://www.youtube.com/watch?v=..."
@@ -63,16 +131,30 @@ const AddTrackForm: React.FC<{ onAdded?: () => void }> = ({ onAdded }) => {
 
         {/* Type Select */}
         <div>
-          <label className="block text-sm font-medium text-[color:var(--color-text-muted)] mb-1">
-            Тип источника
-          </label>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-[color:var(--color-text-muted)]">
+              Тип источника
+            </label>
+            <label className="flex items-center gap-1.5 text-xs text-[color:var(--color-text-muted)] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoDetectEnabled}
+                onChange={(e) => setAutoDetectEnabled(e.target.checked)}
+                className="rounded"
+              />
+              Auto-detect
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {trackTypes.map((tt) => (
               <button
                 key={tt.key}
                 type="button"
-                onClick={() => setType(tt.key as typeof type)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                onClick={() => {
+                  setType(tt.key as SourceType)
+                  setAutoDetectEnabled(false) // Disable auto-detect when manually selecting
+                }}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                   type === tt.key
                     ? 'bg-orange-500 text-white border-orange-500'
                     : 'bg-[color:var(--color-surface)] text-[color:var(--color-text)] border-[color:var(--color-outline)] hover:bg-[color:var(--color-surface-muted)]'
