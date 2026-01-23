@@ -141,15 +141,16 @@ def create_app() -> FastAPI:
     
     # TODO: Migrate these to frameworks/http/controllers/ (остальные T045)
     from api import (
-        users, 
-        playlist, 
-        admin, 
-        telegram_auth, 
-        channels, 
-        files, 
-        websocket, 
+        users,
+        playlist,
+        admin,
+        telegram_auth,
+        channels,
+        files,
+        websocket,
         schedule
     )
+    from src.api import polls
     from src.api import media, media_gdrive, ai_settings
     from src.api.routes import playback as playback_routes
     from src.api.routes import (
@@ -191,6 +192,7 @@ def create_app() -> FastAPI:
     app.include_router(telegram_auth.router, prefix="/api/auth/telegram", tags=["Telegram Auth"])
     app.include_router(telegram_login_router, prefix="/api/auth/telegram-login", tags=["Telegram Login"])
     app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
+    app.include_router(polls.router, prefix="/api/polls", tags=["Polls"])
     app.include_router(files.router, prefix="/api/files", tags=["Files"])
     app.include_router(media.router, prefix="/api", tags=["Media"])
     app.include_router(media_gdrive.router, prefix="/api", tags=["Media"])
