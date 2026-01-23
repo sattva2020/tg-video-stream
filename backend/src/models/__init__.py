@@ -48,6 +48,7 @@ from .stream import Stream, StreamStatus
 # API & Webhook Ecosystem (Feature 026)
 from .api_key import APIKey, APIKeyScope
 from .webhook import Webhook
+from .webhook_event import WebhookEvent
 
 __all__ = [
     "User",
@@ -94,5 +95,6 @@ __all__ = [
     "APIKey",
     "APIKeyScope",
     "Webhook",
+    "WebhookEvent",
 ]
 
