@@ -170,7 +170,8 @@ def create_app() -> FastAPI:
     from src.api.incidents import router as incidents_router, solutions_router
     from src.api.settings import router as settings_router
     from src.api.api_keys import router as api_keys_router
-    
+    from src.api.webhooks import router as webhooks_router
+
     # Root endpoint
     @app.get("/")
     def read_root():
@@ -213,5 +214,6 @@ def create_app() -> FastAPI:
     app.include_router(solutions_router, prefix="/api", tags=["Solutions"])
     app.include_router(settings_router, prefix="/api/admin", tags=["Settings"])
     app.include_router(api_keys_router, prefix="/api/v1/keys", tags=["API Keys"])
+    app.include_router(webhooks_router, prefix="/api/v1/webhooks", tags=["Webhooks"])
 
     return app
