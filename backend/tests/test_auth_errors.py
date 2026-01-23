@@ -1,6 +1,3 @@
-import pytest
-
-
 def test_register_conflict_returns_structured_error(client, db_session):
     # Create existing user with a password to simulate already-registered email
     from models.user import User
