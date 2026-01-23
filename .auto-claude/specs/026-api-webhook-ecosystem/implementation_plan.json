@@ -864,7 +864,9 @@
               "Webhook endpoints documented"
             ]
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Enhanced OpenAPI documentation with comprehensive details. Updated app.py with detailed API overview including features, authentication, rate limiting, and documentation sections. Enhanced all API key endpoints (list, create, get, update, delete, revoke) with summaries, detailed descriptions, and response examples. Enhanced all webhook endpoints (list, create, get, update, delete, test, rotate-secret) with summaries, detailed descriptions, event type documentation, signature verification examples, and response examples. All documentation includes security warnings, authentication requirements, and authorization notes.",
+          "updated_at": "2026-01-23T17:30:00.000000+00:00"
         },
         {
           "id": "subtask-8-2",
@@ -1418,6 +1420,6 @@
   "qa_signoff": null,
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-01-23T14:21:59.973Z",
+  "updated_at": "2026-01-23T14:28:21.635Z",
   "last_updated": "2026-01-23T13:01:46.603507+00:00"
 }

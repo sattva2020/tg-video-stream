@@ -63,6 +63,42 @@ The key value is only returned once when you create a new API key.
                 }
             }
         }
+    },
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "Python",
+                "source": """
+import requests
+
+response = requests.get(
+    "http://localhost:8000/api/api-keys/",
+    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+)
+api_keys = response.json()
+print(api_keys)
+                """
+            },
+            {
+                "lang": "JavaScript",
+                "source": """
+const response = await fetch('http://localhost:8000/api/api-keys/', {
+    headers: {
+        'Authorization': 'Bearer YOUR_JWT_TOKEN'
+    }
+});
+const apiKeys = await response.json();
+console.log(apiKeys);
+                """
+            },
+            {
+                "lang": "cURL",
+                "source": """
+curl -X GET "http://localhost:8000/api/api-keys/" \\
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+                """
+            }
+        ]
     }
 )
 def list_api_keys(
@@ -146,6 +182,60 @@ Optionally set an expiration date. Keys without expiration remain active indefin
                 }
             }
         }
+    },
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "Python",
+                "source": """
+import requests
+
+response = requests.post(
+    "http://localhost:8000/api/api-keys/",
+    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"},
+    json={
+        "name": "Production Integration",
+        "scopes": ["read:streams", "write:playlists"],
+        "rate_limit": {"requests": 100, "window": 60}
+    }
+)
+api_key = response.json()
+print(f"API Key (save this!): {api_key['key']}")
+                """
+            },
+            {
+                "lang": "JavaScript",
+                "source": """
+const response = await fetch('http://localhost:8000/api/api-keys/', {
+    method: 'POST',
+    headers: {
+        'Authorization': 'Bearer YOUR_JWT_TOKEN',
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        name: 'Production Integration',
+        scopes: ['read:streams', 'write:playlists'],
+        rate_limit: { requests: 100, window: 60 }
+    })
+});
+const apiKey = await response.json();
+console.log('API Key (save this!):', apiKey.key);
+                """
+            },
+            {
+                "lang": "cURL",
+                "source": """
+curl -X POST "http://localhost:8000/api/api-keys/" \\
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Production Integration",
+    "scopes": ["read:streams", "write:playlists"],
+    "rate_limit": {"requests": 100, "window": 60}
+  }'
+                """
+            }
+        ]
     }
 )
 def create_api_key(
@@ -297,6 +387,60 @@ If you need a new key value, delete and recreate the key.
         },
         404: {"description": "API key not found"},
         403: {"description": "Access denied"}
+    },
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "Python",
+                "source": """
+import requests
+
+response = requests.patch(
+    "http://localhost:8000/api/api-keys/{key_id}",
+    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"},
+    json={
+        "name": "Updated Name",
+        "scopes": ["read:streams"],
+        "is_active": False
+    }
+)
+updated_key = response.json()
+print(updated_key)
+                """
+            },
+            {
+                "lang": "JavaScript",
+                "source": """
+const response = await fetch('http://localhost:8000/api/api-keys/{key_id}', {
+    method: 'PATCH',
+    headers: {
+        'Authorization': 'Bearer YOUR_JWT_TOKEN',
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        name: 'Updated Name',
+        scopes: ['read:streams'],
+        is_active: false
+    })
+});
+const updatedKey = await response.json();
+console.log(updatedKey);
+                """
+            },
+            {
+                "lang": "cURL",
+                "source": """
+curl -X PATCH "http://localhost:8000/api/api-keys/{key_id}" \\
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Updated Name",
+    "scopes": ["read:streams"],
+    "is_active": false
+  }'
+                """
+            }
+        ]
     }
 )
 def update_api_key(
@@ -368,6 +512,46 @@ temporarily without deleting it.
         204: {"description": "API key deleted successfully"},
         404: {"description": "API key not found"},
         403: {"description": "Access denied"}
+    },
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "Python",
+                "source": """
+import requests
+
+response = requests.delete(
+    "http://localhost:8000/api/api-keys/{key_id}",
+    headers={"Authorization": "Bearer YOUR_JWT_TOKEN"}
+)
+
+if response.status_code == 204:
+    print("API key deleted successfully")
+                """
+            },
+            {
+                "lang": "JavaScript",
+                "source": """
+const response = await fetch('http://localhost:8000/api/api-keys/{key_id}', {
+    method: 'DELETE',
+    headers: {
+        'Authorization': 'Bearer YOUR_JWT_TOKEN'
+    }
+});
+
+if (response.status === 204) {
+    console.log('API key deleted successfully');
+}
+                """
+            },
+            {
+                "lang": "cURL",
+                "source": """
+curl -X DELETE "http://localhost:8000/api/api-keys/{key_id}" \\
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+                """
+            }
+        ]
     }
 )
 def delete_api_key(
