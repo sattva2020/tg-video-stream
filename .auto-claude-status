@@ -3,23 +3,23 @@
   "spec": "010-advanced-encoding-profiles-quality-control",
   "state": "building",
   "subtasks": {
-    "completed": 13,
+    "completed": 15,
     "total": 18,
-    "in_progress": 1,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Frontend UI Components",
-    "id": null,
+    "current": "Integration & Testing",
+    "id": "subtask-5-1",
     "total": 4
   },
   "workers": {
-    "active": 0,
+    "active": 1,
     "max": 1
   },
   "session": {
-    "number": 15,
+    "number": 16,
     "started_at": "2026-01-23T20:41:54.421713"
   },
-  "last_update": "2026-01-23T22:10:48.651892"
+  "last_update": "2026-01-23T22:30:00.000000"
 }
