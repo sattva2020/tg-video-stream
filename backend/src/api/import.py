@@ -90,9 +90,8 @@ async def create_import_job(
                 str(current_user.id)
             )
 
-        # TODO: In phase-2, this will trigger a Celery task instead
-        # For now, we'll process synchronously in background
-        # background_tasks.add_task(process_import_async, str(import_job.id))
+        # Celery task will pick up this job automatically from the queue
+        # Task routing configured in celery_app.py
 
         return ImportJobResponse.model_validate(import_job)
 

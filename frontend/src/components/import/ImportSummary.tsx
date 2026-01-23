@@ -26,9 +26,16 @@ interface ImportSummaryProps {
  * - Import duration
  *
  * @example
+ * const handleNewImport = () => {
+ *   // Reset wizard state to start a new import
+ *   setCurrentStep('platform')
+ *   setSelectedPlatform(null)
+ *   setJobId(null)
+ * }
+ *
  * <ImportSummary
  *   jobId="import-123"
- *   onNewImport={() => console.log('Start new import')}
+ *   onNewImport={handleNewImport}
  * />
  */
 const ImportSummary: React.FC<ImportSummaryProps> = ({
