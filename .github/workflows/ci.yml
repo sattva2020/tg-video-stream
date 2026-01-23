@@ -159,7 +159,7 @@ jobs:
     - name: Run unit tests
       run: |
         pytest -c pytest.ci.ini -m "unit" -v
-        
+
     - name: Run integration tests
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -168,7 +168,7 @@ jobs:
         TESTING: true
       run: |
         pytest -c pytest.ci.ini -m "integration" -v
-        
+
     - name: Run all tests with coverage
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -176,13 +176,24 @@ jobs:
         REDIS_PORT: 6379
         TESTING: true
       run: |
-        pytest -c pytest.ci.ini --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=70 -v
-        
+        pytest -c pytest.ci.ini --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=70 -v
+
     - name: Generate coverage badge
       if: success()
       run: |
         coverage_percent=$(coverage report | grep TOTAL | awk '{print $4}' | tr -d '%')
         echo "Backend Coverage: ${coverage_percent}%" >> $GITHUB_STEP_SUMMARY
+
+    - name: Generate coverage summary
+      if: always()
+      run: |
+        if [ -f coverage.json ]; then
+          echo "## Backend Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat coverage.json | grep -A 5 '"totals"' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
@@ -281,14 +292,132 @@ jobs:
         path: |
           frontend/coverage
           frontend/.nyc_output
-      
+
     - name: Build
       run: pnpm build
-      
+
     - name: Check build size
       run: |
         size=$(du -sh dist | cut -f1)
         echo "Frontend build size: $size" >> $GITHUB_STEP_SUMMARY
+
+    - name: Validate cross-platform build
+      run: |
+        bash ../../scripts/ci/validate-build-cross-platform.sh
+
+    - name: Validate bundle chunks
+      run: |
+        node scripts/validate-chunks.js --threshold 500
+
+  unified-test-report:
+    name: Unified Test Report
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: always()
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -q pytest pytest-cov pytest-asyncio pytest-timeout
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: |
+        pnpm install --frozen-lockfile --no-optional
+
+    - name: Run unified test runner (CI mode)
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        TESTING: true
+      run: |
+        bash scripts/run-all-tests.sh backend --ci --verbose || echo "Backend tests completed with status: $?"
+      continue-on-error: true
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: unified-test-report
+        path: |
+          test-report.md
+          backend/htmlcov
+          backend/coverage.json
+          frontend/coverage
+
+    - name: Generate combined summary
+      if: always()
+      run: |
+        echo "## 🧪 Unified Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend Tests**: $([ -f backend/coverage.json ] && echo '✅ Completed' || echo '❌ Failed')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend Tests**: See frontend-test job" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f test-report.md ]; then
+          echo "### Detailed Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat test-report.md >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f backend/coverage.json ]; then
+          echo "### Backend Coverage Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat backend/coverage.json | jq '.totals' 2>/dev/null || cat backend/coverage.json
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
 
   build-artifact:
     runs-on: ubuntu-latest
