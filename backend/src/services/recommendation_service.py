@@ -721,11 +721,17 @@ class RecommendationService:
             ).scalar() or 0
 
             # Количество взаимодействий с рекомендованными элементами
+            # Считаем только взаимодействия, где пользователь взаимодействовал с элементом,
+            # который был ему рекомендован (по user_id и playlist_item_id)
             total_interactions = self.db.execute(
                 select(func.count(UserItemInteraction.id))
                 .join(
                     Recommendation,
-                    UserItemInteraction.playlist_item_id == Recommendation.playlist_item_id,
+                    and_(
+                        UserItemInteraction.playlist_item_id == Recommendation.playlist_item_id,
+                        UserItemInteraction.user_id == Recommendation.user_id,
+                        UserItemInteraction.interacted_at >= Recommendation.created_at,
+                    ),
                 )
                 .where(UserItemInteraction.interacted_at >= cutoff_date)
             ).scalar() or 0
