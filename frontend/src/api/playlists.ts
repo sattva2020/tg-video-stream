@@ -75,6 +75,57 @@ export interface PlaylistTemplateUpdate {
   items?: PlaylistEntry[];
 }
 
+export interface SmartPlaylistCriteria {
+  filters?: {
+    duration_min?: number;
+    duration_max?: number;
+    type?: string;
+    tags?: string[];
+    source?: string;
+  };
+  order_by?: 'date_added' | 'duration' | 'name' | 'source';
+  order_direction?: 'asc' | 'desc';
+  limit?: number;
+  shuffle?: boolean;
+}
+
+export interface SmartPlaylist {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  is_public: boolean;
+  criteria: SmartPlaylistCriteria;
+  auto_update: boolean;
+  auto_update_interval: number;
+  group_id?: string;
+  items_count: number;
+  total_duration: number;
+  playlist_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SmartPlaylistCreate {
+  name: string;
+  description?: string;
+  is_public?: boolean;
+  criteria: SmartPlaylistCriteria;
+  auto_update?: boolean;
+  auto_update_interval?: number;
+  group_id?: string;
+}
+
+export interface SmartPlaylistUpdate {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+  criteria?: SmartPlaylistCriteria;
+  auto_update?: boolean;
+  auto_update_interval?: number;
+  group_id?: string;
+}
+
 const PLAYLISTS_BASE = '/api/playlists';
 
 export const playlistsApi = {
@@ -195,6 +246,50 @@ export const playlistsApi = {
 
   cloneTemplate: async (templateId: string) => {
     const response = await client.post<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}/clone`);
+    return response.data;
+  },
+
+  // Smart playlist methods
+  getMySmartPlaylists: async (skip = 0, limit = 100) => {
+    const response = await client.get<SmartPlaylist[]>(`${PLAYLISTS_BASE}/smart`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getPublicSmartPlaylists: async (skip = 0, limit = 100) => {
+    const response = await client.get<SmartPlaylist[]>(`${PLAYLISTS_BASE}/smart/public`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.get<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`);
+    return response.data;
+  },
+
+  createSmartPlaylist: async (data: SmartPlaylistCreate) => {
+    const response = await client.post<SmartPlaylist>(`${PLAYLISTS_BASE}/smart`, data);
+    return response.data;
+  },
+
+  updateSmartPlaylist: async (smartPlaylistId: string, data: SmartPlaylistUpdate) => {
+    const response = await client.put<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`, data);
+    return response.data;
+  },
+
+  deleteSmartPlaylist: async (smartPlaylistId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`);
+  },
+
+  refreshSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.post<Playlist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}/refresh`);
+    return response.data;
+  },
+
+  cloneSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.post<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}/clone`);
     return response.data;
   },
 };
