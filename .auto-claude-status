@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "009-adaptive-bitrate-streaming",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
+    "completed": 13,
+    "total": 22,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
+    "current": "Frontend Backend Integration",
     "id": null,
-    "total": 3
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 15,
+    "started_at": "2026-01-23T20:42:00.501296"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-23T22:29:07.683958"
 }
