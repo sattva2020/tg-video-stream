@@ -65,6 +65,17 @@ class Settings:
     # Audio Processing (rust-transcoder)
     RUST_TRANSCODER_URL: str = os.getenv("RUST_TRANSCODER_URL", "http://rust-transcoder:8090")
 
+    # Recovery Configuration
+    RECOVERY_MAX_RETRIES: int = int(os.getenv("RECOVERY_MAX_RETRIES", "3"))
+    RECOVERY_BASE_DELAY_SEC: int = int(os.getenv("RECOVERY_BASE_DELAY_SEC", "60"))
+    RECOVERY_MAX_BACKOFF_SEC: int = int(os.getenv("RECOVERY_MAX_BACKOFF_SEC", "600"))
+    RECOVERY_FAILURE_THRESHOLD: int = int(os.getenv("RECOVERY_FAILURE_THRESHOLD", "5"))
+    RECOVERY_TIMEOUT_SEC: int = int(os.getenv("RECOVERY_TIMEOUT_SEC", "30"))
+    RECOVERY_HEALTH_CHECK_INTERVAL_SEC: int = int(os.getenv("RECOVERY_HEALTH_CHECK_INTERVAL_SEC", "30"))
+    RECOVERY_CIRCUIT_BREAKER_TIMEOUT_SEC: int = int(os.getenv("RECOVERY_CIRCUIT_BREAKER_TIMEOUT_SEC", "300"))
+    RECOVERY_HALF_OPEN_MAX_CALLS: int = int(os.getenv("RECOVERY_HALF_OPEN_MAX_CALLS", "3"))
+    RECOVERY_JITTER_ENABLED: bool = os.getenv("RECOVERY_JITTER_ENABLED", "true").lower() == "true"
+
     # CORS
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
