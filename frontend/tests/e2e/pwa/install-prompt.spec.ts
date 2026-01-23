@@ -15,8 +15,8 @@
 
 import { test, expect } from '@playwright/test';
 
-// Конфигурация для production тестов
-const BASE_URL = process.env.TEST_BASE_URL || 'https://sattva-streamer.top';
+// Конфигурация для тестов: используем TEST_BASE_URL или локальный Vite dev server
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:5173';
 
 interface PWAInstallInfo {
   isInstallable: boolean;
@@ -125,7 +125,7 @@ test.describe('PWA Install Prompt Modal', () => {
     await page.waitForTimeout(4000);
 
     // Check for modal with install prompt
-    const modalExists = await page.locator('div[role="dialog"]').isVisible().catch(() => false);
+    await page.locator('div[role="dialog"]').isVisible().catch(() => false);
 
     // Check for install prompt content
     const hasInstallContent = await page.evaluate(() => {
@@ -146,7 +146,7 @@ test.describe('PWA Install Prompt Modal', () => {
     await page.waitForTimeout(4000);
 
     // Check for key elements in the prompt
-    const hasTitle = await page.evaluate(() => {
+    await page.evaluate(() => {
       const headings = document.querySelectorAll('h2, h3');
       return Array.from(headings).some(h =>
         h.textContent?.includes('Установить') ||
@@ -170,7 +170,7 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    const hasCancelButton = await page.evaluate(() => {
+    await page.evaluate(() => {
       const buttons = document.querySelectorAll('button');
       return Array.from(buttons).some(btn =>
         btn.textContent?.includes('Позже') ||
@@ -216,7 +216,7 @@ test.describe('PWA Install Prompt Modal', () => {
     const hasCheckbox = await page.locator('input[type="checkbox"]').isVisible().catch(() => false);
 
     // Check for "don't show again" text
-    const hasDontShowText = await page.evaluate(() => {
+    await page.evaluate(() => {
       const body = document.body;
       return body.textContent?.includes('Больше не показывать') ||
              body.textContent?.includes('Don\'t show again') ||

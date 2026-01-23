@@ -9,8 +9,8 @@
 
 import { test, expect } from '@playwright/test';
 
-// Конфигурация для production тестов
-const BASE_URL = process.env.TEST_BASE_URL || 'https://sattva-streamer.top';
+// Конфигурация для тестов: используем TEST_BASE_URL или локальный Vite preview
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:4173';
 
 interface ServiceWorkerInfo {
   registered: boolean;
