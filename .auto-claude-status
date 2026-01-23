@@ -3,23 +3,23 @@
   "spec": "011-content-import-migration-tools",
   "state": "building",
   "subtasks": {
-    "completed": 6,
+    "completed": 9,
     "total": 26,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Background Worker Tasks",
+    "current": "Frontend Import Wizard",
     "id": null,
-    "total": 4
+    "total": 10
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 8,
+    "number": 11,
     "started_at": "2026-01-23T20:41:48.352365"
   },
-  "last_update": "2026-01-23T21:28:50.681858"
+  "last_update": "2026-01-23T21:44:08.303295"
 }
