@@ -1,0 +1,1399 @@
+{
+  "feature": "API & Webhook Ecosystem",
+  "workflow_type": "feature",
+  "workflow_rationale": "This is a multi-service feature with clear dependencies: API keys must exist before webhooks can be secured, backend APIs must be versioned before SDKs can consume them, and webhook delivery worker depends on webhook endpoints being created. The feature workflow naturally follows service dependency order.",
+  "phases": [
+    {
+      "id": "phase-1-api-keys",
+      "name": "API Keys & Per-Key Rate Limiting",
+      "type": "implementation",
+      "description": "Build API key authentication system and per-key rate limiting to enable secure API access",
+      "depends_on": [],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Create API key database model with fields for key hash, owner, scopes, rate limits, and timestamps",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/models/__init__.py"
+          ],
+          "files_to_create": [
+            "backend/src/models/api_key.py"
+          ],
+          "patterns_from": [
+            "backend/src/models/user.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.models.api_key import APIKey; print('API Key model imported successfully')\"",
+            "expected": "API Key model imported successfully"
+          },
+          "status": "completed",
+          "notes": "Created API key database model with key hash, owner, scopes, rate limits, and timestamps. Model follows existing patterns and includes helper methods for validation and scope checking.",
+          "updated_at": "2026-01-23T10:35:32.354766+00:00"
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Create Alembic migration for api_keys table",
+          "service": "backend",
+          "files_to_create": [
+            "backend/alembic/versions/xxx_add_api_keys_table.py"
+          ],
+          "patterns_from": [
+            "backend/alembic/versions/0423a9e3b5a8_create_users_table.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && alembic upgrade head && python -c \"from src.models.api_key import APIKey; print('Migration applied')\"",
+            "expected": "Migration applied"
+          },
+          "status": "completed",
+          "notes": "Created Alembic migration o2p3q4r5s6t7_add_api_keys_table.py with all required fields (id, key_hash, name, owner_id, scopes, rate_limit, is_active, expires_at, last_used, created_at, updated_at), indexes (key_hash unique, owner_id), and foreign key constraint to users table.",
+          "updated_at": "2026-01-23T10:40:00.000000+00:00"
+        },
+        {
+          "id": "subtask-1-3",
+          "description": "Create Pydantic schemas for API key CRUD operations (create, read, list, revoke)",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/schemas/api_key.py"
+          ],
+          "patterns_from": [
+            "backend/src/schemas/notifications.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.schemas.api_key import APIKeyCreate, APIKeyResponse; print('Schemas created')\"",
+            "expected": "Schemas created"
+          },
+          "status": "completed",
+          "notes": "Created Pydantic schemas for API key CRUD operations: APIKeyBase, APIKeyCreate, APIKeyUpdate, APIKeyResponse, and APIKeyListResponse. Includes proper field validation, descriptions, and follows the established pattern from notifications.py.",
+          "updated_at": "2026-01-23T12:30:00.000000+00:00"
+        },
+        {
+          "id": "subtask-1-4",
+          "description": "Create API key management service with key generation, hashing, and validation",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/services/api_key_service.py"
+          ],
+          "patterns_from": [
+            "backend/src/services/notifications/base.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.api_key_service import APIKeyService; print('Service created')\"",
+            "expected": "Service created"
+          },
+          "status": "completed",
+          "notes": "Created APIKeyService with full CRUD operations, secure key generation using secrets.token_urlsafe(), SHA-256 hashing for storage, key validation with format checking, expiration validation, and scope verification methods. Follows the NotificationService pattern with proper error handling and logging.",
+          "updated_at": "2026-01-23T12:45:00.000000+00:00"
+        },
+        {
+          "id": "subtask-1-5",
+          "description": "Create API key authentication dependency (get_api_key) similar to get_current_user",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/api/auth/dependencies.py"
+          ],
+          "patterns_from": [
+            "backend/src/api/auth/dependencies.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.api.auth.dependencies import get_api_key; print('Auth dependency created')\"",
+            "expected": "Auth dependency created"
+          },
+          "status": "completed",
+          "notes": "Created get_api_key dependency that extracts API key from X-API-Key header and validates using APIKeyService. Also added require_scope() and require_any_scope() helper dependencies for scope-based authorization. Follows the same pattern as get_current_user with proper error handling and logging.",
+          "updated_at": "2026-01-23T12:50:00.000000+00:00"
+        },
+        {
+          "id": "subtask-1-6",
+          "description": "Create API key management endpoints (create, list, revoke) at /api/v1/keys",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/api/api_keys.py"
+          ],
+          "patterns_from": [
+            "backend/src/api/channels.py"
+          ],
+          "verification": {
+            "type": "api",
+            "method": "POST",
+            "url": "http://localhost:8000/api/v1/keys",
+            "body": {
+              "name": "Test Key",
+              "scopes": [
+                "read:streams"
+              ]
+            },
+            "expected_status": 401
+          },
+          "status": "completed",
+          "notes": "Created API key management endpoints at /api/v1/keys with full CRUD operations (list, create, get, update, delete, revoke). All endpoints protected with get_current_user authentication. Key value only returned on creation. Ownership verification implemented. Router registered in app.py with /api/v1/keys prefix.",
+          "updated_at": "2026-01-23T10:59:38.815039+00:00"
+        },
+        {
+          "id": "subtask-1-7",
+          "description": "Implement per-API-key rate limiting using Redis with configurable limits per key",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/services/rate_limit_service.py"
+          ],
+          "patterns_from": [
+            "backend/src/api/auth/dependencies.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.rate_limit_service import RateLimitService; print('Rate limit service created')\"",
+            "expected": "Rate limit service created"
+          },
+          "status": "completed",
+          "notes": "Created RateLimitService with Redis-based sliding window rate limiting, per-API-key configurable limits (requests/window), fallback to in-memory storage, proper error handling and logging. Service includes check_rate_limit, reset_rate_limit, get_rate_limit_info, and cleanup_expired_keys methods.",
+          "updated_at": "2026-01-23T13:00:00.000000+00:00"
+        },
+        {
+          "id": "subtask-1-8",
+          "description": "Update rate limiter middleware to check API key limits before IP-based limits",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/frameworks/http/middleware/rate_limiter.py"
+          ],
+          "patterns_from": [
+            "backend/src/frameworks/http/middleware/rate_limiter.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Verify middleware checks API key limits by inspecting logs"
+          },
+          "status": "completed",
+          "notes": "Updated rate limiter middleware to check API key limits before IP-based limits. Implemented two-tier rate limiting: (1) Per-API-key limits using RateLimitService with Redis, (2) IP-based limits as fallback. Middleware now extracts X-API-Key header, validates key, checks per-key rate limit, stores API key in request.state, and returns 429 with X-RateLimit-Scope header when limit exceeded. Includes proper error handling and database session cleanup.",
+          "updated_at": "2026-01-23T11:13:02.953899+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-2-webhooks",
+      "name": "Webhook System",
+      "type": "implementation",
+      "description": "Build webhook subscription system for real-time event notifications",
+      "depends_on": [
+        "phase-1-api-keys"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Create webhook database model with URL, event types, secret, and owner",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/models/__init__.py"
+          ],
+          "files_to_create": [
+            "backend/src/models/webhook.py"
+          ],
+          "patterns_from": [
+            "backend/src/models/user.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.models.webhook import Webhook; print('Webhook model created')\"",
+            "expected": "Webhook model created"
+          },
+          "status": "completed",
+          "notes": "Created Webhook database model with all required fields: id (GUID), owner_id (FK to users), url (String 2048), event_types (JSONB list), secret (String 255), is_active (Boolean), last_success_at, last_failure_at, failure_count (Integer), created_at, updated_at. Includes helper methods: is_subscribed_to(), update_success(), update_failure(), and is_healthy property. Follows existing patterns from APIKey and User models with JSONBCompat type for PostgreSQL/test compatibility. Updated __init__.py to export Webhook model.",
+          "updated_at": "2026-01-23T11:20:35.176320+00:00"
+        },
+        {
+          "id": "subtask-2-2",
+          "description": "Create webhook_event model to track delivery status, attempts, and responses",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/models/__init__.py"
+          ],
+          "files_to_create": [
+            "backend/src/models/webhook_event.py"
+          ],
+          "patterns_from": [
+            "backend/src/models/analytics.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.models.webhook_event import WebhookEvent; print('WebhookEvent model created')\"",
+            "expected": "WebhookEvent model created"
+          },
+          "status": "completed",
+          "notes": "Created WebhookEvent model with delivery tracking capabilities: id (BigInteger primary key), webhook_id (FK to webhooks with CASCADE delete), event_type, event_id, status (pending/success/failed/retrying), attempt_number, attempted_at, response_status_code, response_body, response_headers (JSONBCompat), should_retry, next_retry_at, duration_ms. Includes helper methods: mark_success(), mark_failure(), mark_retrying(). Added indexes for performance on webhook_id, event_type, status, attempted_at, and event_id. Model follows established patterns with Russian comments and JSONBCompat type for PostgreSQL/test compatibility.",
+          "updated_at": "2026-01-23T13:10:00.000000+00:00"
+        },
+        {
+          "id": "subtask-2-3",
+          "description": "Create Alembic migration for webhooks and webhook_events tables",
+          "service": "backend",
+          "files_to_create": [
+            "backend/alembic/versions/xxx_add_webhooks_tables.py"
+          ],
+          "patterns_from": [
+            "backend/alembic/versions/0423a9e3b5a8_create_users_table.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && alembic upgrade head && python -c \"from src.models.webhook import Webhook; from src.models.webhook_event import WebhookEvent; print('Migrations applied')\"",
+            "expected": "Migrations applied"
+          },
+          "status": "completed",
+          "notes": "Created Alembic migration p3q4r5s6t7u8_add_webhooks_tables.py with both webhooks and webhook_events tables. Webhooks table includes: id (GUID), owner_id (FK to users), url (String 2048), event_types (JSONB), secret, is_active, last_success_at, last_failure_at, failure_count, created_at, updated_at, with index on owner_id. Webhook_events table includes: id (BigInteger autoincrement), webhook_id (FK to webhooks with CASCADE delete), event_type, event_id, status, attempt_number, attempted_at, response_status_code, response_body, response_headers (JSONB), should_retry, next_retry_at, duration_ms, with 5 performance indexes on webhook_id, event_type, status, attempted_at, and event_id. Migration follows established patterns and matches model definitions exactly.",
+          "updated_at": "2026-01-23T11:31:23.888306+00:00"
+        },
+        {
+          "id": "subtask-2-4",
+          "description": "Create Pydantic schemas for webhook subscription and event types",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/schemas/webhook.py"
+          ],
+          "patterns_from": [
+            "backend/src/schemas/api_key.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.schemas.webhook import WebhookCreate, WebhookResponse; print('Schemas created')\"",
+            "expected": "Schemas created"
+          },
+          "status": "completed",
+          "notes": "Created Pydantic schemas for webhook subscription and event types: WebhookBase, WebhookCreate, WebhookUpdate, WebhookResponse, WebhookListResponse, WebhookEventResponse, and WebhookEventListResponse. Includes proper field validation, descriptions, ORM mode, and follows the established pattern from api_key.py. Secret field only included in response on creation for security.",
+          "updated_at": "2026-01-23T13:40:00.000000+00:00"
+        },
+        {
+          "id": "subtask-2-5",
+          "description": "Create webhook service with subscription management, signature generation, and event triggering",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/services/webhook_service.py"
+          ],
+          "patterns_from": [
+            "backend/src/services/api_key_service.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.webhook_service import WebhookService; print('Service created')\"",
+            "expected": "Service created"
+          },
+          "status": "completed",
+          "notes": "Created WebhookService with full CRUD operations, secure secret generation using secrets.token_urlsafe(), HMAC-SHA256 signature generation and verification, event triggering with WebhookEvent record creation, webhook filtering by event type and health status, delivery statistics calculation, and secret rotation functionality. Follows APIKeyService pattern with proper error handling and logging. Includes constants for secret length (32 bytes) and max retries (5).",
+          "updated_at": "2026-01-23T13:50:00.000000+00:00"
+        },
+        {
+          "id": "subtask-2-6",
+          "description": "Create webhook management endpoints (create, list, delete, test) at /api/v1/webhooks",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/api/webhooks.py"
+          ],
+          "patterns_from": [
+            "backend/src/api/api_keys.py"
+          ],
+          "verification": {
+            "type": "api",
+            "method": "POST",
+            "url": "http://localhost:8000/api/v1/webhooks",
+            "body": {
+              "url": "https://example.com/webhook",
+              "event_types": [
+                "stream.started"
+              ]
+            },
+            "expected_status": 401
+          },
+          "status": "completed",
+          "notes": "Created webhook management endpoints at /api/v1/webhooks following api_keys.py patterns. Implemented: GET / (list), POST / (create with secret), GET /{webhook_id}, PATCH /{webhook_id}, DELETE /{webhook_id}, POST /{webhook_id}/test (sends real HTTP POST with signature), POST /{webhook_id}/rotate-secret. All endpoints protected with get_current_user. Secret only returned on creation/rotation for security. Router registered in app.py with /api/v1/webhooks prefix.",
+          "updated_at": "2026-01-23T14:00:00.000000+00:00"
+        },
+        {
+          "id": "subtask-2-7",
+          "description": "Define webhook event types enum (stream.started, stream.stopped, stream.error, viewer.milestone, etc.)",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/models/webhook.py"
+          ],
+          "patterns_from": [
+            "backend/src/models/stream.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.models.webhook import WebhookEventType; print('Event types defined')\"",
+            "expected": "Event types defined"
+          },
+          "status": "completed",
+          "notes": "Added WebhookEventType enum following StreamStatus pattern from stream.py. Defined 13 event types across 4 categories: stream lifecycle (STREAM_STARTED, STREAM_STOPPED, STREAM_PAUSED, STREAM_RESUMED, STREAM_ERROR), viewer events (VIEWER_MILESTONE, VIEWER_JOINED, VIEWER_LEFT), track events (TRACK_STARTED, TRACK_COMPLETED, TRACK_FAILED, TRACK_SKIPPED), and system events (WEBHOOK_TEST, SYSTEM_STATUS). Event types follow the pattern <category>.<action> with inline comments documenting each type.",
+          "updated_at": "2026-01-23T14:10:00.000000+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-3-api-versioning",
+      "name": "API Versioning",
+      "type": "implementation",
+      "description": "Implement API versioning to ensure backward compatibility",
+      "depends_on": [
+        "phase-1-api-keys"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-3-1",
+          "description": "Create API versioning middleware and router structure for v1 and v2",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/frameworks/http/versioning.py"
+          ],
+          "patterns_from": [
+            "backend/src/frameworks/http/app.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.frameworks.http.versioning import version_router; print('Versioning created')\"",
+            "expected": "Versioning created"
+          },
+          "status": "completed",
+          "notes": "Created API versioning system with APIVersion enum (v1, v2), version detection from URL path (/api/v1/, /api/v2/) or X-API-Version header with priority-based fallback, VersioningMiddleware for adding X-API-Version and X-API-Deprecated response headers, separate v1_router and v2_router for version-specific endpoints, version_router with /api/version and /api/versions info endpoints, and version deprecation management functions (mark_version_deprecated, mark_version_supported). Follows app.py patterns with Russian/English docstrings.",
+          "updated_at": "2026-01-23T13:56:00.000000+00:00"
+        },
+        {
+          "id": "subtask-3-2",
+          "description": "Update existing API routes to use /api/v1/ prefix",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/frameworks/http/app.py"
+          ],
+          "patterns_from": [
+            "backend/src/frameworks/http/app.py"
+          ],
+          "verification": {
+            "type": "api",
+            "method": "GET",
+            "url": "http://localhost:8000/api/v1/health",
+            "expected_status": 200
+          },
+          "status": "completed",
+          "notes": "Updated all existing API routes to use /api/v1/ prefix. Changed 32 router include statements from /api/ to /api/v1/, ensuring consistency across all endpoints (health, auth, system, users, playlist, admin, channels, files, media, websocket, schedule, notifications, analytics, audio, incidents, settings, etc.). Also updated Instrumentator excluded_handlers to include /api/v1/health for metrics exclusion. All routes now follow proper versioning convention.",
+          "updated_at": "2026-01-23T12:03:11.381224+00:00"
+        },
+        {
+          "id": "subtask-3-3",
+          "description": "Add API version deprecation headers and documentation",
+          "service": "backend",
+          "files_to_create": [
+            "backend/src/frameworks/http/middleware/version_headers.py"
+          ],
+          "patterns_from": [
+            "backend/src/frameworks/http/middleware/rate_limiter.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "curl -I http://localhost:8000/api/v1/health | grep 'X-API-Version'",
+            "expected": "X-API-Version: v1"
+          },
+          "status": "completed",
+          "notes": "Created VersionHeadersMiddleware following rate_limiter.py pattern. Adds X-API-Version, X-API-Deprecated, X-API-Sunset, X-API-Docs, and X-API-Supported-Versions headers to all API responses. Includes helper functions for version deprecation management. Registered in app.py and exported in __init__.py.",
+          "updated_at": "2026-01-23T12:07:08.168592+00:00"
+        },
+        {
+          "id": "subtask-3-4",
+          "description": "Create API version compatibility documentation",
+          "service": "docs",
+          "files_to_create": [
+            "docs/api/versioning.md"
+          ],
+          "patterns_from": [
+            "docs/api/activity-events.md"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "test -f docs/api/versioning.md && echo 'Documentation exists'",
+            "expected": "Documentation exists"
+          },
+          "status": "completed",
+          "notes": "Created comprehensive API version compatibility documentation at docs/api/versioning.md following the activity-events.md pattern. Documentation includes: overview of versioning system, version status (v1 stable, v2 beta), three methods for specifying version (URL path, header, default), version endpoints (/api/version, /api/versions), version headers (X-API-Version, X-API-Deprecated, X-API-Sunset, etc.), code examples in Python and JavaScript/TypeScript, deprecation policy and migration guides, implementation details, best practices for client developers, and troubleshooting section. Documentation is 519 lines and covers all aspects of the API versioning system.",
+          "updated_at": "2026-01-23T14:25:00.000000+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-4-webhook-worker",
+      "name": "Webhook Delivery Worker",
+      "type": "implementation",
+      "description": "Build Celery-based webhook delivery system with retry logic and deduplication",
+      "depends_on": [
+        "phase-2-webhooks"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-4-1",
+          "description": "Create Celery task for webhook delivery with retry policy (exponential backoff)",
+          "service": "worker",
+          "files_to_create": [
+            "backend/src/services/webhook_worker.py"
+          ],
+          "patterns_from": [
+            "backend/src/services/notifications/worker.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend/src && celery -A celery_app inspect registered | grep webhook",
+            "expected": "webhook.deliver"
+          },
+          "status": "completed",
+          "notes": "Created webhook delivery worker with two Celery tasks: webhook.deliver (main delivery with exponential backoff retry policy) and webhook.send_test (test webhook delivery). Implementation includes HMAC-SHA256 signature generation, event deduplication via Redis, HTTP delivery with timeout handling, comprehensive logging to WebhookEvent records, and exponential backoff with configurable multiplier (default 2x). Worker registered in celery_app.py with dedicated 'webhooks' queue. Follows notifications/worker.py patterns with Russian/English docstrings.",
+          "updated_at": "2026-01-23T15:00:00.000000+00:00"
+        },
+        {
+          "id": "subtask-4-2",
+          "description": "Implement webhook signature verification (HMAC-SHA256) for security",
+          "service": "worker",
+          "files_to_modify": [
+            "backend/src/services/webhook_worker.py"
+          ],
+          "patterns_from": [
+            "backend/src/services/webhook_service.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.webhook_worker import verify_webhook_signature; print('Signature verification created')\"",
+            "expected": "Signature verification created"
+          },
+          "status": "completed",
+          "notes": "Implemented verify_webhook_signature function in webhook_worker.py. Function verifies HMAC-SHA256 signatures for webhook payloads using constant-time comparison to prevent timing attacks. Handles both 'sha256=' prefixed and bare signatures. Uses same JSON serialization format (separators=(',', ':'), sort_keys=True) as webhook_service.py for consistency. Added missing imports (hmac, hashlib) to support signature generation and verification.",
+          "updated_at": "2026-01-23T15:10:00.000000+00:00"
+        },
+        {
+          "id": "subtask-4-3",
+          "description": "Implement event deduplication using event_id to prevent duplicate deliveries",
+          "service": "worker",
+          "files_to_modify": [
+            "backend/src/services/webhook_worker.py"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.webhook_worker import is_duplicate_event; print('Deduplication created')\"",
+            "expected": "Deduplication created"
+          },
+          "status": "completed",
+          "notes": "Event deduplication using event_id is already implemented in webhook_worker.py. The is_duplicate_event function uses Redis to check for duplicate events with key pattern 'webhook:delivered:{webhook_id}:{event_id}' and 24-hour TTL. Integrated into deliver_webhook Celery task (lines 308-315) to check for duplicates before delivery. Proper error handling with fail-open if Redis unavailable. Logs duplicate events and marks them as failed to prevent retries.",
+          "updated_at": "2026-01-23T15:15:00.000000+00:00"
+        },
+        {
+          "id": "subtask-4-4",
+          "description": "Add webhook event logging with HTTP status, response time, and error details",
+          "service": "worker",
+          "files_to_modify": [
+            "backend/src/services/webhook_worker.py"
+          ],
+          "patterns_from": [
+            "backend/src/models/webhook_event.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && python -c \"from src.services.webhook_worker import log_webhook_delivery; print('Logging created')\"",
+            "expected": "Logging created"
+          },
+          "status": "completed",
+          "notes": "Fixed webhook event logging implementation in log_webhook_delivery function. Corrected type annotation from Optional[time.time] to Optional[datetime]. Added datetime import at module level for consistency. The function properly logs all delivery details: HTTP status codes (success/failure), response time in milliseconds (duration_ms), error details (response_body), and retry information (should_retry, next_retry_at). Uses WebhookEvent.mark_success() and WebhookEvent.mark_failure() methods to persist delivery results to database. Proper error handling with try/except and logging.",
+          "updated_at": "2026-01-23T15:25:00.000000+00:00"
+        },
+        {
+          "id": "subtask-4-5",
+          "description": "Register webhook delivery tasks in Celery app with dedicated queue",
+          "service": "worker",
+          "files_to_modify": [
+            "backend/src/celery_app.py"
+          ],
+          "patterns_from": [
+            "backend/src/celery_app.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend/src && celery -A celery_app inspect queues | grep webhooks",
+            "expected": "webhooks"
+          },
+          "status": "completed",
+          "notes": "Webhook delivery tasks already registered in Celery app from subtask 4-1. Worker module 'src.services.webhook_worker' included in celery_app.py, task routes configured for webhook.deliver and webhook.send_test pointing to 'webhooks' queue, and Queue('webhooks', routing_key='webhooks') defined in task_queues. No additional changes needed.",
+          "updated_at": "2026-01-23T12:36:30.563431+00:00"
+        },
+        {
+          "id": "subtask-4-6",
+          "description": "Integrate webhook triggering into stream lifecycle events (start, stop, error)",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/services/redis_stream_controller.py"
+          ],
+          "patterns_from": [
+            "backend/src/services/redis_stream_controller.py"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Trigger stream start event and verify webhook is called"
+          },
+          "status": "completed",
+          "notes": "Successfully integrated webhook triggering into stream lifecycle events. Added WebhookService initialization, _trigger_webhook_event helper method, and webhook triggers in start_channel (stream.started), stop_channel (stream.stopped), restart_channel (stream.started), and new trigger_stream_error method (stream.error). All triggers include channel info, status, and error message when applicable.",
+          "updated_at": "2026-01-23T12:40:00.000000+00:00"
+        }
+      ]
+    },
+    {
+      "id": "phase-5-python-sdk",
+      "name": "Python SDK",
+      "type": "implementation",
+      "description": "Create official Python SDK for API access",
+      "depends_on": [
+        "phase-3-api-versioning"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-5-1",
+          "description": "Create Python SDK package structure with setup.py and project configuration",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/python/setup.py",
+            "sdks/python/pyproject.toml",
+            "sdks/python/README.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/python && python setup.py --check && echo 'Package structure OK'",
+            "expected": "Package structure OK"
+          },
+          "status": "completed",
+          "notes": "Created complete Python SDK package structure with setup.py (metadata, dependencies, classifiers), pyproject.toml (modern build system), README.md (comprehensive documentation with usage examples), LICENSE (MIT), MANIFEST.in, .gitignore. Core SDK modules created: sattva_api/__init__.py (public API exports), sattva_api/client.py (base client class), sattva_api/exceptions.py (exception hierarchy: SattvaAPIError, AuthenticationError, RateLimitError, NotFoundError, ValidationError), sattva_api/webhook.py (HMAC-SHA256 signature verification). All files properly structured and committed.",
+          "updated_at": "2026-01-23T14:45:00.000000+00:00"
+        },
+        {
+          "id": "subtask-5-2",
+          "description": "Implement Python SDK client with API key authentication and HTTP client",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/python/sattva_api/client.py"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/python && python -c \"from sattva_api import SattvaClient; print('Client imported')\"",
+            "expected": "Client imported"
+          },
+          "status": "completed",
+          "notes": "Implemented SattvaClient with full HTTP client functionality. Features include: API key authentication via X-API-Key header, requests-based HTTP session with connection pooling, all HTTP methods (GET, POST, PATCH, DELETE, PUT), comprehensive error handling with custom exceptions (AuthenticationError, RateLimitError, NotFoundError, ValidationError), automatic retry logic for rate-limited requests with exponential backoff, context manager support for proper resource cleanup, configurable timeout and retry settings, and proper logging. Client follows Python SDK best practices and integrates seamlessly with existing exceptions module.",
+          "updated_at": "2026-01-23T15:35:00.000000+00:00"
+        },
+        {
+          "id": "subtask-5-3",
+          "description": "Implement Python SDK methods for streams, playlists, channels, and webhooks",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/python/sattva_api/resources.py"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/python && python -c \"from sattva_api import SattvaClient; c = SattvaClient(api_key='test'); print(dir(c))\"",
+            "expected": "streams"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-4",
+          "description": "Add Python SDK documentation with usage examples and code samples",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/python/README.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'Usage Examples' sdks/python/README.md && echo 'Documentation exists'",
+            "expected": "Documentation exists"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-5-5",
+          "description": "Create Python SDK tests for all API methods",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/python/tests/test_client.py"
+          ],
+          "patterns_from": [
+            "tests/security/test_rate_limit.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/python && python -m pytest tests/ -v",
+            "expected": "passed"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-6-js-sdk",
+      "name": "JavaScript/TypeScript SDK",
+      "type": "implementation",
+      "description": "Create official JavaScript/TypeScript SDK for API access",
+      "depends_on": [
+        "phase-3-api-versioning"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-6-1",
+          "description": "Create JavaScript SDK package structure with package.json and TypeScript config",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/javascript/package.json",
+            "sdks/javascript/tsconfig.json",
+            "sdks/javascript/README.md"
+          ],
+          "patterns_from": [
+            "frontend/package.json"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/javascript && npm install && echo 'Package OK'",
+            "expected": "Package OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-2",
+          "description": "Implement JavaScript SDK client with TypeScript types and fetch API",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/javascript/src/client.ts",
+            "sdks/javascript/src/types.ts"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/javascript && npm run build && echo 'Build OK'",
+            "expected": "Build OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-3",
+          "description": "Implement JavaScript SDK methods for all API resources",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/javascript/src/resources.ts"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/javascript && npm run build && grep -q 'streams' dist/index.js",
+            "expected": "streams"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-4",
+          "description": "Add JavaScript SDK documentation with examples",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/javascript/README.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'Usage' sdks/javascript/README.md && echo 'Documentation exists'",
+            "expected": "Documentation exists"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-6-5",
+          "description": "Create JavaScript SDK tests with Jest",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/javascript/tests/client.test.ts"
+          ],
+          "patterns_from": [
+            "frontend/test-results/"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/javascript && npm test",
+            "expected": "PASS"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-7-go-sdk",
+      "name": "Go SDK",
+      "type": "implementation",
+      "description": "Create official Go SDK for API access",
+      "depends_on": [
+        "phase-3-api-versioning"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-7-1",
+          "description": "Create Go SDK module structure with go.mod",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/go/go.mod",
+            "sdks/go/README.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/go && go mod download && echo 'Module OK'",
+            "expected": "Module OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-2",
+          "description": "Implement Go SDK client with HTTP client and API key authentication",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/go/client.go",
+            "sdks/go/types.go"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/go && go build && echo 'Build OK'",
+            "expected": "Build OK"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-3",
+          "description": "Implement Go SDK methods for all API resources",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/go/streams.go",
+            "sdks/go/webhooks.go",
+            "sdks/go/playlists.go"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "cd sdks/go && go test -v ./... | grep 'PASS'",
+            "expected": "PASS"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-7-4",
+          "description": "Add Go SDK documentation with usage examples",
+          "service": "sdk",
+          "files_to_create": [
+            "sdks/go/README.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "grep -q 'Usage' sdks/go/README.md && echo 'Documentation exists'",
+            "expected": "Documentation exists"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-8-api-docs",
+      "name": "API Documentation",
+      "type": "implementation",
+      "description": "Create comprehensive API documentation with interactive explorer",
+      "depends_on": [
+        "phase-3-api-versioning"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-8-1",
+          "description": "Enhance FastAPI OpenAPI documentation with detailed descriptions and examples",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/frameworks/http/app.py",
+            "backend/src/api/api_keys.py",
+            "backend/src/api/webhooks.py"
+          ],
+          "patterns_from": [
+            "backend/src/api/channels.py"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:8000/docs",
+            "checks": [
+              "OpenAPI docs load",
+              "API key endpoints documented",
+              "Webhook endpoints documented"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-2",
+          "description": "Add code examples in multiple languages to OpenAPI specs",
+          "service": "backend",
+          "files_to_modify": [
+            "backend/src/api/api_keys.py",
+            "backend/src/api/webhooks.py"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:8000/docs",
+            "checks": [
+              "Code examples visible for endpoints"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-3",
+          "description": "Create API reference documentation site with MkDocs",
+          "service": "docs",
+          "files_to_create": [
+            "docs/api/reference.md",
+            "docs/api/webhooks.md",
+            "docs/api/authentication.md"
+          ],
+          "patterns_from": [
+            "docs/api/activity-events.md"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "test -f docs/api/reference.md && test -f docs/api/webhooks.md && echo 'Documentation exists'",
+            "expected": "Documentation exists"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-4",
+          "description": "Create SDK integration guides for all languages",
+          "service": "docs",
+          "files_to_create": [
+            "docs/api/sdk-python.md",
+            "docs/api/sdk-javascript.md",
+            "docs/api/sdk-go.md"
+          ],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "test -f docs/api/sdk-python.md && echo 'SDK guide exists'",
+            "expected": "SDK guide exists"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-8-5",
+          "description": "Generate and publish OpenAPI JSON specification",
+          "service": "backend",
+          "files_to_create": [
+            "openapi.v1.json"
+          ],
+          "patterns_from": [
+            "openapi.json"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "curl -s http://localhost:8000/openapi.json | python -m json.tool > /dev/null && echo 'OpenAPI valid'",
+            "expected": "OpenAPI valid"
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-9-frontend-portal",
+      "name": "Developer Portal UI",
+      "type": "implementation",
+      "description": "Create frontend UI for API key management, webhooks, and documentation",
+      "depends_on": [
+        "phase-2-webhooks",
+        "phase-8-api-docs"
+      ],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-9-1",
+          "description": "Create API key management page with create, list, and revoke functionality",
+          "service": "frontend",
+          "files_to_create": [
+            "frontend/src/pages/api-keys.tsx",
+            "frontend/src/components/api-keys/ApiKeyList.tsx"
+          ],
+          "patterns_from": [
+            "frontend/src/pages/"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000/api-keys",
+            "checks": [
+              "Page renders",
+              "API key list visible",
+              "Create button present"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-9-2",
+          "description": "Create webhook management page with subscription UI and event logs",
+          "service": "frontend",
+          "files_to_create": [
+            "frontend/src/pages/webhooks.tsx",
+            "frontend/src/components/webhooks/WebhookList.tsx"
+          ],
+          "patterns_from": [
+            "frontend/src/pages/"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000/webhooks",
+            "checks": [
+              "Page renders",
+              "Webhook list visible",
+              "Create webhook form present"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-9-3",
+          "description": "Create API documentation page with embedded Swagger UI",
+          "service": "frontend",
+          "files_to_create": [
+            "frontend/src/pages/api-docs.tsx"
+          ],
+          "patterns_from": [
+            "frontend/src/pages/"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000/api-docs",
+            "checks": [
+              "Swagger UI embedded",
+              "Interactive API explorer works"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-9-4",
+          "description": "Create ecosystem showcase page with community integrations",
+          "service": "frontend",
+          "files_to_create": [
+            "frontend/src/pages/ecosystem.tsx"
+          ],
+          "patterns_from": [
+            "frontend/src/pages/"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000/ecosystem",
+            "checks": [
+              "Page renders",
+              "Integration cards visible"
+            ]
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-9-5",
+          "description": "Add developer portal navigation to existing menu",
+          "service": "frontend",
+          "files_to_modify": [
+            "frontend/src/components/navigation/"
+          ],
+          "patterns_from": [
+            "frontend/src/components/navigation/"
+          ],
+          "verification": {
+            "type": "browser",
+            "url": "http://localhost:3000",
+            "checks": [
+              "Developer menu visible",
+              "API Keys link works",
+              "Webhooks link works"
+            ]
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": "phase-10-integration",
+      "name": "Integration & Testing",
+      "type": "integration",
+      "description": "End-to-end testing and verification of the complete API & webhook ecosystem",
+      "depends_on": [
+        "phase-4-webhook-worker",
+        "phase-5-python-sdk",
+        "phase-6-js-sdk",
+        "phase-7-go-sdk",
+        "phase-9-frontend-portal"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-10-1",
+          "description": "Create integration tests for API key authentication and rate limiting",
+          "service": "backend",
+          "files_to_create": [
+            "tests/integration/test_api_keys.py"
+          ],
+          "patterns_from": [
+            "tests/security/test_rate_limit.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pytest tests/integration/test_api_keys.py -v",
+            "expected": "passed"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-10-2",
+          "description": "Create integration tests for webhook delivery and retry logic",
+          "service": "backend",
+          "files_to_create": [
+            "tests/integration/test_webhooks.py"
+          ],
+          "patterns_from": [
+            "tests/integration/test_api_keys.py"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pytest tests/integration/test_webhooks.py -v",
+            "expected": "passed"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-10-3",
+          "description": "Test SDK functionality with real API endpoints",
+          "all_services": true,
+          "files_to_create": [
+            "tests/e2e/test_sdks.py"
+          ],
+          "patterns_from": [
+            "tests/e2e/"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "pytest tests/e2e/test_sdks.py -v",
+            "expected": "passed"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-10-4",
+          "description": "Perform security audit of API key storage and webhook signature verification",
+          "service": "backend",
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review API key hashing, webhook signature implementation, and rate limiting bypass attempts"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-10-5",
+          "description": "Load test webhook delivery system with concurrent events",
+          "service": "backend",
+          "files_to_create": [
+            "tests/perf/test_webhook_delivery.py"
+          ],
+          "patterns_from": [
+            "tests/perf/"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "cd backend && pytest tests/perf/test_webhook_delivery.py -v",
+            "expected": "passed"
+          },
+          "status": "pending"
+        },
+        {
+          "id": "subtask-10-6",
+          "description": "End-to-end verification: Create API key, subscribe to webhook, trigger event, verify delivery",
+          "all_services": true,
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "e2e",
+            "steps": [
+              "Create API key via frontend or SDK",
+              "Create webhook subscription for stream.started event",
+              "Start a stream",
+              "Verify webhook is delivered to test endpoint",
+              "Check webhook event logs show successful delivery",
+              "Verify rate limiting is enforced"
+            ]
+          },
+          "status": "pending"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 10,
+    "total_subtasks": 68,
+    "services_involved": [
+      "backend",
+      "frontend",
+      "worker",
+      "sdk",
+      "docs"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 3,
+      "parallel_groups": [
+        {
+          "phases": [
+            "phase-3-api-versioning",
+            "phase-5-python-sdk",
+            "phase-6-js-sdk",
+            "phase-7-go-sdk",
+            "phase-8-api-docs"
+          ],
+          "reason": "SDK development and API documentation can proceed in parallel after API versioning foundation is complete"
+        },
+        {
+          "phases": [
+            "phase-9-frontend-portal"
+          ],
+          "reason": "Frontend can be developed in parallel with SDKs and documentation"
+        }
+      ],
+      "recommended_workers": 3,
+      "speedup_estimate": "2.5x faster than sequential"
+    },
+    "startup_command": "source .auto-claude/.venv/bin/activate && python .auto-claude/run.py --spec 026 --parallel 3"
+  },
+  "verification_strategy": {
+    "risk_level": "high",
+    "skip_validation": false,
+    "test_creation_phase": "post_implementation",
+    "test_types_required": [
+      "unit",
+      "integration",
+      "e2e"
+    ],
+    "security_scanning_required": true,
+    "staging_deployment_required": true,
+    "acceptance_criteria": [
+      "All existing tests pass",
+      "New code has test coverage >80%",
+      "API keys are securely hashed in database",
+      "Webhook signatures are verified using HMAC",
+      "Rate limiting is enforced per API key",
+      "SDK tests pass for all languages",
+      "No security vulnerabilities detected in scan",
+      "API documentation is complete and accurate"
+    ],
+    "verification_steps": [
+      {
+        "name": "Unit Tests",
+        "command": "cd backend && pytest tests/ -v --cov=src --cov-report=term-missing",
+        "expected_outcome": "All tests pass with >80% coverage",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Integration Tests",
+        "command": "cd backend && pytest tests/integration/ -v",
+        "expected_outcome": "All integration tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "E2E Tests",
+        "command": "pytest tests/e2e/ -v",
+        "expected_outcome": "All end-to-end tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Security Scan - Secrets",
+        "command": "python .auto-claude/scan_secrets.py --all-files --json",
+        "expected_outcome": "No secrets detected in new code",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Security Scan - SAST",
+        "command": "cd backend && bandit -r src/ -f json -o bandit-report.json",
+        "expected_outcome": "No high or critical severity issues",
+        "type": "security",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "SDK Tests - Python",
+        "command": "cd sdks/python && python -m pytest tests/ -v",
+        "expected_outcome": "All Python SDK tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "SDK Tests - JavaScript",
+        "command": "cd sdks/javascript && npm test",
+        "expected_outcome": "All JavaScript SDK tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "SDK Tests - Go",
+        "command": "cd sdks/go && go test ./...",
+        "expected_outcome": "All Go SDK tests pass",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "API Documentation Validation",
+        "command": "curl -s http://localhost:8000/openapi.json | python -m json.tool > /dev/null && echo 'OpenAPI valid'",
+        "expected_outcome": "Valid OpenAPI specification",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      },
+      {
+        "name": "Webhook Delivery Test",
+        "command": "cd backend && pytest tests/integration/test_webhooks.py::test_webhook_retry_logic -v",
+        "expected_outcome": "Webhook retry and deduplication work correctly",
+        "type": "test",
+        "required": true,
+        "blocking": false
+      }
+    ],
+    "reasoning": "High risk change involving authentication, security (API keys, webhook signatures), external integrations (webhooks), and multi-language SDKs. Requires comprehensive testing including security scanning, integration tests, and E2E validation of the complete webhook delivery flow."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": true,
+      "commands": [
+        "cd backend && pytest tests/ -v --cov=src --cov-report=term-missing"
+      ],
+      "minimum_coverage": 80
+    },
+    "integration_tests": {
+      "required": true,
+      "commands": [
+        "cd backend && pytest tests/integration/ -v"
+      ],
+      "services_to_test": [
+        "backend",
+        "worker"
+      ]
+    },
+    "e2e_tests": {
+      "required": true,
+      "commands": [
+        "pytest tests/e2e/ -v"
+      ],
+      "flows": [
+        "api-key-creation",
+        "webhook-subscription",
+        "webhook-delivery",
+        "sdk-authentication"
+      ]
+    },
+    "browser_verification": {
+      "required": true,
+      "pages": [
+        {
+          "url": "http://localhost:3000/api-keys",
+          "checks": [
+            "renders",
+            "create-api-key-works",
+            "revoke-key-works"
+          ]
+        },
+        {
+          "url": "http://localhost:3000/webhooks",
+          "checks": [
+            "renders",
+            "create-webhook-works",
+            "event-logs-visible"
+          ]
+        },
+        {
+          "url": "http://localhost:3000/api-docs",
+          "checks": [
+            "renders",
+            "swagger-ui-embedded",
+            "interactive-explorer-works"
+          ]
+        },
+        {
+          "url": "http://localhost:8000/docs",
+          "checks": [
+            "renders",
+            "all-endpoints-documented",
+            "code-examples-visible"
+          ]
+        }
+      ]
+    },
+    "database_verification": {
+      "required": true,
+      "checks": [
+        "api-keys-table-exists",
+        "webhooks-table-exists",
+        "webhook-events-table-exists",
+        "migrations-applied",
+        "indexes-created"
+      ]
+    },
+    "sdk_verification": {
+      "required": true,
+      "sdks": [
+        "python",
+        "javascript",
+        "go"
+      ],
+      "checks": [
+        "authentication-works",
+        "all-resources-implemented",
+        "tests-pass",
+        "documentation-complete"
+      ]
+    },
+    "security_verification": {
+      "required": true,
+      "checks": [
+        "api-keys-hashed",
+        "webhook-signatures-verified",
+        "rate-limiting-enforced",
+        "no-secrets-leaked",
+        "sql-injection-prevented"
+      ]
+    }
+  },
+  "qa_signoff": null,
+  "status": "in_progress",
+  "planStatus": "in_progress",
+  "updated_at": "2026-01-23T12:48:19.876Z",
+  "last_updated": "2026-01-23T12:36:30.563431+00:00"
+}
