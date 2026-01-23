@@ -17,6 +17,7 @@ const PlaylistPage = lazy(() => import('./pages/Playlist'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const ChannelManager = lazy(() => import('./pages/ChannelManager'));
+const InteractionsPage = lazy(() => import('./pages/InteractionsPage'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
@@ -79,6 +80,7 @@ const App: React.FC = () => {
             {/* Routes for OPERATOR and above */}
             <Route element={<ProtectedRoute allowedRoles={OPERATOR_AND_ABOVE} />}>
               <Route path="/channels" element={<ChannelManager />} />
+              <Route path="/interactions" element={<InteractionsPage />} />
               <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/notifications/channels" element={<NotificationsPage />} />
               <Route path="/notifications/templates" element={<NotificationTemplatesPage />} />
