@@ -45,6 +45,9 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# Social Media Integration (Feature 021-social-media-integration)
+from .streaming_platform import StreamingPlatform
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +89,7 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # Social Media Integration
+    "StreamingPlatform",
 ]
 

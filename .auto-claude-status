@@ -1,0 +1,25 @@
+{
+  "active": true,
+  "spec": "021-social-media-integration-cross-platform-broadcasti",
+  "state": "planning",
+  "subtasks": {
+    "completed": 0,
+    "total": 0,
+    "in_progress": 1,
+    "failed": 0
+  },
+  "phase": {
+    "current": "Database Models & Migrations",
+    "id": null,
+    "total": 5
+  },
+  "workers": {
+    "active": 0,
+    "max": 1
+  },
+  "session": {
+    "number": 2,
+    "started_at": "2026-01-23T16:03:38.275829"
+  },
+  "last_update": "2026-01-23T16:13:05.972702"
+}
