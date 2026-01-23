@@ -13,6 +13,7 @@ Mappers реализуют Mapper Pattern для конвертации межд
 - StreamMapper: Stream Entity ↔ Stream ORM (T054)
 - PlaylistMapper: Playlist Entity ↔ Playlist ORM (T055)
 - PollMapper: Poll Entity ↔ Poll ORM (T020)
+- QuestionMapper: Question Entity ↔ Question ORM (T020)
 
 **Usage**:
 ```python
@@ -30,10 +31,12 @@ from src.infrastructure.persistence.mappers.user_mapper import UserMapper
 from src.infrastructure.persistence.mappers.stream_mapper import StreamMapper
 from src.infrastructure.persistence.mappers.playlist_mapper import PlaylistMapper
 from src.infrastructure.persistence.mappers.poll_mapper import PollMapper
+from src.infrastructure.persistence.mappers.question_mapper import QuestionMapper
 
 __all__ = [
     "UserMapper",
     "StreamMapper",
     "PlaylistMapper",
     "PollMapper",
+    "QuestionMapper",
 ]

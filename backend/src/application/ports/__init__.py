@@ -13,9 +13,11 @@ Application layer определяет контракты, Infrastructure layer 
 from src.application.ports.i_stream_repository import IStreamRepository
 from src.application.ports.i_user_repository import IUserRepository
 from src.application.ports.i_poll_repository import IPollRepository
+from src.application.ports.i_question_repository import IQuestionRepository
 
 __all__ = [
     "IStreamRepository",
     "IUserRepository",
     "IPollRepository",
+    "IQuestionRepository",
 ]
