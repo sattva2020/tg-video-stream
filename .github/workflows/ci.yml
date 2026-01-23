@@ -215,25 +215,35 @@ jobs:
           backend/.coverage
 
   frontend-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     defaults:
       run:
         working-directory: ./frontend
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'pnpm'
         cache-dependency-path: frontend/pnpm-lock.yaml
-    
-    - name: Install system dependencies (unixODBC)
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install unixodbc
         
     - name: Enable Corepack
       run: corepack enable
@@ -242,9 +252,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.local/share/pnpm/store
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        key: ${{ matrix.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-pnpm-
+          ${{ matrix.os }}-pnpm-
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -296,14 +306,29 @@ jobs:
     - name: Build
       run: pnpm build
 
-    - name: Check build size
+    - name: Check build size (Unix)
+      if: runner.os != 'Windows'
       run: |
         size=$(du -sh dist | cut -f1)
         echo "Frontend build size: $size" >> $GITHUB_STEP_SUMMARY
 
-    - name: Validate cross-platform build
+    - name: Check build size (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $size = (Get-ChildItem -Path dist -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Output "Frontend build size: $([math]::Round($size, 2)) MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+    - name: Validate cross-platform build (Unix)
+      if: runner.os != 'Windows'
       run: |
         bash ../../scripts/ci/validate-build-cross-platform.sh
+
+    - name: Validate cross-platform build (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "Cross-platform build validation skipped on Windows"
+      continue-on-error: true
 
     - name: Validate bundle chunks
       run: |
