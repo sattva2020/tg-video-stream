@@ -113,7 +113,7 @@ def perform_transcode(
             asyncio.set_event_loop(loop)
             try:
                 output_file = loop.run_until_complete(
-                    VideoTranscoder.transcode_to_file(request, output_path)
+                    VideoTranscoder.transcode_to_file(request, output_path, {})
                 )
             finally:
                 loop.close()
