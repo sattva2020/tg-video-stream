@@ -26,6 +26,9 @@ from .engagement import EngagementEvent
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
 
+# Analytics (Feature 012) - Viewer Sessions
+from .viewer_session import ViewerSession
+
 # Support & Incidents (Feature 024)
 from .incident import (
     Incident,
@@ -82,6 +85,7 @@ __all__ = [
     "EngagementEvent",
     "TrackPlay",
     "MonthlyAnalytics",
+    "ViewerSession",
     # Support & Incidents
     "Incident",
     "IncidentLog",
