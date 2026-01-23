@@ -23,6 +23,15 @@ from .audio import (
     audio_exception_handler,
 )
 
+from .video import (
+    VideoServiceError,
+    VideoValidationError,
+    VideoTranscodingError,
+    VideoFormatError,
+    VideoOrientationError,
+    video_exception_handler,
+)
+
 __all__ = [
     "AudioServiceError",
     "StreamNotFoundError",
@@ -41,4 +50,10 @@ __all__ = [
     "GStreamerError",
     "ConfigurationError",
     "audio_exception_handler",
+    "VideoServiceError",
+    "VideoValidationError",
+    "VideoTranscodingError",
+    "VideoFormatError",
+    "VideoOrientationError",
+    "video_exception_handler",
 ]

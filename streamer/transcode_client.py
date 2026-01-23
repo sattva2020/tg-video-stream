@@ -161,8 +161,8 @@ class AudioFilters:
 
 @dataclass
 class TranscodeRequest:
-    """Запрос на транскодирование."""
-    
+    """Запрос на транскодирование (аудио или видео)."""
+
     source_url: str
     format: str = "opus"
     codec: str = "libopus"
@@ -176,6 +176,18 @@ class TranscodeRequest:
     fade_in: Optional[float] = None
     fade_out: Optional[float] = None
 
+    # Video-specific parameters
+    video_codec: Optional[str] = None  # h264, h265, vp8, vp9
+    width: Optional[int] = None
+    height: Optional[int] = None
+    fps: Optional[int] = None
+    orientation: Optional[int] = None  # 0, 90, 180, 270
+
+    @property
+    def is_video(self) -> bool:
+        """Проверяет, является ли запрос видео."""
+        return self.video_codec is not None or self.format in ("mp4", "mkv", "webm")
+
     def to_dict(self) -> dict[str, Any]:
         """Конвертирует в dict для API запроса."""
         data = {
@@ -186,7 +198,7 @@ class TranscodeRequest:
             "normalize": self.normalize,
             "target_loudness": self.target_loudness,
         }
-        
+
         if self.bitrate is not None:
             data["bitrate"] = self.bitrate
         if self.sample_rate is not None:
@@ -199,7 +211,19 @@ class TranscodeRequest:
             data["fade_in"] = self.fade_in
         if self.fade_out is not None:
             data["fade_out"] = self.fade_out
-            
+
+        # Video-specific parameters
+        if self.video_codec is not None:
+            data["video_codec"] = self.video_codec
+        if self.width is not None:
+            data["width"] = self.width
+        if self.height is not None:
+            data["height"] = self.height
+        if self.fps is not None:
+            data["fps"] = self.fps
+        if self.orientation is not None:
+            data["orientation"] = self.orientation
+
         return data
 
 

@@ -198,3 +198,6 @@ mcp-test/node_modules/
 mcp-test/*.log
 data/music/
 tg-engine/AyuGramDesktop/
+
+# Auto Claude data directory
+.auto-claude/

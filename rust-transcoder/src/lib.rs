@@ -7,6 +7,15 @@ pub mod error;
 pub mod models;
 pub mod transcoder;
 
+// Re-export video filter functions для тестов
+pub use transcoder::filters::{
+    build_video_filter_chain,
+    chain_video_filters,
+    fps_filter,
+    scale_filter,
+    transpose_filter,
+};
+
 use std::sync::Arc;
 
 use axum::{routing::get, Router};
