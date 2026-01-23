@@ -3,6 +3,7 @@ import { Broadcast, Radio, UserPlus, Settings, Eye, AlertCircle } from 'lucide-r
 import { AppLayout } from '../components/layout';
 import { useTranslation } from 'react-i18next';
 import { LatencyMonitor } from '../components/live';
+import { liveApi } from '../api/live';
 
 interface LiveStream {
   id: string;
