@@ -1004,7 +1004,9 @@
               "Create webhook form present"
             ]
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Created comprehensive webhook management interface with full CRUD operations. Implemented frontend/src/api/webhooks.ts with API client methods for webhooks and webhook events. Created frontend/src/components/webhooks/WebhookList.tsx with: create webhook dialog with URL input and event type selection (13 event types across 4 categories: Stream, Viewer, Track, System), webhook list with status badges (Active, Disabled, Unhealthy), enable/disable webhooks, send test webhooks, rotate webhook secrets, delete webhooks, view event delivery logs with detailed status information (success/failed/retrying/pending), attempt numbers, timestamps, HTTP status codes, and response bodies. Secret display with show/hide and copy functionality. Created frontend/src/pages/webhooks.tsx with header, informational banner, webhook list, and documentation link. Added /webhooks route to App.tsx for all authenticated users. Features include: create webhooks with URL and event types, display all webhooks with health status and delivery statistics, view recent event delivery logs, proper error handling, responsive design using CSS variables, lucide-react icons, follows existing frontend patterns from api-keys page.",
+          "updated_at": "2026-01-23T18:45:00.000000+00:00"
         },
         {
           "id": "subtask-9-3",
