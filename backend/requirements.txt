@@ -16,6 +16,8 @@ slack_sdk>=3.21
 twilio>=8.5
 
 passlib[bcrypt]>=1.7.4
+# Additional cryptography for TLS certificate validation
+cryptography>=41.0.0
 # Pin bcrypt to 4.0.1 because newer 4.1.x убирает __about__ и спамит предупреждениями в passlib
 bcrypt==4.0.1
 fastapi-mail>=1.4

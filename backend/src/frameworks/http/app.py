@@ -74,7 +74,20 @@ def create_app() -> FastAPI:
     # =============================================================================
     # Middleware
     # =============================================================================
-    
+
+    # TLS/HTTPS Security middleware
+    # Добавляет security headers (HSTS, CSP, X-Frame-Options, etc.)
+    # и обеспечивает HTTPS redirect в production
+    from src.frameworks.http.middleware.tls_security import TLSSecurityMiddleware
+    try:
+        app.add_middleware(TLSSecurityMiddleware)
+        if settings.ENVIRONMENT == "production":
+            print("[OK] TLS security middleware enabled (production mode)")
+        else:
+            print("[OK] TLS security middleware registered (development mode)")
+    except Exception as e:
+        print(f"[WARN] TLS security middleware initialization failed: {e}")
+
     # Session middleware (для OAuth state и Admin Panel)
     app.add_middleware(
         SessionMiddleware,
@@ -84,7 +97,7 @@ def create_app() -> FastAPI:
         same_site="lax",
         https_only=settings.ENVIRONMENT == "production"
     )
-    
+
     # CORS
     app.add_middleware(
         CORSMiddleware,
@@ -94,15 +107,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         expose_headers=["X-New-Token"],  # Для sliding session
     )
-    
-    # Session middleware с настройками для proxy (дубликат? TODO: проверить нужность)
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=os.getenv("JWT_SECRET", "a_default_secret"),
-        same_site="lax",
-        https_only=False,  # Для dev, в prod поставить True
-    )
-    
+
     # Prometheus middleware
     from src.frameworks.http.middleware.prometheus import PrometheusMiddleware
     app.add_middleware(PrometheusMiddleware)
