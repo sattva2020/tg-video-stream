@@ -39,6 +39,22 @@ from src.schemas.notifications import (
     NotificationRuleResponse,
     DeliveryLogResponse,
 )
+from src.schemas.cdn import (
+    CDNConfigBase,
+    CDNConfigCreate,
+    CDNConfigUpdate,
+    CDNConfigResponse,
+    EdgeLocation,
+    EdgeHealthStatus,
+    EdgeLocationsResponse,
+    EdgeHealthResponse,
+    CacheRule,
+    CachePurgeRequest,
+    CachePurgeResponse,
+    CDNStatusResponse,
+    CDNMetricsResponse,
+    CDNRegionMetrics,
+)
 
 __all__ = [
     "TelegramAuthRequest",
@@ -75,4 +91,19 @@ __all__ = [
     "NotificationRuleUpdate",
     "NotificationRuleResponse",
     "DeliveryLogResponse",
+    # CDN schemas
+    "CDNConfigBase",
+    "CDNConfigCreate",
+    "CDNConfigUpdate",
+    "CDNConfigResponse",
+    "EdgeLocation",
+    "EdgeHealthStatus",
+    "EdgeLocationsResponse",
+    "EdgeHealthResponse",
+    "CacheRule",
+    "CachePurgeRequest",
+    "CachePurgeResponse",
+    "CDNStatusResponse",
+    "CDNMetricsResponse",
+    "CDNRegionMetrics",
 ]
