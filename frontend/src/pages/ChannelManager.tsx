@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
 import { playlistsApi } from '../api/playlists';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music, MessageSquare } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
 import { AppLayout } from '../components/layout';
+import { PollManager, QAManager, ReactionOverlay, ChatOverlay, ShoutoutBanner, CTADisplay } from '../components';
 import { useTranslation } from 'react-i18next';
 import {
   useChannels,
@@ -67,6 +68,9 @@ const ChannelManager: React.FC = () => {
   const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [showInteractionsModal, setShowInteractionsModal] = useState(false);
+  const [selectedChannelForInteractions, setSelectedChannelForInteractions] = useState<Channel | null>(null);
+  const [activeInteractionTab, setActiveInteractionTab] = useState<'polls' | 'qa' | 'reactions' | 'chat' | 'shoutouts' | 'ctas'>('polls');
   const [formData, setFormData] = useState<CreateChannelData & { playlist_id?: string }>({
     account_id: '',
     chat_id: 0,
@@ -159,6 +163,17 @@ const ChannelManager: React.FC = () => {
     setEditingChannel(null);
     setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video', playlist_id: '' });
     setIsModalOpen(true);
+  };
+
+  const openInteractionsModal = (channel: Channel) => {
+    setSelectedChannelForInteractions(channel);
+    setActiveInteractionTab('polls');
+    setShowInteractionsModal(true);
+  };
+
+  const closeInteractionsModal = () => {
+    setShowInteractionsModal(false);
+    setSelectedChannelForInteractions(null);
   };
 
   if (loading) {
@@ -274,6 +289,13 @@ const ChannelManager: React.FC = () => {
                           title={t('common.edit', 'Edit')}
                         >
                           <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openInteractionsModal(channel)}
+                          className="p-1.5 text-[color:var(--color-text-muted)] hover:text-purple-500 hover:bg-[color:var(--color-surface-muted)] rounded transition-colors"
+                          title={t('channels.interactions', 'Interactions')}
+                        >
+                          <MessageSquare className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(channel.id)}
@@ -588,6 +610,137 @@ const ChannelManager: React.FC = () => {
                   }, 500);
                 }}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Interactions Modal */}
+        {showInteractionsModal && selectedChannelForInteractions && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-[color:var(--color-panel)] rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="p-4 sm:p-6 border-b border-[color:var(--color-border)]">
+                <div className="flex justify-between items-center mb-4">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-[color:var(--color-text)]">
+                      {t('channels.interactionsTitle', 'Channel Interactions')}
+                    </h2>
+                    <p className="text-sm text-[color:var(--color-text-muted)] mt-1">
+                      {selectedChannelForInteractions.name} (ID: {selectedChannelForInteractions.chat_id})
+                    </p>
+                  </div>
+                  <button
+                    onClick={closeInteractionsModal}
+                    className="p-2 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setActiveInteractionTab('polls')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'polls'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.polls', 'Polls')}
+                  </button>
+                  <button
+                    onClick={() => setActiveInteractionTab('qa')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'qa'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.qa', 'Q&A')}
+                  </button>
+                  <button
+                    onClick={() => setActiveInteractionTab('reactions')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'reactions'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.reactions', 'Reactions')}
+                  </button>
+                  <button
+                    onClick={() => setActiveInteractionTab('chat')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'chat'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.chatOverlay', 'Chat')}
+                  </button>
+                  <button
+                    onClick={() => setActiveInteractionTab('shoutouts')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'shoutouts'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.shoutouts', 'Shoutouts')}
+                  </button>
+                  <button
+                    onClick={() => setActiveInteractionTab('ctas')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeInteractionTab === 'ctas'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-[color:var(--color-surface-muted)] text-[color:var(--color-text)] hover:bg-[color:var(--color-border)]'
+                    }`}
+                  >
+                    {t('interactions.ctas', 'CTAs')}
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+                {activeInteractionTab === 'polls' && (
+                  <PollManager
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+                {activeInteractionTab === 'qa' && (
+                  <QAManager
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+                {activeInteractionTab === 'reactions' && (
+                  <ReactionOverlay
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+                {activeInteractionTab === 'chat' && (
+                  <ChatOverlay
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+                {activeInteractionTab === 'shoutouts' && (
+                  <ShoutoutBanner
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+                {activeInteractionTab === 'ctas' && (
+                  <CTADisplay
+                    token={localStorage.getItem('token') || ''}
+                    channelId={selectedChannelForInteractions.chat_id}
+                  />
+                )}
+              </div>
             </div>
           </div>
         )}
