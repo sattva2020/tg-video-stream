@@ -7,10 +7,10 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from './types';
 import { SplashLoadingScreen } from '../components/SplashLoadingScreen';
+import { LoginScreen } from '../screens/auth/LoginScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -19,11 +19,7 @@ const Stack = createNativeStackNavigator<AuthStackParamList>();
  * TODO: Replace with actual screen imports when implemented
  */
 const PlaceholderScreen: React.FC = () => {
-  return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      {/* Placeholder - will be implemented in subtask-3-1 */}
-    </View>
-  );
+  return null;
 };
 
 export const AuthNavigator: React.FC = () => {
@@ -38,7 +34,7 @@ export const AuthNavigator: React.FC = () => {
     >
       <Stack.Screen
         name="Login"
-        component={PlaceholderScreen}
+        component={LoginScreen}
         options={{ gestureEnabled: false }}
       />
       <Stack.Screen

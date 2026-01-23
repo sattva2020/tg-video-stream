@@ -44,6 +44,7 @@ export interface FilterParams {
 export interface LoginCredentials {
   email: string;
   password: string;
+  totp_code?: string;
 }
 
 export interface OAuthParams {
@@ -53,15 +54,8 @@ export interface OAuthParams {
 }
 
 export interface AuthResponse {
-  token: string;
-  user: {
-    id: number;
-    email: string;
-    username?: string;
-    is_active: boolean;
-    is_superuser: boolean;
-    created_at: string;
-  };
+  access_token: string;
+  token_type: string;
 }
 
 export enum UserRole {

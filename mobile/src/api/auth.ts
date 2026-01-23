@@ -6,10 +6,15 @@ import type { User, LoginCredentials, AuthResponse } from './types';
  */
 export const authApi = {
   /**
-   * Login with email and password
+   * Login with email and password (and optional 2FA code)
    */
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await client.post<AuthResponse>('/api/auth/login', credentials);
+    const payload = {
+      email: credentials.email,
+      password: credentials.password,
+      totp_code: credentials.totp_code?.trim() || undefined,
+    };
+    const response = await client.post<AuthResponse>('/api/auth/login', payload);
     return response.data;
   },
 
@@ -55,6 +60,16 @@ export const authApi = {
    */
   resetPassword: async (token: string, newPassword: string): Promise<void> => {
     await client.post('/api/auth/password-reset', { token, new_password: newPassword });
+  },
+
+  /**
+   * Check account status (for pending approval polling)
+   */
+  checkStatus: async (email: string): Promise<{ status: string }> => {
+    const response = await client.get<{ status: string }>(
+      `/api/auth/status?email=${encodeURIComponent(email)}`
+    );
+    return response.data;
   },
 };
 
