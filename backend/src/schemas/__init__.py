@@ -19,6 +19,17 @@ from src.schemas.analytics import (
     AnalyticsSummaryResponse,
     TrackPlayRequest,
     TrackPlayResponse,
+    # Interaction analytics schemas
+    InteractionPeriod,
+    MostVotedPoll,
+    PollStatsResponse,
+    QAStatsResponse,
+    EmojiUsage,
+    ReactionStatsResponse,
+    ChatStatsResponse,
+    ActiveUser,
+    EngagementSummaryResponse,
+    InteractionMetricsResponse,
 )
 from src.schemas.notifications import (
     NotificationChannelBase,
@@ -57,6 +68,17 @@ __all__ = [
     "AnalyticsSummaryResponse",
     "TrackPlayRequest",
     "TrackPlayResponse",
+    # Interaction analytics schemas
+    "InteractionPeriod",
+    "MostVotedPoll",
+    "PollStatsResponse",
+    "QAStatsResponse",
+    "EmojiUsage",
+    "ReactionStatsResponse",
+    "ChatStatsResponse",
+    "ActiveUser",
+    "EngagementSummaryResponse",
+    "InteractionMetricsResponse",
     # Notifications schemas
     "NotificationChannelBase",
     "NotificationChannelCreate",

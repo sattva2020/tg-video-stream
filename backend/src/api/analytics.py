@@ -7,6 +7,7 @@ Feature: 021-admin-analytics-menu
 - GET /analytics/listeners - Статистика слушателей
 - GET /analytics/listeners/history - История слушателей
 - GET /analytics/top-tracks - Топ треков
+- GET /analytics/interactions - Метрики взаимодействий (опросы, Q&A, реакции, чат)
 - POST /internal/track-play - Запись воспроизведения (для streamer)
 """
 
@@ -33,8 +34,19 @@ from src.schemas.analytics import (
     TrackPlayResponse,
     AnalyticsPeriod,
     HistoryInterval,
+    InteractionPeriod,
+    InteractionMetricsResponse,
+    MostVotedPoll,
+    PollStatsResponse,
+    QAStatsResponse,
+    EmojiUsage,
+    ReactionStatsResponse,
+    ChatStatsResponse,
+    ActiveUser,
+    EngagementSummaryResponse,
 )
 from src.services.analytics_service import AnalyticsService, get_analytics_service
+from src.services.interaction_analytics_service import InteractionAnalyticsService
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +75,14 @@ async def get_analytics_service_dep(
     """Dependency для получения AnalyticsService."""
     redis_client = await get_redis_client()
     return get_analytics_service(db=db, redis_client=redis_client)
+
+
+async def get_interaction_analytics_service_dep(
+    db: Session = Depends(get_db)
+) -> InteractionAnalyticsService:
+    """Dependency для получения InteractionAnalyticsService."""
+    redis_client = await get_redis_client()
+    return InteractionAnalyticsService(db=db, redis_client=redis_client)
 
 
 # ============ Analytics Endpoints (require ADMIN/MODERATOR role) ============
@@ -154,7 +174,7 @@ async def get_top_tracks(
 ):
     """
     Получить топ треков.
-    
+
     Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
     """
     try:
@@ -162,6 +182,84 @@ async def get_top_tracks(
     except Exception as e:
         logger.error(f"Error getting top tracks: {e}")
         raise HTTPException(status_code=500, detail="Failed to get top tracks")
+
+
+@router.get(
+    "/interactions",
+    response_model=InteractionMetricsResponse,
+    summary="Получить метрики взаимодействий",
+    description="Статистика опросов, Q&A, реакций и чата за указанный период"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_interaction_metrics(
+    request: Request,
+    period: InteractionPeriod = Query("7d", description="Период для агрегации данных"),
+    service: InteractionAnalyticsService = Depends(get_interaction_analytics_service_dep)
+):
+    """
+    Получить метрики взаимодействий.
+
+    Возвращает агрегированную статистику по всем типам взаимодействий:
+    - Опросы (количество, активные, голоса, участие)
+    - Q&A (вопросы, ответы, upvotes)
+    - Реакции (emoji, активность)
+    - Чат (сообщения, авторы, фильтрация)
+    - Сводная статистика вовлеченности
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+    """
+    try:
+        # Получаем статистику по всем типам взаимодействий
+        poll_stats = await service.get_poll_stats(period=period)
+        qa_stats = await service.get_qa_stats(period=period)
+        reaction_stats = await service.get_reaction_stats(period=period)
+        chat_stats = await service.get_chat_stats(period=period)
+        engagement_summary = await service.get_engagement_summary(period=period)
+
+        return InteractionMetricsResponse(
+            period=period,
+            polls=PollStatsResponse(
+                total_polls=poll_stats.total_polls,
+                active_polls=poll_stats.active_polls,
+                total_votes=poll_stats.total_votes,
+                unique_voters=poll_stats.unique_voters,
+                avg_participation_rate=poll_stats.avg_participation_rate,
+                most_voted_poll=MostVotedPoll(**poll_stats.most_voted_poll) if poll_stats.most_voted_poll else None
+            ),
+            qa=QAStatsResponse(
+                total_questions=qa_stats.total_questions,
+                pending_questions=qa_stats.pending_questions,
+                answered_questions=qa_stats.answered_questions,
+                total_upvotes=qa_stats.total_upvotes,
+                unique_participants=qa_stats.unique_participants,
+                avg_answer_time_hours=qa_stats.avg_answer_time_hours
+            ),
+            reactions=ReactionStatsResponse(
+                total_reactions=reaction_stats.total_reactions,
+                unique_users=reaction_stats.unique_users,
+                top_emojis=[EmojiUsage(**emoji) for emoji in reaction_stats.top_emojis],
+                reactions_per_hour=reaction_stats.reactions_per_hour
+            ),
+            chat=ChatStatsResponse(
+                total_messages=chat_stats.total_messages,
+                unique_authors=chat_stats.unique_authors,
+                avg_message_length=chat_stats.avg_message_length,
+                messages_per_hour=chat_stats.messages_per_hour,
+                filtered_messages=chat_stats.filtered_messages
+            ),
+            engagement=EngagementSummaryResponse(
+                total_interactions=engagement_summary.total_interactions,
+                poll_participation_rate=engagement_summary.poll_participation_rate,
+                qa_engagement_rate=engagement_summary.qa_engagement_rate,
+                reaction_intensity=engagement_summary.reaction_intensity,
+                chat_activity_level=engagement_summary.chat_activity_level,
+                most_active_users=[ActiveUser(**user) for user in engagement_summary.most_active_users],
+                peak_interaction_hour=engagement_summary.peak_interaction_hour
+            )
+        )
+    except Exception as e:
+        logger.error(f"Error getting interaction metrics: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get interaction metrics")
 
 
 # ============ Internal Endpoints (for streamer service) ============
