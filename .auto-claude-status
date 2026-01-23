@@ -3,7 +3,7 @@
   "spec": "025-advanced-security-compliance-features",
   "state": "building",
   "subtasks": {
-    "completed": 12,
+    "completed": 15,
     "total": 47,
     "in_progress": 1,
     "failed": 0
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 14,
+    "number": 17,
     "started_at": "2026-01-23T12:18:44.678944"
   },
-  "last_update": "2026-01-23T13:41:03.777698"
+  "last_update": "2026-01-23T14:04:05.139165"
 }
