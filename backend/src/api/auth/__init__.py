@@ -10,6 +10,7 @@ from .email_password import router as email_password_router
 from .linking import router as linking_router
 from .telegram_widget import router as telegram_widget_router
 from .totp import router as totp_router
+from .saml import router as saml_router
 
 # Re-export dependencies for external usage
 from .dependencies import (
@@ -32,17 +33,19 @@ router.include_router(email_password_router)  # /register, /login, /password-res
 router.include_router(linking_router)         # /link-account/*
 router.include_router(telegram_widget_router) # /telegram-widget, /telegram-widget/link, /telegram-widget/unlink
 router.include_router(totp_router)            # /totp/*
+router.include_router(saml_router)            # /saml/*
 
 
 @router.post("/logout")
 async def logout(response: Response):
     """
     Выход из системы.
-    
+
     Очищает cookie с токеном. Работает для всех способов авторизации:
     - Google OAuth
     - Email/Password
     - Telegram Login Widget
+    - SAML SSO
     """
     # Очищаем cookie с токеном
     response.delete_cookie(

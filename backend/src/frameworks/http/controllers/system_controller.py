@@ -27,6 +27,156 @@ router = APIRouter()
 
 
 @router.get(
+    "/tls/config",
+    summary="Получить TLS/HTTPS конфигурацию",
+    description="""
+    Возвращает текущую TLS/HTTPS конфигурацию приложения:
+    - TLS статус (enabled/disabled)
+    - Пути к сертификатам
+    - Настройки HSTS
+    - Security headers статус
+    - Валидность сертификата
+
+    Используется для верификации TLS конфигурации и compliance reporting.
+    """,
+    responses={
+        200: {
+            "description": "TLS конфигурация получена",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "production_mode": False,
+                        "tls_enabled": False,
+                        "tls_cert_path": None,
+                        "tls_key_path": None,
+                        "https_enforced": False,
+                        "hsts_enabled": False,
+                        "security_headers_enabled": True
+                    }
+                }
+            }
+        }
+    }
+)
+async def get_tls_config():
+    """
+    Получает текущую TLS/HTTPS конфигурацию приложения.
+    """
+    from src.frameworks.http.middleware.tls_security import get_tls_config_info
+    return get_tls_config_info()
+
+
+@router.get(
+    "/tls/certificate",
+    summary="Проверить TLS сертификат",
+    description="""
+    Проверяет валидность TLS сертификата если он настроен:
+    - Срок действия (valid from/until)
+    - Дней до истечения
+    - Статус (valid/expiring/expired)
+    - Информация об издателе и субъекте
+    - Предупреждения если сертификат истекает или недействителен
+
+    Используется для мониторинга сертификатов и compliance reporting.
+    """,
+    responses={
+        200: {
+            "description": "Информация о сертификате",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "valid_from": "2025-01-01T00:00:00Z",
+                        "valid_until": "2026-01-01T00:00:00Z",
+                        "days_until_expiry": 365,
+                        "is_expired": False,
+                        "is_not_yet_valid": False,
+                        "is_valid": True,
+                        "status": "valid",
+                        "warning": None,
+                        "issuer": "CN=Example CA",
+                        "subject": "CN=example.com"
+                    }
+                }
+            }
+        },
+        404: {
+            "description": "Сертификат не настроен или файл не найден",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "detail": "Certificate file not found"
+                    }
+                }
+            }
+        }
+    }
+)
+async def check_tls_certificate():
+    """
+    Проверяет валидность TLS сертификата.
+    """
+    from src.core.config import settings
+    from src.lib.tls_validator import check_cert_expiry, TLSCertificateError
+
+    if not settings.TLS_ENABLED:
+        return {
+            "tls_enabled": False,
+            "message": "TLS is not enabled in configuration"
+        }
+
+    try:
+        cert_info = check_cert_expiry(settings.TLS_CERT_PATH)
+        cert_info["tls_enabled"] = True
+        cert_info["cert_path"] = settings.TLS_CERT_PATH
+        return cert_info
+    except TLSCertificateError as e:
+        return {
+            "tls_enabled": True,
+            "error": str(e),
+            "cert_path": settings.TLS_CERT_PATH
+        }
+
+
+@router.get(
+    "/tls/status",
+    summary="Комплексный статус TLS безопасности",
+    description="""
+    Возвращает комплексный статус TLS/HTTPS безопасности включая:
+    - Конфигурацию TLS
+    - Валидность сертификата
+    - Проверку цепочки сертификатов
+    - Предупреждения и рекомендации
+    - Статус compliance
+
+    Используется для security dashboard и compliance reporting.
+    """,
+    responses={
+        200: {
+            "description": "Статус TLS безопасности",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "tls_enabled": False,
+                        "environment": "development",
+                        "certificate_valid": None,
+                        "certificate_expiry": None,
+                        "warnings": [],
+                        "recommendations": []
+                    }
+                }
+            }
+        }
+    }
+)
+async def get_tls_security_status():
+    """
+    Получает комплексный статус TLS/HTTPS безопасности.
+    """
+    from src.lib.tls_validator import get_tls_configuration_status
+    return get_tls_configuration_status()
+
+
+@router.get(
     "/metrics",
     response_model=SystemMetricsResponse,
     summary="Получить системные метрики",

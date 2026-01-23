@@ -18,6 +18,7 @@ from src.services.activity_service import ActivityService
 from tasks.notifications import notify_admins_async
 from .dependencies import make_rate_limit_dep, _check_rate_limit
 from .utils import format_auth_error
+from src.lib.audit import audit_login, audit_logout, audit_create, audit_update
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ def check_user_status(email: EmailStr, db: Session = Depends(get_db)):
 
 
 @router.post("/register")
+@audit_create("user")
 def register_user(
     request: RegisterRequest,
     fastapi_request: Request = None,
@@ -172,6 +174,7 @@ def register_user(
 # ============================================================================
 
 @router.post("/login")
+@audit_login()
 async def login_user(
     fastapi_request: Request,
     db: Session = Depends(get_db),
@@ -301,6 +304,7 @@ def list_sessions(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/logout/all")
+@audit_logout()
 def logout_all_sessions(current_user: User = Depends(get_current_user)):
     session_service.revoke_all(current_user.id)
     return {"status": "revoked"}
@@ -344,6 +348,7 @@ def password_reset_request(
 
 
 @router.post("/password-reset/confirm")
+@audit_update("user")
 def password_reset_confirm(data: PasswordResetConfirm, db: Session = Depends(get_db)):
     """
     Подтверждение сброса пароля с новым паролем.
@@ -395,6 +400,7 @@ def email_verify_request(body: EmailVerifyRequest, db: Session = Depends(get_db)
 
 
 @router.post("/email-verify/confirm")
+@audit_update("user")
 def email_verify_confirm(body: EmailVerifyConfirm, db: Session = Depends(get_db)):
     """
     Подтверждение верификации email.

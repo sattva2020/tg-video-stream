@@ -31,6 +31,10 @@ const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const IPWhitelistPage = lazy(() => import('./pages/admin/IPWhitelistPage'));
+const TwoFactorPolicyPage = lazy(() => import('./pages/admin/TwoFactorPolicyPage'));
+const SecurityDashboardPage = lazy(() => import('./pages/admin/SecurityDashboardPage'));
+const SSOConfigurationPage = lazy(() => import('./pages/admin/SSOConfigurationPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -102,6 +106,14 @@ const App: React.FC = () => {
             {/* Routes for ADMIN and above (stream quality) */}
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin/stream-quality" element={<StreamQualityPage />} />
+            </Route>
+
+            {/* Routes for ADMIN and above (security) */}
+            <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
+              <Route path="/admin/security" element={<SecurityDashboardPage />} />
+              <Route path="/admin/security/ip-whitelist" element={<IPWhitelistPage />} />
+              <Route path="/admin/security/2fa-policy" element={<TwoFactorPolicyPage />} />
+              <Route path="/admin/security/sso" element={<SSOConfigurationPage />} />
             </Route>
 
             {/* Routes for MODERATOR and above (incidents) */}

@@ -3,6 +3,7 @@ import { Card, CardBody, CardHeader, Modal, ModalContent, ModalBody } from '@her
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import GoogleLoginButton from '../GoogleLoginButton';
+import { SAMLLogin } from './SAMLLogin';
 import { TelegramLogin } from './TelegramLogin';
 import { PendingApproval } from './PendingApproval';
 import ErrorToast from './ErrorToast';
@@ -62,6 +63,12 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
     }
     setShowTelegramModal(false);
     navigate('/channels');
+  };
+
+  // Обработчик SAML SSO login
+  const handleSAMLLogin = () => {
+    setIsSubmitting(true);
+    authApi.initiateSAMLLogin();
   };
 
   const handleBasicLogin = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -236,6 +243,12 @@ const AuthCard: React.FC<AuthCardProps> = ({ initialBanner = null }) => {
             disabled={isSubmitting}
             label={googleLabel}
             className="!bg-[#F5E6D3]/10 !text-[#F5E6D3] !border-[#F5E6D3]/30 hover:!shadow-[0_0_20px_rgba(245,230,211,0.2)] hover:!bg-[#F5E6D3]/20 hover:!border-[#F5E6D3]/50 border transition-all duration-300"
+          />
+
+          {/* SAML SSO кнопка */}
+          <SAMLLogin
+            onClick={handleSAMLLogin}
+            disabled={isSubmitting}
           />
 
           {/* Разделитель */}

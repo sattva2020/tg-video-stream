@@ -68,4 +68,53 @@ class Settings:
     # CORS
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
+    # SAML/SSO Configuration
+    SAML_ENABLED: bool = os.getenv("SAML_ENABLED", "false").lower() == "true"
+    SAML_SP_ENTITY_ID: str = os.getenv("SAML_SP_ENTITY_ID", "https://your-app.com/saml/metadata")
+    SAML_SP_ACS_URL: str = os.getenv("SAML_SP_ACS_URL", "https://your-app.com/api/auth/saml/acs")
+    SAML_SP_SLO_URL: str = os.getenv("SAML_SP_SLO_URL", "https://your-app.com/api/auth/saml/slo")
+    SAML_NAME_ID_FORMAT: str = os.getenv("SAML_NAME_ID_FORMAT", "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified")
+    SAML_ASSERTION_ENCRYPTED: bool = os.getenv("SAML_ASSERTION_ENCRYPTED", "false").lower() == "true"
+    SAML_SIGN_ASSERTION: bool = os.getenv("SAML_SIGN_ASSERTION", "true").lower() == "true"
+    SAML_SIGN_METADATA: bool = os.getenv("SAML_SIGN_METADATA", "false").lower() == "true"
+
+    # IP Whitelist Configuration
+    IP_WHITELIST_ENABLED: bool = os.getenv("IP_WHITELIST_ENABLED", "false").lower() == "true"
+    IP_WHITELIST_STRICT_MODE: bool = os.getenv("IP_WHITELIST_STRICT_MODE", "false").lower() == "true"
+    IP_WHITELIST_ALLOW_LOOPBACK: bool = os.getenv("IP_WHITELIST_ALLOW_LOOPBACK", "true").lower() == "true"
+
+    # Two-Factor Authentication (2FA) Policy Configuration
+    TWO_FACTOR_ENFORCEMENT_ENABLED: bool = os.getenv("TWO_FACTOR_ENFORCEMENT_ENABLED", "false").lower() == "true"
+    TWO_FACTOR_GRACE_PERIOD_HOURS: int = int(os.getenv("TWO_FACTOR_GRACE_PERIOD_HOURS", "24"))
+    TWO_FACTOR_EXEMPT_ALTERNATIVE_AUTH: bool = os.getenv("TWO_FACTOR_EXEMPT_ALTERNATIVE_AUTH", "true").lower() == "true"
+
+    # Security Policy Configuration
+    SECURITY_POLICY_DEFAULT_LEVEL: str = os.getenv("SECURITY_POLICY_DEFAULT_LEVEL", "optional")  # optional, mandatory, audit_only
+    PASSWORD_MIN_LENGTH: int = int(os.getenv("PASSWORD_MIN_LENGTH", "8"))
+    PASSWORD_REQUIRE_UPPERCASE: bool = os.getenv("PASSWORD_REQUIRE_UPPERCASE", "true").lower() == "true"
+    PASSWORD_REQUIRE_LOWERCASE: bool = os.getenv("PASSWORD_REQUIRE_LOWERCASE", "true").lower() == "true"
+    PASSWORD_REQUIRE_NUMBER: bool = os.getenv("PASSWORD_REQUIRE_NUMBER", "true").lower() == "true"
+    PASSWORD_REQUIRE_SPECIAL: bool = os.getenv("PASSWORD_REQUIRE_SPECIAL", "true").lower() == "true"
+    PASSWORD_MAX_AGE_DAYS: int = int(os.getenv("PASSWORD_MAX_AGE_DAYS", "90"))
+
+    # Session Security
+    SESSION_TIMEOUT_MINUTES: int = int(os.getenv("SESSION_TIMEOUT_MINUTES", "30"))
+    MAX_LOGIN_ATTEMPTS: int = int(os.getenv("MAX_LOGIN_ATTEMPTS", "5"))
+    ACCOUNT_LOCKOUT_DURATION_MINUTES: int = int(os.getenv("ACCOUNT_LOCKOUT_DURATION_MINUTES", "30"))
+
+    # Audit & Compliance Logging
+    AUDIT_LOG_RETENTION_DAYS: int = int(os.getenv("AUDIT_LOG_RETENTION_DAYS", "365"))
+    COMPLIANCE_LOG_ENABLED: bool = os.getenv("COMPLIANCE_LOG_ENABLED", "true").lower() == "true"
+    AUDIT_LOG_SENSITIVE_OPERATIONS: bool = os.getenv("AUDIT_LOG_SENSITIVE_OPERATIONS", "true").lower() == "true"
+
+    # Data Encryption at Rest
+    DATA_ENCRYPTION_ENABLED: bool = os.getenv("DATA_ENCRYPTION_ENABLED", "false").lower() == "true"
+    DATA_ENCRYPTION_KEY: str = os.getenv("DATA_ENCRYPTION_KEY", "")  # 32-byte key for AES-256
+    FIELD_ENCRYPTION_ALGORITHM: str = os.getenv("FIELD_ENCRYPTION_ALGORITHM", "AES-GCM")
+
+    # TLS/HTTPS Configuration
+    TLS_ENABLED: bool = os.getenv("TLS_ENABLED", "false").lower() == "true"
+    TLS_CERT_PATH: str = os.getenv("TLS_CERT_PATH", "/etc/ssl/certs/app.crt")
+    TLS_KEY_PATH: str = os.getenv("TLS_KEY_PATH", "/etc/ssl/private/app.key")
+
 settings = Settings()

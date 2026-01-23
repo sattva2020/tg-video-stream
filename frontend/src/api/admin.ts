@@ -172,15 +172,15 @@ export const adminApi = {
     const response = await client.post('/api/admin/stream/restart');
     return response.data;
   },
-  getStreamStatus: async (): Promise<StreamStatus> => {
+  getStreamStatus: async (): Promise<StreamStatus> {
     const response = await client.get('/api/admin/stream/status');
     return response.data;
   },
   getLogs: async (lines: number = 100) => {
-    const response = await client.get('/api/admin/stream/logs', { params: { lines } });
+    const response = client.get('/api/admin/stream/logs', { params: { lines } });
     return response.data;
   },
-  getMetrics: async (): Promise<StreamMetrics> => {
+  getMetrics: async (): Promise<StreamMetrics> {
     const response = await client.get('/api/admin/stream/metrics');
     return response.data;
   },
@@ -197,7 +197,7 @@ export const adminApi = {
     return response.data;
   },
   updateUserRole: async (id: string, role: string) => {
-    const response = await client.put(`/api/admin/users/${id}/role`, { role });
+    const response = client.put(`/api/admin/users/${id}/role`, { role });
     return response.data;
   },
   getPlaylist: async () => {
@@ -248,4 +248,438 @@ export const adminApi = {
     const response = await client.get(`/api/admin/stream/quality/alert/config/${encodeURIComponent(streamUrl)}`);
     return response.data;
   },
+
+  // Feature 025: IP Whitelist Management
+  getIPWhitelistEntries: async (params?: { active_only?: boolean; ipv4_only?: boolean; ipv6_only?: boolean }): Promise<IPWhitelistEntry[]> => {
+    const response = await client.get('/api/admin/ip-whitelist/entries', { params });
+    return response.data;
+  },
+
+  getIPWhitelistInfo: async (): Promise<IPWhitelistInfo> => {
+    const response = await client.get('/api/admin/ip-whitelist/entries/info');
+    return response.data;
+  },
+
+  getIPWhitelistEntry: async (entryId: string): Promise<IPWhitelistEntry> => {
+    const response = await client.get(`/api/admin/ip-whitelist/entries/${entryId}`);
+    return response.data;
+  },
+
+  createIPWhitelistEntry: async (data: IPWhitelistCreate): Promise<IPWhitelistEntry> => {
+    const response = await client.post('/api/admin/ip-whitelist/entries', data);
+    return response.data;
+  },
+
+  updateIPWhitelistEntry: async (entryId: string, data: IPWhitelistUpdate): Promise<IPWhitelistEntry> => {
+    const response = await client.put(`/api/admin/ip-whitelist/entries/${entryId}`, data);
+    return response.data;
+  },
+
+  deleteIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.delete(`/api/admin/ip-whitelist/entries/${entryId}`);
+    return response.data;
+  },
+
+  activateIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.post(`/api/admin/ip-whitelist/entries/${entryId}/activate`);
+    return response.data;
+  },
+
+  deactivateIPWhitelistEntry: async (entryId: string) => {
+    const response = await client.post(`/api/admin/ip-whitelist/entries/${entryId}/deactivate`);
+    return response.data;
+  },
+
+  checkIPWhitelist: async (ip: string) => {
+    const response = await client.post('/api/admin/ip-whitelist/check', null, { params: { ip } });
+    return response.data;
+  },
+
+  // Feature 025: Security Policy Management
+  getSecurityPolicies: async (params?: {
+    enabled_only?: boolean;
+    policy_type?: string;
+    enforcement_level?: string;
+  }): Promise<SecurityPolicy[]> => {
+    const response = await client.get('/api/admin/security-policies/policies', { params });
+    return response.data;
+  },
+
+  getSecurityPolicyInfo: async (): Promise<SecurityPolicyInfo> => {
+    const response = await client.get('/api/admin/security-policies/policies/info');
+    return response.data;
+  },
+
+  getSecurityPolicy: async (policyId: string): Promise<SecurityPolicy> => {
+    const response = await client.get(`/api/admin/security-policies/policies/${policyId}`);
+    return response.data;
+  },
+
+  createSecurityPolicy: async (data: SecurityPolicyCreate): Promise<SecurityPolicy> => {
+    const response = await client.post('/api/admin/security-policies/policies', data);
+    return response.data;
+  },
+
+  updateSecurityPolicy: async (policyId: string, data: SecurityPolicyUpdate): Promise<SecurityPolicy> => {
+    const response = await client.put(`/api/admin/security-policies/policies/${policyId}`, data);
+    return response.data;
+  },
+
+  deleteSecurityPolicy: async (policyId: string) => {
+    const response = await client.delete(`/api/admin/security-policies/policies/${policyId}`);
+    return response.data;
+  },
+
+  enableSecurityPolicy: async (policyId: string) {
+    const response = await client.post(`/api/admin/security-policies/policies/${policyId}/enable`);
+    return response.data;
+  },
+
+  disableSecurityPolicy: async (policyId: string) {
+    const response = await client.post(`/api/admin/security-policies/policies/${policyId}/disable`);
+    return response.data;
+  },
+
+  // Feature 025: Security Dashboard
+  getSecurityDashboard: async (framework: string = 'soc2', days: number = 30): Promise<SecurityDashboardResponse> => {
+    const response = await client.get('/api/admin/security/dashboard', {
+      params: { framework, days }
+    });
+    return response.data;
+  },
+
+  getSecurityMetrics: async (days: number = 30): Promise<SecurityMetrics> => {
+    const response = await client.get('/api/admin/security/dashboard/metrics', {
+      params: { days }
+    });
+    return response.data;
+  },
+
+  getComplianceStatus: async (framework: string): Promise<ComplianceStatusSummary> => {
+    const response = await client.get(`/api/admin/security/dashboard/compliance/${framework}`);
+    return response.data;
+  },
+
+  getDataProtectionStatus: async (): Promise<DataProtectionStatus> => {
+    const response = await client.get('/api/admin/security/dashboard/data-protection');
+    return response.data;
+  },
+
+  getAccessControlStatus: async (): Promise<AccessControlStatus> {
+    const response = await client.get('/api/admin/security/dashboard/access-control');
+    return response.data;
+  },
+
+  getSecurityConfigSummary: async (): Promise<SecurityConfigSummary> {
+    const response = await client.get('/api/admin/security/dashboard/security-configs');
+    return response.data;
+  },
+
+  getRecentCriticalEvents: async (limit: number = 10, severity?: string): Promise<{
+    total: number;
+    events: Array<{
+      id: string;
+      event_type: string;
+      category: string;
+      severity: string;
+      compliance_status: string;
+      title: string;
+      description: string;
+      resource_type?: string;
+      resource_id?: string;
+      timestamp: string | null;
+    }>;
+  }> => {
+    const response = await client.get('/api/admin/security/dashboard/recent-events', {
+      params: { limit, severity }
+    });
+    return response.data;
+  },
+
+  getSecurityEventsHistory: async (
+    period: '1d' | '7d' | '30d' | '90d' | '1y' = '7d',
+    interval: 'hour' | 'day' | 'week' = 'day',
+    category?: string,
+    severity?: string
+  ): Promise<SecurityEventsHistoryResponse> => {
+    const response = await client.get('/api/admin/security/security/events', {
+      params: { period, interval, category, severity }
+    });
+    return response.data;
+  },
+
+  // Feature 025: SAML/SSO Configuration Management
+  getSAMLConfigs: async (params?: { enabled_only?: boolean }): Promise<SAMLConfig[]> => {
+    const response = await client.get('/api/admin/saml/configs', { params });
+    return response.data;
+  },
+
+  getSAMLConfig: async (configId: string): Promise<SAMLConfig> => {
+    const response = await client.get(`/api/admin/saml/configs/${configId}`);
+    return response.data;
+  },
+
+  createSAMLConfig: async (data: SAMLConfigCreate): Promise<SAMLConfig> {
+    const response = await client.post('/api/admin/saml/configs', data);
+    return response.data;
+  },
+
+  updateSAMLConfig: async (configId: string, data: SAMLConfigUpdate): Promise<SAMLConfig> => {
+    const response = await client.put(`/api/admin/saml/configs/${configId}`, data);
+    return response.data;
+  },
+
+  deleteSAMLConfig: async (configId: string) {
+    const response = await client.delete(`/api/admin/saml/configs/${configId}`);
+    return response.data;
+  },
+
+  enableSAMLConfig: async (configId: string) {
+    const response = await client.post(`/api/admin/saml/configs/${configId}/enable`);
+    return response.data;
+  },
+
+  disableSAMLConfig: async (configId: string) {
+    const response = await client.post(`/api/admin/saml/configs/${configId}/disable`);
+    return response.data;
+  },
 };
+
+// Feature 025: IP Whitelist Types
+export interface IPWhitelistEntry {
+  id: string;
+  cidr: string;
+  description: string | null;
+  is_active: boolean;
+  is_ipv4: boolean;
+  is_ipv6: boolean;
+  created_by_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface IPWhitelistInfo {
+  total_entries: number;
+  active_entries: number;
+  inactive_entries: number;
+  ipv4_entries: number;
+  ipv6_entries: number;
+}
+
+export interface IPWhitelistCreate {
+  cidr: string;
+  description?: string;
+  is_active?: boolean;
+}
+
+export interface IPWhitelistUpdate {
+  description?: string;
+  is_active?: boolean;
+}
+
+// Feature 025: Security Policy Types
+export interface SecurityPolicy {
+  id: string;
+  name: string;
+  policy_type: string;
+  enabled: boolean;
+  enforcement_level: string;
+  affected_roles: string[] | null;
+  grace_period_hours: number | null;
+  allow_exempt_alternative_auth: boolean;
+  policy_config: Record<string, unknown> | null;
+  description: string | null;
+  created_by_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SecurityPolicyInfo {
+  total_policies: number;
+  enabled_policies: number;
+  disabled_policies: number;
+  mandatory_policies: number;
+  optional_policies: number;
+  audit_only_policies: number;
+  policies_by_type: Record<string, number>;
+}
+
+export interface SecurityPolicyCreate {
+  name: string;
+  policy_type?: string;
+  enabled?: boolean;
+  enforcement_level?: string;
+  affected_roles?: string[] | null;
+  grace_period_hours?: number | null;
+  allow_exempt_alternative_auth?: boolean;
+  policy_config?: Record<string, unknown> | null;
+  description?: string | null;
+}
+
+export interface SecurityPolicyUpdate {
+  name?: string;
+  policy_type?: string;
+  enabled?: boolean;
+  enforcement_level?: string;
+  affected_roles?: string[] | null;
+  grace_period_hours?: number | null;
+  allow_exempt_alternative_auth?: boolean;
+  policy_config?: Record<string, unknown> | null;
+  description?: string | null;
+}
+
+// Feature 025: Security Dashboard Types
+export interface ComplianceStatusSummary {
+  framework: string;
+  overall_status: string;
+  non_compliant_events_last_30_days: number;
+  requirements: Array<{
+    requirement: string;
+    status: string;
+    description: string;
+  }>;
+  last_checked: string;
+}
+
+export interface SecurityMetrics {
+  total_events: number;
+  by_status: Record<string, number>;
+  by_severity: Record<string, number>;
+  by_category: Record<string, number>;
+  unresolved_incidents: number;
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+}
+
+export interface DataProtectionStatus {
+  overall_status: string;
+  checks: Record<string, {
+    status: string;
+    description: string;
+    last_checked?: string;
+  }>;
+  last_checked: string;
+}
+
+export interface AccessControlStatus {
+  overall_status: string;
+  checks: Record<string, {
+    status: string;
+    description: string;
+    now_checked?: string;
+  }>;
+  last_checked: string;
+}
+
+export interface SecurityConfigSummary {
+  saml_configs_enabled: number;
+  saml_configs_total: number;
+  security_policies_enabled: number;
+  security_policies_total: number;
+  ip_whitelist_entries: number;
+  two_factor_enforcement_enabled: boolean;
+}
+
+export interface SecurityDashboardResponse {
+  compliance_status: ComplianceStatusSummary;
+  security_metrics: SecurityMetrics;
+  data_protection: DataProtectionStatus;
+  access_control: AccessControlStatus;
+  security_configs: SecurityConfigSummary;
+  recent_critical_events: Array<{
+    id: string;
+    event_type: string;
+    category: string;
+    severity: string;
+    compliance_status: string;
+    title: string;
+    description: string;
+    timestamp: string | null;
+  }>;
+  generated_at: string;
+}
+
+export interface SecurityEventBucket {
+  timestamp: string;
+  total_events: number;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+  by_category: Record<string, number>;
+  critical_events: number;
+  high_events: number;
+  resolved_events: number;
+}
+
+export interface SecurityEventsHistoryResponse {
+  period: {
+    start: string;
+    end: string;
+    days: number;
+  };
+  interval: string;
+  total_events: number;
+  buckets: SecurityEventBucket[];
+  summary: {
+    resolved_events: number;
+    critical_events: number;
+    high_events: number;
+    unresolved_events: number;
+  };
+}
+
+// Feature 025: SAML/SSO Configuration Types
+export interface SAMLConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_slo_url: string | null;
+  idp_metadata_url: string | null;
+  sp_entity_id: string;
+  sp_acs_url: string;
+  sp_slo_url: string | null;
+  name_id_format: string | null;
+  security_config: Record<string, unknown> | null;
+  attribute_mapping: Record<string, unknown> | null;
+  role_mapping: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SAMLConfigCreate {
+  name: string;
+  enabled?: boolean;
+  idp_entity_id: string;
+  idp_sso_url: string;
+  idp_x509_cert: string;
+  idp_slo_url?: string;
+  idp_metadata_url?: string;
+  sp_entity_id: string;
+  sp_acs_url: string;
+  sp_slo_url?: string;
+  name_id_format?: string;
+  security_config?: Record<string, unknown>;
+  attribute_mapping?: Record<string, unknown>;
+  role_mapping?: Record<string, unknown>;
+}
+
+export interface SAMLConfigUpdate {
+  name?: string;
+  enabled?: boolean;
+  idp_entity_id?: string;
+  idp_sso_url?: string;
+  idp_x509_cert?: string;
+  idp_slo_url?: string;
+  idp_metadata_url?: string;
+  sp_entity_id?: string;
+  sp_acs_url?: string;
+  sp_slo_url?: string;
+  name_id_format?: string;
+  security_config?: Record<string, unknown>;
+  attribute_mapping?: Record<string, unknown>;
+  role_mapping?: Record<string, unknown>;
+}
