@@ -47,6 +47,7 @@ from .stream import Stream, StreamStatus
 
 # Viewer Interaction & Engagement (Feature 020)
 from .poll import Poll, PollOption, PollVote, PollType, PollStatus
+from .qa import Question, QuestionUpvote, QuestionStatus
 
 __all__ = [
     "User",
@@ -95,5 +96,8 @@ __all__ = [
     "PollVote",
     "PollType",
     "PollStatus",
+    "Question",
+    "QuestionUpvote",
+    "QuestionStatus",
 ]
 

@@ -43,6 +43,7 @@ class Stream(Base):
     **Relationships**:
     - owner: User (FK to users.id)
     - playlists: List[PlaylistItem] (one-to-many, cascade delete)
+    - questions: List[Question] (one-to-many, cascade delete)
     
     **Timestamps**:
     - created_at: Время создания stream
@@ -98,6 +99,13 @@ class Stream(Base):
         back_populates="stream",
         cascade="all, delete-orphan",
         order_by="src.models.playlist.PlaylistItem.position",
+        lazy="select"
+    )
+    questions = relationship(
+        "src.models.qa.Question",
+        back_populates="stream",
+        cascade="all, delete-orphan",
+        order_by="src.models.qa.Question.upvote_count.desc()",
         lazy="select"
     )
     
