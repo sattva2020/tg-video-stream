@@ -28,6 +28,7 @@ from src.api.admin.security_policy import router as security_policy_router
 from src.api.admin.data_export import router as data_export_router
 from src.api.admin.user_deletion import router as user_deletion_router
 from src.api.admin.security_dashboard import router as security_dashboard_router
+from src.api.admin.audit_export import router as audit_export_router
 from src.lib.audit import (
     audit_read,
     audit_create,
@@ -69,6 +70,11 @@ router.include_router(user_deletion_router, prefix="", tags=["User Deletion"])
 # Feature 025: Security Dashboard
 # ============================================================================
 router.include_router(security_dashboard_router, prefix="/security", tags=["Security Dashboard"])
+
+# ============================================================================
+# Feature 025: Audit Log Export for Compliance Reporting
+# ============================================================================
+router.include_router(audit_export_router, prefix="", tags=["Audit Export"])
 
 
 class PlaylistUpdate(BaseModel):
