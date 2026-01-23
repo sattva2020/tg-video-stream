@@ -1,0 +1,55 @@
+name: Frontend perf checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+jobs:
+  run-perf:
+    name: Run perf checks for PRs on feature branches
+    runs-on: ubuntu-latest
+    # Only run on feature branches that start with feature/ or numbered feature ids like 008-
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.head_ref, 'feature/') || startsWith(github.head_ref, '008-')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install apt deps required for builds
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev jq
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run perf measurement (Lighthouse)
+        env:
+          SKIP_PLAYWRIGHT: '1' # in CI we only need Lighthouse to generate stable numbers
+          USE_DEV_SERVER: '0'
+        run: npm run perf:auth-errors
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-perf-reports
+          path: .internal/frontend-logs/perf/**
+
+      - name: Fail on perf threshold breach
+        # If the latest run contains threshold breaches, fail the job (enforces regression guard)
+        env:
+          PERF_ROOT: .internal/frontend-logs/perf
+        run: |
+          set -euo pipefail
+          if [ ! -d "$PERF_ROOT" ]; then echo "No perf outputs found"; exit 1; fi
+          latest=$(ls -1 "$PERF_ROOT" | sort | tail -n1)
+          echo "Latest perf run: $latest"
+          jq -r '.' "$PERF_ROOT/$latest/summary.json"
+          node -e "const fs=require('fs');const p=process.argv[1];const s=JSON.parse(fs.readFileSync(p));const max=s.thresholds.maxTtiMs, maxd=s.thresholds.maxDeltaMs; if(s.baseline.tti>max||s.error.tti>max||Math.abs(s.deltaMs)>maxd){ console.error('PERF THRESHOLD BREACHED',JSON.stringify({baseline:s.baseline.tti,error:s.error.tti,delta:s.deltaMs})); process.exit(2);} console.log('perf OK')" "$PERF_ROOT/$latest/summary.json"

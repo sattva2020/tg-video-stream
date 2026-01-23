@@ -1,47 +1,9 @@
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import os, sys
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from main import app
-from database import Base, get_db
 from models.user import User
 from services.auth_service import auth_service
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_admin.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-app.dependency_overrides[get_db] = override_get_db
-
-@pytest.fixture(scope="module")
-def client():
-    Base.metadata.create_all(bind=engine)
-    yield TestClient(app)
-    Base.metadata.drop_all(bind=engine)
-
-@pytest.fixture(autouse=True)
-def cleanup():
-    db = TestingSessionLocal()
-    db.query(User).delete()
-    db.commit()
-    db.close()
-    yield
-    db = TestingSessionLocal()
-    db.query(User).delete()
-    db.commit()
-    db.close()
-
 
 def create_admin(db, email='admin@example.com', password='AdminPassword123!'):
     hashed = auth_service.hash_password(password)
@@ -52,16 +14,15 @@ def create_admin(db, email='admin@example.com', password='AdminPassword123!'):
     return admin
 
 
-def test_list_pending_users_and_approve(client):
-    db = TestingSessionLocal()
+def test_list_pending_users_and_approve(client, db_session):
     # Create admin
-    admin = create_admin(db)
+    admin = create_admin(db_session)
     token = auth_service.create_jwt_for_user(admin)
 
     # Create two users, one pending
     u1 = User(email='pending1@example.com', hashed_password=auth_service.hash_password('pass1'), status='pending')
     u2 = User(email='approved1@example.com', hashed_password=auth_service.hash_password('pass2'), status='approved')
-    db.add(u1); db.add(u2); db.commit(); db.refresh(u1); db.refresh(u2)
+    db_session.add(u1); db_session.add(u2); db_session.commit(); db_session.refresh(u1); db_session.refresh(u2)
 
     headers = { 'Authorization': f'Bearer {token}' }
     r = client.get('/api/admin/users?status=pending', headers=headers)
@@ -81,17 +42,14 @@ def test_list_pending_users_and_approve(client):
     assert login_resp.status_code == 200
     assert 'access_token' in login_resp.json()
 
-    db.close()
 
-
-def test_reject_user_blocks_login(client):
-    db = TestingSessionLocal()
-    admin = create_admin(db)
+def test_reject_user_blocks_login(client, db_session):
+    admin = create_admin(db_session)
     token = auth_service.create_jwt_for_user(admin)
 
     # Create a pending user
     u = User(email='to.reject@example.com', hashed_password=auth_service.hash_password('pass3'), status='pending')
-    db.add(u); db.commit(); db.refresh(u)
+    db_session.add(u); db_session.commit(); db_session.refresh(u)
 
     headers = { 'Authorization': f'Bearer {token}' }
     r = client.post(f'/api/admin/users/{u.id}/reject', headers=headers)
@@ -101,5 +59,3 @@ def test_reject_user_blocks_login(client):
     # Attempt login should be blocked
     login_resp = client.post('/api/auth/login', json={'email': 'to.reject@example.com', 'password': 'pass3'})
     assert login_resp.status_code == 403
-
-    db.close()

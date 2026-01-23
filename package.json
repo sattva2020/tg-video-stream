@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "docs:validate": "markdownlint README.md docs/**/*.md specs/**/*.md",
-    "docs:report": "node scripts/docs-report.mjs"
+    "docs:report": "node scripts/docs-report.mjs",
+    "perf:auth-errors": "node tests/perf/auth-error-tti.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -15,6 +16,8 @@
     "three": "^0.181.2"
   },
   "devDependencies": {
+    "chrome-launcher": "^1.2.1",
+    "lighthouse": "^12.8.2",
     "markdownlint-cli": "^0.39.0"
   }
 }

@@ -17,8 +17,9 @@ def create_admin(email: str):
             return
 
         user.role = "admin"
+        user.status = "approved"
         db.commit()
-        print(f"User {email} is now an admin.")
+        print(f"User {email} is now an admin and approved.")
     except Exception as e:
         print(f"Error: {e}")
         db.rollback()

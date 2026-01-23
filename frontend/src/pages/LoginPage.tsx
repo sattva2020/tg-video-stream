@@ -31,7 +31,11 @@ const LoginPage: React.FC = () => {
 
   useEffect(() => {
     const errorKey = searchParams.get('error');
-    if (errorKey && errorMap[errorKey]) {
+    const statusKey = searchParams.get('status');
+
+    if (statusKey === 'pending') {
+      setErrorMessage('Your account is pending approval. Please wait for administrator verification.');
+    } else if (errorKey && errorMap[errorKey]) {
       setErrorMessage(errorMap[errorKey]);
     } else if (errorKey) {
       setErrorMessage('An unknown error occurred. Please try again.');
@@ -39,7 +43,8 @@ const LoginPage: React.FC = () => {
   }, [searchParams]);
 
   const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
+    const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    window.location.href = `${API_URL}/api/auth/google`;
   };
 
   const onSubmit = async (data: LoginRequest) => {
@@ -53,6 +58,8 @@ const LoginPage: React.FC = () => {
       console.error('Login failed:', error);
       if (error.response?.status === 401) {
         setErrorMessage('Invalid email or password.');
+      } else if (error.response?.status === 403) {
+        setErrorMessage('Your account is pending approval or has been rejected.');
       } else {
         setErrorMessage('Login failed. Please try again later.');
       }

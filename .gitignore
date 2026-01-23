@@ -26,6 +26,7 @@ ENV/
 # Logs
 *.log
 logs/
+frontend/logs/
 
 # Editor/IDE
 .vscode/

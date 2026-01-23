@@ -26,6 +26,8 @@ const resources = {
             "invalid_credentials": "Invalid email or password.",
             "registration_failed": "Registration failed. Please try again later.",
             "email_exists": "Email already registered",
+            "validation_error": "Validation Error",
+            "account_pending": "Account created but pending approval.",
             "hero_label": "Telegram 24/7 Video Streamer",
             "hero_title": "Always-on streaming from your curated YouTube playlists",
             "hero_subtitle": "Launch immersive broadcasts inside Telegram without baby-sitting OBS or hardware.",
@@ -46,6 +48,8 @@ const resources = {
             "language_switcher_label": "Change landing language",
             "language_switcher_auto_badge": "Auto",
             "language_switcher_fallback_hint": "We switched you to {{fallback}} because your browser language is not supported yet. Available: {{available}}.",
+            "login_tab": "Login",
+            "register_tab": "Register"
         }
     },
     ru: {
@@ -71,6 +75,8 @@ const resources = {
             "invalid_credentials": "Неверный email или пароль.",
             "registration_failed": "Ошибка регистрации. Попробуйте позже.",
             "email_exists": "Email уже зарегистрирован.",
+            "validation_error": "Ошибка валидации",
+            "account_pending": "Аккаунт создан, но ожидает подтверждения.",
             "hero_label": "Telegram 24/7 видеостример",
             "hero_title": "Круглосуточные трансляции из ваших плейлистов YouTube",
             "hero_subtitle": "Запускайте иммерсивные эфиры в Telegram без OBS и лишнего железа.",
@@ -91,6 +97,8 @@ const resources = {
             "language_switcher_label": "Сменить язык лендинга",
             "language_switcher_auto_badge": "Авто",
             "language_switcher_fallback_hint": "Мы переключили интерфейс на {{fallback}}, потому что язык браузера пока не поддерживается. Доступные: {{available}}.",
+            "login_tab": "Вход",
+            "register_tab": "Регистрация"
         }
     },
     uk: {
@@ -116,6 +124,8 @@ const resources = {
             "invalid_credentials": "Невірний email або пароль.",
             "registration_failed": "Помилка реєстрації. Спробуйте пізніше.",
             "email_exists": "Email вже зареєстрований.",
+            "validation_error": "Помилка валідації",
+            "account_pending": "Акаунт створено, але очікує підтвердження.",
             "hero_label": "Telegram 24/7 відеострімер",
             "hero_title": "Безперервні стрими з ваших YouTube-плейлистів",
             "hero_subtitle": "Запускайте занурюючі трансляції в Telegram без OBS та постійного нагляду.",
@@ -136,6 +146,8 @@ const resources = {
             "language_switcher_label": "Змінити мову лендингу",
             "language_switcher_auto_badge": "Авто",
             "language_switcher_fallback_hint": "Ми перемкнули інтерфейс на {{fallback}}, бо мова вашого браузера ще не підтримується. Доступні: {{available}}.",
+            "login_tab": "Вхід",
+            "register_tab": "Реєстрація"
         }
     },
     de: {
@@ -161,6 +173,8 @@ const resources = {
             "invalid_credentials": "Ungültige E-Mail oder Passwort.",
             "registration_failed": "Registrierung fehlgeschlagen. Bitte versuchen Sie es später erneut.",
             "email_exists": "E-Mail bereits registriert.",
+            "validation_error": "Validierungsfehler",
+            "account_pending": "Konto erstellt, wartet aber auf Genehmigung.",
             "hero_label": "Telegram 24/7 Video-Streamer",
             "hero_title": "Durchgängiges Streaming aus Ihren kuratierten YouTube-Playlists",
             "hero_subtitle": "Starten Sie immersive Übertragungen in Telegram ohne OBS oder Hardwarepflege.",
@@ -181,6 +195,8 @@ const resources = {
             "language_switcher_label": "Landing-Sprache ändern",
             "language_switcher_auto_badge": "Auto",
             "language_switcher_fallback_hint": "Wir haben auf {{fallback}} umgeschaltet, weil Ihre Browsersprache noch nicht unterstützt wird. Verfügbar: {{available}}.",
+            "login_tab": "Anmelden",
+            "register_tab": "Registrieren"
         }
     }
 };
@@ -191,6 +207,10 @@ i18n
     .init({
         resources,
         fallbackLng: 'en',
+        detection: {
+            order: ['localStorage', 'navigator'],
+            caches: ['localStorage'],
+        },
         interpolation: {
             escapeValue: false,
         },

@@ -46,7 +46,11 @@ def test_get_or_create_user_creates_new_user(mock_db_session, sample_user_info):
     mock_db_session.query.return_value.filter.return_value.first.return_value = None
 
     # Act
-    user = auth_service.get_or_create_user(mock_db_session, sample_user_info)
+    result = auth_service.get_or_create_user(mock_db_session, sample_user_info)
+    if isinstance(result, tuple):
+        user = result[0]
+    else:
+        user = result
 
     # Assert
     assert user is not None
@@ -106,7 +110,7 @@ def test_create_jwt_for_user(mock_create_access_token, existing_user):
 
     # Assert
     assert token == "test_jwt_token"
-    mock_create_access_token.assert_called_once_with(data={"sub": str(existing_user.id)})
+    mock_create_access_token.assert_called_once_with(data={"sub": str(existing_user.id), "role": existing_user.role})
 
 
 def test_password_hash_and_verify():
@@ -141,5 +145,14 @@ def test_password_policy_and_hibp(monkeypatch):
         status_code = 200
         text = f"{suffix}:5\n"
 
-    monkeypatch.setattr('services.auth_service.requests.get', lambda url, timeout=5: FakeResponse())
+    # Patch requests.get where it is used in services.auth_service
+    # Since is_password_pwned imports requests inside the function, we need to patch 'requests.get' globally or in that module context if possible.
+    # But since it imports inside function, we can patch 'requests.get' if we import requests in test and patch it?
+    # No, monkeypatch.setattr('requests.get', ...) works if requests is already imported.
+    # Or we can patch 'services.auth_service.requests' if it was imported at top level.
+    # But it is imported inside the function.
+    # So we should patch 'requests.get' directly.
+    import requests
+    monkeypatch.setattr(requests, 'get', lambda url, timeout=5: FakeResponse())
+    
     assert is_password_pwned(p)

@@ -3,11 +3,8 @@ import { test, expect } from '@playwright/test';
 const ADMIN_EMAIL = process.env.MCP_ADMIN_EMAIL ?? 'admin@sattva.com';
 const ADMIN_PASSWORD = process.env.MCP_ADMIN_PASSWORD ?? 'Zxy1234567';
 const DUPLICATE_EMAIL = 'duplicate@sattva.com';
-const NEW_USER_EMAIL = 'newuser@sattva.com';
 // strong password to satisfy client-side RegisterSchema (min 12 chars, upper, lower, number, special)
 const REGISTER_STRONG_PASSWORD = process.env.REGISTER_STRONG_PASSWORD ?? 'Zxy1234567!A';
-const DOUBLE_CLICK_EMAIL = 'doubleclick@sattva.com';
-
 test.describe('Auth smoke tests', () => {
   test('TC-AUTH-001 — positive login (admin)', async ({ page }) => {
     await page.goto('/login');
@@ -52,8 +49,8 @@ test.describe('Auth smoke tests', () => {
     const dynamicEmail = `newuser-${Date.now()}@sattva.com`;
     const passwordField3 = page.locator('input[name="password"], input[placeholder*="Пароль"]');
     await page.waitForTimeout(300);
-    await page.fill('input[name="email"]', dynamicEmail);
-    await page.fill('input[name="password"]', REGISTER_STRONG_PASSWORD);
+    await emailField.first().fill(dynamicEmail);
+    await passwordField3.first().fill(REGISTER_STRONG_PASSWORD);
     // fill confirm password for duplicate check
     const confirmField2 = page.locator('input[name="confirmPassword"], input[placeholder*="Confirm"]');
     await confirmField2.first().fill(REGISTER_STRONG_PASSWORD);
@@ -112,8 +109,8 @@ test.describe('Auth smoke tests', () => {
     // use a unique email for double-click test to avoid collisions
     const dcEmail = `doubleclick-${Date.now()}@sattva.com`;
     await page.waitForTimeout(300);
-    await page.fill('input[name="email"]', dcEmail);
-    await page.fill('input[name="password"]', REGISTER_STRONG_PASSWORD);
+    await emailField4.first().fill(dcEmail);
+    await passwordField6.first().fill(REGISTER_STRONG_PASSWORD);
     const confirmField4 = page.locator('input[name="confirmPassword"], input[placeholder*="Confirm"]');
     await confirmField4.first().fill(REGISTER_STRONG_PASSWORD);
     const requests: any[] = [];
