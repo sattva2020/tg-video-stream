@@ -7,3 +7,4 @@ export { MetricCard } from './MetricCard';
 export { ListenersChart } from './ListenersChart';
 export { TopTracksTable } from './TopTracksTable';
 export { RealtimeViewersChart } from './RealtimeViewersChart';
+export { StreamPerformanceCard } from './StreamPerformanceCard';
