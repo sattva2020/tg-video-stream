@@ -26,6 +26,8 @@ from sqlalchemy import select, func, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
+from src.lib.celery_app import celery_app
+
 from src.models.schedule_optimization import (
     ScheduleRecommendation,
     PeakHoursAnalytics,
@@ -627,3 +629,172 @@ def get_schedule_recommendation_service(
         ScheduleRecommendationService instance
     """
     return ScheduleRecommendationService(db=db, redis_client=redis_client)
+
+
+@celery_app.task(name="src.services.schedule_recommendation_service.generate_daily_suggestions")
+def generate_daily_suggestions_task() -> Dict[str, Any]:
+    """
+    Celery task для генерации ежедневных AI-рекомендаций.
+
+    Запускается по расписанию (обычно раз в день) для всех активных каналов.
+    Генерирует рекомендации на основе исторических данных вовлеченности
+    и сохраняет их в базу данных.
+
+    Returns:
+        Dict с результатами выполнения: количество обработанных каналов,
+        количество созданных рекомендаций, ошибки если есть
+    """
+    import asyncio
+    from database import SessionLocal
+    from src.models.channel import Channel
+    from src.models.playlist import Playlist
+    from src.models.schedule_optimization import ScheduleRecommendation
+    from src.schemas.schedule_ai import ScheduleRecommendationRequest
+
+    logger.info("Starting daily AI suggestions generation task")
+
+    async def generate_for_channel(db: Session, channel_id: str, channel_name: str) -> int:
+        """Генерация рекомендаций для одного канала."""
+        try:
+            # Создаем сервис рекомендаций (без Redis для задачи)
+            service = get_schedule_recommendation_service(db=db, redis_client=None)
+
+            # Генерируем рекомендации для завтрашнего дня
+            target_date = date.today() + timedelta(days=1)
+
+            # Формируем запрос на рекомендации
+            request = ScheduleRecommendationRequest(
+                channel_id=channel_id,
+                target_date=target_date,
+                max_recommendations=24,
+                min_confidence=50.0,
+                recommendation_types=None
+            )
+
+            # Генерируем рекомендации
+            response = await service.get_recommendations(request)
+
+            # Сохраняем рекомендации в базу данных
+            saved_count = 0
+            for recommendation_item in response.recommendations:
+                try:
+                    await service.save_recommendation(
+                        recommendation=recommendation_item,
+                        channel_id=channel_id,
+                        optimization_id=None
+                    )
+                    saved_count += 1
+                except Exception as e:
+                    logger.error(
+                        f"Failed to save recommendation for channel {channel_id}: {e}"
+                    )
+
+            logger.info(
+                f"Generated and saved {saved_count} recommendations for channel {channel_name}"
+            )
+            return saved_count
+
+        except Exception as e:
+            logger.exception(f"Error generating recommendations for channel {channel_id}: {e}")
+            return 0
+
+    async def generate_all() -> Dict[str, Any]:
+        """Асинхронная генерация для всех каналов."""
+        db = SessionLocal()
+        results = {
+            "processed_channels": 0,
+            "total_recommendations": 0,
+            "errors": [],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+        try:
+            # Получаем все активные каналы
+            channels_query = select(Channel).where(Channel.is_active == True)
+            channels = db.execute(channels_query).scalars().all()
+
+            logger.info(f"Found {len(channels)} active channels for processing")
+
+            for channel in channels:
+                try:
+                    channel_id = str(channel.id)
+                    logger.info(f"Processing channel: {channel.name} ({channel_id})")
+
+                    # Проверяем, есть ли у канала активные плейлисты
+                    playlists_count = db.execute(
+                        select(func.count(Playlist.id)).where(
+                            and_(
+                                Playlist.channel_id == channel.id,
+                                Playlist.is_active == True
+                            )
+                        )
+                    ).scalar()
+
+                    if playlists_count == 0:
+                        logger.info(f"Channel {channel.name} has no active playlists, skipping")
+                        continue
+
+                    # Генерируем рекомендации
+                    saved_count = await generate_for_channel(db, channel_id, channel.name)
+
+                    results["processed_channels"] += 1
+                    results["total_recommendations"] += saved_count
+
+                except Exception as e:
+                    logger.exception(f"Error processing channel {channel.id}: {e}")
+                    results["errors"].append({
+                        "channel_id": str(channel.id),
+                        "error": str(e)
+                    })
+
+            logger.info(
+                f"Daily suggestions generation completed. "
+                f"Processed {results['processed_channels']} channels, "
+                f"created {results['total_recommendations']} recommendations"
+            )
+
+            return results
+
+        except Exception as e:
+            logger.exception(f"Fatal error in daily suggestions generation task: {e}")
+            results["errors"].append({"fatal": str(e)})
+            return results
+
+        finally:
+            db.close()
+
+    # Запускаем асинхронную генерацию
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(generate_all())
+
+
+def generate_daily_suggestions_async() -> Dict[str, Any]:
+    """
+    Асинхронная обертка для запуска задачи генерации ежедневных рекомендаций.
+
+    Эта функция может быть вызвана из API или других мест для запуска
+    фоновой генерации рекомендаций.
+
+    Returns:
+        Dict с информацией о задаче Celery
+    """
+    try:
+        # Запускаем задачу асинхронно через Celery
+        task = generate_daily_suggestions_task.delay()
+        logger.info(f"Scheduled daily suggestions generation task: {task.id}")
+        return {
+            "status": "scheduled",
+            "task_id": task.id,
+            "message": "Daily suggestions generation task has been scheduled"
+        }
+    except Exception as e:
+        logger.exception(f"Failed to schedule daily suggestions generation: {e}")
+        return {
+            "status": "failed",
+            "error": str(e)
+        }
