@@ -1,0 +1,87 @@
+# MediaMTX Configuration for RTMP Ingestion
+# This server receives RTMP streams and makes them available via HLS, RTSP, etc.
+
+# Global settings
+logLevel: info
+logDestinations: [stdout]
+writeQueueSize: 2048
+
+# UDP ports
+rtspRangeStart: 50000
+rtspRangeEnd: 55000
+
+# RTMP settings - for receiving live streams
+rtmp:
+  enabled: yes
+  address: :1935
+  # RTMP authentication can be added later with readUser/readPass
+
+# HLS settings - for serving streams to players
+hls:
+  enabled: yes
+  address: :8888
+  muxerSegmentDuration: 1s
+  muxerSegmentCount: 10
+  muxerMaxSegmentCount: 100
+  directory: /tmp/hls
+  # Allow CORS for web dashboard access
+  allowOrigin: "*"
+
+# RTSP settings - alternative protocol
+rtsp:
+  enabled: yes
+  address: :8554
+  rtspAddress: :1935
+
+# WebRTC/WHIP settings - for browser-based streaming
+webrtc:
+  enabled: yes
+  address: :8189
+  tlsAddress: :8320
+  serverKey: /etc/mediamtx/server.key
+  serverCert: /etc/mediamtx/server.crt
+
+# Paths - configure stream-specific settings
+paths:
+  # Default path - accepts any stream name
+  ".*":
+    # Source can be RTMP, RTSP, or other
+    source: ""
+    sourceRedirect: ""
+    sourceOnDemand: no
+
+    # Publishing settings
+    publishUser: ""
+    publishPass: ""
+    publishIPs: []
+
+    # Reading settings
+    readUser: ""
+    readPass: ""
+    readIPs: []
+
+    # Record streams for later playback
+    record: yes
+    recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
+    recordFormat: fmp4
+    recordPartDuration: 1s
+    recordSegmentDuration: 1h
+
+    # HLS output
+    hls: yes
+    hlsMuxerSegmentDuration: 1s
+    hlsMuxerSegmentCount: 10
+    hlsAllowOrigin: "*"
+
+    # RTSP output
+    rtsp: yes
+
+    # WebRTC output
+    webrtc: yes
+
+    # Run commands on events (for backend integration)
+    runOnPublish: ""
+    runOnUnpublish: ""
+    runOnRead: ""
+    runOnReady: ""
+    runOnNotReady: ""
