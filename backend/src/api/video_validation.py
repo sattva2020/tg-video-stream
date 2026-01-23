@@ -81,6 +81,75 @@ class ValidationErrorResponse(BaseModel):
     transcoding_reasons: List[str] = Field(default_factory=list, description="Reasons for transcoding")
 
 
+class VideoProcessRequest(BaseModel):
+    """Request model for video processing with automatic transcoding."""
+
+    url: str = Field(..., description="Video URL to process")
+    auto_transcode: bool = Field(default=False, description="Automatically trigger transcoding if needed")
+    quality: str = Field(default="medium", description="Quality profile for transcoding (low, medium, high, ultra)")
+    output_format: str = Field(default="mp4", description="Output format for transcoding (mp4, mkv, webm)")
+    video_codec: str = Field(default="h264", description="Target video codec (h264, h265)")
+    audio_codec: str = Field(default="aac", description="Target audio codec (aac, mp3, opus)")
+    timeout: int = Field(default=10, ge=1, le=60, description="Validation timeout in seconds")
+    cache_result: bool = Field(default=True, description="Whether to cache validation result")
+
+    @validator('url')
+    def validate_url(cls, v):
+        """Basic URL validation."""
+        if not v or not v.strip():
+            raise ValueError('URL cannot be empty')
+        return v.strip()
+
+    @validator('quality')
+    def validate_quality(cls, v):
+        """Validate quality profile."""
+        allowed = ['low', 'medium', 'high', 'ultra']
+        if v not in allowed:
+            raise ValueError(f'Quality must be one of: {", ".join(allowed)}')
+        return v
+
+    @validator('output_format')
+    def validate_format(cls, v):
+        """Validate output format."""
+        allowed = ['mp4', 'mkv', 'webm']
+        if v not in allowed:
+            raise ValueError(f'Format must be one of: {", ".join(allowed)}')
+        return v
+
+    @validator('video_codec')
+    def validate_video_codec(cls, v):
+        """Validate video codec."""
+        allowed = ['h264', 'h265']
+        if v not in allowed:
+            raise ValueError(f'Video codec must be one of: {", ".join(allowed)}')
+        return v
+
+    @validator('audio_codec')
+    def validate_audio_codec(cls, v):
+        """Validate audio codec."""
+        allowed = ['aac', 'mp3', 'opus']
+        if v not in allowed:
+            raise ValueError(f'Audio codec must be one of: {", ".join(allowed)}')
+        return v
+
+
+class VideoProcessResponse(BaseModel):
+    """Response model for video processing."""
+
+    validation_id: str = Field(..., description="Unique validation ID")
+    url: str = Field(..., description="Processed video URL")
+    timestamp: str = Field(..., description="Processing timestamp (ISO 8601)")
+    valid: bool = Field(..., description="Whether video passed basic validation")
+    is_compatible: bool = Field(..., description="Whether video is compatible with Telegram")
+    transcoding_required: bool = Field(..., description="Whether transcoding is required")
+    transcoding_reasons: List[str] = Field(default_factory=list, description="Reasons for transcoding")
+    transcoding_triggered: bool = Field(..., description="Whether transcoding was triggered")
+    transcode_id: Optional[str] = Field(None, description="Transcoding operation ID")
+    errors: List[str] = Field(default_factory=list, description="Processing errors")
+    warnings: List[str] = Field(default_factory=list, description="Processing warnings")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Video metadata")
+
+
 @router.post("/validate", response_model=VideoValidationResponse)
 async def validate_video(
     request: VideoValidationRequest,
@@ -299,6 +368,50 @@ async def get_transcode_errors(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to retrieve transcoding errors: {str(e)}"
+        )
+
+
+@router.post("/process", response_model=VideoProcessResponse, status_code=202)
+async def process_video(
+    request: VideoProcessRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Process video with automatic transcoding trigger.
+
+    This endpoint provides end-to-end video processing:
+    1. Validates video URL for Telegram compatibility
+    2. Checks if transcoding is required
+    3. Automatically triggers transcoding if video is incompatible and auto_transcode=True
+
+    Use this endpoint when you want to automatically handle incompatible video formats
+    without manual intervention. The transcoding runs in the background via Celery.
+
+    Returns 202 Accepted when processing is initiated.
+    """
+    try:
+        service = VideoValidationService(db_session=db)
+
+        result = await service.process_video(
+            url=request.url,
+            auto_transcode=request.auto_transcode,
+            quality=request.quality,
+            output_format=request.output_format,
+            video_codec=request.video_codec,
+            audio_codec=request.audio_codec,
+            timeout=request.timeout,
+            cache_result=request.cache_result
+        )
+
+        return VideoProcessResponse(**result)
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Video processing failed: {str(e)}"
         )
 
 
