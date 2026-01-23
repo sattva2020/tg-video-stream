@@ -134,7 +134,7 @@ export function useOfflineQueue() {
     if (isOnline && !processingRef.current && queueRef.current.length > 0) {
       processQueue();
     }
-  }, [isOnline]);
+  }, [isOnline, processQueue]);
 
   /**
    * Обрабатывает все мутации в очереди
@@ -204,8 +204,8 @@ export function useOfflineQueue() {
    *
    * @param options Опции мутации
    */
-  const queueMutation = useCallback<T>(
-    (options: QueueMutationOptions<T>) => {
+  const queueMutation = useCallback(
+    <T = any>(options: QueueMutationOptions<T>) => {
       const { mutationFn, onSuccess, onError } = options;
 
       if (isOnline) {

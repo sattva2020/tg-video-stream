@@ -54,6 +54,7 @@ export const ServiceWorkerProvider: React.FC<{ children: ReactNode }> = ({ child
     }
 
     let mounted = true;
+    let eventCleanup: (() => void) | null = null;
 
     const initializeServiceWorker = async () => {
       try {
@@ -102,7 +103,8 @@ export const ServiceWorkerProvider: React.FC<{ children: ReactNode }> = ({ child
           };
           window.addEventListener('sw-update-available', handleUpdateAvailable);
 
-          return () => {
+          // Store cleanup function
+          eventCleanup = () => {
             window.removeEventListener('sw-update-available', handleUpdateAvailable);
           };
         } else {
@@ -116,15 +118,13 @@ export const ServiceWorkerProvider: React.FC<{ children: ReactNode }> = ({ child
       }
     };
 
-    const cleanup = initializeServiceWorker();
+    initializeServiceWorker();
 
     return () => {
       mounted = false;
-      cleanup.then((cleanupFn) => {
-        if (cleanupFn) {
-          cleanupFn();
-        }
-      });
+      if (eventCleanup) {
+        eventCleanup();
+      }
     };
   }, []);
 

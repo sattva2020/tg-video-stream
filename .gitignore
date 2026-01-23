@@ -201,3 +201,8 @@ tg-engine/AyuGramDesktop/
 
 # Auto Claude data directory
 .auto-claude/
+
+# Claude tool configuration and state files
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
