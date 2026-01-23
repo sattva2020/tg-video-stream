@@ -61,6 +61,7 @@ except ImportError:
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
 from metrics import MetricsCollector
+from exceptions import TranscodingError, FFmpegError, EncodingProfileError
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
@@ -107,6 +108,50 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
         )
 
     return None
+
+
+def _get_actionable_error_message(e: BaseException) -> str:
+    """
+    Get actionable error message from exception.
+
+    For custom streamer exceptions, extract the actionable message.
+    For generic exceptions, provide basic guidance.
+
+    Args:
+        e: Exception to extract message from
+
+    Returns:
+        Actionable error message string
+    """
+    # Handle custom streamer exceptions
+    if isinstance(e, (TranscodingError, FFmpegError, EncodingProfileError)):
+        if hasattr(e, 'actionable_message'):
+            return e.actionable_message
+        elif hasattr(e, 'get_actionable_message'):
+            return e.get_actionable_message()
+        elif hasattr(e, 'get_actionable_hint'):
+            hint = e.get_actionable_hint()
+            if hint:
+                return hint
+
+    # Handle FFmpeg subprocess errors
+    if "FFmpeg" in str(type(e).__name__) or "ffmpeg" in str(e).lower():
+        return (
+            "FFmpeg error occurred. Check video codec compatibility, "
+            "bitrate settings, and source file format. "
+            "Try using h264/aac with standard bitrates."
+        )
+
+    # Handle network errors
+    if "Connection" in str(e) or "Network" in str(e) or "Timeout" in str(e):
+        return "Network error. Check source URL availability and network connectivity."
+
+    # Handle permission errors
+    if "Permission" in str(e):
+        return "Permission denied. Check file permissions and FFmpeg access rights."
+
+    # Default: return the exception message
+    return str(e) or "An error occurred"
 
 
 async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
@@ -899,9 +944,59 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                         
                         # Join group call and stream
                         try:
+                            # Validate encoding profile before attempting playback
+                            if config.video_codec and config.video_codec not in ["h264", "h265", "vp9"]:
+                                error_msg = f"Invalid video_codec: {config.video_codec}"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Supported: h264, h265, vp9"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            if config.audio_codec and config.audio_codec not in ["aac", "mp3", "opus"]:
+                                error_msg = f"Invalid audio_codec: {config.audio_codec}"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Supported: aac, mp3, opus"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            # Validate bitrate settings
+                            if config.video_bitrate and not (500 <= config.video_bitrate <= 10000):
+                                error_msg = f"Invalid video_bitrate: {config.video_bitrate} kbps (must be 500-10000)"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Recommended: 1500-4000 kbps for 720p-1080p"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            if config.audio_bitrate and not (32 <= config.audio_bitrate <= 320):
+                                error_msg = f"Invalid audio_bitrate: {config.audio_bitrate} kbps (must be 32-320)"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Recommended: 128 kbps"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
                             # Note: event.clear() moved to AFTER play() succeeds
                             # to prevent race condition with StreamEnded during play()
-                            
+
                             # Determine audio quality from config
                             audio_quality_map = {
                                 "low": AudioQuality.LOW,
@@ -1095,29 +1190,67 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                         )
 
                                 log.info(f"Channel {channel_id}: pytg.play() completed successfully")
-                            except Exception as play_error:
-                                formatted = _format_exception(play_error)
-                                hint = _human_hint_for_telegram_error(play_error)
-                                log.exception(f"Channel {channel_id}: play() failed: {formatted}")
+                            except (TranscodingError, FFmpegError, EncodingProfileError) as encoding_error:
+                                # Custom encoding errors have actionable messages
+                                formatted = _format_exception(encoding_error)
+                                actionable_msg = _get_actionable_error_message(encoding_error)
+                                log.exception(f"Channel {channel_id}: Encoding error: {formatted}")
                                 if command_handler:
                                     await command_handler.update_status(
                                         channel_id,
                                         "error",
-                                        error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                        error=f"{formatted} | Fix: {actionable_msg}"
+                                    )
+                                # Don't raise - continue to next track after delay
+                                await asyncio.sleep(5)
+                            except Exception as play_error:
+                                formatted = _format_exception(play_error)
+                                hint = _human_hint_for_telegram_error(play_error)
+                                actionable_msg = _get_actionable_error_message(play_error)
+                                log.exception(f"Channel {channel_id}: play() failed: {formatted}")
+                                if command_handler:
+                                    error_message = formatted
+                                    if hint:
+                                        error_message += f" | hint: {hint}"
+                                    elif actionable_msg:
+                                        error_message += f" | Fix: {actionable_msg}"
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_message,
                                     )
                                 raise play_error
                             finally:
                                 # Clear flag AFTER play() completes (success or failure)
                                 play_in_progress[chat_id] = False
-                        except Exception as e:
-                            formatted = _format_exception(e)
-                            hint = _human_hint_for_telegram_error(e)
-                            log.exception(f"Channel {channel_id}: Join call failed: {formatted}")
+                        except (TranscodingError, FFmpegError, EncodingProfileError) as encoding_error:
+                            # Custom encoding errors have actionable messages
+                            formatted = _format_exception(encoding_error)
+                            actionable_msg = _get_actionable_error_message(encoding_error)
+                            log.exception(f"Channel {channel_id}: Encoding error: {formatted}")
                             if command_handler:
                                 await command_handler.update_status(
                                     channel_id,
                                     "error",
-                                    error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                    error=f"{formatted} | Fix: {actionable_msg}"
+                                )
+                            await asyncio.sleep(5)
+                            continue
+                        except Exception as e:
+                            formatted = _format_exception(e)
+                            hint = _human_hint_for_telegram_error(e)
+                            actionable_msg = _get_actionable_error_message(e)
+                            log.exception(f"Channel {channel_id}: Join call failed: {formatted}")
+                            if command_handler:
+                                error_message = formatted
+                                if hint:
+                                    error_message += f" | hint: {hint}"
+                                elif actionable_msg and actionable_msg != str(e):
+                                    error_message += f" | Fix: {actionable_msg}"
+                                await command_handler.update_status(
+                                    channel_id,
+                                    "error",
+                                    error=error_message,
                                 )
                             await asyncio.sleep(5)
                             continue

@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, AsyncIterator, Dict, Any
 
+from exceptions import TranscodingError, FFmpegError, EncodingProfileError
+
 logger = logging.getLogger(__name__)
 
 
@@ -446,6 +448,33 @@ class VideoTranscoder:
             "fps": request.fps
         })
 
+        # Validate encoding parameters
+        # Validate codecs
+        if request.video_codec and request.video_codec not in self.SUPPORTED_VIDEO_CODECS:
+            raise TranscodingError(
+                'unsupported_codec',
+                f'video_codec={request.video_codec}'
+            )
+        if request.audio_codec and request.audio_codec not in self.SUPPORTED_AUDIO_CODECS:
+            raise TranscodingError(
+                'unsupported_codec',
+                f'audio_codec={request.audio_codec}'
+            )
+
+        # Validate bitrates
+        if request.bitrate is not None:
+            if not (500 <= request.bitrate <= 10000):
+                raise TranscodingError(
+                    'invalid_bitrate',
+                    f'video_bitrate={request.bitrate} (must be 500-10000 kbps)'
+                )
+        if request.audio_bitrate is not None:
+            if not (32 <= request.audio_bitrate <= 320):
+                raise TranscodingError(
+                    'invalid_bitrate',
+                    f'audio_bitrate={request.audio_bitrate} (must be 32-320 kbps)'
+                )
+
         # Check file size before transcoding to prevent DoS
         # Проверяем размер файла до транскодирования для предотвращения DoS
         file_size = await self._get_file_size(request.source_url)
@@ -456,7 +485,10 @@ class VideoTranscoder:
                 "max_size": self.MAX_VIDEO_SIZE_BYTES,
                 "action": "reject_large_file"
             })
-            raise ValueError(f"Video file too large: {file_size} bytes (max: {self.MAX_VIDEO_SIZE_BYTES} bytes = {self.MAX_VIDEO_SIZE_BYTES / (1024**3):.1f}GB)")
+            raise TranscodingError(
+                'file_too_large',
+                f'size={file_size} bytes, max={self.MAX_VIDEO_SIZE_BYTES} bytes'
+            )
 
         cmd = self.build_ffmpeg_command(
             source_url=request.source_url,
@@ -525,7 +557,12 @@ class VideoTranscoder:
                     "audio_codec": request.audio_codec,
                     "action": "check_ffmpeg_logs_and_source_video"
                 })
-                raise RuntimeError(f"Video transcoding failed with code {returncode}: {error_msg}")
+                # Raise FFmpegError with actionable message
+                raise FFmpegError(
+                    exit_code=returncode,
+                    stderr_output=error_msg,
+                    command=" ".join(cmd)
+                )
 
             logger.info("Video transcoding completed successfully", extra={
                 "source_url": request.source_url,
@@ -534,6 +571,12 @@ class VideoTranscoder:
                 "total_bytes": total_bytes
             })
 
+        except TranscodingError:
+            # Re-raise TranscodingError and FFmpegError as-is (already have actionable messages)
+            raise
+        except FFmpegError:
+            # Re-raise FFmpegError as-is
+            raise
         except Exception as e:
             logger.exception("Error during video transcoding", extra={
                 "source_url": request.source_url,
@@ -548,7 +591,17 @@ class VideoTranscoder:
                 })
                 process.terminate()
                 await process.wait()
-            raise
+
+            # Wrap generic exceptions with actionable message
+            if "Connection" in str(e) or "Network" in str(e):
+                raise TranscodingError('network_error', context=str(e))
+            elif "Permission" in str(e):
+                raise TranscodingError('permission_denied', context=str(e))
+            elif "Timeout" in str(e):
+                raise TranscodingError('timeout_error', context=str(e))
+            else:
+                # Generic error with context
+                raise TranscodingError('unknown_error', context=str(e))
 
     async def transcode_to_file(
         self,
@@ -620,9 +673,15 @@ class VideoTranscoder:
                 "error": error_msg,
                 "action": "check_ffmpeg_logs_and_source_video"
             })
+            # Return dict with FFmpegError details for API handling
+            ffmpeg_error = FFmpegError(
+                exit_code=process.returncode,
+                stderr_output=error_msg,
+                command=" ".join(cmd)
+            )
             return {
                 "success": False,
-                "error": error_msg,
+                "error": ffmpeg_error.to_dict(),
                 "returncode": process.returncode,
             }
 
