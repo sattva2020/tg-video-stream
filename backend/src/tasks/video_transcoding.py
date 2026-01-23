@@ -143,7 +143,7 @@ def perform_transcode(
             asyncio.set_event_loop(loop)
             try:
                 output_data = loop.run_until_complete(
-                    VideoTranscoder.transcode(request)
+                    VideoTranscoder.transcode(request, None)
                 )
             finally:
                 loop.close()
