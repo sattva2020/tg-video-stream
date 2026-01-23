@@ -27,6 +27,15 @@ from src.services.monitors.system_resource_monitor import (
     shutdown_system_resource_monitor,
 )
 
+from src.services.monitors.stream_failure_monitor import (
+    StreamFailureAlertMonitor,
+    StreamFailureAlertMonitorError,
+    StreamFailureAlertStatus,
+    StreamFailureAlertConfig,
+    get_stream_failure_alert_monitor,
+    shutdown_stream_failure_alert_monitor,
+)
+
 __all__ = [
     # Viewer Count Monitor
     "ViewerCountMonitor",
@@ -49,4 +58,11 @@ __all__ = [
     "SystemResourceConfig",
     "get_system_resource_monitor",
     "shutdown_system_resource_monitor",
+    # Stream Failure Alert Monitor
+    "StreamFailureAlertMonitor",
+    "StreamFailureAlertMonitorError",
+    "StreamFailureAlertStatus",
+    "StreamFailureAlertConfig",
+    "get_stream_failure_alert_monitor",
+    "shutdown_stream_failure_alert_monitor",
 ]
