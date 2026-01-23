@@ -49,6 +49,14 @@ from .stream import Stream, StreamStatus
 from .poll import Poll, PollOption, PollVote, PollType, PollStatus
 from .qa import Question, QuestionUpvote, QuestionStatus
 from .interaction import EmojiReaction, ChatMessage, ReactionDisplayStatus, ChatMessageStatus
+from .engagement import (
+    Shoutout,
+    CTA,
+    ShoutoutType,
+    ShoutoutStatus,
+    CTAStatus,
+    ActionType,
+)
 
 __all__ = [
     "User",
@@ -104,5 +112,11 @@ __all__ = [
     "ChatMessage",
     "ReactionDisplayStatus",
     "ChatMessageStatus",
+    "Shoutout",
+    "CTA",
+    "ShoutoutType",
+    "ShoutoutStatus",
+    "CTAStatus",
+    "ActionType",
 ]
 
