@@ -133,8 +133,12 @@ AUTHORIZATION_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 
 router = APIRouter()
 
-# Basic server-side localization map (fallback). In production this should
-# be replaced with a proper i18n solution or use the frontend localization only.
+# Basic server-side localization map (fallback). In production, consider using
+# a proper i18n solution such as Flask-Babel, or rely solely on frontend localization.
+# 
+# IMPORTANT: These message keys MUST stay in sync with the frontend i18n configuration
+# (see frontend/src/i18n/index.ts). If you add, remove, or change a key,
+# update both places. Consider automating this check in CI.
 MESSAGE_LOCALIZATIONS = {
     'ru': {
         'auth.email_registered': 'Пользователь с таким email уже существует',
@@ -143,6 +147,22 @@ MESSAGE_LOCALIZATIONS = {
         'auth.account_rejected': 'Аккаунт отклонён администрацией',
     }
 }
+
+
+def _extract_preferred_language(accept_header: str) -> str:
+    """Parse Accept-Language header and return preferred language code.
+    
+    Args:
+        accept_header: The Accept-Language header value
+        
+    Returns:
+        The primary language code (e.g., 'ru' from 'ru-RU') or empty string
+    """
+    if not accept_header:
+        return ''
+    # Simple parsing: take first language before ',' and before ';'
+    lang = accept_header.split(',')[0].split(';')[0].strip().lower()
+    return lang.split('-')[0]  # Return just the language code
 
 
 def _format_auth_error(code: str, hint: str, message: str | None = None, message_key: str | None = None, req: Request | None = None) -> dict:
@@ -169,7 +189,7 @@ def _format_auth_error(code: str, hint: str, message: str | None = None, message
     accept = ''
     if req:
         accept = req.headers.get('accept-language', '') or ''
-    prefers_ru = 'ru' in accept.lower()
+    prefers_ru = _extract_preferred_language(accept) == 'ru'
 
     if prefers_ru:
         # If server has localization for the key, prefer that
@@ -295,7 +315,7 @@ async def logout():
 
 
 @router.post("/register")
-def register_user(request: RegisterRequest, db: Session = Depends(get_db), fastapi_request: Request = Depends()):
+def register_user(request: RegisterRequest, db: Session = Depends(get_db), fastapi_request: Request = None):
     # prevent registration if Google-only user exists
     existing_user = db.query(User).filter(User.email == request.email).first()
     if existing_user:

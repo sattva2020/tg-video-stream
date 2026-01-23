@@ -15,7 +15,7 @@ export interface AuthErrorPayload {
   // server may return either a localized message OR a message_key for client-side localization
   message?: string;
   message_key?: string;
-  hint?: string;
+  hint: string; // Required field per OpenAPI contract
 }
 
 export interface AuthSession {
@@ -45,7 +45,7 @@ export class AuthClientError extends Error {
   public readonly payload: AuthErrorPayload;
 
   constructor(status: number, payload: AuthErrorPayload) {
-    super(payload.message);
+    super(payload.message || payload.message_key || 'Authentication error');
     this.status = status;
     this.payload = payload;
   }
@@ -80,17 +80,17 @@ const normalizeAuthError = (error: unknown): AuthClientError => {
     const status = axiosError.response?.status ?? 0;
     const data = axiosError.response?.data;
     if (isAuthErrorPayload(data)) {
-      const payload = data as AuthErrorPayload;
+      let payload = data as AuthErrorPayload;
       // normalize: ensure 'message' is present for consumers by resolving message_key via i18next
       if (!payload.message && payload.message_key) {
         try {
-          payload.message = i18next.t(payload.message_key);
+          payload = { ...payload, message: i18next.t(payload.message_key) };
         } catch (e) {
           console.warn('Failed to translate message_key:', payload.message_key, e);
-          payload.message = payload.message_key;
+          payload = { ...payload, message: payload.message_key };
         }
       }
-      return new AuthClientError(status, payload as Required<AuthErrorPayload & {message: string}>);
+      return new AuthClientError(status, payload);
     }
     return new AuthClientError(status, fallbackError);
   }

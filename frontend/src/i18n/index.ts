@@ -30,6 +30,10 @@ i18n
     resources: I18N_RESOURCES,
     fallbackLng: 'ru',
     debug: false,
+    detection: {
+      order: ['navigator', 'localStorage'], // Specify detection order
+      caches: ['localStorage'], // Where to cache the detected language
+    },
     interpolation: {
       escapeValue: false,
     },

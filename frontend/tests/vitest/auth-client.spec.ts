@@ -4,6 +4,14 @@ import { client } from '../../src/api/client';
 import i18n from '../../src/i18n';
 
 describe('authClient error normalization', () => {
+  let spy: any;
+
+  afterEach(() => {
+    if (spy) {
+      spy.mockRestore();
+    }
+  });
+
   it('resolves message_key via i18next when server returns message_key', async () => {
     const axiosErr = {
       isAxiosError: true,
@@ -13,7 +21,7 @@ describe('authClient error normalization', () => {
       },
     } as any;
 
-    const spy = vi.spyOn(client, 'post').mockRejectedValue(axiosErr);
+    spy = vi.spyOn(client, 'post').mockRejectedValue(axiosErr);
 
     try {
       await authClient.register({ email: 'a@b.com', password: 'Password123!' });
@@ -24,7 +32,5 @@ describe('authClient error normalization', () => {
       // message should be resolved from message_key via i18next
       expect(err.payload.message).toBe(i18n.t('auth.email_registered'));
     }
-
-    spy.mockRestore();
   });
 });
