@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { 
-  Home, 
-  Tv, 
-  Users, 
+import {
+  Home,
+  Tv,
+  Users,
   Settings,
   LogOut,
   CalendarDays,
@@ -24,6 +24,9 @@ import {
   Gauge,
   FileText,
   LayoutDashboard,
+  Webhook,
+  Globe,
+  Code,
 } from 'lucide-react';
 import { DOCS_URL } from '../../config/docs';
 import { useAuth } from '../../context/AuthContext';
@@ -54,7 +57,7 @@ export const Sidebar: React.FC = () => {
   
   const [expandedGroups, setExpandedGroups] = useState<string[]>(() => {
     const saved = localStorage.getItem('sidebar_expanded_groups');
-    return saved ? JSON.parse(saved) : ['main', 'monitoring', 'admin'];
+    return saved ? JSON.parse(saved) : ['main', 'monitoring', 'admin', 'developer'];
   });
 
   const [userLogo, setUserLogo] = useState<string | undefined>(() => getUserLogo(user?.id));
@@ -169,28 +172,55 @@ export const Sidebar: React.FC = () => {
       label: t('nav.group.admin', 'Администрирование'),
       icon: <Settings className="w-4 h-4" />,
       items: [
-        { 
-          path: '/users', 
-          label: t('nav.users', 'Юзеры'), 
+        {
+          path: '/users',
+          label: t('nav.users', 'Юзеры'),
           icon: <Users className="w-5 h-5" />,
-          adminOnly: true 
+          adminOnly: true
         },
-        { 
-          path: '/notifications/rules', 
-          label: t('nav.notifications', 'Уведомления'), 
+        {
+          path: '/notifications/rules',
+          label: t('nav.notifications', 'Уведомления'),
           icon: <Bell className="w-5 h-5" />,
           adminOnly: true
         },
-        { 
-          path: '/admin/settings', 
-          label: t('nav.appSettings', 'API ключи'), 
+        {
+          path: '/admin/settings',
+          label: t('nav.appSettings', 'API ключи'),
           icon: <Key className="w-5 h-5" />,
-          adminOnly: true 
+          adminOnly: true
         },
-        { 
-          path: '/settings', 
-          label: t('nav.settings', 'Настройки'), 
+        {
+          path: '/settings',
+          label: t('nav.settings', 'Настройки'),
           icon: <Settings className="w-5 h-5" />,
+        },
+      ]
+    },
+    {
+      id: 'developer',
+      label: t('nav.group.developer', 'Разработчик'),
+      icon: <Code className="w-4 h-4" />,
+      items: [
+        {
+          path: '/api-keys',
+          label: t('nav.apiKeys', 'API ключи'),
+          icon: <Key className="w-5 h-5" />
+        },
+        {
+          path: '/webhooks',
+          label: t('nav.webhooks', 'Webhooks'),
+          icon: <Webhook className="w-5 h-5" />
+        },
+        {
+          path: '/api-docs',
+          label: t('nav.apiDocs', 'API Docs'),
+          icon: <BookOpen className="w-5 h-5" />
+        },
+        {
+          path: '/ecosystem',
+          label: t('nav.ecosystem', 'Экосистема'),
+          icon: <Globe className="w-5 h-5" />
         },
       ]
     },

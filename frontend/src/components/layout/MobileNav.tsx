@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { 
-  Menu, 
-  X, 
-  Home, 
-  Tv, 
-  Users, 
+import {
+  Menu,
+  X,
+  Home,
+  Tv,
+  Users,
   Settings,
   LogOut,
   CalendarDays,
@@ -19,6 +19,9 @@ import {
   BookOpen,
   ExternalLink,
   MessageSquareWarning,
+  Key,
+  Webhook,
+  Globe,
 } from 'lucide-react';
 import { DOCS_URL } from '../../config/docs';
 import { useAuth } from '../../context/AuthContext';
@@ -103,11 +106,31 @@ export const MobileNav: React.FC = () => {
       icon: <Settings className="w-5 h-5" />,
       adminOnly: true 
     },
-    { 
-      path: '/admin', 
-      label: t('nav.settings', 'Налаштування'), 
+    {
+      path: '/admin',
+      label: t('nav.settings', 'Налаштування'),
       icon: <Settings className="w-5 h-5" />,
-      adminOnly: true 
+      adminOnly: true
+    },
+    {
+      path: '/api-keys',
+      label: t('nav.apiKeys', 'API ключі'),
+      icon: <Key className="w-5 h-5" />
+    },
+    {
+      path: '/webhooks',
+      label: t('nav.webhooks', 'Webhooks'),
+      icon: <Webhook className="w-5 h-5" />
+    },
+    {
+      path: '/api-docs',
+      label: t('nav.apiDocs', 'API Docs'),
+      icon: <BookOpen className="w-5 h-5" />
+    },
+    {
+      path: '/ecosystem',
+      label: t('nav.ecosystem', 'Екосистема'),
+      icon: <Globe className="w-5 h-5" />
     },
   ];
 
