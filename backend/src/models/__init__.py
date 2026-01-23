@@ -45,6 +45,14 @@ from .app_settings import (
 # Phase 6: Clean Architecture (Feature 025-clean-architecture-rules)
 from .stream import Stream, StreamStatus
 
+# A/B Testing Framework (Feature 016)
+from .ab_testing import (
+    ABTest,
+    ABTestVariant,
+    ABTestMetric,
+    ABTestStatus,
+)
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -86,5 +94,10 @@ __all__ = [
     # Clean Architecture Phase 6
     "Stream",
     "StreamStatus",
+    # A/B Testing Framework
+    "ABTest",
+    "ABTestVariant",
+    "ABTestMetric",
+    "ABTestStatus",
 ]
 

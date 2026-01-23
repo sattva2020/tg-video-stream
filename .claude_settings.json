@@ -1,0 +1,39 @@
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read(./**)",
+      "Write(./**)",
+      "Edit(./**)",
+      "Glob(./**)",
+      "Grep(./**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content/**)",
+      "Glob(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content/**)",
+      "Grep(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content/**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content\\.auto-claude\\specs\\016-a-b-testing-framework-for-content/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content\\.auto-claude\\specs\\016-a-b-testing-framework-for-content/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude\\worktrees\\tasks\\016-a-b-testing-framework-for-content\\.auto-claude\\specs\\016-a-b-testing-framework-for-content/**)",
+      "Read(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Write(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Edit(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Glob(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Grep(E:\\My\\Sattva\\telegram\\.auto-claude/**)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "mcp__context7__resolve-library-id(*)",
+      "mcp__context7__get-library-docs(*)",
+      "mcp__graphiti-memory__search_nodes(*)",
+      "mcp__graphiti-memory__search_facts(*)",
+      "mcp__graphiti-memory__add_episode(*)",
+      "mcp__graphiti-memory__get_episodes(*)",
+      "mcp__graphiti-memory__get_entity_edge(*)"
+    ]
+  }
+}
