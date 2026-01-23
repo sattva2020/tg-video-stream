@@ -60,6 +60,7 @@ except ImportError:
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
+from metrics import MetricsCollector
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
@@ -68,6 +69,7 @@ playlist_update_events: Dict[str, asyncio.Event] = {}  # channel_id -> Event (si
 play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+metrics_collector: Optional[MetricsCollector] = None
 
 
 def _env_truthy(name: str, default: bool = True) -> bool:
@@ -188,6 +190,21 @@ def get_redis_url() -> str:
     if redis_url:
         return redis_url
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
+
+
+async def push_encoding_metrics():
+    """Push encoding metrics for all active channels."""
+    global metrics_collector, running_channels
+
+    if not metrics_collector:
+        return
+
+    try:
+        encoding_metrics = metrics_collector.collect_encoding_metrics(running_channels)
+        metrics_collector.push_encoding_metrics(encoding_metrics)
+        log.debug(f"Pushed encoding metrics for {encoding_metrics.get('active_channels', 0)} channels")
+    except Exception as e:
+        log.error(f"Error pushing encoding metrics: {e}")
 
 
 def build_ffmpeg_params_from_profile(config: ChannelConfig) -> str:
@@ -681,7 +698,10 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             channel_playback_loop(channel_id, config)
         )
         running_channels[channel_id]["task"] = task
-        
+
+        # Push encoding metrics after starting channel
+        await push_encoding_metrics()
+
         log.info(f"Channel {channel_id} started successfully")
         return True
         
@@ -755,7 +775,10 @@ async def stop_channel_stream(channel_id: str) -> bool:
         
         # Remove from running channels
         del running_channels[channel_id]
-        
+
+        # Push encoding metrics after stopping channel
+        await push_encoding_metrics()
+
         log.info(f"Channel {channel_id} stopped")
         return True
         
@@ -870,6 +893,9 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                 "playing",
                                 current_item=item.get("title", stream_url[:50])
                             )
+
+                        # Push encoding metrics when playback starts
+                        await push_encoding_metrics()
                         
                         # Join group call and stream
                         try:
@@ -1342,13 +1368,17 @@ async def update_channel_playlist(channel_id: str) -> bool:
 
 async def main():
     """Main entry point."""
-    global manager, command_handler
-    
+    global manager, command_handler, metrics_collector
+
     log.info("Starting Multi-Channel Stream Runner")
-    
+
     # Initialize command handler
     redis_url = get_redis_url()
     command_handler = RedisCommandHandler(redis_url)
+
+    # Initialize metrics collector
+    metrics_collector = MetricsCollector(redis_url=redis_url)
+    log.info("Metrics collector initialized")
     
     # Register callbacks
     command_handler.on_start = start_channel_stream
@@ -1366,7 +1396,24 @@ async def main():
     # Start command handler
     await command_handler.start()
     log.info("Redis command handler started, waiting for commands...")
-    
+
+    # Start periodic encoding metrics push task
+    async def metrics_push_loop():
+        """Background task to periodically push encoding metrics."""
+        while True:
+            try:
+                await push_encoding_metrics()
+                await asyncio.sleep(30)  # Push every 30 seconds
+            except asyncio.CancelledError:
+                log.info("Metrics push loop cancelled")
+                break
+            except Exception as e:
+                log.error(f"Error in metrics push loop: {e}")
+                await asyncio.sleep(30)
+
+    metrics_task = asyncio.create_task(metrics_push_loop())
+    log.info("Encoding metrics push loop started")
+
     # Setup graceful shutdown
     shutdown_event = asyncio.Event()
     
@@ -1385,15 +1432,23 @@ async def main():
     
     # Cleanup
     log.info("Shutting down...")
-    
+
+    # Cancel metrics task
+    if 'metrics_task' in locals():
+        metrics_task.cancel()
+        try:
+            await metrics_task
+        except asyncio.CancelledError:
+            pass
+
     # Stop all channels
     for channel_id in list(running_channels.keys()):
         await stop_channel_stream(channel_id)
-    
+
     # Stop command handler
     if command_handler:
         await command_handler.stop()
-    
+
     log.info("Shutdown complete")
 
 
