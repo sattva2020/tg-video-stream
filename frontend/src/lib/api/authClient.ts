@@ -59,6 +59,7 @@ const isAuthErrorPayload = (value: unknown): value is AuthErrorPayload => {
   const record = value as Record<string, unknown>;
   return (
     typeof record.code === 'string' &&
+    typeof record.hint === 'string' &&
     (typeof record.message === 'string' || typeof record.message_key === 'string')
   );
 };
