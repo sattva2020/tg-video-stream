@@ -122,7 +122,12 @@ def create_app() -> FastAPI:
         print(f"[OK] Rate limiter middleware initialized (Redis: {redis_url})")
     except Exception as e:
         print(f"[WARN] Rate limiter middleware disabled: {e}")
-    
+
+    # API version headers middleware
+    from src.frameworks.http.middleware.version_headers import VersionHeadersMiddleware
+    app.add_middleware(VersionHeadersMiddleware)
+    print("[OK] API version headers middleware initialized")
+
     # Базовые метрики FastAPI/Starlette
     Instrumentator(
         excluded_handlers={"/metrics", "/health", "/api/health", "/api/v1/health", "/healthz"}
