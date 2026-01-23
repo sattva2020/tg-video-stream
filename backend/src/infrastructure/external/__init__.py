@@ -5,7 +5,9 @@
 """
 
 from .telegram_client import PyrogramTelegramClient
+from .cloudflare_client import CloudflareCDNClient
 
 __all__ = [
     "PyrogramTelegramClient",
+    "CloudflareCDNClient",
 ]

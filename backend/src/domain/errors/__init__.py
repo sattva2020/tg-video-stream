@@ -161,3 +161,24 @@ def not_found_error(entity_type: str, entity_id: str) -> EntityNotFoundError:
 def business_rule_error(rule: str, reason: str) -> BusinessRuleViolationError:
     """Создаёт BusinessRuleViolationError с structured message."""
     return BusinessRuleViolationError(f"Business rule '{rule}' violated: {reason}")
+
+
+# CDN-related errors (Feature 024)
+class CDNConnectionError(DomainError):
+    """Ошибка подключения к CDN API."""
+    pass
+
+
+class CDNAuthenticationError(DomainError):
+    """Ошибка аутентификации в CDN."""
+    pass
+
+
+class CDNPurgeError(DomainError):
+    """Ошибка очистки кэша CDN."""
+    pass
+
+
+class CDNConfigurationError(DomainError):
+    """Ошибка конфигурации CDN."""
+    pass
