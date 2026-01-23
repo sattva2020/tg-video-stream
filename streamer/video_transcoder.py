@@ -13,12 +13,41 @@ Architecture:
 
 import asyncio
 import logging
-import math
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional, AsyncIterator, Dict, Any
 
 logger = logging.getLogger(__name__)
+
+
+# Codec mapping from logical names to FFmpeg encoder names
+CODEC_MAPPING = {
+    "h264": "libx264",
+    "h265": "libx265",
+    "hevc": "libx265",
+    "aac": "aac",
+    "mp3": "libmp3lame",
+    "opus": "libopus",
+}
+
+
+def get_ffmpeg_encoder(codec: str) -> str:
+    """
+    Map logical codec names to FFmpeg encoder names.
+    
+    Args:
+        codec: Logical codec name (e.g., 'h264', 'h265', 'aac')
+        
+    Returns:
+        FFmpeg encoder name (e.g., 'libx264', 'libx265', 'aac')
+        
+    Raises:
+        ValueError: If codec is not supported
+    """
+    encoder = CODEC_MAPPING.get(codec.lower())
+    if encoder is None:
+        raise ValueError(f"Unsupported codec: {codec}. Supported: {list(CODEC_MAPPING.keys())}")
+    return encoder
 
 
 class QualityProfile(str, Enum):
@@ -257,15 +286,18 @@ class VideoTranscoder:
             "-i", source_url,
         ]
 
-        # Video codec
-        cmd.extend(["-c:v", video_codec])
+        # Video codec - map to FFmpeg encoder
+        video_encoder = get_ffmpeg_encoder(video_codec)
+        cmd.extend(["-c:v", video_encoder])
 
         # Quality settings
-        if not (width or height):
-            target_height, target_bitrate = quality.get_video_settings()
-        else:
-            target_height = height or quality.get_video_settings()[0]
-            target_bitrate = bitrate or quality.get_video_settings()[1]
+        target_height, target_bitrate = quality.get_video_settings()
+        
+        # Apply overrides if provided
+        if bitrate:
+            target_bitrate = bitrate
+        if height:
+            target_height = height
 
         logger.debug("Transcoding quality settings determined", extra={
             "target_height": target_height,
@@ -276,17 +308,22 @@ class VideoTranscoder:
         # Bitrate
         cmd.extend(["-b:v", f"{target_bitrate}k"])
 
-        # Resolution (scaling)
+        # Resolution (scaling) - apply quality profile or explicit dimensions
         if width or height:
             scale_filter = f"scale={width or -2}:{height or -2}"
-            cmd.extend(["-vf", scale_filter])
+        else:
+            # Apply quality profile height by default
+            scale_filter = f"scale=-2:{target_height}"
+        
+        cmd.extend(["-vf", scale_filter])
 
         # FPS
         if fps:
             cmd.extend(["-r", str(fps)])
 
-        # Audio codec
-        cmd.extend(["-c:a", audio_codec])
+        # Audio codec - map to FFmpeg encoder
+        audio_encoder = get_ffmpeg_encoder(audio_codec)
+        cmd.extend(["-c:a", audio_encoder])
 
         # Audio bitrate
         target_audio_bitrate = audio_bitrate or quality.get_audio_settings()
@@ -296,13 +333,9 @@ class VideoTranscoder:
         if orientation and orientation != 0:
             transpose_value = VideoTranscoder._get_transpose_value(orientation)
             if transpose_value is not None:
-                # Add to existing filters or create new filter chain
-                if width or height:
-                    # Existing scale filter, append transpose
-                    existing_filter = cmd[cmd.index("-vf") + 1]
-                    cmd[cmd.index("-vf") + 1] = f"{existing_filter},transpose={transpose_value}"
-                else:
-                    cmd.extend(["-vf", f"transpose={transpose_value}"])
+                # Append to existing filter chain
+                existing_filter = cmd[cmd.index("-vf") + 1]
+                cmd[cmd.index("-vf") + 1] = f"{existing_filter},transpose={transpose_value}"
 
         # Pixel format (для совместимости)
         cmd.extend(["-pix_fmt", "yuv420p"])
@@ -310,10 +343,9 @@ class VideoTranscoder:
         # Output format
         cmd.extend(["-f", output_format])
 
-        # Fast start (Move metadata to beginning of file for streaming)
+        # Fragmented MP4 for streaming (not faststart which requires seekable output)
         if output_format == "mp4":
-            cmd.append("-movflags")
-            cmd.append("faststart")
+            cmd.extend(["-movflags", "frag_keyframe+empty_moov"])
 
         # Output to stdout
         cmd.append("pipe:1")

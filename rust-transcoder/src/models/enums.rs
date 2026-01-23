@@ -334,7 +334,6 @@ impl VideoCodec {
             (self, format),
             (VideoCodec::H264, VideoFormat::Mp4)
                 | (VideoCodec::H264, VideoFormat::Mkv)
-                | (VideoCodec::H264, VideoFormat::Webm)
                 | (VideoCodec::H265, VideoFormat::Mp4)
                 | (VideoCodec::H265, VideoFormat::Mkv)
         )

@@ -10,7 +10,7 @@ Example usage:
         raise VideoValidationError('unsupported_codec', f'codec={codec}')
 """
 
-from typing import Optional, Dict, Any
+from typing import Optional
 
 
 class VideoServiceError(Exception):

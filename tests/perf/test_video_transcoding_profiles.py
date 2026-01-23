@@ -80,18 +80,19 @@ def test_ffmpeg_command_includes_quality_settings():
         height, bitrate = quality.get_video_settings()
         audio_bitrate = quality.get_audio_settings()
 
-        print(f"Profile {quality.value}: {cmd}")
+        # Convert command to string for substring checking
+        cmd_str = " ".join(cmd)
 
         # Verify video bitrate is in command
-        assert f"{bitrate}k" in cmd, \
+        assert f"{bitrate}k" in cmd_str, \
             f"Profile {quality.value} should include video bitrate {bitrate}k"
 
         # Verify audio bitrate is in command
-        assert f"{audio_bitrate}k" in cmd, \
+        assert f"{audio_bitrate}k" in cmd_str, \
             f"Profile {quality.value} should include audio bitrate {audio_bitrate}k"
 
         # Verify scale filter includes correct height
-        assert f"-2:{height}" in cmd, \
+        assert f"scale=-2:{height}" in cmd_str, \
             f"Profile {quality.value} should include scale filter for height {height}"
 
 
