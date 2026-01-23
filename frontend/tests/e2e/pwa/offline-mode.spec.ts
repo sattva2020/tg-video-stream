@@ -126,8 +126,8 @@ test.describe('Offline Navigation with Cached Content', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // Get cached asset URLs
-    const cachedAssets = await page.evaluate(async () => {
+    // Get cached asset URLs (trigger cache population in page context)
+    await page.evaluate(async () => {
       if (!('caches' in window)) {
         return [];
       }
