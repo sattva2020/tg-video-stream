@@ -86,6 +86,7 @@ const normalizeAuthError = (error: unknown): AuthClientError => {
         try {
           payload.message = i18next.t(payload.message_key);
         } catch (e) {
+          console.warn('Failed to translate message_key:', payload.message_key, e);
           payload.message = payload.message_key;
         }
       }
