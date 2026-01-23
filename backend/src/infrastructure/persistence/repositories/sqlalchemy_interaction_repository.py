@@ -290,6 +290,42 @@ class InteractionRepository:
         except SQLAlchemyError as e:
             raise RepositoryError(f"Failed to get chat message by id {message_id}: {e}") from e
 
+    async def get_chat_message_by_telegram_id(
+        self,
+        telegram_message_id: int,
+        stream_id: str
+    ) -> Optional[ChatMessageORM]:
+        """
+        Получить chat-сообщение по Telegram message ID.
+
+        Args:
+            telegram_message_id: ID сообщения из Telegram
+            stream_id: ID потока
+
+        Returns:
+            ChatMessage ORM model или None если не найдено
+
+        Raises:
+            RepositoryError: При ошибке доступа к хранилищу
+        """
+        try:
+            stmt = (
+                select(ChatMessageORM)
+                .where(
+                    ChatMessageORM.telegram_message_id == telegram_message_id,
+                    ChatMessageORM.stream_id == stream_id
+                )
+            )
+            result = await self._session.execute(stmt)
+            orm_message = result.scalar_one_or_none()
+
+            return orm_message
+
+        except SQLAlchemyError as e:
+            raise RepositoryError(
+                f"Failed to get chat message by telegram_id {telegram_message_id}: {e}"
+            ) from e
+
     async def get_chat_messages_by_stream(
         self,
         stream_id: str,
