@@ -226,8 +226,15 @@ export function useOfflineQueue() {
           });
       } else {
         // Офлайн — добавляем в очередь
+        const generateId = () => {
+          if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+            return `${Date.now()}-${crypto.randomUUID()}`;
+          }
+          return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+        };
+
         const item: QueuedMutation<T> = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: generateId(),
           timestamp: Date.now(),
           mutationFn,
           onSuccess,
