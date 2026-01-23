@@ -171,7 +171,6 @@ class StreamRecoveryService:
 
         # Retry loop с exponential backoff
         last_error = None
-        recovery_log_id = None
 
         for attempt_number in range(1, self.config.max_retries + 1):
             # Создание записи в recovery_logs
