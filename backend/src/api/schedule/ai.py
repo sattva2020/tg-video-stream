@@ -21,7 +21,11 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.lib.rbac import require_role, UserRole
-from src.schemas.schedule_ai import PeakHoursResponse
+from src.schemas.schedule_ai import (
+    PeakHoursResponse,
+    ScheduleRecommendationRequest,
+    ScheduleRecommendationResponse,
+)
 from src.services.schedule_recommendation_service import (
     ScheduleRecommendationService,
     get_schedule_recommendation_service,
@@ -81,3 +85,44 @@ async def get_peak_hours_endpoint(
     except Exception as e:
         logger.error(f"Error getting peak hours: {e}")
         raise HTTPException(status_code=500, detail="Failed to get peak hours analytics")
+
+
+@router.get(
+    "/recommend",
+    response_model=ScheduleRecommendationResponse,
+    summary="Получить рекомендации по расписанию",
+    description="Возвращает AI-рекомендации по контенту на основе исторических данных вовлеченности"
+)
+@require_role([UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR])
+async def get_recommendations_endpoint(
+    channel_id: str = Query(..., description="ID канала"),
+    date: date = Query(..., description="Целевая дата для рекомендаций (YYYY-MM-DD)"),
+    min_confidence: float = Query(50.0, ge=0.0, le=100.0, description="Минимальная уверенность рекомендации"),
+    max_recommendations: int = Query(10, ge=1, le=50, description="Максимальное количество рекомендаций"),
+    service: ScheduleRecommendationService = Depends(get_schedule_recommendation_service_dep)
+):
+    """
+    Получить рекомендации по контенту для указанной даты.
+
+    Требуемые роли: SUPERADMIN, ADMIN, MODERATOR
+
+    Args:
+        channel_id: ID канала
+        date: Целевая дата для рекомендаций
+        min_confidence: Минимальный порог уверенности (0-100)
+        max_recommendations: Максимум рекомендаций в ответе
+
+    Returns:
+        ScheduleRecommendationResponse с списком рекомендаций
+    """
+    try:
+        request = ScheduleRecommendationRequest(
+            channel_id=channel_id,
+            target_date=date,
+            min_confidence=min_confidence,
+            max_recommendations=max_recommendations
+        )
+        return await service.get_recommendations(request)
+    except Exception as e:
+        logger.error(f"Error getting recommendations: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recommendations")

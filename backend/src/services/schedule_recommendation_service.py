@@ -14,7 +14,7 @@ import logging
 import uuid
 from datetime import datetime, timezone, timedelta, date
 from decimal import Decimal
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 
 try:
@@ -273,6 +273,111 @@ class ScheduleRecommendationService:
             "total_duration": int(row.total_duration) if row and row.total_duration else 0
         }
 
+    async def _get_top_playlists_by_engagement(
+        self,
+        channel_id: str,
+        limit: int = 5
+    ) -> List[Tuple[Playlist, Dict[str, Any]]]:
+        """
+        Получение топ плейлистов на основе вовлеченности.
+
+        Args:
+            channel_id: ID канала
+            limit: Максимальное количество плейлистов
+
+        Returns:
+            Список кортежей (Playlist, метрики_производительности)
+        """
+        period_start = datetime.now(timezone.utc) - timedelta(days=30)
+
+        query = select(
+            Playlist,
+            func.avg(TrackPlay.listeners_count).label('avg_listeners'),
+            func.count(TrackPlay.id).label('play_count'),
+            func.sum(TrackPlay.duration_seconds).label('total_duration')
+        ).join(
+            PlaylistItem, Playlist.id == PlaylistItem.playlist_id
+        ).join(
+            TrackPlay, TrackPlay.playlist_item_id == PlaylistItem.id
+        ).where(
+            and_(
+                Playlist.channel_id == UUID(channel_id),
+                TrackPlay.played_at >= period_start
+            )
+        ).group_by(
+            Playlist.id
+        ).order_by(
+            desc('avg_listeners'),
+            desc('play_count')
+        ).limit(limit)
+
+        rows = self.db.execute(query).fetchall()
+
+        results = []
+        for row in rows:
+            playlist = row.Playlist
+            metrics = {
+                "avg_listeners": float(row.avg_listeners) if row.avg_listeners else 0.0,
+                "play_count": row.play_count or 0,
+                "total_duration": int(row.total_duration) if row.total_duration else 0
+            }
+            results.append((playlist, metrics))
+
+        return results
+
+    async def _recommend_playlist_for_timeslot(
+        self,
+        channel_id: str,
+        target_date: date,
+        hour: int,
+        engagement_data: Dict[str, Any]
+    ) -> Optional[Tuple[UUID, str, float]]:
+        """
+        Рекомендация плейлиста для временного слота на основе вовлеченности.
+
+        Args:
+            channel_id: ID канала
+            target_date: Целевая дата
+            hour: Час суток
+            engagement_data: Данные вовлеченности
+
+        Returns:
+            Кортеж (playlist_id, playlist_name, performance_score) или None
+        """
+        top_playlists = await self._get_top_playlists_by_engagement(
+            channel_id,
+            limit=5
+        )
+
+        if not top_playlists:
+            return None
+
+        # Вычисляем оценку соответствия для каждого плейлиста
+        scored_playlists = []
+        for playlist, metrics in top_playlists:
+            # Базовый рейтинг на основе средней вовлеченности
+            base_score = metrics["avg_listeners"]
+
+            # Бонус за количество воспроизведений (популярность)
+            popularity_bonus = min(5.0, metrics["play_count"] / 10.0)
+
+            # Итоговая оценка
+            total_score = base_score + popularity_bonus
+
+            scored_playlists.append((
+                playlist.id,
+                playlist.name,
+                total_score,
+                metrics
+            ))
+
+        # Сортируем по оценке
+        scored_playlists.sort(key=lambda x: x[2], reverse=True)
+
+        # Выбираем лучший плейлист
+        best = scored_playlists[0]
+        return (best[0], best[1], best[2])
+
     async def generate_recommendations(
         self,
         request: ScheduleRecommendationRequest
@@ -357,24 +462,21 @@ class ScheduleRecommendationService:
                 title = f"Заполнить пробел: {hour_data.hour}:00"
                 description = f"Низкий час, можно заполнить контентом"
 
-            # Получаем топ плейлисты
-            top_playlists = self.db.execute(
-                select(Playlist)
-                .join(PlaylistItem, Playlist.id == PlaylistItem.playlist_id)
-                .join(TrackPlay, TrackPlay.playlist_item_id == PlaylistItem.id)
-                .where(
-                    and_(
-                        Playlist.channel_id == UUID(request.channel_id),
-                        TrackPlay.played_at >= datetime.now(timezone.utc) - timedelta(days=30)
-                    )
-                )
-                .group_by(Playlist.id)
-                .order_by(desc(func.count(TrackPlay.id)))
-                .limit(3)
-            ).scalars().all()
+            # Рекомендуем плейлист на основе вовлеченности
+            playlist_rec = await self._recommend_playlist_for_timeslot(
+                request.channel_id,
+                target_date,
+                hour_data.hour,
+                engagement_data
+            )
 
-            playlist_id = top_playlists[0].id if top_playlists else None
-            playlist_name = top_playlists[0].name if top_playlists else None
+            playlist_id = playlist_rec[0] if playlist_rec else None
+            playlist_name = playlist_rec[1] if playlist_rec else None
+            performance_score = playlist_rec[2] if playlist_rec else 0.0
+
+            # Корректируем уверенность на основе performance_score
+            if performance_score > 0:
+                confidence = min(98.0, confidence + performance_score)
 
             # Создаем рекомендацию
             recommendation = ScheduleRecommendationItem(
