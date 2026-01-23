@@ -3,23 +3,23 @@
   "spec": "017-native-mobile-applications",
   "state": "building",
   "subtasks": {
-    "completed": 6,
+    "completed": 13,
     "total": 37,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Mobile App Foundation Setup",
+    "current": "Authentication & Core Features",
     "id": null,
-    "total": 6
+    "total": 5
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 8,
+    "number": 15,
     "started_at": "2026-01-23T16:04:05.089840"
   },
-  "last_update": "2026-01-23T17:05:19.036278"
+  "last_update": "2026-01-23T18:07:05.150939"
 }

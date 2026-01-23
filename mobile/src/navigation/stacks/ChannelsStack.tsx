@@ -9,18 +9,19 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import type { ChannelsStackParamList } from '../types';
+import ChannelManagerScreen from '../../screens/channels/ChannelManagerScreen';
 
 const Stack = createNativeStackNavigator<ChannelsStackParamList>();
 
 export const ChannelsStackNavigator: React.FC = () => {
   const { t } = useTranslation();
 
-  // Temporary placeholder component until screens are implemented
+  // Temporary placeholder component for screens not yet implemented
   const PlaceholderScreen: React.FC = () => {
-    const { View } = require('react-native');
+    const { View, Text } = require('react-native');
     return (
-      <View style={{ flex: 1, backgroundColor: '#fff' }}>
-        {/* Placeholder - will be replaced with actual screens in subtask-3-4 */}
+      <View style={{ flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Screen not yet implemented</Text>
       </View>
     );
   };
@@ -40,7 +41,7 @@ export const ChannelsStackNavigator: React.FC = () => {
     >
       <Stack.Screen
         name="ChannelsList"
-        component={PlaceholderScreen as any}
+        component={ChannelManagerScreen}
         options={{ title: t('navigation.channels', 'Channels') }}
         initialParams={{ title: t('navigation.channels', 'Channels') }}
       />
