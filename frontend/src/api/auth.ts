@@ -12,6 +12,7 @@ export const LoginSchema = z.object({
     .regex(/^\d{6}$/, "Введите 6-значный код 2FA")
     .optional()
     .or(z.literal('')),
+  organization_id: z.string().uuid().optional().or(z.literal('')), // Optional organization context
 });
 
 export const RegisterSchema = z.object({
@@ -58,6 +59,7 @@ export const authApi = {
       email: data.username,
       password: data.password,
       totp_code: data.totp_code?.trim() || undefined,
+      organization_id: data.organization_id || undefined,
     };
     const response = await client.post<AuthResponse>('/api/auth/login', payload);
     return response.data;

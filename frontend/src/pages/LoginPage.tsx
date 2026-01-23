@@ -38,7 +38,7 @@ const LoginPage: React.FC = () => {
     formState: { errors },
   } = useForm<LoginRequest>({
     resolver: zodResolver(LoginSchema),
-    defaultValues: { totp_code: '' },
+    defaultValues: { totp_code: '', organization_id: '' },
   });
 
   useEffect(() => {
@@ -156,6 +156,25 @@ const LoginPage: React.FC = () => {
               {errors.username && (
                 <p className="mt-1 text-xs text-red-600">{errors.username.message}</p>
               )}
+            </div>
+
+            <div>
+              <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700">
+                Organization ID <span className="text-gray-400">(optional)</span>
+              </label>
+              <input
+                id="organization_id"
+                type="text"
+                placeholder="Enter organization ID if applicable"
+                className="block w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                {...register('organization_id')}
+              />
+              {errors.organization_id && (
+                <p className="mt-1 text-xs text-red-600">{errors.organization_id.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Optional: Specify your organization ID for multi-tenant access.
+              </p>
             </div>
 
             <div>
