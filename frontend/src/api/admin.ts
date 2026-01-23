@@ -294,6 +294,51 @@ export const adminApi = {
     const response = await client.post('/api/admin/ip-whitelist/check', null, { params: { ip } });
     return response.data;
   },
+
+  // Feature 025: Security Policy Management
+  getSecurityPolicies: async (params?: {
+    enabled_only?: boolean;
+    policy_type?: string;
+    enforcement_level?: string;
+  }): Promise<SecurityPolicy[]> => {
+    const response = await client.get('/api/admin/security-policies/policies', { params });
+    return response.data;
+  },
+
+  getSecurityPolicyInfo: async (): Promise<SecurityPolicyInfo> => {
+    const response = await client.get('/api/admin/security-policies/policies/info');
+    return response.data;
+  },
+
+  getSecurityPolicy: async (policyId: string): Promise<SecurityPolicy> => {
+    const response = await client.get(`/api/admin/security-policies/policies/${policyId}`);
+    return response.data;
+  },
+
+  createSecurityPolicy: async (data: SecurityPolicyCreate): Promise<SecurityPolicy> => {
+    const response = await client.post('/api/admin/security-policies/policies', data);
+    return response.data;
+  },
+
+  updateSecurityPolicy: async (policyId: string, data: SecurityPolicyUpdate): Promise<SecurityPolicy> => {
+    const response = await client.put(`/api/admin/security-policies/policies/${policyId}`, data);
+    return response.data;
+  },
+
+  deleteSecurityPolicy: async (policyId: string) => {
+    const response = await client.delete(`/api/admin/security-policies/policies/${policyId}`);
+    return response.data;
+  },
+
+  enableSecurityPolicy: async (policyId: string) => {
+    const response = await client.post(`/api/admin/security-policies/policies/${policyId}/enable`);
+    return response.data;
+  },
+
+  disableSecurityPolicy: async (policyId: string) => {
+    const response = await client.post(`/api/admin/security-policies/policies/${policyId}/disable`);
+    return response.data;
+  },
 };
 
 // Feature 025: IP Whitelist Types
@@ -326,4 +371,55 @@ export interface IPWhitelistCreate {
 export interface IPWhitelistUpdate {
   description?: string;
   is_active?: boolean;
+}
+
+// Feature 025: Security Policy Types
+export interface SecurityPolicy {
+  id: string;
+  name: string;
+  policy_type: string;
+  enabled: boolean;
+  enforcement_level: string;
+  affected_roles: string[] | null;
+  grace_period_hours: number | null;
+  allow_exempt_alternative_auth: boolean;
+  policy_config: Record<string, unknown> | null;
+  description: string | null;
+  created_by_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface SecurityPolicyInfo {
+  total_policies: number;
+  enabled_policies: number;
+  disabled_policies: number;
+  mandatory_policies: number;
+  optional_policies: number;
+  audit_only_policies: number;
+  policies_by_type: Record<string, number>;
+}
+
+export interface SecurityPolicyCreate {
+  name: string;
+  policy_type?: string;
+  enabled?: boolean;
+  enforcement_level?: string;
+  affected_roles?: string[] | null;
+  grace_period_hours?: number | null;
+  allow_exempt_alternative_auth?: boolean;
+  policy_config?: Record<string, unknown> | null;
+  description?: string | null;
+}
+
+export interface SecurityPolicyUpdate {
+  name?: string;
+  policy_type?: string;
+  enabled?: boolean;
+  enforcement_level?: string;
+  affected_roles?: string[] | null;
+  grace_period_hours?: number | null;
+  allow_exempt_alternative_auth?: boolean;
+  policy_config?: Record<string, unknown> | null;
+  description?: string | null;
 }
