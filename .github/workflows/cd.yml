@@ -112,16 +112,74 @@ jobs:
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be healthy..."
             sleep 30
-            
-            # Health check
-            echo "🏥 Running health check..."
-            curl -f http://localhost:8000/health || {
-              echo "❌ Health check failed! Rolling back..."
+
+            # Comprehensive health checks
+            echo "🏥 Running comprehensive health checks..."
+
+            # Function to check service health
+            check_service() {
+              local service_name=$1
+              local check_command=$2
+              local max_attempts=$3
+              local wait_time=$4
+
+              for attempt in $(seq 1 $max_attempts); do
+                echo "  Checking $service_name (attempt $attempt/$max_attempts)..."
+                if eval "$check_command"; then
+                  echo "  ✅ $service_name is healthy"
+                  return 0
+                else
+                  if [ $attempt -lt $max_attempts ]; then
+                    echo "  ⏳ $service_name not ready, waiting ${wait_time}s..."
+                    sleep $wait_time
+                  fi
+                fi
+              done
+
+              echo "  ❌ $service_name health check failed after $max_attempts attempts"
+              return 1
+            }
+
+            # Check Docker container status
+            if ! docker compose ps | grep -q "Up"; then
+              echo "❌ Docker containers are not running"
+              exit 1
+            fi
+            echo "✅ Docker containers are running"
+
+            # Check Backend API (port 8000)
+            check_service "Backend API" "curl -f -s http://localhost:8000/health > /dev/null" 5 10 || {
+              echo "❌ Backend API health check failed! Rolling back..."
               git checkout $PREVIOUS_COMMIT
               docker compose up -d --build
               exit 1
             }
-            
+
+            # Check Frontend (port 3000)
+            check_service "Frontend" "curl -f -s http://localhost:3000 > /dev/null" 5 10 || {
+              echo "❌ Frontend health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            # Check Database connectivity
+            check_service "PostgreSQL Database" "docker compose exec -T db pg_isready -U postgres" 3 5 || {
+              echo "❌ Database health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            # Check Redis connectivity
+            check_service "Redis" "docker compose exec -T redis redis-cli ping" 3 5 || {
+              echo "❌ Redis health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            echo "✅ All service health checks passed!"
             echo "✅ Deployment successful!"
             echo "Deployed commit: $(git rev-parse HEAD)"
 
@@ -172,24 +230,109 @@ jobs:
             # Extended health check for production
             echo "⏳ Waiting for services..."
             sleep 45
-            
-            # Multiple health checks
-            for i in 1 2 3; do
-              echo "Health check attempt $i..."
-              if curl -f http://localhost:8000/health; then
-                echo "✅ Health check $i passed"
-              else
-                echo "❌ Health check $i failed"
-                if [ $i -eq 3 ]; then
-                  echo "❌ All health checks failed! Rolling back..."
-                  git checkout $PREVIOUS_COMMIT
-                  docker compose up -d --build
-                  exit 1
+
+            # Comprehensive health checks for production
+            echo "🏥 Running comprehensive production health checks..."
+
+            # Function to check service health with detailed logging
+            check_service_prod() {
+              local service_name=$1
+              local check_command=$2
+              local max_attempts=$3
+              local wait_time=$4
+
+              for attempt in $(seq 1 $max_attempts); do
+                echo "  🔍 Checking $service_name (attempt $attempt/$max_attempts)..."
+                if eval "$check_command"; then
+                  echo "  ✅ $service_name is healthy"
+                  return 0
+                else
+                  if [ $attempt -lt $max_attempts ]; then
+                    echo "  ⏳ $service_name not ready, waiting ${wait_time}s..."
+                    sleep $wait_time
+                  fi
                 fi
-                sleep 10
-              fi
+              done
+
+              echo "  ❌ $service_name health check failed after $max_attempts attempts"
+              return 1
+            }
+
+            # Check Docker container status
+            echo "🔍 Verifying Docker container status..."
+            if ! docker compose ps | grep -q "Up"; then
+              echo "❌ Docker containers are not running"
+              exit 1
+            fi
+
+            # Verify all expected containers are running
+            RUNNING_CONTAINERS=$(docker compose ps --services --filter "status=running" | wc -l)
+            echo "  ✅ $RUNNING_CONTAINERS containers are running"
+
+            # Check Backend API with multiple verification rounds
+            echo "🔍 Verifying Backend API..."
+            for round in 1 2 3; do
+              echo "  Backend API verification round $round..."
+              check_service_prod "Backend API" "curl -f -s http://localhost:8000/health > /dev/null" 5 10 || {
+                echo "❌ Backend API health check failed in round $round! Rolling back..."
+                git checkout $PREVIOUS_COMMIT
+                docker compose up -d --build
+                exit 1
+              }
+              sleep 5
             done
-            
+            echo "  ✅ Backend API verified across 3 rounds"
+
+            # Check Frontend
+            check_service_prod "Frontend" "curl -f -s http://localhost:3000 > /dev/null" 5 10 || {
+              echo "❌ Frontend health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            # Check Database connectivity with connection test
+            check_service_prod "PostgreSQL Database" "docker compose exec -T db pg_isready -U postgres" 3 5 || {
+              echo "❌ Database health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            # Verify database can accept connections
+            echo "🔍 Testing database connection..."
+            docker compose exec -T db psql -U postgres -d telegram_db -c "SELECT 1;" > /dev/null 2>&1 || {
+              echo "❌ Database connection test failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+            echo "  ✅ Database connection verified"
+
+            # Check Redis connectivity
+            check_service_prod "Redis" "docker compose exec -T redis redis-cli ping" 3 5 || {
+              echo "❌ Redis health check failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            }
+
+            # Final verification - check all services one more time
+            echo "🔍 Running final verification round..."
+            sleep 10
+
+            if curl -f -s http://localhost:8000/health > /dev/null && \
+               curl -f -s http://localhost:3000 > /dev/null && \
+               docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1 && \
+               docker compose exec -T redis redis-cli ping > /dev/null 2>&1; then
+              echo "✅ All services verified successfully!"
+            else
+              echo "❌ Final verification failed! Rolling back..."
+              git checkout $PREVIOUS_COMMIT
+              docker compose up -d --build
+              exit 1
+            fi
+
             echo "✅ Production deployment successful!"
 
       - name: Notify on failure
