@@ -749,3 +749,41 @@ Subtask 9-1: Create API key management page with create, list, and revoke functi
 - Commit: 05efbb0b - auto-claude: subtask-9-1 - Create API key management page with create, list, and revoke functionality
 
 === END SESSION 17 ===
+
+Session 18 (2026-01-23):
+Subtask 9-2: Create webhook management page with subscription UI and event logs
+- Status: COMPLETED
+- Files created:
+  * frontend/src/api/webhooks.ts: API client with TypeScript interfaces (Webhook, CreateWebhookData, WebhookEvent, UpdateWebhookData)
+  * frontend/src/components/webhooks/WebhookList.tsx: Full-featured component (703 lines)
+  * frontend/src/pages/webhooks.tsx: Main page with informational banner and doc links
+  * Modified: frontend/src/App.tsx (added WebhooksPage lazy load and /webhooks route)
+- Features implemented:
+  * API client: list, create, get, update, delete, test, rotateSecret, listEvents methods using axios
+  * Create dialog: URL input with validation, 13 event type checkboxes across 4 categories (Stream, Viewer, Track, System)
+  * Webhook list: display all webhooks with status badges (Active/Disabled/Unhealthy), URL, event types, delivery statistics
+  * Secret management: show/hide secret toggle, copy button with feedback, one-time secret display warning
+  * Actions: enable/disable (toggle is_active), send test webhook, rotate secret, delete with confirmation dialogs
+  * Event logs: expandable section showing recent delivery attempts with status (success/failed/retrying/pending), attempt numbers, timestamps, HTTP status codes, response bodies, duration
+  * Health monitoring: automatic unhealthy status for webhooks with >5 failures, last success/failure timestamps, failure count display
+  * Error handling: try/catch blocks, user-friendly error messages from backend API
+  * Responsive design: mobile-friendly grid layouts, proper CSS variable usage
+  * Loading states: spinner during load, disabled states during operations
+  * Empty state: friendly message when no webhooks exist
+- Event types available:
+  * Stream: stream.started, stream.stopped, stream.paused, stream.resumed, stream.error
+  * Viewer: viewer.milestone, viewer.joined, viewer.left
+  * Track: track.started, track.completed, track.failed, track.skipped
+  * System: webhook.test, system.status
+- Pattern followed: frontend/src/components/api-keys/ApiKeyList.tsx (component structure, state management), frontend/src/pages/api-keys.tsx (page layout)
+- Icons used: Webhook, Plus, Trash2, Play, RefreshCw, Eye, EyeOff, Copy, CheckCircle, XCircle, AlertCircle, Clock, Calendar, FileText, ChevronDown, ChevronUp, Bell (all from lucide-react)
+- Route added: /webhooks accessible to all authenticated users (no role restrictions)
+- Page includes: header with Webhook icon, title, subtitle; info banner with Bell icon explaining webhooks; WebhookList component; documentation link section
+- API integration: uses frontend/src/api/client.ts axios instance with JWT authentication interceptors
+- Event log details: shows last 10 delivery attempts per webhook, color-coded by status (green=success, red=failed, yellow=retrying, gray=pending)
+- Verification: Files created and committed, route registered in App.tsx, TypeScript compiles with no errors
+- Total lines of code: 803 lines across 4 files
+- Commit: 2b515a44 - auto-claude: subtask-9-2 - Create webhook management page with subscription UI and event logs
+
+=== END SESSION 18 ===
+
