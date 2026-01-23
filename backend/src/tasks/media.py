@@ -292,13 +292,13 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
         logger.info(f"[worker] fetch_playlist_metadata_task for {playlist_url}")
 
         metadata = extract_video_metadata(playlist_url)
-        
+
         if metadata.get("error"):
             return {"success": False, "error": metadata["error"]}
-        
+
         if not metadata.get("is_playlist"):
             return {"success": False, "error": "URL is not a playlist"}
-        
+
         entries = metadata.get("entries", [])
         added_count = 0
 
@@ -334,20 +334,243 @@ if CELERY_AVAILABLE and os.getenv('CELERY_BROKER_URL'):
                 db.add(new_item)
                 position += 1
                 added_count += 1
-            
+
             db.commit()
             logger.info(f"Added {added_count} items from playlist {playlist_url}")
-            
+
             return {
                 "success": True,
                 "playlist_title": metadata.get("playlist_title"),
                 "added_count": added_count,
             }
-            
+
         except Exception as e:
             logger.exception(f"Error adding playlist items")
             db.rollback()
             return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+
+    @celery_app.task(name='tasks.validate_video', bind=True, max_retries=3)
+    def validate_video_task(self, item_id: str, url: str):
+        """
+        Celery task: validates playlist item for compatibility and queues transcoding if needed.
+
+        Validates video URLs (direct URLs, HLS streams) for Telegram compatibility.
+        If transcoding is required, adds the item to the transcoding queue.
+
+        Args:
+            item_id: UUID playlist item
+            url: Video URL to validate
+
+        Returns:
+            dict with validation result and transcoding status
+        """
+        logger.info(f"[worker] validate_video_task for item {item_id}, url: {url}")
+
+        from database import SessionLocal
+        from src.models.playlist import PlaylistItem
+
+        db = SessionLocal()
+        try:
+            # Get playlist item
+            item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
+            if not item:
+                logger.warning(f"Playlist item {item_id} not found")
+                return {"success": False, "error": "Item not found"}
+
+            # Import validator
+            try:
+                import asyncio
+                from streamer.video_validator import VideoValidator
+
+                # Run async validation in sync context
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    validator = VideoValidator()
+                    result = loop.run_until_complete(validator.validate_url(url))
+                finally:
+                    loop.close()
+            except ImportError:
+                logger.error("VideoValidator not available")
+                return {"success": False, "error": "VideoValidator not available"}
+
+            # Check validation result
+            if not result.valid:
+                logger.warning(f"Video validation failed for item {item_id}: {result.errors}")
+                return {
+                    "success": False,
+                    "valid": False,
+                    "errors": result.errors,
+                    "warnings": result.warnings
+                }
+
+            # Update item with validation metadata
+            if hasattr(item, 'validation_status'):
+                item.validation_status = 'validated' if result.is_compatible else 'needs_transcoding'
+
+            if hasattr(item, 'video_codec') and result.video_codec:
+                item.video_codec = result.video_codec
+
+            if hasattr(item, 'audio_codec') and result.audio_codec:
+                item.audio_codec = result.audio_codec
+
+            if hasattr(item, 'validated_at'):
+                item.validated_at = datetime.utcnow()
+
+            # Check if transcoding is required
+            transcoding_check = validator.check_transcoding_required(result)
+            transcoding_required = transcoding_check.get('required', False)
+
+            if transcoding_required:
+                logger.info(f"Transcoding required for item {item_id}: {transcoding_check.get('reasons', [])}")
+
+                # Add to transcoding queue
+                if hasattr(item, 'transcoding_status'):
+                    item.transcoding_status = 'pending'
+
+                if hasattr(item, 'transcoding_reason'):
+                    item.transcoding_reason = ', '.join(transcoding_check.get('reasons', []))
+
+                db.commit()
+
+                # Queue transcoding task
+                try:
+                    app = _get_celery_app()
+                    app.send_task('tasks.transcode_video', args=[str(item_id), url])
+                    logger.info(f"Enqueued transcoding for item {item_id}")
+                except Exception as e:
+                    logger.exception(f"Failed to enqueue transcoding task")
+                    return {
+                        "success": True,
+                        "valid": True,
+                        "is_compatible": False,
+                        "transcoding_queued": False,
+                        "error": f"Validation passed but failed to queue transcoding: {str(e)}"
+                    }
+
+                return {
+                    "success": True,
+                    "valid": True,
+                    "is_compatible": False,
+                    "transcoding_queued": True,
+                    "reasons": transcoding_check.get('reasons', [])
+                }
+            else:
+                # Video is compatible, no transcoding needed
+                db.commit()
+                logger.info(f"Video validated as compatible for item {item_id}")
+                return {
+                    "success": True,
+                    "valid": True,
+                    "is_compatible": True,
+                    "transcoding_queued": False
+                }
+
+        except Exception as e:
+            logger.exception(f"Unhandled error in validate_video_task for {item_id}")
+            db.rollback()
+            raise self.retry(exc=e, countdown=30)
+        finally:
+            db.close()
+
+    @celery_app.task(name='tasks.transcode_video', bind=True, max_retries=2)
+    def transcode_video_task(self, item_id: str, url: str):
+        """
+        Celery task: transcodes video to Telegram-compatible format.
+
+        This task is automatically queued by validate_video_task when transcoding is required.
+
+        Args:
+            item_id: UUID playlist item
+            url: Video URL to transcode
+
+        Returns:
+            dict with transcoding result
+        """
+        logger.info(f"[worker] transcode_video_task for item {item_id}, url: {url}")
+
+        from database import SessionLocal
+        from src.models.playlist import PlaylistItem
+
+        db = SessionLocal()
+        try:
+            # Get playlist item
+            item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
+            if not item:
+                logger.warning(f"Playlist item {item_id} not found")
+                return {"success": False, "error": "Item not found"}
+
+            # Update status
+            if hasattr(item, 'transcoding_status'):
+                item.transcoding_status = 'processing'
+            db.commit()
+
+            # Import transcode client
+            try:
+                import asyncio
+                from streamer.transcode_client import (
+                    TranscodeRequest,
+                    get_transcode_client,
+                    AudioFilters
+                )
+
+                # Run async transcoding in sync context
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    client = get_transcode_client()
+
+                    # Create transcode request
+                    request = TranscodeRequest(
+                        source_url=url,
+                        format="mp4",  # Output to MP4 for Telegram
+                        video_codec="h264",  # Telegram-compatible codec
+                        audio_codec="aac",  # Telegram-compatible codec
+                        quality="medium",
+                    )
+
+                    # Submit transcoding request
+                    transcode_result = loop.run_until_complete(client.transcode(request))
+
+                    # Update item with transcoding result
+                    if hasattr(item, 'transcoding_status'):
+                        item.transcoding_status = 'completed'
+
+                    if hasattr(item, 'transcoded_url') and transcode_result.get('output_url'):
+                        item.transcoded_url = transcode_result['output_url']
+
+                    if hasattr(item, 'transcoded_at'):
+                        item.transcoded_at = datetime.utcnow()
+
+                    db.commit()
+                    logger.info(f"Transcoding completed for item {item_id}")
+
+                    return {
+                        "success": True,
+                        "transcoded": True,
+                        "output_url": transcode_result.get('output_url')
+                    }
+                finally:
+                    loop.close()
+            except ImportError:
+                logger.error("TranscodeClient not available")
+                if hasattr(item, 'transcoding_status'):
+                    item.transcoding_status = 'failed'
+                db.commit()
+                return {"success": False, "error": "TranscodeClient not available"}
+
+        except Exception as e:
+            logger.exception(f"Unhandled error in transcode_video_task for {item_id}")
+
+            # Update status to failed
+            if hasattr(item, 'transcoding_status'):
+                item.transcoding_status = 'failed'
+            db.commit()
+
+            db.rollback()
+            raise self.retry(exc=e, countdown=60)
         finally:
             db.close()
 
