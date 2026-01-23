@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { Download, Check } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import { usePWAInstall } from '../../hooks/usePWAInstall';
