@@ -318,3 +318,96 @@ class Playlist(Base):
         if 'total_duration' not in kwargs:
             kwargs['total_duration'] = sum(item.get('duration', 0) for item in items)
         super().__init__(*args, **kwargs)
+
+
+class SmartPlaylist(Base):
+    """
+    Умный плейлист — плейлист с автоформлением по критериям.
+
+    Позволяет:
+    - Создавать плейлисты на основе правил и фильтров
+    - Автоматически обновлять содержимое по расписанию
+    - Фильтровать по тегам, жанрам, артистам, длительности и т.д.
+
+    Примеры критериев:
+    - {"genre": "meditation", "duration_min": 300, "duration_max": 1800}
+    - {"tags": ["ambient", "chill"], "added_after": "2024-01-01"}
+    - {"artist": "Karunesh", "order_by": "date_added", "limit": 50}
+    """
+    __tablename__ = "smart_playlists"
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+
+    # Владелец умного плейлиста
+    user_id = Column(GUID(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # Привязка к каналу (опционально)
+    channel_id = Column(GUID(), ForeignKey("channels.id", ondelete="SET NULL"), nullable=True)
+
+    # Привязка к группе (опционально)
+    group_id = Column(GUID(), ForeignKey("playlist_groups.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Ссылка на автоматически создаваемый плейлист
+    playlist_id = Column(GUID(), ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True, index=True)
+
+    # Порядок сортировки внутри группы
+    position = Column(BigInteger, default=0)
+
+    # Метаданные
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    color = Column(String(7), default="#10B981")  # Изумрудный по умолчанию
+
+    # Критерии формирования плейлиста (JSONB)
+    # Формат: {
+    #   "filters": {
+    #     "genre": ["meditation", "ambient"],
+    #     "tags": ["chill", "relax"],
+    #     "artist": "Karunesh",
+    #     "duration_min": 300,
+    #     "duration_max": 1800,
+    #     "added_after": "2024-01-01",
+    #     "added_before": "2024-12-31"
+    #   },
+    #   "order_by": "date_added",  # date_added, duration, name, artist
+    #   "order_direction": "desc",  # asc, desc
+    #   "limit": 100,  # Максимум треков
+    #   "shuffle": false  # Перемешать результат
+    # }
+    criteria = Column(JSONB, nullable=False, default=dict)
+
+    # Автообновление
+    auto_update = Column(Boolean, default=False)  # Включено ли автообновление
+    auto_update_interval = Column(Integer, default=24)  # Интервал в часах
+    last_refreshed_at = Column(DateTime(timezone=True), nullable=True)  # Последнее обновление
+
+    # Статистика (вычисляется при обновлении)
+    items_count = Column(BigInteger, default=0)  # Количество элементов в плейлисте
+    total_duration = Column(BigInteger, default=0)  # Общая длительность в секундах
+
+    # Флаги
+    is_active = Column(Boolean, default=True)
+    is_public = Column(Boolean, default=False)  # Доступен другим пользователям
+
+    # Аудит
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="smart_playlists")
+    channel = relationship("Channel", backref="smart_playlists")
+    group = relationship("PlaylistGroup", backref="smart_playlists")
+    playlist = relationship("Playlist", foreign_keys=[playlist_id])
+
+    def __repr__(self):
+        return f"<SmartPlaylist {self.id}: {self.name} ({self.items_count} items)>"
+
+    @property
+    def needs_refresh(self):
+        """Проверяет, пора ли обновить умный плейлист."""
+        if not self.auto_update:
+            return False
+        if not self.last_refreshed_at:
+            return True
+        from datetime import timedelta
+        return datetime.now() - self.last_refreshed_at > timedelta(hours=self.auto_update_interval)
