@@ -109,6 +109,21 @@ export const notificationQueryKeys = {
 // Добавляем notifications в основной объект
 (queryKeys as any).notifications = notificationQueryKeys;
 
+// Alert query keys - определяем отдельно для избежания циклических ссылок
+export const alertQueryKeys = {
+  all: ['alerts'] as const,
+  rules: () => ['alerts', 'rules'] as const,
+  rule: (id: string) => ['alerts', 'rules', id] as const,
+  instances: (filters?: any) => ['alerts', 'instances', filters] as const,
+  instance: (id: string) => ['alerts', 'instances', id] as const,
+  groups: (filters?: any) => ['alerts', 'groups', filters] as const,
+  group: (id: string) => ['alerts', 'groups', id] as const,
+  statistics: () => ['alerts', 'statistics'] as const,
+} as const;
+
+// Добавляем alerts в основной объект
+(queryKeys as any).alerts = alertQueryKeys;
+
 /**
  * Утилиты для инвалидации кэша
  */
@@ -118,5 +133,6 @@ export const invalidateQueries = {
   channels: () => queryClient.invalidateQueries({ queryKey: queryKeys.channels.all }),
   stream: () => queryClient.invalidateQueries({ queryKey: queryKeys.stream.all }),
   notifications: () => queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all }),
+  alerts: () => queryClient.invalidateQueries({ queryKey: alertQueryKeys.all }),
   all: () => queryClient.invalidateQueries(),
 };
