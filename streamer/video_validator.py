@@ -98,7 +98,9 @@ class VideoValidator:
     """
 
     # Telegram поддерживаемые кодеки
-    TELEGRAM_SUPPORTED_VIDEO_CODECS = ["h264", "h265", "hevc"]
+    # Видео: h264, h265 (hevc - альтернативное название h265)
+    # Аудио: aac, mp3, opus
+    TELEGRAM_SUPPORTED_VIDEO_CODECS = ["h264", "h265"]
     TELEGRAM_SUPPORTED_AUDIO_CODECS = ["aac", "mp3", "opus"]
     TELEGRAM_SUPPORTED_CODECS = TELEGRAM_SUPPORTED_VIDEO_CODECS + TELEGRAM_SUPPORTED_AUDIO_CODECS
 
@@ -213,6 +215,9 @@ class VideoValidator:
         else:
             # Validate video codec
             video_codec = _normalize_codec(video_meta.codec or "unknown")
+            # hevc is an alias for h265
+            if video_codec == "hevc":
+                video_codec = "h265"
             if video_codec not in self.TELEGRAM_SUPPORTED_VIDEO_CODECS:
                 is_compatible = False
                 errors.append(
@@ -280,6 +285,10 @@ class VideoValidator:
         video_codec_norm = _normalize_codec(video_codec or "")
         audio_codec_norm = _normalize_codec(audio_codec or "")
 
+        # hevc is an alias for h265
+        if video_codec_norm == "hevc":
+            video_codec_norm = "h265"
+
         # Validate video codec
         if video_codec_norm and video_codec_norm != "unknown":
             if video_codec_norm not in self.TELEGRAM_SUPPORTED_VIDEO_CODECS:
@@ -326,6 +335,9 @@ class VideoValidator:
         # Check video codec
         if result.video_codec:
             video_codec = _normalize_codec(result.video_codec)
+            # hevc is an alias for h265
+            if video_codec == "hevc":
+                video_codec = "h265"
             if video_codec not in self.TELEGRAM_SUPPORTED_VIDEO_CODECS:
                 reasons.append(f"Video codec '{video_codec}' -> h264/h265")
 
