@@ -9,3 +9,13 @@ Application layer определяет контракты, Infrastructure layer 
 - Infrastructure зависит от Application (реализует порты)
 - Domain не зависит ни от чего (чистая бизнес-логика)
 """
+
+from src.application.ports.i_stream_repository import IStreamRepository
+from src.application.ports.i_user_repository import IUserRepository
+from src.application.ports.i_poll_repository import IPollRepository
+
+__all__ = [
+    "IStreamRepository",
+    "IUserRepository",
+    "IPollRepository",
+]

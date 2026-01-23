@@ -12,6 +12,7 @@ Mappers реализуют Mapper Pattern для конвертации межд
 - UserMapper: User Entity ↔ User ORM
 - StreamMapper: Stream Entity ↔ Stream ORM (T054)
 - PlaylistMapper: Playlist Entity ↔ Playlist ORM (T055)
+- PollMapper: Poll Entity ↔ Poll ORM (T020)
 
 **Usage**:
 ```python
@@ -28,9 +29,11 @@ orm_user = UserMapper.to_orm(user_entity)
 from src.infrastructure.persistence.mappers.user_mapper import UserMapper
 from src.infrastructure.persistence.mappers.stream_mapper import StreamMapper
 from src.infrastructure.persistence.mappers.playlist_mapper import PlaylistMapper
+from src.infrastructure.persistence.mappers.poll_mapper import PollMapper
 
 __all__ = [
     "UserMapper",
     "StreamMapper",
     "PlaylistMapper",
+    "PollMapper",
 ]
