@@ -97,6 +97,7 @@ async def get_recommendations(
 @router.post(
     "/feedback",
     response_model=FeedbackResponse,
+    status_code=201,
     summary="Записать обратную связь",
     description="Пользователь может отметить рекомендацию как понравившуюся или нет"
 )
