@@ -21,6 +21,7 @@ const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
 const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const Recommendations = lazy(() => import('./pages/admin/Recommendations'));
 const NotificationsPage = lazy(() => import('./pages/notifications/Channels'));
 const NotificationRulesPage = lazy(() => import('./pages/notifications/Rules'));
 const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));
@@ -96,6 +97,7 @@ const App: React.FC = () => {
             {/* Routes for MODERATOR and above (analytics) */}
             <Route element={<ProtectedRoute allowedRoles={MODERATOR_AND_ABOVE} />}>
               <Route path="/admin/analytics" element={<Analytics />} />
+              <Route path="/admin/recommendations" element={<Recommendations />} />
               <Route path="/admin/monitoring" element={<Monitoring />} />
             </Route>
 
