@@ -210,6 +210,56 @@ ADMIN_SESSIONS = Gauge(
 
 
 # ==============================================================================
+# CDN Metrics
+# ==============================================================================
+
+CDN_PROVIDERS_TOTAL = Gauge(
+    'sattva_cdn_providers_total',
+    'Total number of CDN providers'
+)
+
+CDN_PROVIDERS_HEALTHY = Gauge(
+    'sattva_cdn_providers_healthy',
+    'Number of healthy CDN providers'
+)
+
+CDN_PROVIDERS_DEGRADED = Gauge(
+    'sattva_cdn_providers_degraded',
+    'Number of degraded CDN providers'
+)
+
+CDN_PROVIDERS_UNHEALTHY = Gauge(
+    'sattva_cdn_providers_unhealthy',
+    'Number of unhealthy CDN providers'
+)
+
+CDN_PROVIDER_STATUS = Gauge(
+    'sattva_cdn_provider_status',
+    'CDN provider health status (1=healthy, 0=unhealthy)',
+    ['provider_id', 'provider_type']
+)
+
+CDN_PROVIDER_RESPONSE_TIME = Histogram(
+    'sattva_cdn_provider_response_seconds',
+    'CDN provider API response time in seconds',
+    ['provider_id', 'provider_type'],
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0)
+)
+
+CDN_CACHE_PURGE_OPERATIONS = Counter(
+    'sattva_cdn_cache_purge_total',
+    'Total CDN cache purge operations',
+    ['provider_id', 'provider_type', 'status']
+)
+
+CDN_HEALTH_CHECK_OPERATIONS = Counter(
+    'sattva_cdn_health_check_total',
+    'Total CDN health check operations',
+    ['provider_type', 'status']
+)
+
+
+# ==============================================================================
 # Helper Functions
 # ==============================================================================
 
@@ -424,12 +474,87 @@ def record_http_duration(
 def record_admin_action(action: str, model: str) -> None:
     """
     Записать действие в админ-панели.
-    
+
     Args:
         action: Тип действия (create, update, delete, view, login, logout)
         model: Название модели (User, Playlist, Stream)
     """
     ADMIN_ACTIONS.labels(action=action, model=model).inc()
+
+
+def record_cdn_cache_purge(
+    provider_id: str,
+    provider_type: str,
+    status: str = "success"
+) -> None:
+    """
+    Записать операцию очистки кэша CDN.
+
+    Args:
+        provider_id: ID конфигурации CDN провайдера
+        provider_type: Тип провайдера (cloudflare, cloudfront, fastly)
+        status: Статус операции (success, failure, partial)
+    """
+    CDN_CACHE_PURGE_OPERATIONS.labels(
+        provider_id=provider_id,
+        provider_type=provider_type,
+        status=status
+    ).inc()
+
+
+def record_cdn_health_check(
+    provider_type: str,
+    status: str = "success"
+) -> None:
+    """
+    Записать операцию проверки здоровья CDN.
+
+    Args:
+        provider_type: Тип провайдера (cloudflare, cloudfront, fastly)
+        status: Статус проверки (success, failure, timeout)
+    """
+    CDN_HEALTH_CHECK_OPERATIONS.labels(
+        provider_type=provider_type,
+        status=status
+    ).inc()
+
+
+def update_cdn_provider_status(
+    provider_id: str,
+    provider_type: str,
+    is_healthy: bool
+) -> None:
+    """
+    Обновить статус здоровья CDN провайдера.
+
+    Args:
+        provider_id: ID конфигурации CDN провайдера
+        provider_type: Тип провайдера (cloudflare, cloudfront, fastly)
+        is_healthy: True если провайдер здоров, False иначе
+    """
+    CDN_PROVIDER_STATUS.labels(
+        provider_id=provider_id,
+        provider_type=provider_type
+    ).set(1 if is_healthy else 0)
+
+
+def observe_cdn_provider_response(
+    provider_id: str,
+    provider_type: str,
+    response_time_seconds: float
+) -> None:
+    """
+    Записать время ответа CDN провайдера.
+
+    Args:
+        provider_id: ID конфигурации CDN провайдера
+        provider_type: Тип провайдера (cloudflare, cloudfront, fastly)
+        response_time_seconds: Время ответа в секундах
+    """
+    CDN_PROVIDER_RESPONSE_TIME.labels(
+        provider_id=provider_id,
+        provider_type=provider_type
+    ).observe(max(response_time_seconds, 0.0))
 
 
 def _normalize_path(path: str) -> str:
@@ -648,6 +773,14 @@ class PrometheusMetricsHelper:
             },
             "auto_end": {
                 "triggers": self._sum_metric(AUTO_END_TRIGGERS),
+            },
+            "cdn": {
+                "providers_total": self._sum_metric(CDN_PROVIDERS_TOTAL),
+                "providers_healthy": self._sum_metric(CDN_PROVIDERS_HEALTHY),
+                "providers_degraded": self._sum_metric(CDN_PROVIDERS_DEGRADED),
+                "providers_unhealthy": self._sum_metric(CDN_PROVIDERS_UNHEALTHY),
+                "purge_operations": self._sum_metric(CDN_CACHE_PURGE_OPERATIONS),
+                "health_check_operations": self._sum_metric(CDN_HEALTH_CHECK_OPERATIONS),
             }
         }
 
