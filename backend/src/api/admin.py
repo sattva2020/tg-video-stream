@@ -361,6 +361,28 @@ def get_stream_metrics(current_user: User = Depends(require_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
 
+@router.get("/stream/encoding-metrics")
+def get_encoding_metrics(current_user: User = Depends(require_admin)):
+    """
+    Get encoding performance metrics for all active channels.
+
+    Returns per-channel encoding metrics including:
+    - Video/audio codecs
+    - Bitrates
+    - Resolution
+    - Quality settings
+    - Stream type
+    """
+    try:
+        metrics_json = redis_client.get('streamer:metrics:encoding:latest')
+        metrics = json.loads(metrics_json) if metrics_json else None
+        return {
+            "online": metrics is not None,
+            "metrics": metrics
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get encoding metrics: {str(e)}")
+
 @router.get("/playlist")
 def get_playlist(current_user: User = Depends(require_admin)):
     items = playlist_service.get_playlist()

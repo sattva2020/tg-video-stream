@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
 import { playlistsApi } from '../api/playlists';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music, Settings } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music, Settings, Gauge, Cpu } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
 import { EncodingProfileForm } from '../components/channels/EncodingProfileForm';
@@ -22,6 +22,7 @@ import {
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
 import { EncodingProfile } from '../components/channels/EncodingProfileForm';
+import { adminApi, EncodingMetricsResponse } from '../api/admin';
 
 const ChannelManager: React.FC = () => {
   const { t } = useTranslation();
@@ -33,6 +34,11 @@ const ChannelManager: React.FC = () => {
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists'],
     queryFn: () => playlistsApi.getMyPlaylists(),
+  });
+  const { data: encodingMetrics } = useQuery({
+    queryKey: ['encoding-metrics'],
+    queryFn: () => adminApi.getEncodingMetrics(),
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 
   const createChannel = useCreateChannel();
@@ -200,6 +206,14 @@ const ChannelManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // Helper to get encoding metrics for a specific channel
+  const getChannelEncodingMetrics = (channelId: string) => {
+    if (!encodingMetrics?.online || !encodingMetrics.metrics?.channels) {
+      return null;
+    }
+    return encodingMetrics.metrics.channels[channelId] || null;
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -349,6 +363,49 @@ const ChannelManager: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Encoding Performance Metrics */}
+                  {channel.status === 'running' && (() => {
+                    const metrics = getChannelEncodingMetrics(channel.id);
+                    if (!metrics) return null;
+
+                    return (
+                      <div className="mb-4 sm:mb-6 p-3 rounded-xl bg-[color:var(--color-bg)] border border-[color:var(--color-border)]">
+                        <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--color-text-secondary)] mb-2">
+                          <Gauge size={14} />
+                          <span>{t('channels.encodingMetrics', 'Encoding Performance')}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-[color:var(--color-text-muted)]">{t('channels.videoCodec', 'Video Codec')}</p>
+                            <p className="font-mono text-[color:var(--color-text)]">{metrics.video_codec || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[color:var(--color-text-muted)]">{t('channels.audioCodec', 'Audio Codec')}</p>
+                            <p className="font-mono text-[color:var(--color-text)]">{metrics.audio_codec || 'N/A'}</p>
+                          </div>
+                          {metrics.video_bitrate && metrics.video_bitrate !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.videoBitrate', 'Video Bitrate')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.video_bitrate} kbps</p>
+                            </div>
+                          )}
+                          {metrics.audio_bitrate && metrics.audio_bitrate !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.audioBitrate', 'Audio Bitrate')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.audio_bitrate} kbps</p>
+                            </div>
+                          )}
+                          {metrics.resolution && metrics.resolution !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.resolution', 'Resolution')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.resolution}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="flex gap-2 sm:gap-3">
                     {channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown' ? (

@@ -159,6 +159,32 @@ export interface QualityAlertConfigResponse extends QualityAlertConfigUpdate {
   updated_at: string;
 }
 
+// Feature 010: Encoding Performance Metrics
+export interface ChannelEncodingMetrics {
+  video_codec?: string;
+  audio_codec?: string;
+  video_bitrate?: string | number;
+  audio_bitrate?: string | number;
+  resolution?: string;
+  video_quality?: string;
+  audio_quality?: string;
+  stream_type?: string;
+  chat_id?: number;
+  status?: string;
+  has_custom_ffmpeg_args?: boolean;
+  has_stream_headers?: boolean;
+}
+
+export interface EncodingMetricsResponse {
+  online: boolean;
+  metrics: {
+    timestamp: number;
+    channels: Record<string, ChannelEncodingMetrics>;
+    active_channels: number;
+    error?: string;
+  } | null;
+}
+
 export const adminApi = {
   startStream: async () => {
     const response = await client.post('/api/admin/stream/start');
@@ -246,6 +272,12 @@ export const adminApi = {
 
   getQualityAlertConfig: async (streamUrl: string): Promise<QualityAlertConfigResponse | null> => {
     const response = await client.get(`/api/admin/stream/quality/alert/config/${encodeURIComponent(streamUrl)}`);
+    return response.data;
+  },
+
+  // Feature 010: Encoding Performance Metrics
+  getEncodingMetrics: async (): Promise<EncodingMetricsResponse> => {
+    const response = await client.get('/api/admin/stream/encoding-metrics');
     return response.data;
   },
 };
