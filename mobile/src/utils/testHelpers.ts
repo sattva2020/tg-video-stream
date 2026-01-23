@@ -928,3 +928,263 @@ export const runPushNotificationE2E = async (
   suite.printResults();
   return suite.getResults();
 };
+
+// ============================================================
+// OFFLINE MODE SYNC TEST HELPERS
+// ============================================================
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  getPendingChanges,
+  getSyncQueue,
+  getLastSync,
+  getSyncStatus,
+  clearPendingChanges,
+  clearSyncQueue,
+  clearAllOfflineData,
+  type PendingChange,
+  type SyncQueueItem,
+} from '../utils/offlineStorage';
+
+/**
+ * Verify network status
+ */
+export const verifyNetworkStatus = async (
+  isOnline: boolean,
+  expectedOnline: boolean
+): TestResult => {
+  const result = assertEquals(isOnline, expectedOnline, 'Network online status');
+
+  return {
+    testName: 'Verify Network Status',
+    passed: result.passed,
+    message: result.message,
+    timestamp: new Date(),
+    details: {
+      actual: isOnline,
+      expected: expectedOnline,
+      status: isOnline ? 'Online' : 'Offline',
+    },
+  };
+};
+
+/**
+ * Verify pending changes stored in AsyncStorage
+ */
+export const verifyPendingChangesStored = async (
+  expectedCount: number
+): Promise<TestResult> => {
+  const pendingChanges = await getPendingChanges();
+  const result = assertEquals(
+    pendingChanges.length,
+    expectedCount,
+    'Pending changes count'
+  );
+
+  return {
+    testName: 'TC-OFFLINE-002: Pending Changes Stored',
+    passed: result.passed,
+    message: result.passed
+      ? `✓ ${expectedCount} pending change(s) stored in AsyncStorage`
+      : `✗ Expected ${expectedCount} pending changes but found ${pendingChanges.length}`,
+    timestamp: new Date(),
+    details: {
+      expected: expectedCount,
+      actual: pendingChanges.length,
+      pendingChanges: pendingChanges.map((pc) => ({
+        id: pc.id,
+        type: pc.type,
+        endpoint: pc.endpoint,
+        timestamp: pc.timestamp,
+      })),
+    },
+  };
+};
+
+/**
+ * Verify sync queue empty
+ */
+export const verifySyncQueueEmpty = async (): Promise<TestResult> => {
+  const syncQueue = await getSyncQueue();
+  const result = assertEquals(syncQueue.length, 0, 'Sync queue count');
+
+  return {
+    testName: 'Verify Sync Queue Empty',
+    passed: result.passed,
+    message: result.passed
+      ? '✓ Sync queue is empty'
+      : `✗ Sync queue should be empty but has ${syncQueue.length} items`,
+    timestamp: new Date(),
+    details: {
+      itemCount: syncQueue.length,
+      items: syncQueue.map((item) => ({
+        id: item.id,
+        retryCount: item.retryCount,
+        lastError: item.lastError,
+      })),
+    },
+  };
+};
+
+/**
+ * Verify sync queue has items
+ */
+export const verifySyncQueueHasItems = async (
+  expectedCount: number
+): Promise<TestResult> => {
+  const syncQueue = await getSyncQueue();
+  const result = assertEquals(syncQueue.length, expectedCount, 'Sync queue count');
+
+  return {
+    testName: 'Verify Sync Queue Has Items',
+    passed: result.passed,
+    message: result.passed
+      ? `✓ Sync queue has ${expectedCount} item(s)`
+      : `✗ Expected ${expectedCount} items but found ${syncQueue.length}`,
+    timestamp: new Date(),
+    details: {
+      expected: expectedCount,
+      actual: syncQueue.length,
+      items: syncQueue.map((item) => ({
+        id: item.id,
+        retryCount: item.retryCount,
+        lastError: item.lastError,
+      })),
+    },
+  };
+};
+
+/**
+ * Verify last sync timestamp updated
+ */
+export const verifyLastSyncUpdated = async (
+  previousSync: number | null
+): Promise<TestResult> => {
+  const lastSync = await getLastSync();
+
+  const checks = [
+    assertNotNull(lastSync, 'Last sync timestamp'),
+    assert(
+      lastSync !== null && lastSync > (previousSync || 0),
+      'Last sync is newer than previous sync'
+    ),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'Verify Last Sync Updated',
+    passed: allPassed,
+    message: allPassed
+      ? `✓ Last sync timestamp updated: ${new Date(lastSync || 0).toISOString()}`
+      : `✗ Last sync timestamp not updated correctly`,
+    timestamp: new Date(),
+    details: {
+      previous: previousSync ? new Date(previousSync).toISOString() : null,
+      current: lastSync ? new Date(lastSync).toISOString() : null,
+    },
+  };
+};
+
+/**
+ * Verify sync status
+ */
+export const verifySyncStatus = async (
+  expectedOnline: boolean,
+  expectedPendingChanges: number,
+  expectedHasConflicts: boolean
+): Promise<TestResult> => {
+  const syncStatus = await getSyncStatus(expectedOnline);
+
+  const checks = [
+    assertEquals(syncStatus.isOnline, expectedOnline, 'Is online'),
+    assertEquals(syncStatus.pendingChanges, expectedPendingChanges, 'Pending changes'),
+    assertEquals(syncStatus.hasConflicts, expectedHasConflicts, 'Has conflicts'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'Verify Sync Status',
+    passed: allPassed,
+    message: allPassed
+      ? `✓ Sync status correct: ${syncStatus.pendingChanges} pending, ${syncStatus.hasConflicts ? 'has' : 'no'} conflicts`
+      : `✗ Sync status incorrect: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      syncStatus,
+      expected: {
+        isOnline: expectedOnline,
+        pendingChanges: expectedPendingChanges,
+        hasConflicts: expectedHasConflicts,
+      },
+    },
+  };
+};
+
+/**
+ * Verify offline data cleared
+ */
+export const verifyOfflineDataCleared = async (): Promise<TestResult> => {
+  const pendingChanges = await getPendingChanges();
+  const syncQueue = await getSyncQueue();
+
+  const checks = [
+    assertEquals(pendingChanges.length, 0, 'Pending changes cleared'),
+    assertEquals(syncQueue.length, 0, 'Sync queue cleared'),
+  ];
+
+  const allPassed = checks.every((check) => check.passed);
+
+  return {
+    testName: 'Verify Offline Data Cleared',
+    passed: allPassed,
+    message: allPassed
+      ? '✓ All offline data cleared successfully'
+      : `✗ Offline data not fully cleared: ${checks.filter((c) => !c.passed).map((c) => c.message).join(', ')}`,
+    timestamp: new Date(),
+    details: {
+      pendingChangesCount: pendingChanges.length,
+      syncQueueCount: syncQueue.length,
+    },
+  };
+};
+
+/**
+ * E2E Test: Offline Mode Sync
+ *
+ * This function can be called to verify offline mode sync functionality.
+ * It's designed to be used during manual testing with a debugger or console.
+ */
+export const runOfflineSyncE2E = async (
+  isOnline: boolean,
+  initialPendingChanges: PendingChange[],
+  finalPendingChanges: PendingChange[]
+) => {
+  const suite = createTestSuite('E2E Offline Mode Sync');
+
+  // Test 1: Verify initial offline state
+  await suite.runTest('Initial offline state detected', async () => {
+    return !isOnline;
+  });
+
+  // Test 2: Verify pending changes were stored
+  await suite.runTest('Pending changes stored offline', async () => {
+    return initialPendingChanges.length > 0;
+  });
+
+  // Test 3: Verify changes persisted in AsyncStorage
+  await suite.runTest('Changes persisted in AsyncStorage', async () => {
+    const stored = await getPendingChanges();
+    return stored.length === initialPendingChanges.length;
+  });
+
+  // Test 4: Verify sync queue is empty initially
+  await suite.runTest('Sync queue empty initially', async () => {
+    const queue = await getSyncQueue();
+    return queue.length === 0;
+  });
+
+  suite.printResults();
+  return suite.getResults();
+};

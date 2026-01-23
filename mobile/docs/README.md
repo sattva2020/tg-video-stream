@@ -222,6 +222,164 @@ cd mobile
 
 ---
 
+## E2E Testing Documentation
+
+### 1. [E2E Testing Guide](./e2e-testing-guide.md)
+**Complete testing guide** for end-to-end testing on physical devices.
+
+**Covers:**
+- Prerequisites and setup
+- Running tests
+- Test case checklist
+- Common issues and solutions
+- Debugging tips
+- Reporting results
+- Best practices
+
+**Length**: ~450 lines
+**Best for**: Understanding E2E testing process
+
+---
+
+### 2. [E2E Authentication Test Plan](./e2e-authentication-test-plan.md)
+**Detailed test plan** for authentication flow testing.
+
+**Contains:**
+- 16 test cases (TC-AUTH-001 through TC-AUTH-016)
+- Login with email/password
+- Biometric authentication
+- 2FA support
+- Pending approval
+- Logout and token management
+- Network error handling
+- Test execution summary
+
+**Length**: ~350 lines
+**Best for**: Comprehensive authentication testing
+
+---
+
+### 3. [E2E Auth Checklist](./e2e-auth-checklist.md)
+**Quick reference checklist** for authentication testing.
+
+**Contains:**
+- Printable checklist for testers
+- All 16 test cases condensed
+- Quick tips
+- Test summary section
+- Sign-off section
+
+**Length**: ~200 lines
+**Best for**: Quick reference during testing
+
+---
+
+### 4. [E2E Stream Management Test Plan](./e2e-stream-management-test-plan.md)
+**Detailed test plan** for stream management functionality.
+
+**Contains:**
+- 15 test cases (TC-STREAM-001 through TC-STREAM-015)
+- Channel display and list loading
+- Status display for all states
+- Start/stop confirmation dialogs
+- Pull-to-refresh functionality
+- Auto-refresh during transitional states
+- Error handling and network errors
+
+**Length**: ~450 lines
+**Best for**: Testing stream management flows
+
+---
+
+### 5. [E2E Stream Checklist](./e2e-stream-checklist.md)
+**Quick reference checklist** for stream management testing.
+
+**Contains:**
+- 51 verification steps across 7 categories
+- Results summary table
+- Issues tracking section (critical, major, minor)
+- Sign-off section
+
+**Length**: ~200 lines
+**Best for**: Quick reference during testing
+
+---
+
+### 6. [E2E Push Notification Test Plan](./e2e-push-notification-test-plan.md)
+**Detailed test plan** for push notification functionality.
+
+**Contains:**
+- 20 test cases (TC-PUSH-001 through TC-PUSH-020)
+- Permission handling (iOS and Android)
+- Device registration
+- Notification reception (foreground, background, killed)
+- Notification tap handling and deep linking
+- Navigation to relevant screens
+- Stream failure notifications
+- Badge count (iOS)
+- Advanced features
+
+**Length**: ~600 lines
+**Best for**: Comprehensive push notification testing
+
+---
+
+### 7. [E2E Push Notification Checklist](./e2e-push-notification-checklist.md)
+**Quick reference checklist** for push notification testing.
+
+**Contains:**
+- Prerequisites checklist
+- 24 verification steps across 6 categories
+- 5 quick test scenarios
+- Results summary
+- Issues tracking
+- Sign-off section
+
+**Length**: ~300 lines
+**Best for**: Quick reference during testing
+
+---
+
+### 8. [E2E Offline Sync Test Plan](./e2e-offline-sync-test-plan.md)
+**Detailed test plan** for offline mode synchronization.
+
+**Contains:**
+- 15 test cases (TC-OFFLINE-001 through TC-OFFLINE-015)
+- Offline detection and indicators
+- Configuration changes stored while offline
+- Automatic sync when coming online
+- Sync indicator states
+- Sync retry on failure
+- Conflict resolution (server wins)
+- User notifications for conflicts
+- Clear pending changes
+- Data cleared on logout
+- Performance testing with many changes
+
+**Length**: ~500 lines
+**Best for**: Testing offline mode and sync functionality
+
+---
+
+### 9. [E2E Offline Sync Checklist](./e2e-offline-sync-checklist.md)
+**Quick reference checklist** for offline sync testing.
+
+**Contains:**
+- Prerequisites checklist
+- Quick test commands
+- 15 detailed verification steps
+- 3 test scenarios (basic flow, conflict, multiple sessions)
+- Results summary table
+- Issues tracking section
+- Sign-off section
+
+**Length**: ~300 lines
+**Best for**: Quick reference during testing
+
+---
+
+---
+
 ## Quick Start
 
 ### For First-Time iOS Submission
