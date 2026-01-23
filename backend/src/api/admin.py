@@ -14,7 +14,7 @@ from src.services.stream_controller import get_stream_controller, StreamControll
 from src.services.playlist_service import playlist_service
 from src.services.activity_service import ActivityService
 from src.schemas.stream_quality import (
-    StreamQualityResponse, 
+    StreamQualityResponse,
     StreamQualityStatus,
     QualityTrendData,
     QualityAlertConfigUpdate,
@@ -25,6 +25,15 @@ from src.services.quality_trends_service import get_quality_trends_service, Qual
 from src.api.admin.saml_config import router as saml_config_router
 from src.api.admin.ip_whitelist import router as ip_whitelist_router
 from src.api.admin.security_policy import router as security_policy_router
+from src.lib.audit import (
+    audit_read,
+    audit_create,
+    audit_update,
+    audit_delete,
+    audit_approve,
+    audit_reject,
+    audit_export
+)
 
 router = APIRouter()
 
@@ -63,6 +72,7 @@ redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379")
 
 
 @router.get("/users", response_model=PaginatedUsersResponse)
+@audit_read("user")
 def list_users(
     status: str | None = None,
     page: int = Query(1, ge=1, description="Page number"),
@@ -109,6 +119,7 @@ def list_users(
 
 
 @router.post("/users/{user_id}/approve")
+@audit_approve("user", "user_id")
 def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -119,7 +130,7 @@ def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: Use
     user.status = 'approved'
     db.commit()
     db.refresh(user)
-    
+
     # Логируем событие одобрения
     activity_service = ActivityService(db)
     activity_service.log_event(
@@ -129,11 +140,12 @@ def approve_user(user_id: UUID, db: Session = Depends(get_db), current_user: Use
         user_email=current_user.email,
         details={"approved_user_id": str(user.id), "approved_user_email": user.email}
     )
-    
+
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
 
 
 @router.post("/users/{user_id}/reject")
+@audit_reject("user", "user_id")
 def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -144,7 +156,7 @@ def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     user.status = 'rejected'
     db.commit()
     db.refresh(user)
-    
+
     # Логируем событие отклонения
     activity_service = ActivityService(db)
     activity_service.log_event(
@@ -154,43 +166,44 @@ def reject_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
         user_email=current_user.email,
         details={"rejected_user_id": str(user.id), "rejected_user_email": user.email}
     )
-    
+
     return {"status": "ok", "id": str(user.id), "new_status": user.status}
 
 
 @router.put("/users/{user_id}/role")
+@audit_update("user", "user_id")
 def update_user_role(
-    user_id: UUID, 
-    role_data: UserRoleUpdate, 
-    db: Session = Depends(get_db), 
+    user_id: UUID,
+    role_data: UserRoleUpdate,
+    db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-        
+
     # Check permissions
     current_role = getattr(current_user, 'role', '').lower()
     target_role = getattr(user, 'role', '').lower()
     new_role = role_data.role.lower()
-    
+
     # Only superadmin can modify superadmin
     if target_role == 'superadmin' and current_role != 'superadmin':
         raise HTTPException(status_code=403, detail="Only superadmin can modify superadmin accounts")
-        
+
     # Only superadmin can promote to superadmin
     if new_role == 'superadmin' and current_role != 'superadmin':
         raise HTTPException(status_code=403, detail="Only superadmin can promote to superadmin")
-        
+
     # Validate role
     valid_roles = ['user', 'admin', 'superadmin', 'moderator', 'operator']
     if new_role not in valid_roles:
         raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}")
-        
+
     user.role = new_role
     db.commit()
     db.refresh(user)
-    
+
     # Log activity
     activity_service = ActivityService(db)
     activity_service.log_event(
@@ -199,16 +212,17 @@ def update_user_role(
         user_id=current_user.id,
         user_email=current_user.email,
         details={
-            "target_user_id": str(user.id), 
+            "target_user_id": str(user.id),
             "old_role": target_role,
             "new_role": new_role
         }
     )
-    
+
     return {"status": "ok", "id": str(user.id), "new_role": user.role}
 
 
 @router.delete("/users/{user_id}")
+@audit_delete("user", "user_id")
 def delete_user(user_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """Delete a user. Superadmin accounts cannot be deleted."""
     user = db.query(User).filter(User.id == user_id).first()
@@ -225,6 +239,7 @@ def delete_user(user_id: UUID, db: Session = Depends(get_db), current_user: User
     return {"status": "ok", "message": "User deleted", "id": str(user_id)}
 
 @router.post("/stream/start")
+@audit_update("stream")
 def start_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     success = controller.start_stream()
     if not success:
@@ -251,6 +266,7 @@ def start_stream(db: Session = Depends(get_db), current_user: User = Depends(req
     return {"status": "success", "message": "Stream started"}
 
 @router.post("/stream/stop")
+@audit_update("stream")
 def stop_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     success = controller.stop_stream()
     if not success:
@@ -264,7 +280,7 @@ def stop_stream(db: Session = Depends(get_db), current_user: User = Depends(requ
             details={"operation": "stop", "error": "Controller returned failure"}
         )
         raise HTTPException(status_code=500, detail="Failed to stop stream")
-    
+
     # Логируем событие остановки трансляции
     activity_service = ActivityService(db)
     activity_service.log_event(
@@ -273,10 +289,11 @@ def stop_stream(db: Session = Depends(get_db), current_user: User = Depends(requ
         user_id=current_user.id,
         user_email=current_user.email
     )
-    
+
     return {"status": "success", "message": "Stream stopped"}
 
 @router.post("/stream/restart")
+@audit_update("stream")
 def restart_stream(db: Session = Depends(get_db), current_user: User = Depends(require_admin), controller: StreamController = Depends(get_stream_controller)):
     """
     Restarts the video stream service.
@@ -308,6 +325,7 @@ def restart_stream(db: Session = Depends(get_db), current_user: User = Depends(r
     return {"status": "success", "message": "Stream restarted"}
 
 @router.get("/stream/status")
+@audit_read("stream")
 def get_stream_status(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     """
     Get comprehensive stream status including:
@@ -385,6 +403,7 @@ def get_playlist(current_user: User = Depends(require_admin)):
     return {"items": items}
 
 @router.post("/playlist")
+@audit_update("playlist")
 def update_playlist(playlist: PlaylistUpdate, current_user: User = Depends(require_admin)):
     success = playlist_service.update_playlist(playlist.items)
     if not success:
@@ -495,6 +514,7 @@ async def batch_analyze_streams(
 
 
 @router.post("/quality/cache/clear")
+@audit_update("stream")
 async def clear_quality_cache(
     stream_url: Optional[str] = Query(None, description="Clear cache for specific URL (or all if None)"),
     current_user: User = Depends(require_admin),
@@ -502,12 +522,12 @@ async def clear_quality_cache(
 ):
     """
     Feature 022 Phase 2: Очистить кеш результатов анализа качества
-    
+
     Очищает кешированные результаты анализа потоков.
-    
+
     Parameters:
         stream_url: URL потока для очистки (None = очистить весь кеш)
-    
+
     Returns:
         Статус операции
     """
@@ -527,6 +547,7 @@ async def clear_quality_cache(
 # ========== Feature 022 Phase 3: Trends & Alerts ==========
 
 @router.get("/stream/quality/trend/{stream_url:path}", response_model=QualityTrendData)
+@audit_export("stream")
 async def get_quality_trend(
     stream_url: str,
     hours: int = Query(24, ge=1, le=168, description="Number of hours of history (1-168, default 24)"),
@@ -536,19 +557,19 @@ async def get_quality_trend(
 ):
     """
     Feature 022 Phase 3: Получить тренд качества потока за N часов
-    
+
     Возвращает историческую информацию о качестве потока для построения графиков.
-    
+
     Parameters:
         stream_url: URL потока
         hours: Количество часов истории (1-168, по умолчанию 24)
-    
+
     Returns:
         QualityTrendData с историей и статистикой
-        
+
     Example:
         GET /api/admin/stream/quality/trend/http://stream.local?hours=24
-        
+
         Response:
         {
             "stream_url": "http://stream.local",

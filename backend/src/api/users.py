@@ -5,12 +5,14 @@ from sqlalchemy.orm import Session
 import src.models
 from database import get_db
 from auth import jwt
+from src.lib.audit import audit_read
 
 router = APIRouter()
 
 from api.auth import get_current_user, format_auth_error
 
 @router.get("/me")
+@audit_read("user")
 def read_users_me(request: Request, current_user: src.models.user.User = Depends(get_current_user)):
     """
     Fetch the current logged-in user's profile.
