@@ -13,6 +13,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet } from 'react-native';
 import './i18n'; // Initialize i18n before anything else
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { OfflineProvider } from './contexts/OfflineContext';
 import { AppNavigator } from './navigation/AppNavigator';
 import { usePushNotifications } from './hooks/usePushNotifications';
 
@@ -54,10 +55,12 @@ const PushNotificationInitializer: React.FC = () => {
  * Root component with providers
  */
 const Root: React.FC = () => (
-  <AuthProvider>
-    <PushNotificationInitializer />
-    <AppNavigator />
-  </AuthProvider>
+  <OfflineProvider>
+    <AuthProvider>
+      <PushNotificationInitializer />
+      <AppNavigator />
+    </AuthProvider>
+  </OfflineProvider>
 );
 
 /**

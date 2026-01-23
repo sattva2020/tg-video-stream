@@ -25,7 +25,13 @@
     "reset": "Reset",
     "user": "User",
     "noTrack": "No track",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "offline": "Offline",
+    "online": "Online",
+    "syncing": "Syncing...",
+    "sync": "Sync",
+    "pendingChanges": "{{count}} pending changes",
+    "lastSync": "Last synced: {{time}}"
   },
   "auth": {
     "signIn": "Sign In",
