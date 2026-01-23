@@ -42,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'tasks.ab_testing',
             'src.services.notifications.worker',
         ]
     )
@@ -71,6 +72,7 @@ def make_celery():
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
+            'tasks.stop_ab_test': {'queue': 'notifications'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
         },
