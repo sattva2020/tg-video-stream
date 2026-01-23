@@ -9,6 +9,18 @@ services:
       - DATABASE_URL=postgresql://postgres:${DB_PASSWORD:-sattva_db_pass_2025_9f3c0f}@db:5432/telegram_db
       - REDIS_URL=redis://redis:6379
       # JWT_SECRET and GOOGLE_* variables are loaded from env_file
+      # CDN Configuration
+      - CDN_ENABLED=${CDN_ENABLED:-false}
+      - CDN_PROVIDER=${CDN_PROVIDER:-none}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - CLOUDFRONT_DISTRIBUTION_ID=${CLOUDFRONT_DISTRIBUTION_ID:-}
+      - FASTLY_API_TOKEN=${FASTLY_API_TOKEN:-}
+      - FASTLY_SERVICE_ID=${FASTLY_SERVICE_ID:-}
     depends_on:
       db:
         condition: service_healthy
