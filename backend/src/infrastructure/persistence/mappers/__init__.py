@@ -14,6 +14,7 @@ Mappers реализуют Mapper Pattern для конвертации межд
 - PlaylistMapper: Playlist Entity ↔ Playlist ORM (T055)
 - PollMapper: Poll Entity ↔ Poll ORM (T020)
 - QuestionMapper: Question Entity ↔ Question ORM (T020)
+- InteractionMapper: Reaction Entity ↔ EmojiReaction ORM (T020)
 
 **Usage**:
 ```python
@@ -32,6 +33,7 @@ from src.infrastructure.persistence.mappers.stream_mapper import StreamMapper
 from src.infrastructure.persistence.mappers.playlist_mapper import PlaylistMapper
 from src.infrastructure.persistence.mappers.poll_mapper import PollMapper
 from src.infrastructure.persistence.mappers.question_mapper import QuestionMapper
+from src.infrastructure.persistence.mappers.interaction_mapper import InteractionMapper
 
 __all__ = [
     "UserMapper",
@@ -39,4 +41,5 @@ __all__ = [
     "PlaylistMapper",
     "PollMapper",
     "QuestionMapper",
+    "InteractionMapper",
 ]

@@ -8,6 +8,7 @@ from .sqlalchemy_user_repository import SqlAlchemyUserRepository
 from .sqlalchemy_stream_repository import SqlAlchemyStreamRepository
 from .sqlalchemy_poll_repository import SqlAlchemyPollRepository, PollRepository
 from .sqlalchemy_question_repository import SqlAlchemyQuestionRepository, QuestionRepository
+from .sqlalchemy_interaction_repository import InteractionRepository
 from .in_memory import InMemoryUserRepository, InMemoryStreamRepository
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "PollRepository",  # Alias for SqlAlchemyPollRepository
     "SqlAlchemyQuestionRepository",
     "QuestionRepository",  # Alias for SqlAlchemyQuestionRepository
+    "InteractionRepository",  # Repository for reactions and chat messages
     # In-memory implementations (для тестов)
     "InMemoryUserRepository",
     "InMemoryStreamRepository",
