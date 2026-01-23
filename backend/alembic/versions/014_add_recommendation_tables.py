@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('playlist_item_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('feedback', sa.String(), nullable=False, comment='like, dislike'),
+        sa.Column('feedback_type', sa.String(10), nullable=False, comment='like или dislike'),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['playlist_item_id'], ['playlist_items.id'], ondelete='CASCADE'),
@@ -56,7 +56,14 @@ def upgrade() -> None:
         sa.UniqueConstraint('user_id', 'playlist_item_id', name='uq_recommendation_feedback_user_item')
     )
     op.create_index('idx_recommendation_feedback_user_id', 'recommendation_feedback', ['user_id'])
-    op.create_index('idx_recommendation_feedback_feedback', 'recommendation_feedback', ['feedback'])
+    op.create_index('idx_recommendation_feedback_playlist_item_id', 'recommendation_feedback', ['playlist_item_id'])
+    op.create_index('idx_recommendation_feedback_feedback_type', 'recommendation_feedback', ['feedback_type'])
+    op.create_index('idx_recommendation_feedback_created_at', 'recommendation_feedback', ['created_at'])
+    op.create_check_constraint(
+        'ck_recommendation_feedback_type',
+        'recommendation_feedback',
+        "feedback_type IN ('like', 'dislike')"
+    )
 
     # Create user_item_interactions table
     op.create_table(
@@ -64,9 +71,11 @@ def upgrade() -> None:
         sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('playlist_item_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('interaction_type', sa.String(), nullable=False, comment='play, skip, like, complete'),
-        sa.Column('watch_time_seconds', sa.Integer(), nullable=True, comment='Время просмотра в секундах'),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
+        sa.Column('interaction_type', sa.String(20), nullable=False, comment='Тип взаимодействия'),
+        sa.Column('duration_seconds', sa.BigInteger(), nullable=True, comment='Длительность просмотра в секундах'),
+        sa.Column('completion_rate', sa.Numeric(5, 4), nullable=True, comment='Доля просмотра от 0 до 1'),
+        sa.Column('interacted_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text('NOW()')),
+        sa.Column('metadata', sa.String(), nullable=True, comment='Дополнительные метаданные в формате JSON'),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
         sa.ForeignKeyConstraint(['playlist_item_id'], ['playlist_items.id'], ondelete='CASCADE'),
         sa.PrimaryKeyConstraint('id')
@@ -74,20 +83,40 @@ def upgrade() -> None:
     op.create_index('idx_user_item_interactions_user_id', 'user_item_interactions', ['user_id'])
     op.create_index('idx_user_item_interactions_playlist_item_id', 'user_item_interactions', ['playlist_item_id'])
     op.create_index('idx_user_item_interactions_interaction_type', 'user_item_interactions', ['interaction_type'])
-    op.create_index('idx_user_item_interactions_created_at', 'user_item_interactions', ['created_at'])
+    op.create_index('idx_user_item_interactions_interacted_at', 'user_item_interactions', ['interacted_at'])
+    op.create_index('idx_user_item_interactions_user_item', 'user_item_interactions', ['user_id', 'playlist_item_id'])
+    op.create_check_constraint(
+        'ck_user_item_interactions_type',
+        'user_item_interactions',
+        "interaction_type IN ('watch', 'skip', 'like', 'share', 'click')"
+    )
+    op.create_check_constraint(
+        'ck_user_item_interactions_completion_rate',
+        'user_item_interactions',
+        "completion_rate IS NULL OR (completion_rate >= 0 AND completion_rate <= 1)"
+    )
 
 
 def downgrade() -> None:
-    op.drop_index('idx_user_item_interactions_created_at', table_name='user_item_interactions')
+    # Drop user_item_interactions
+    op.drop_constraint('ck_user_item_interactions_completion_rate', 'user_item_interactions')
+    op.drop_constraint('ck_user_item_interactions_type', 'user_item_interactions')
+    op.drop_index('idx_user_item_interactions_user_item', table_name='user_item_interactions')
+    op.drop_index('idx_user_item_interactions_interacted_at', table_name='user_item_interactions')
     op.drop_index('idx_user_item_interactions_interaction_type', table_name='user_item_interactions')
     op.drop_index('idx_user_item_interactions_playlist_item_id', table_name='user_item_interactions')
     op.drop_index('idx_user_item_interactions_user_id', table_name='user_item_interactions')
     op.drop_table('user_item_interactions')
 
-    op.drop_index('idx_recommendation_feedback_feedback', table_name='recommendation_feedback')
+    # Drop recommendation_feedback
+    op.drop_constraint('ck_recommendation_feedback_type', 'recommendation_feedback')
+    op.drop_index('idx_recommendation_feedback_created_at', table_name='recommendation_feedback')
+    op.drop_index('idx_recommendation_feedback_feedback_type', table_name='recommendation_feedback')
+    op.drop_index('idx_recommendation_feedback_playlist_item_id', table_name='recommendation_feedback')
     op.drop_index('idx_recommendation_feedback_user_id', table_name='recommendation_feedback')
     op.drop_table('recommendation_feedback')
 
+    # Drop recommendations
     op.drop_index('idx_recommendations_created_at', table_name='recommendations')
     op.drop_index('idx_recommendations_score', table_name='recommendations')
     op.drop_index('idx_recommendations_playlist_item_id', table_name='recommendations')
