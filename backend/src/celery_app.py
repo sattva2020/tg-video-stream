@@ -43,6 +43,7 @@ def make_celery():
             'tasks.notifications',
             'tasks.media',
             'src.services.notifications.worker',
+            'src.services.webhook_worker',
         ]
     )
     
@@ -73,12 +74,15 @@ def make_celery():
             'tasks.send_admin_notification': {'queue': 'notifications'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
+            'webhook.deliver': {'queue': 'webhooks'},
+            'webhook.send_test': {'queue': 'webhooks'},
         },
 
         task_default_queue=settings.NOTIFICATIONS_QUEUE,
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('webhooks', routing_key='webhooks'),
         ],
         
         # Rate limits
