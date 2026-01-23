@@ -148,7 +148,8 @@ def create_app() -> FastAPI:
         channels,
         files,
         websocket,
-        schedule
+        schedule,
+        reactions
     )
     from src.api import polls, qa
     from src.api import media, media_gdrive, ai_settings
@@ -194,6 +195,7 @@ def create_app() -> FastAPI:
     app.include_router(channels.router, prefix="/api/channels", tags=["Channels"])
     app.include_router(polls.router, prefix="/api/polls", tags=["Polls"])
     app.include_router(qa.router, prefix="/api/qa", tags=["Q&A"])
+    app.include_router(reactions.router, prefix="/api/reactions", tags=["Reactions"])
     app.include_router(files.router, prefix="/api/files", tags=["Files"])
     app.include_router(media.router, prefix="/api", tags=["Media"])
     app.include_router(media_gdrive.router, prefix="/api", tags=["Media"])
