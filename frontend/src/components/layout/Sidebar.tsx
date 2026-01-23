@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { 
-  Home, 
-  Tv, 
-  Users, 
+import {
+  Home,
+  Tv,
+  Users,
   Settings,
   LogOut,
   CalendarDays,
@@ -24,6 +24,7 @@ import {
   Gauge,
   FileText,
   LayoutDashboard,
+  Globe,
 } from 'lucide-react';
 import { DOCS_URL } from '../../config/docs';
 import { useAuth } from '../../context/AuthContext';
@@ -149,15 +150,21 @@ export const Sidebar: React.FC = () => {
           adminOnly: true,
           moderatorAllowed: true,
         },
-        { 
-          path: '/admin/stream-quality', 
-          label: t('nav.streamQuality', 'Качество'), 
+        {
+          path: '/admin/stream-quality',
+          label: t('nav.streamQuality', 'Качество'),
           icon: <Signal className="w-5 h-5" />,
           adminOnly: true,
         },
-        { 
-          path: '/admin/incidents', 
-          label: t('nav.incidents', 'Инциденты'), 
+        {
+          path: '/edge',
+          label: t('nav.edgeDeployment', 'Edge CDN'),
+          icon: <Globe className="w-5 h-5" />,
+          adminOnly: true,
+        },
+        {
+          path: '/admin/incidents',
+          label: t('nav.incidents', 'Инциденты'),
           icon: <MessageSquareWarning className="w-5 h-5" />,
           adminOnly: true,
           moderatorAllowed: true,
