@@ -59,5 +59,9 @@
         "serviceAccountKeyPath": "./google-play-service-account.json"
       }
     }
+  },
+  "update": {
+    "branch": "production",
+    "message": "Auto-update: %s"
   }
 }
