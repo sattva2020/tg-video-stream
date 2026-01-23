@@ -72,8 +72,9 @@ class VideoValidationService:
         if self._owns_db and self._db is not None:
             try:
                 self._db.close()
-            except Exception:
-                pass
+            except Exception as e:
+                # Log and suppress errors during best-effort cleanup
+                self.logger.exception("Error while closing database session: %s", e)
             self._db = None
             self._owns_db = False
 
