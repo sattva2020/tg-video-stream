@@ -3,43 +3,74 @@
  *
  * Основной компонент приложения для управления стримами на мобильных устройствах.
  * Main app component for managing streams on mobile devices.
+ *
+ * Follows patterns from frontend/src/main.tsx
  */
 
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet } from 'react-native';
+import './i18n'; // Initialize i18n before anything else
+import { AuthProvider } from './contexts/AuthContext';
+import { AppNavigator } from './navigation/AppNavigator';
 
-export default function App() {
+/**
+ * Error boundary fallback component
+ */
+const ErrorFallback: React.FC<{ error: Error }> = ({ error }) => {
   return (
-    <SafeAreaProvider>
-      <View style={styles.container}>
-        <Text style={styles.title}>Sattva Streamer Mobile</Text>
-        <Text style={styles.subtitle}>Приложение для управления стримами</Text>
-        <Text style={styles.subtitle}>Stream management app</Text>
-        <StatusBar style="auto" />
-      </View>
-    </SafeAreaProvider>
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorMessage}>{error.message}</Text>
+    </View>
   );
+};
+
+/**
+ * Root component with providers
+ */
+const Root: React.FC = () => (
+  <AuthProvider>
+    <AppNavigator />
+  </AuthProvider>
+);
+
+/**
+ * Main App component
+ * Sets up providers and renders the application
+ */
+export default function App() {
+  try {
+    return (
+      <SafeAreaProvider>
+        <Root />
+        <StatusBar style="auto" />
+      </SafeAreaProvider>
+    );
+  } catch (error) {
+    console.error('App initialization error:', error);
+    return <ErrorFallback error={error as Error} />;
+  }
 }
 
 const styles = StyleSheet.create({
-  container: {
+  errorContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
     padding: 20,
   },
-  title: {
-    fontSize: 24,
+  errorTitle: {
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#000',
+    color: '#dc2626',
   },
-  subtitle: {
+  errorMessage: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 5,
+    color: '#6b7280',
+    textAlign: 'center',
   },
 });
