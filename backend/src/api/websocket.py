@@ -433,6 +433,70 @@ async def notify_vote_cast(
         await manager.broadcast_all(message)
 
 
+# === Q&A Events (US2 - Q&A Mode) ===
+
+def _serialize_question(question) -> dict:
+    """Сериализовать вопрос для отправки через WebSocket."""
+    return {
+        "id": str(question.id),
+        "stream_id": str(question.stream_id),
+        "content": question.content,
+        "status": question.status if hasattr(question, 'status') else 'pending',
+        "is_pinned": question.is_pinned if hasattr(question, 'is_pinned') else False,
+        "upvote_count": question.upvote_count if hasattr(question, 'upvote_count') else 0,
+        "author_name": question.author_name if hasattr(question, 'author_name') else None,
+        "answer": question.answer if hasattr(question, 'answer') else None,
+        "answered_at": question.answered_at.isoformat() if hasattr(question, 'answered_at') and question.answered_at else None,
+        "created_at": question.created_at.isoformat() if hasattr(question, 'created_at') and question.created_at else "",
+    }
+
+
+async def notify_question_submitted(question, channel_id: Optional[str] = None):
+    """
+    Уведомить клиентов о создании нового вопроса.
+
+    Args:
+        question: Объект вопроса
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "question_submitted",
+        "data": _serialize_question(question),
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
+async def notify_question_upvoted(
+    question_id: str,
+    upvote_count: int,
+    channel_id: Optional[str] = None
+):
+    """
+    Уведомить клиентов о том, что вопрос был upvoted.
+
+    Args:
+        question_id: ID вопроса
+        upvote_count: Новое количество upvotes
+        channel_id: ID канала (опционально)
+    """
+    message = {
+        "type": "question_upvoted",
+        "question_id": question_id,
+        "upvote_count": upvote_count,
+        "timestamp": _get_timestamp()
+    }
+
+    if channel_id:
+        await manager.broadcast_to_channel(channel_id, message)
+    else:
+        await manager.broadcast_all(message)
+
+
 # === Helper functions ===
 
 def _get_timestamp() -> str:
