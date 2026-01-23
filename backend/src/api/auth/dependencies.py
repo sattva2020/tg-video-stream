@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from src.models.user import User
+from src.models.organization import Organization
 from src.services.playback_service import PlaybackService
 from auth import jwt
 
@@ -52,6 +53,28 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     
     return user
+
+
+def get_current_organization(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> Organization:
+    """
+    Извлекает текущую организацию пользователя.
+    """
+    if current_user.organization_id is None:
+        logger.warning(f"User {current_user.id} does not have an organization")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User does not belong to any organization",
+        )
+
+    organization = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    if organization is None:
+        logger.warning(f"Organization not found for ID: {current_user.organization_id}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization not found",
+        )
+
+    return organization
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
