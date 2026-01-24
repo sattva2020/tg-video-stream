@@ -6,7 +6,6 @@ Feature: 016-a-b-testing-framework-for-content
 import pytest
 import uuid
 from unittest.mock import MagicMock, patch, AsyncMock
-from decimal import Decimal
 
 from src.services.ab_testing_service import ABTestingService, get_ab_testing_service
 from src.models.ab_testing import ABTest, ABTestVariant, ABTestMetric, ABTestStatus
