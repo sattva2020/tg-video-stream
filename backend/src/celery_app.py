@@ -42,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'tasks.rate_limit_monitor',
             'src.services.notifications.worker',
         ]
     )
