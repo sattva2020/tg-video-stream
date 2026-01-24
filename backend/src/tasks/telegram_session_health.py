@@ -119,6 +119,142 @@ def get_active_telegram_accounts() -> List[Dict[str, Any]]:
         return []
 
 
+def get_expiring_sessions() -> List[Dict[str, Any]]:
+    """
+    Получает список Telegram сессий, требующих обновления.
+
+    Returns:
+        Список dict с информацией о сессиях, требующих обновления
+    """
+    try:
+        from database import SessionLocal
+        from src.models.telegram import TelegramAccount, SessionHealthStatus
+
+        db = SessionLocal()
+        try:
+            # Находим аккаунты с включенным auto_refresh и статусами HEALTHY или EXPIRING
+            accounts = db.query(TelegramAccount).filter(
+                TelegramAccount.is_active == True,
+                TelegramAccount.auto_refresh_enabled == True,
+                TelegramAccount.session_health_status.in_([
+                    SessionHealthStatus.HEALTHY,
+                    SessionHealthStatus.EXPIRING
+                ])
+            ).all()
+
+            expiring_accounts = []
+            for account in accounts:
+                # Проверяем нужно ли обновление (через should_auto_refresh)
+                if account.should_auto_refresh():
+                    expiring_accounts.append({
+                        "id": str(account.id),
+                        "phone": account.phone or f"Account {account.id}",
+                        "username": account.username,
+                        "session_expires_at": account.session_expires_at.isoformat() if account.session_expires_at else None,
+                        "health_status": account.session_health_status.value if hasattr(account.session_health_status, 'value') else str(account.session_health_status)
+                    })
+
+            return expiring_accounts
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.exception("Error getting expiring sessions")
+        return []
+
+
+def refresh_expiring_sessions_sync() -> Dict[str, Any]:
+    """
+    Обновляет все Telegram сессии, требующие обновления (sync wrapper для async).
+
+    Returns:
+        dict с результатами обновления: success, total, refreshed, failed, etc.
+    """
+    try:
+        from database import SessionLocal
+        from src.services.telegram_session_service import get_telegram_session_service
+
+        # Получаем список сессий для обновления
+        expiring_sessions = get_expiring_sessions()
+        total_sessions = len(expiring_sessions)
+
+        if total_sessions == 0:
+            logger.info("No sessions require refresh")
+            return {
+                "success": True,
+                "total_sessions": 0,
+                "refreshed": 0,
+                "failed": 0,
+                "sessions": []
+            }
+
+        logger.info(f"Refreshing {total_sessions} Telegram sessions")
+
+        service = get_telegram_session_service()
+        db = SessionLocal()
+
+        results = {
+            "success": True,
+            "total_sessions": total_sessions,
+            "refreshed": 0,
+            "failed": 0,
+            "sessions": []
+        }
+
+        try:
+            for session_info in expiring_sessions:
+                account_id = session_info["id"]
+
+                try:
+                    # Вызываем async refresh_session через sync wrapper
+                    _run_async(service.refresh_session(db, account_id))
+
+                    results["refreshed"] += 1
+                    logger.info(f"Successfully refreshed session for account {account_id}")
+
+                    results["sessions"].append({
+                        "account_id": account_id,
+                        "phone": session_info.get("phone"),
+                        "username": session_info.get("username"),
+                        "refreshed": True,
+                        "success": True
+                    })
+
+                except Exception as e:
+                    results["failed"] += 1
+                    logger.error(f"Failed to refresh session for account {account_id}: {e}")
+
+                    results["sessions"].append({
+                        "account_id": account_id,
+                        "phone": session_info.get("phone"),
+                        "username": session_info.get("username"),
+                        "refreshed": False,
+                        "success": False,
+                        "error": str(e)
+                    })
+
+            logger.info(
+                f"Session refresh complete: {results['refreshed']} refreshed, "
+                f"{results['failed']} failed"
+            )
+
+            return results
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.exception("Error in refresh_expiring_sessions_sync")
+        return {
+            "success": False,
+            "total_sessions": 0,
+            "refreshed": 0,
+            "failed": 0,
+            "error": str(e)
+        }
+
+
 # ============================================================================
 # Celery Tasks (registered if Celery available)
 # ============================================================================
@@ -262,6 +398,50 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                 "is_healthy": False
             }
 
+    @celery_app.task(name='tasks.refresh_expiring_sessions', bind=True, max_retries=3)
+    def refresh_expiring_sessions_task(self):
+        """
+        Celery task: обновляет все Telegram сессии, требующие обновления.
+
+        Для каждой сессии:
+        1. Проверяет требуется ли обновление (через should_auto_refresh)
+        2. Если требуется - обновляет через TelegramSessionService
+        3. Логирует результаты
+
+        Автоматически повторяется при ошибке (до 3 раз с экспоненциальной задержкой).
+        """
+        logger.info("[worker] refresh_expiring_sessions_task started")
+
+        try:
+            refresh_result = refresh_expiring_sessions_sync()
+
+            if refresh_result.get("success"):
+                total = refresh_result.get("total_sessions", 0)
+                refreshed = refresh_result.get("refreshed", 0)
+                failed = refresh_result.get("failed", 0)
+
+                logger.info(
+                    f"Refresh task completed: {total} sessions, "
+                    f"{refreshed} refreshed, {failed} failed"
+                )
+            else:
+                logger.error(f"Refresh task failed: {refresh_result.get('error')}")
+
+            return refresh_result
+
+        except Exception as e:
+            logger.exception("Unhandled error in refresh_expiring_sessions_task")
+            # Retry на recoverable errors
+            if "database" in str(e).lower() or "connection" in str(e).lower():
+                raise self.retry(countdown=30 * (self.request.retries + 1))
+            return {
+                "success": False,
+                "error": str(e),
+                "total_sessions": 0,
+                "refreshed": 0,
+                "failed": 0
+            }
+
 
 # ============================================================================
 # Public API
@@ -321,4 +501,32 @@ def check_telegram_session_async(account_id: str) -> bool:
         return task.get("success", False)
     except Exception:
         logger.exception(f"Failed to check Telegram session health synchronously for {account_id}")
+        return False
+
+
+def refresh_expiring_sessions_async() -> bool:
+    """
+    Запускает асинхронное обновление всех Telegram сессий, требующих обновления.
+
+    Использует Celery если доступен, иначе выполняет синхронно.
+
+    Returns:
+        True если задача поставлена в очередь или выполнена успешно
+    """
+    if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL')):
+        app = _get_celery_app()
+        try:
+            app.send_task('tasks.refresh_expiring_sessions')
+            logger.info("Enqueued refresh for all expiring Telegram sessions")
+            return True
+        except Exception:
+            logger.exception("Failed to enqueue Celery task, falling back to sync")
+
+    # Sync fallback
+    logger.info("Refreshing Telegram sessions synchronously")
+    try:
+        task = refresh_expiring_sessions_task()
+        return task.get("success", False)
+    except Exception:
+        logger.exception("Failed to refresh Telegram sessions synchronously")
         return False
