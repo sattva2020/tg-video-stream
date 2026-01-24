@@ -70,7 +70,14 @@ const saveRequestToQueue = async (request: Request, requestBody?: string): Promi
       retries: 0,
     };
 
-    store.add(queuedRequest);
+    // Add error handlers for the transaction
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(new Error('Transaction aborted'));
+
+      store.add(queuedRequest);
+    });
 
     // Register background sync
     if ('sync' in self.registration) {

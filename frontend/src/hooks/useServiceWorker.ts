@@ -116,15 +116,10 @@ export const ServiceWorkerProvider: React.FC<{ children: ReactNode }> = ({ child
       }
     };
 
-    const cleanup = initializeServiceWorker();
+    initializeServiceWorker();
 
     return () => {
       mounted = false;
-      cleanup.then((cleanupFn) => {
-        if (cleanupFn) {
-          cleanupFn();
-        }
-      });
     };
   }, []);
 

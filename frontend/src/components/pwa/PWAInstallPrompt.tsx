@@ -67,7 +67,7 @@ const PWAInstallPrompt: React.FC<PWAInstallPromptProps> = ({
   className
 }) => {
   const { t } = useTranslation();
-  const { isInstallable, isInstalled, status, promptInstall } = usePWAInstall();
+  const { isInstallable, isInstalled, promptInstall } = usePWAInstall();
   const [isVisible, setIsVisible] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);

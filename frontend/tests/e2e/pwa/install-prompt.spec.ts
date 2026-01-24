@@ -15,8 +15,8 @@
 
 import { test, expect } from '@playwright/test';
 
-// Конфигурация для production тестов
-const BASE_URL = process.env.TEST_BASE_URL || 'https://sattva-streamer.top';
+// Конфигурация для тестов: используем TEST_BASE_URL или локальный Vite preview
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:4173';
 
 interface PWAInstallInfo {
   isInstallable: boolean;
@@ -137,7 +137,7 @@ test.describe('PWA Install Prompt Modal', () => {
     });
 
     // Modal should appear if app is installable and not dismissed
-    expect(typeof hasInstallContent).toBe('boolean');
+    expect(modalExists || hasInstallContent).toBeTruthy();
   });
 
   test('Install prompt has all required elements', async ({ page }) => {
@@ -145,7 +145,7 @@ test.describe('PWA Install Prompt Modal', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(4000);
 
-    // Check for key elements in the prompt
+    // Check for key elements in the prompt - title
     const hasTitle = await page.evaluate(() => {
       const headings = document.querySelectorAll('h2, h3');
       return Array.from(headings).some(h =>
@@ -154,7 +154,8 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    await page.evaluate(() => {
+    // Check for description
+    const hasDescription = await page.evaluate(() => {
       const body = document.body;
       return body.textContent?.includes('быстрый доступ') ||
              body.textContent?.includes('quick access') ||
@@ -179,8 +180,8 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    // At minimum, should have install button
-    expect(hasInstallButton || typeof hasInstallButton).toBe(true);
+    // Check for key elements: title, description, and buttons
+    expect(hasTitle && hasDescription && (hasInstallButton || hasCancelButton)).toBeTruthy();
   });
 
   test('Install prompt shows benefits', async ({ page }) => {
@@ -224,7 +225,7 @@ test.describe('PWA Install Prompt Modal', () => {
     });
 
     // Should have checkbox or text indicating the option
-    expect(typeof hasCheckbox).toBe('boolean');
+    expect(hasCheckbox || hasDontShowText).toBeTruthy();
   });
 });
 
