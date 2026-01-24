@@ -20,6 +20,7 @@ Key pattern: rate_limit_queue:{account_id}
 
 import time
 import uuid
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Callable
 from dataclasses import dataclass, field
@@ -601,6 +602,225 @@ class RateLimitQueueService:
                 continue
 
         return False
+
+    @staticmethod
+    def can_batch_requests(requests: List[QueuedRequest]) -> bool:
+        """
+        Проверить, можно ли объединить запросы в пакет.
+
+        Запросы можно пакетировать если:
+        - Они одного типа (request_type)
+        - Они относятся к одному аккаунту
+        - Они имеют одинаковый приоритет
+
+        Args:
+            requests: Список запросов для проверки
+
+        Returns:
+            True если запросы можно пакетировать
+        """
+        if len(requests) < 2:
+            return False
+
+        first = requests[0]
+
+        # Проверяем, что все запросы совместимы
+        for req in requests[1:]:
+            if (
+                req.request_type != first.request_type
+                or req.account_id != first.account_id
+                or req.priority != first.priority
+            ):
+                return False
+
+        return True
+
+    async def wait_for_batch(
+        self,
+        account_id: Optional[str] = None,
+        batch_size: Optional[int] = None,
+        batch_timeout: Optional[float] = None,
+    ) -> List[QueuedRequest]:
+        """
+        Ожидать накопления пакета запросов.
+
+       _accumulates requests up to batch_size or batch_timeout, whichever comes first.
+        Это позволяет эффективно группировать запросы для обработки.
+
+        Args:
+            account_id: ID аккаунта (global очередь если None)
+            batch_size: Размер пакета (по умолчанию из настроек)
+            batch_timeout: Таймаут ожидания (по умолчанию из настроек)
+
+        Returns:
+            Список QueuedRequest (может быть меньше batch_size)
+        """
+        size = batch_size or self.batch_size
+        timeout = batch_timeout or self.batch_timeout
+        r = await self._get_redis()
+        key = self._get_queue_key(account_id)
+
+        start_time = time.time()
+        requests = []
+
+        # Ждем накопления пакета или истечения таймаута
+        while time.time() - start_time < timeout:
+            # Проверяем текущий размер очереди
+            current_size = await r.zcard(key)
+
+            if current_size == 0:
+                # Очередь пуста, ждем
+                await asyncio.sleep(0.01)  # 10ms
+                continue
+
+            # Извлекаем доступные запросы (но не более size)
+            to_pop = min(size - len(requests), current_size)
+            batch = await r.zpopmin(key, count=to_pop)
+
+            for item_json, score in batch:
+                try:
+                    request = QueuedRequest.from_redis_json(item_json)
+                    request.metadata["priority_score"] = score
+                    requests.append(request)
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"Ошибка парсинга запроса при пакетировании: {e}")
+                    continue
+
+            # Если накопили нужное количество, выходим
+            if len(requests) >= size:
+                break
+
+            # Ждем новых запросов
+            await asyncio.sleep(0.01)  # 10ms
+
+        if requests:
+            logger.debug(
+                f"Сформирован пакет из {len(requests)} запросов "
+                f"(target={size}, timeout={timeout}s)"
+            )
+
+        return requests
+
+    async def execute_batch(
+        self,
+        requests: List[QueuedRequest],
+        handler: Callable[[QueuedRequest], Any],
+    ) -> List[Any]:
+        """
+        Выполнить пакет запросов с обработкой ошибок.
+
+        Обрабатывает список запросов через переданный обработчик.
+        При ошибках отдельные запросы могут быть возвращены в очередь.
+
+        Args:
+            requests: Список запросов для выполнения
+            handler: Функция-обработчик для выполнения каждого запроса
+
+        Returns:
+            Список результатов выполнения (в том же порядке)
+        """
+        results = []
+        failed_requests = []
+
+        for request in requests:
+            try:
+                # Выполняем запрос через обработчик
+                result = await handler(request)
+                results.append(result)
+
+                logger.debug(
+                    f"Успешно выполнен запрос из пакета: "
+                    f"method={request.method}, id={request.id}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Ошибка выполнения запроса из пакета: "
+                    f"method={request.method}, id={request.id}, error={e}"
+                )
+
+                # Проверяем возможность повтора
+                if request.retry_count < request.max_retries:
+                    request.retry_count += 1
+                    failed_requests.append(request)
+                else:
+                    # Превышен лимит попыток, добавляем None в результаты
+                    results.append(None)
+
+        # Возвращаем неудачные запросы в очередь
+        if failed_requests:
+            await self._requeue_failed_requests(failed_requests)
+
+        return results
+
+    async def _requeue_failed_requests(
+        self,
+        requests: List[QueuedRequest],
+    ) -> None:
+        """
+        Вернуть неудачные запросы в очередь.
+
+        Args:
+            requests: Список запросов для возвращения
+        """
+        r = await self._get_redis()
+
+        for request in requests:
+            try:
+                key = self._get_queue_key(request.account_id)
+                score = self._generate_score(request.priority)
+
+                await r.zadd(key, {request.to_redis_json(): score})
+
+                logger.debug(
+                    f"Запрос возвращен в очередь: "
+                    f"method={request.method}, retry={request.retry_count}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Ошибка возвращения запроса в очередь: "
+                    f"method={request.method}, error={e}"
+                )
+
+    async def process_batched_requests(
+        self,
+        handler: Callable[[QueuedRequest], Any],
+        account_id: Optional[str] = None,
+        batch_size: Optional[int] = None,
+        batch_timeout: Optional[float] = None,
+    ) -> List[Any]:
+        """
+        Полный цикл пакетной обработки запросов.
+
+        Комбинирует wait_for_batch и execute_batch для удобного использования.
+
+        Args:
+            handler: Функция-обработчик для выполнения запросов
+            account_id: ID аккаунта (global очередь если None)
+            batch_size: Размер пакета (по умолчанию из настроек)
+            batch_timeout: Таймаут ожидания (по умолчанию из настроек)
+
+        Returns:
+            Список результатов выполнения
+        """
+        # Ждем накопления пакета
+        requests = await self.wait_for_batch(
+            account_id=account_id,
+            batch_size=batch_size,
+            batch_timeout=batch_timeout,
+        )
+
+        if not requests:
+            return []
+
+        # Выполняем пакет
+        results = await self.execute_batch(requests, handler)
+
+        logger.info(
+            f"Обработан пакет запросов: count={len(requests)}, "
+            f"results={len(results)}, account={account_id}"
+        )
+
+        return results
 
 
 # Singleton instance
