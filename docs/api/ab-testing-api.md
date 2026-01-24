@@ -228,7 +228,7 @@ import { useQuery } from '@tanstack/react-query';
 function ABTestList() {
   const { data, isLoading } = useQuery({
     queryKey: ['ab-tests', { status: 'running' }],
-    queryFn: () => listABTests({ status: 'running', limit: 20 })
+    queryFn: () => listABTests(undefined, 'running', 20, 0)
   });
 
   if (isLoading) return <Skeleton />;
