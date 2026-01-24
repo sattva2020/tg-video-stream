@@ -7,6 +7,9 @@ Endpoints:
   GET /api/v1/rate-limits/predictions - Get current rate limit predictions and breach times
   GET /api/v1/rate-limits/accounts - Get account pool status and distribution
   GET /api/v1/rate-limits/queue - Get queue statistics and pending requests
+  POST /api/v1/rate-limits/accounts - Add account to multi-account pool
+  PUT /api/v1/rate-limits/accounts/{account_id} - Update account status (enable/disable)
+  DELETE /api/v1/rate-limits/accounts/{account_id} - Remove account from pool
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -143,6 +146,24 @@ class QueueStatsResponse(BaseModel):
     batch_size: int = Field(..., description="Current batch size for processing")
     batch_timeout_seconds: int = Field(..., description="Batch timeout in seconds")
     timestamp: str = Field(..., description="Statistics timestamp (ISO 8601)")
+
+
+class AccountAddRequest(BaseModel):
+    """Request to add an account to the pool."""
+    account_id: str = Field(..., description="Account identifier (TelegramAccount ID)")
+    phone: str = Field(..., description="Phone number associated with the account")
+
+
+class AccountUpdateRequest(BaseModel):
+    """Request to update account status."""
+    status: str = Field(..., description="New status: active, disabled, failed")
+
+
+class AccountOperationResponse(BaseModel):
+    """Response for account management operations."""
+    success: bool = Field(..., description="Whether the operation succeeded")
+    message: str = Field(..., description="Operation result message")
+    account_id: str = Field(..., description="Account identifier")
 
 
 # Route Handlers
@@ -714,6 +735,243 @@ async def get_queue_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve queue statistics"
+        )
+
+
+@router.post("/accounts", response_model=AccountOperationResponse, status_code=201)
+async def add_account_to_pool(
+    request: AccountAddRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Add an account to the multi-account pool.
+
+    **Permission**: Authenticated user (admin access recommended)
+
+    **Rate Limit**: 20 requests/minute per user (Lower limit for modifications)
+
+    **Request Body**:
+    ```json
+    {
+      "account_id": "account-123",
+      "phone": "+1234567890"
+    }
+    ```
+
+    **Returns**:
+        - Success status
+        - Operation message
+        - Account identifier
+
+    **Example Response**:
+    ```json
+    {
+      "success": true,
+      "message": "Account added to pool successfully",
+      "account_id": "account-123"
+    }
+    ```
+    """
+    try:
+        multi_account_limiter = MultiAccountRateLimiter()
+
+        # Check if account already exists in pool
+        existing_account = await multi_account_limiter.get_account(request.account_id)
+        if existing_account:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Account {request.account_id} already exists in pool"
+            )
+
+        # Add account to pool
+        await multi_account_limiter.add_account(
+            account_id=request.account_id,
+            phone=request.phone
+        )
+
+        logger.info(f"User {current_user.id} added account {request.account_id} to pool")
+
+        return AccountOperationResponse(
+            success=True,
+            message="Account added to pool successfully",
+            account_id=request.account_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding account to pool: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to add account to pool: {str(e)}"
+        )
+
+
+@router.put("/accounts/{account_id}", response_model=AccountOperationResponse, status_code=200)
+async def update_account_status(
+    account_id: str,
+    request: AccountUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update account status (enable/disable account).
+
+    **Permission**: Authenticated user (admin access recommended)
+
+    **Rate Limit**: 30 requests/minute per user
+
+    **Path Parameters**:
+    - `account_id`: Account identifier
+
+    **Request Body**:
+    ```json
+    {
+      "status": "active"
+    }
+    ```
+
+    **Valid Status Values**:
+    - `active`: Enable account (available for requests)
+    - `disabled`: Disable account (manually disabled)
+    - `failed`: Mark as failed (automatic exclusion)
+
+    **Returns**:
+        - Success status
+        - Operation message
+        - Account identifier
+
+    **Example Response**:
+    ```json
+    {
+      "success": true,
+      "message": "Account status updated to active",
+      "account_id": "account-123"
+    }
+    ```
+    """
+    try:
+        from ...services.multi_account_rate_limiter import AccountStatus
+
+        multi_account_limiter = MultiAccountRateLimiter()
+
+        # Check if account exists
+        account = await multi_account_limiter.get_account(account_id)
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Account {account_id} not found in pool"
+            )
+
+        # Validate status
+        valid_statuses = ["active", "disabled", "failed"]
+        if request.status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+
+        # Map status string to AccountStatus enum
+        status_map = {
+            "active": AccountStatus.ACTIVE,
+            "disabled": AccountStatus.DISABLED,
+            "failed": AccountStatus.FAILED
+        }
+        new_status = status_map[request.status]
+
+        # Update account status
+        success = await multi_account_limiter.set_account_status(account_id, new_status)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update account status"
+            )
+
+        logger.info(
+            f"User {current_user.id} updated account {account_id} status to {request.status}"
+        )
+
+        return AccountOperationResponse(
+            success=True,
+            message=f"Account status updated to {request.status}",
+            account_id=account_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating account status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update account status: {str(e)}"
+        )
+
+
+@router.delete("/accounts/{account_id}", response_model=AccountOperationResponse, status_code=200)
+async def remove_account_from_pool(
+    account_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove an account from the multi-account pool.
+
+    **Permission**: Authenticated user (admin access recommended)
+
+    **Rate Limit**: 20 requests/minute per user (Lower limit for destructive operations)
+
+    **Path Parameters**:
+    - `account_id`: Account identifier
+
+    **Returns**:
+        - Success status
+        - Operation message
+        - Account identifier
+
+    **Example Response**:
+    ```json
+    {
+      "success": true,
+      "message": "Account removed from pool successfully",
+      "account_id": "account-123"
+    }
+    ```
+    """
+    try:
+        multi_account_limiter = MultiAccountRateLimiter()
+
+        # Check if account exists
+        account = await multi_account_limiter.get_account(account_id)
+        if not account:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Account {account_id} not found in pool"
+            )
+
+        # Remove account from pool
+        success = await multi_account_limiter.remove_account(account_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to remove account from pool"
+            )
+
+        logger.info(f"User {current_user.id} removed account {account_id} from pool")
+
+        return AccountOperationResponse(
+            success=True,
+            message="Account removed from pool successfully",
+            account_id=account_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing account from pool: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to remove account from pool: {str(e)}"
         )
 
 
