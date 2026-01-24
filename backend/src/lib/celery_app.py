@@ -21,7 +21,8 @@ celery_app = Celery(
         "backend.src.services.analytics_aggregation_task",
         "backend.src.services.scheduler",
         "backend.src.services.conference_tracking_task",
-        "backend.src.tasks.stream_health_check"
+        "backend.src.tasks.stream_health_check",
+        "backend.src.tasks.telegram_session_health"
     ]
 )
 
@@ -149,6 +150,10 @@ celery_app.conf.task_routes = {
     # Stream health check tasks
     "tasks.check_all_streams_health": {"queue": "health_check"},
     "tasks.stream_health_check": {"queue": "health_check"},
+
+    # Telegram session health check tasks
+    "tasks.check_all_telegram_sessions_health": {"queue": "health_check"},
+    "tasks.check_telegram_session_health": {"queue": "health_check"},
 }
 
 
