@@ -119,3 +119,69 @@ groups:
         annotations:
           summary: "Redis connection issues"
           description: "No connected Redis clients detected."
+
+      # Deployment taking too long (warning)
+      - alert: DeploymentSlow
+        expr: |
+          deployment_duration_seconds > 600
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment taking longer than expected"
+          description: "Deployment {{ $labels.deployment }} has been running for more than 10 minutes."
+
+      # High rollback rate
+      - alert: HighRollbackRate
+        expr: |
+          rate(deployment_rollback_total[1h]) > 0.01
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rollback rate"
+          description: "Deployment {{ $labels.deployment }} has high rollback rate in the last hour."
+
+      # Pods not ready after deployment
+      - alert: PodsNotReady
+        expr: |
+          kube_deployment_status_replicas_available < kube_deployment_spec_replicas
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pods not ready for {{ $labels.deployment }}"
+          description: "Only {{ $value }} out of {{ $labels.kube_deployment_spec_replicas }} pods are ready for deployment {{ $labels.deployment }}."
+
+      # Deployment health degraded
+      - alert: DeploymentHealthDegraded
+        expr: |
+          deployment_health_score < 0.7
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment health degraded for {{ $labels.deployment }}"
+          description: "Deployment {{ $labels.deployment }} health score is {{ $value }} (threshold: 0.7)."
+
+      # Frequent deployments
+      - alert: FrequentDeployments
+        expr: |
+          rate(deployment_created_total[1h]) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Frequent deployments detected"
+          description: "More than 1 deployment per hour detected for {{ $labels.deployment }}. Consider batch deployment."
+
+      # Deployment age high (old deployment running)
+      - alert: OldDeployment
+        expr: |
+          time() - kube_deployment_created > 604800
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Deployment {{ $labels.deployment }} is old"
+          description: "Deployment {{ $labels.deployment }} has been running for more than 7 days without updates."
