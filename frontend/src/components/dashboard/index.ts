@@ -15,3 +15,5 @@ export { ActivityTimeline } from './ActivityTimeline';
 export { SystemHealth } from './SystemHealth';
 
 export { UserManagementPanel } from './UserManagementPanel';
+
+export { default as RateLimitDashboard } from './RateLimitDashboard';
