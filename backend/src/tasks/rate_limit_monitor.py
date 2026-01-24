@@ -5,6 +5,7 @@ Celery tasks для мониторинга использования лимит
 - Периодическую проверку использования лимитов для всех аккаунтов
 - Предсказание времени достижения лимитов
 - Автоматические оповещения при приближении к пороговым значениям
+- Сбор метрик для Prometheus/Grafana
 - Интеграцию с RateLimitPredictor и MultiAccountRateLimiter
 """
 import os
@@ -61,6 +62,9 @@ def check_account_rate_limits_sync(account_id: str) -> Dict[str, Any]:
 
         # Получаем статус аккаунта
         account_status = _run_async(rate_limit_predictor.get_account_status(account_id))
+
+        # Обновляем Prometheus метрики
+        _update_prometheus_metrics_for_account(account_id, account_status)
 
         return {
             "success": True,
@@ -196,6 +200,9 @@ def trigger_alert_sync(
             f"alert_type={alert_type}"
         )
 
+        # Записываем метрику alert в Prometheus
+        _record_telegram_alert_metric(account_id, alert_type, endpoint_type)
+
         return {
             "success": True,
             "account_id": account_id,
@@ -246,6 +253,85 @@ def update_predictions_for_account_sync(account_id: str) -> Dict[str, Any]:
             "predictions_updated": 0,
             "error": str(e)
         }
+
+
+def _update_prometheus_metrics_for_account(account_id: str, account_status: Dict[str, Any]) -> None:
+    """
+    Обновляет Prometheus метрики для аккаунта на основе статуса.
+
+    Args:
+        account_id: ID аккаунта
+        account_status: Статус аккаунта от RateLimitPredictor
+    """
+    try:
+        from src.services.prometheus_metrics import (
+            set_telegram_account_status,
+            set_telegram_account_usage_percent,
+            set_telegram_rate_limit_remaining,
+        )
+
+        # Устанавливаем общий статус аккаунта
+        status = account_status.get("status", "unknown")
+        set_telegram_account_status(account_id, status)
+
+        # Обновляем метрики для каждого endpoint
+        predictions = account_status.get("predictions", [])
+        for pred in predictions:
+            endpoint_type = pred.get("endpoint_type", "unknown")
+            usage_percent = pred.get("usage_percent", 0)
+            remaining = pred.get("remaining", 0)
+
+            set_telegram_account_usage_percent(account_id, endpoint_type, usage_percent)
+            set_telegram_rate_limit_remaining(account_id, endpoint_type, remaining)
+
+    except ImportError:
+        logger.debug("Prometheus metrics not available, skipping metrics update")
+    except Exception as e:
+        logger.warning(f"Failed to update Prometheus metrics for account {account_id}: {e}")
+
+
+def _record_telegram_api_request_metric(
+    account_id: str,
+    endpoint_type: str,
+    status: str = "success"
+) -> None:
+    """
+    Записывает метрику API запроса в Prometheus.
+
+    Args:
+        account_id: ID аккаунта
+        endpoint_type: Тип endpoint
+        status: Статус запроса (success, rate_limited, error)
+    """
+    try:
+        from src.services.prometheus_metrics import record_telegram_api_request
+        record_telegram_api_request(account_id, endpoint_type, status)
+    except ImportError:
+        logger.debug("Prometheus metrics not available, skipping request metric")
+    except Exception as e:
+        logger.warning(f"Failed to record API request metric: {e}")
+
+
+def _record_telegram_alert_metric(
+    account_id: str,
+    alert_type: str,
+    endpoint_type: str
+) -> None:
+    """
+    Записывает метрику alert в Prometheus.
+
+    Args:
+        account_id: ID аккаунта
+        alert_type: Тип alert (warning, critical, severe)
+        endpoint_type: Тип endpoint
+    """
+    try:
+        from src.services.prometheus_metrics import record_telegram_alert
+        record_telegram_alert(account_id, alert_type, endpoint_type)
+    except ImportError:
+        logger.debug("Prometheus metrics not available, skipping alert metric")
+    except Exception as e:
+        logger.warning(f"Failed to record alert metric: {e}")
 
 
 # ============================================================================
@@ -611,6 +697,76 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                 "updated_accounts": 0
             }
 
+    @celery_app.task(name='tasks.rate_limit_collect_metrics', bind=True, max_retries=3)
+    def rate_limit_collect_metrics_task(self):
+        """
+        Celery task: собирает и обновляет Prometheus метрики для всех аккаунтов.
+
+        Обновляет следующие метрики:
+        - telegram_api_requests_total: Счётчик запросов
+        - telegram_rate_limit_remaining: Оставшиеся лимиты
+        - telegram_account_usage_percent: Процент использования
+        - telegram_account_status: Статус аккаунта
+        - telegram_alerts_total: Счётчик alert'ов
+
+        Returns:
+            dict с результатом сбора метрик
+        """
+        logger.info("[worker] rate_limit_collect_metrics_task started")
+
+        try:
+            from src.services.rate_limit_predictor import rate_limit_predictor
+            from src.services.multi_account_rate_limiter import MultiAccountRateLimiter
+
+            # Получаем список всех аккаунтов
+            limiter = MultiAccountRateLimiter()
+            accounts = _run_async(limiter.get_all_accounts())
+
+            metrics_updated = 0
+            errors = []
+
+            for account in accounts:
+                account_id = account.get("account_id")
+                if not account_id:
+                    continue
+
+                try:
+                    # Получаем статус аккаунта
+                    account_status = _run_async(rate_limit_predictor.get_account_status(account_id))
+
+                    # Обновляем метрики для аккаунта
+                    _update_prometheus_metrics_for_account(account_id, account_status)
+
+                    metrics_updated += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to collect metrics for account {account_id}: {e}"
+                    logger.warning(error_msg)
+                    errors.append(error_msg)
+
+            logger.info(
+                f"Metrics collection complete: {metrics_updated} accounts updated, "
+                f"{len(errors)} errors"
+            )
+
+            return {
+                "success": True,
+                "accounts_updated": metrics_updated,
+                "total_accounts": len(accounts),
+                "errors": errors
+            }
+
+        except Exception as e:
+            logger.exception("Error in rate_limit_collect_metrics_task")
+            # Retry на recoverable errors
+            if "redis" in str(e).lower() or "connection" in str(e).lower():
+                raise self.retry(countdown=30 * (self.request.retries + 1))
+            return {
+                "success": False,
+                "error": str(e),
+                "accounts_updated": 0
+            }
+
 
 # ============================================================================
 # Public API
@@ -749,4 +905,37 @@ def update_predictions_async(account_id: Optional[str] = None) -> bool:
         return task.get("success", False)
     except Exception:
         logger.exception("Failed to update predictions synchronously")
+        return False
+
+
+def collect_metrics_async() -> bool:
+    """
+    Запускает асинхронный сбор метрик для Prometheus/Grafana.
+
+    Обновляет следующие метрики для всех аккаунтов:
+    - telegram_api_requests_total: Счётчик запросов
+    - telegram_rate_limit_remaining: Оставшиеся лимиты
+    - telegram_account_usage_percent: Процент использования
+    - telegram_account_status: Статус аккаунта
+    - telegram_alerts_total: Счётчик alert'ов
+
+    Returns:
+        True если задача поставлена в очередь или выполнена успешно
+    """
+    if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL')):
+        app = _get_celery_app()
+        try:
+            app.send_task('tasks.rate_limit_collect_metrics')
+            logger.info("Enqueued metrics collection for all accounts")
+            return True
+        except Exception:
+            logger.exception("Failed to enqueue Celery task, falling back to sync")
+
+    # Sync fallback
+    logger.info("Collecting metrics synchronously")
+    try:
+        task = rate_limit_collect_metrics_task()
+        return task.get("success", False)
+    except Exception:
+        logger.exception("Failed to collect metrics synchronously")
         return False
