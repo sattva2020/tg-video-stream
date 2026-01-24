@@ -51,6 +51,8 @@ class AccountInfo:
     failure_count: int = 0
     last_failure: Optional[datetime] = None
     created_at: datetime = field(default_factory=datetime.now)
+    success_rate: float = 1.0  # Процент успешных запросов (0.0 - 1.0)
+    avg_response_time: float = 0.0  # Среднее время ответа в ms
 
     @property
     def is_available(self) -> bool:
@@ -72,6 +74,26 @@ class AccountInfo:
         remaining = (self.rate_limit_until - datetime.now()).total_seconds()
         return max(0, int(remaining))
 
+    @property
+    def score(self) -> float:
+        """
+        Комбинированный скор для взвешенного выбора.
+        Учитывает нагрузку, надёжность и скорость.
+        """
+        # Меньше запросов = лучше
+        load_score = 1.0 / (self.request_count + 1)
+
+        # Выше success_rate = лучше
+        reliability_score = self.success_rate
+
+        # Меньше response_time = лучше
+        speed_score = 1.0 / (self.avg_response_time + 1)
+
+        # Взвешенная комбинация
+        return (load_score * 0.4 +
+                reliability_score * 0.4 +
+                speed_score * 0.2)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "account_id": self.account_id,
@@ -84,6 +106,9 @@ class AccountInfo:
             "failure_count": self.failure_count,
             "last_failure": self.last_failure.isoformat() if self.last_failure else None,
             "is_available": self.is_available,
+            "success_rate": round(self.success_rate, 3),
+            "avg_response_time": round(self.avg_response_time, 2),
+            "score": round(self.score, 3),
         }
 
 
@@ -259,11 +284,15 @@ class MultiAccountRateLimiter:
         await self._refresh_cache()
         return [acc for acc in self._local_cache.values() if acc.is_available]
 
-    async def select_account(self) -> Optional[AccountInfo]:
+    async def select_account(self, fallback_enabled: bool = True) -> Optional[AccountInfo]:
         """
         Выбрать аккаунт для выполнения запроса.
 
         Использует настроенную стратегию выбора (least-used, round-robin, etc.)
+        С поддержкой fallback на альтернативные стратегии.
+
+        Args:
+            fallback_enabled: Включить ли fallback на другие стратегии
 
         Returns:
             AccountInfo или None если нет доступных аккаунтов
@@ -274,48 +303,162 @@ class MultiAccountRateLimiter:
             logger.warning("[MultiAccount] No available accounts")
             return None
 
-        selected_account: Optional[AccountInfo] = None
+        # Пробуем основную стратегию
+        selected_account = await self._select_by_strategy(
+            self.selection_strategy,
+            available
+        )
 
-        if self.selection_strategy == SelectionStrategy.LEAST_USED:
-            # Выбираем аккаунт с наименьшим количеством запросов
-            selected_account = min(available, key=lambda a: a.request_count)
-
-        elif self.selection_strategy == SelectionStrategy.ROUND_ROBIN:
-            # Выбираем по очереди
-            r = await self._get_redis()
-            try:
-                # Инкрементируем счётчик и получаем индекс
-                index = await r.incr(self.ROUND_ROBIN_COUNTER) - 1
-                # Зацикливаем на количестве доступных аккаунтов
-                index = index % len(available)
-                selected_account = available[index]
-            finally:
-                await r.close()
-
-        elif self.selection_strategy == SelectionStrategy.WEIGHTED:
-            # Выбираем с весами (меньше отказов = выше приоритет)
-            def weight(account: AccountInfo) -> float:
-                base = 1.0
-                # Штраф за количество запросов
-                base /= (account.request_count + 1)
-                # Штраф за отказы
-                base /= (account.failure_count + 1)
-                return base
-
-            selected_account = max(available, key=weight)
+        # Если основная стратегия не сработала и fallback включён
+        if selected_account is None and fallback_enabled:
+            logger.info(f"[MultiAccount] Primary strategy {self.selection_strategy.value} failed, trying fallback")
+            selected_account = await self._try_fallback_strategies(available)
 
         if selected_account:
             logger.info(f"[MultiAccount] Selected account {selected_account.account_id} "
-                       f"(strategy: {self.selection_strategy.value})")
+                       f"(strategy: {self.selection_strategy.value}, "
+                       f"load: {selected_account.request_count}, "
+                       f"success_rate: {selected_account.success_rate:.2f})")
+        else:
+            logger.error("[MultiAccount] Failed to select account with all strategies")
 
         return selected_account
 
-    async def mark_account_used(self, account_id: str) -> None:
+    async def _select_by_strategy(
+        self,
+        strategy: SelectionStrategy,
+        available: List[AccountInfo]
+    ) -> Optional[AccountInfo]:
+        """
+        Выбрать аккаунт по конкретной стратегии.
+
+        Args:
+            strategy: Стратегия выбора
+            available: Список доступных аккаунтов
+
+        Returns:
+            Выбранный аккаунт или None
+        """
+        if not available:
+            return None
+
+        try:
+            if strategy == SelectionStrategy.LEAST_USED:
+                return await self._select_least_used(available)
+
+            elif strategy == SelectionStrategy.ROUND_ROBIN:
+                return await self._select_round_robin(available)
+
+            elif strategy == SelectionStrategy.WEIGHTED:
+                return await self._select_weighted(available)
+
+        except Exception as e:
+            logger.error(f"[MultiAccount] Error in strategy {strategy.value}: {e}")
+
+        return None
+
+    async def _select_least_used(self, available: List[AccountInfo]) -> Optional[AccountInfo]:
+        """
+        Стратегия: наименее нагруженный аккаунт.
+
+        Сортирует по request_count, при равных значениях учитывает last_used.
+        """
+        # Сортируем: сначала по request_count, затем по времени последнего использования
+        sorted_accounts = sorted(
+            available,
+            key=lambda a: (a.request_count, a.last_used or datetime.min)
+        )
+
+        return sorted_accounts[0]
+
+    async def _select_round_robin(self, available: List[AccountInfo]) -> Optional[AccountInfo]:
+        """
+        Стратегия: круглый robin.
+
+        Выбирает аккаунты по очереди, используя Redis-счётчик.
+        """
+        r = await self._get_redis()
+        try:
+            # Инкрементируем счётчик и получаем индекс
+            index = await r.incr(self.ROUND_ROBIN_COUNTER) - 1
+            # Зацикливаем на количестве доступных аккаунтов
+            index = index % len(available)
+            return available[index]
+        except Exception as e:
+            logger.error(f"[MultiAccount] Round-robin error: {e}")
+            # Fallback: возвращаем первый доступный
+            return available[0]
+        finally:
+            await r.close()
+
+    async def _select_weighted(self, available: List[AccountInfo]) -> Optional[AccountInfo]:
+        """
+        Стратегия: взвешенный выбор.
+
+        Учитывает нагрузку, надёжность (success_rate) и скорость (avg_response_time).
+        """
+        # Используем предвычисленный score из AccountInfo
+        sorted_accounts = sorted(
+            available,
+            key=lambda a: a.score,
+            reverse=True  # Больший score = лучше
+        )
+
+        return sorted_accounts[0]
+
+    async def _try_fallback_strategies(
+        self,
+        available: List[AccountInfo]
+    ) -> Optional[AccountInfo]:
+        """
+        Попробовать альтернативные стратегии в порядке приоритета.
+
+        Fallback порядок:
+        1. LEAST_USED (самый надёжный)
+        2. WEIGHTED (учитывает множество факторов)
+        3. ROUND_ROBIN (простая балансировка)
+
+        Args:
+            available: Список доступных аккаунтов
+
+        Returns:
+            Выбранный аккаунт или None
+        """
+        fallback_strategies = [
+            SelectionStrategy.LEAST_USED,
+            SelectionStrategy.WEIGHTED,
+            SelectionStrategy.ROUND_ROBIN,
+        ]
+
+        # Исключаем основную стратегию из fallback
+        fallback_strategies = [
+            s for s in fallback_strategies
+            if s != self.selection_strategy
+        ]
+
+        for strategy in fallback_strategies:
+            logger.debug(f"[MultiAccount] Trying fallback strategy: {strategy.value}")
+
+            account = await self._select_by_strategy(strategy, available)
+            if account:
+                logger.info(f"[MultiAccount] Fallback to {strategy.value} succeeded")
+                return account
+
+        return None
+
+    async def mark_account_used(
+        self,
+        account_id: str,
+        success: bool = True,
+        response_time_ms: Optional[float] = None
+    ) -> None:
         """
         Отметить аккаунт как использованный.
 
         Args:
             account_id: Идентификатор аккаунта
+            success: Был ли запрос успешным
+            response_time_ms: Время ответа в миллисекундах
         """
         account = await self.get_account(account_id)
         if not account:
@@ -325,9 +468,22 @@ class MultiAccountRateLimiter:
         account.request_count += 1
         account.last_used = datetime.now()
 
+        # Обновляем success_rate (экспоненциальное скользящее среднее)
+        alpha = 0.1  # Коэффициент сглаживания
+        new_value = 1.0 if success else 0.0
+        account.success_rate = (alpha * new_value +
+                               (1 - alpha) * account.success_rate)
+
+        # Обновляем avg_response_time (экспоненциальное скользящее среднее)
+        if response_time_ms is not None:
+            account.avg_response_time = (alpha * response_time_ms +
+                                        (1 - alpha) * account.avg_response_time)
+
         await self._save_account(account)
         logger.debug(f"[MultiAccount] Marked account {account_id} as used "
-                    f"(total: {account.request_count})")
+                    f"(total: {account.request_count}, "
+                    f"success_rate: {account.success_rate:.2f}, "
+                    f"avg_time: {account.avg_response_time:.1f}ms)")
 
     async def mark_rate_limited(self, account_id: str, wait_seconds: int) -> None:
         """
