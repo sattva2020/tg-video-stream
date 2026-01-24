@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 import redis
+import psutil
 
 log = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class HealthResponse(BaseModel):
     timestamp: str
     dependencies: list[DependencyHealth]
     stream_details: Optional[StreamDetails] = None
+    system_metrics: Optional[SystemMetrics] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -69,6 +71,17 @@ class ReadinessResponse(BaseModel):
     """Ответ readiness probe."""
     status: str  # ready, not_ready
     reason: Optional[str] = None
+
+
+class SystemMetrics(BaseModel):
+    """Метрики использования системных ресурсов."""
+    cpu_percent: float
+    memory_percent: float
+    memory_used_mb: float
+    memory_available_mb: float
+    memory_total_mb: float
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 def check_database() -> DependencyHealth:
@@ -317,6 +330,31 @@ def calculate_overall_status(dependencies: list[DependencyHealth]) -> str:
     return "healthy"
 
 
+def get_system_metrics() -> Optional[SystemMetrics]:
+    """Получить метрики использования системных ресурсов."""
+    try:
+        # CPU usage (как среднее за последние секунды)
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+
+        # Memory usage
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_used_mb = round(memory.used / (1024 * 1024), 2)
+        memory_available_mb = round(memory.available / (1024 * 1024), 2)
+        memory_total_mb = round(memory.total / (1024 * 1024), 2)
+
+        return SystemMetrics(
+            cpu_percent=round(cpu_percent, 2),
+            memory_percent=round(memory_percent, 2),
+            memory_used_mb=memory_used_mb,
+            memory_available_mb=memory_available_mb,
+            memory_total_mb=memory_total_mb
+        )
+    except Exception as e:
+        log.warning(f"Failed to get system metrics: {e}")
+        return None
+
+
 @router.get("", response_model=HealthResponse)
 @router.get("/", response_model=HealthResponse)
 async def health_check():
@@ -333,6 +371,7 @@ async def health_check():
     overall_status = calculate_overall_status(dependencies)
     uptime = time.time() - _start_time
     stream_details = get_stream_details()
+    system_metrics = get_system_metrics()
 
     response = HealthResponse(
         status=overall_status,
@@ -340,7 +379,8 @@ async def health_check():
         uptime_seconds=round(uptime, 1),
         timestamp=datetime.now(timezone.utc).isoformat(),
         dependencies=dependencies,
-        stream_details=stream_details
+        stream_details=stream_details,
+        system_metrics=system_metrics
     )
 
     if overall_status == "unhealthy":
