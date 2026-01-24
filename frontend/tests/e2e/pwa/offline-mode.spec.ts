@@ -9,8 +9,8 @@
 
 import { test, expect } from '@playwright/test';
 
-// Конфигурация для production тестов
-const BASE_URL = process.env.TEST_BASE_URL || 'https://sattva-streamer.top';
+// Конфигурация для тестов: используем TEST_BASE_URL или локальный Vite preview
+const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:4173';
 
 interface OfflineQueueInfo {
   count: number;
@@ -38,12 +38,6 @@ test.describe('Offline Fallback Page', () => {
     await page.waitForTimeout(2000);
 
     // Should show offline fallback page or cached content
-    const content = await page.content();
-    const hasOfflineContent = content.includes('offline') ||
-                              content.includes('Offline') ||
-                              content.includes('Нет подключения') ||
-                              content.includes('connection');
-
     // Either shows offline page or cached content gracefully
     expect(page.url()).toBeTruthy();
   });
@@ -89,7 +83,7 @@ test.describe('Offline Fallback Page', () => {
     const hasRetryOption = await retryButton.count() > 0;
 
     // Retry option is recommended but not strictly required
-    expect(page.url()).toBeTruthy();
+    expect(hasRetryOption || page.url()).toBeTruthy();
   });
 });
 
