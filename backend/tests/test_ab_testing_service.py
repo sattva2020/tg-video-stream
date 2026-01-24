@@ -197,7 +197,6 @@ class TestCreateTest:
 
         # Mock flush to set ID
         test_id = uuid.uuid4()
-        variant_ids = [uuid.uuid4(), uuid.uuid4()]
 
         flush_call_count = [0]
 
@@ -361,8 +360,8 @@ class TestUpdateTest:
             description="Updated description",
         )
 
-        with patch.object(service, 'get_test', return_value=MagicMock()) as mock_get:
-            result = await service.update_test(test_id=sample_test.id, test_data=update_data)
+        with patch.object(service, 'get_test', return_value=MagicMock()):
+            await service.update_test(test_id=sample_test.id, test_data=update_data)
 
         assert sample_test.name == "Updated Test Name"
         assert sample_test.description == "Updated description"

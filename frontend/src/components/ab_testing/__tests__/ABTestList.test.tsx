@@ -678,7 +678,7 @@ describe('ABTestList Component', () => {
         total: 3,
       });
 
-      const { container } = render(<ABTestList />);
+      render(<ABTestList />);
 
       await waitFor(() => {
         const headings = screen.getAllByText('A/B Тесты');

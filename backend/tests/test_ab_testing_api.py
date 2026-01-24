@@ -5,15 +5,11 @@ Feature: 016-a-b-testing-framework-for-content
 
 import pytest
 import uuid
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
 
 from src.models.ab_testing import ABTestStatus
 from src.schemas.ab_testing import (
     ABTestCreate,
-    ABTestUpdate,
     ABTestVariantCreate,
-    ABTestMetricCreate,
 )
 
 

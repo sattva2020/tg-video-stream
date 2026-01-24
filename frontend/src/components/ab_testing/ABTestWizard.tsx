@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight,
@@ -24,8 +24,6 @@ import {
 } from 'lucide-react';
 import {
   Button,
-  Card,
-  CardContent,
   Input,
   Textarea,
   Label,
