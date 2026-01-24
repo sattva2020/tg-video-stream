@@ -76,6 +76,13 @@ class Settings:
     RECOVERY_HALF_OPEN_MAX_CALLS: int = int(os.getenv("RECOVERY_HALF_OPEN_MAX_CALLS", "3"))
     RECOVERY_JITTER_ENABLED: bool = os.getenv("RECOVERY_JITTER_ENABLED", "true").lower() == "true"
 
+    # Session Management Configuration
+    SESSION_HEALTH_CHECK_INTERVAL: int = int(os.getenv("SESSION_HEALTH_CHECK_INTERVAL", "3600"))
+    SESSION_AUTO_REFRESH_ENABLED: bool = os.getenv("SESSION_AUTO_REFRESH_ENABLED", "true").lower() == "true"
+    SESSION_REFRESH_BEFORE_EXPIRES_HOURS: int = int(os.getenv("SESSION_REFRESH_BEFORE_EXPIRES_HOURS", "24"))
+    SESSION_BACKUP_PATH: str = os.getenv("SESSION_BACKUP_PATH", "/app/data/backups/sessions")
+    SESSION_MAX_REFRESH_ATTEMPTS: int = int(os.getenv("SESSION_MAX_REFRESH_ATTEMPTS", "3"))
+
     # CORS
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
