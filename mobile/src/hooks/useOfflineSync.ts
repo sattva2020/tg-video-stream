@@ -57,7 +57,7 @@ export const useOfflineSync = (): UseOfflineSyncReturn => {
       return saveChange({
         type: 'update',
         endpoint,
-        method: 'PUT' || 'PATCH',
+        method: 'PUT',
         data,
       });
     },
