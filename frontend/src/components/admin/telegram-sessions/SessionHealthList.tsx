@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 interface SessionHealthListProps {
   refreshTrigger?: number;
-  onConfigureClick?: (sessionId: string) => void;
+  onConfigureClick?: (sessionId: string, sessionPhone?: string) => void;
 }
 
 export const SessionHealthList: React.FC<SessionHealthListProps> = ({
@@ -290,7 +290,7 @@ export const SessionHealthList: React.FC<SessionHealthListProps> = ({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onConfigureClick?.(session.id)}
+                  onClick={() => onConfigureClick?.(session.id, session.phone)}
                 >
                   <Settings className="h-4 w-4 mr-2" />
                   Configure

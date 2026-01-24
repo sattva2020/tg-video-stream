@@ -2,14 +2,26 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/components/layout';
 import { SessionHealthList } from '@/components/admin/telegram-sessions/SessionHealthList';
+import { SessionConfigModal } from '@/components/admin/telegram-sessions/SessionConfigModal';
 
 export const SessionsPage: React.FC = () => {
   const { t } = useTranslation();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [configModalSession, setConfigModalSession] = useState<{
+    id: string;
+    phone?: string;
+  } | null>(null);
 
-  const handleConfigureClick = (sessionId: string) => {
-    // TODO: Open configuration modal
-    // Will be implemented in subtask-5-3
+  const handleConfigureClick = (sessionId: string, sessionPhone?: string) => {
+    setConfigModalSession({ id: sessionId, phone: sessionPhone });
+  };
+
+  const handleConfigSuccess = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleCloseConfigModal = () => {
+    setConfigModalSession(null);
   };
 
   return (
@@ -27,6 +39,16 @@ export const SessionsPage: React.FC = () => {
           onConfigureClick={handleConfigureClick}
         />
       </div>
+
+      {configModalSession && (
+        <SessionConfigModal
+          isOpen={!!configModalSession}
+          onClose={handleCloseConfigModal}
+          sessionId={configModalSession.id}
+          sessionPhone={configModalSession.phone}
+          onSuccess={handleConfigSuccess}
+        />
+      )}
     </AppLayout>
   );
 };
