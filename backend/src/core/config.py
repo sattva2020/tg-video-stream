@@ -79,4 +79,12 @@ class Settings:
     # CORS
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000").split(",")]
 
+    # Rate Limit Alert Configuration
+    RATE_LIMIT_ALERT_THRESHOLD: int = int(os.getenv("RATE_LIMIT_ALERT_THRESHOLD", "75"))  # Deprecated: Use WARNING_THRESHOLD
+    RATE_LIMIT_ALERT_WARNING_THRESHOLD: int = int(os.getenv("RATE_LIMIT_ALERT_WARNING_THRESHOLD", "75"))
+    RATE_LIMIT_ALERT_CRITICAL_THRESHOLD: int = int(os.getenv("RATE_LIMIT_ALERT_CRITICAL_THRESHOLD", "90"))
+    RATE_LIMIT_ALERT_ENABLED: bool = os.getenv("RATE_LIMIT_ALERT_ENABLED", "true").lower() == "true"
+    RATE_LIMIT_ALERT_COOLDOWN_SECONDS: int = int(os.getenv("RATE_LIMIT_ALERT_COOLDOWN_SECONDS", "300"))
+    RATE_LIMIT_ALERT_CHANNELS: list[str] = [channel.strip() for channel in os.getenv("RATE_LIMIT_ALERT_CHANNELS", "").split(",") if channel.strip()]
+
 settings = Settings()
