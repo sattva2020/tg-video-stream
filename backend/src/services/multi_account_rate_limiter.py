@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import redis.asyncio as redis
 from src.core.config import settings
+from src.services.telegram_rate_limiter import TelegramRateLimiter, LimitInfo, LimitType
 
 logger = logging.getLogger(__name__)
 
@@ -425,6 +426,7 @@ class MultiAccountRateLimiter:
         self._local_cache: Dict[str, AccountInfo] = {}
         self._cache_ttl = timedelta(seconds=5)
         self._last_cache_update: Optional[datetime] = None
+        self.rate_limiter = TelegramRateLimiter()
 
     async def _get_redis(self) -> redis.Redis:
         """Получить подключение к Redis"""
@@ -567,11 +569,37 @@ class MultiAccountRateLimiter:
         """
         Получить список доступных для использования аккаунтов.
 
+        Проверяет:
+        1. Статус аккаунта (ACTIVE)
+        2. Локальный rate_limit_until
+        3. Активные лимиты в TelegramRateLimiter
+
         Returns:
             Список доступных AccountInfo
         """
         await self._refresh_cache()
-        return [acc for acc in self._local_cache.values() if acc.is_available]
+        available = []
+
+        for acc in self._local_cache.values():
+            # Локальная проверка доступности
+            if not acc.is_available:
+                continue
+
+            # Проверяем активные лимиты через TelegramRateLimiter
+            active_limit = await self.rate_limiter.check_limit(acc.phone)
+            if active_limit and active_limit.is_active:
+                # Обновляем локальный статус для консистентности
+                acc.status = AccountStatus.RATE_LIMITED
+                acc.rate_limit_until = active_limit.retry_after
+                logger.debug(
+                    f"[MultiAccount] Account {acc.account_id} has active rate limit: "
+                    f"{active_limit.type.value} ({active_limit.remaining_seconds}s remaining)"
+                )
+                continue
+
+            available.append(acc)
+
+        return available
 
     async def select_account(self, fallback_enabled: bool = True) -> Optional[AccountInfo]:
         """
@@ -774,24 +802,53 @@ class MultiAccountRateLimiter:
                     f"success_rate: {account.success_rate:.2f}, "
                     f"avg_time: {account.avg_response_time:.1f}ms)")
 
-    async def mark_rate_limited(self, account_id: str, wait_seconds: int) -> None:
+    async def mark_rate_limited(
+        self,
+        account_id: str,
+        wait_seconds: int,
+        limit_type: Optional[LimitType] = None,
+        error_message: str = ""
+    ) -> None:
         """
         Отметить аккаунт как находящийся в лимите.
+
+        Записывает лимит как в локальное хранилище, так и в TelegramRateLimiter
+        для централизованного отслеживания.
 
         Args:
             account_id: Идентификатор аккаунта
             wait_seconds: Время ожидания в секундах
+            limit_type: Тип лимита (опционально)
+            error_message: Сообщение об ошибке (опционально)
         """
         account = await self.get_account(account_id)
         if not account:
             logger.warning(f"[MultiAccount] Account {account_id} not found")
             return
 
-        account.status = AccountStatus.RATE_LIMITED
-        account.rate_limit_until = datetime.now() + timedelta(seconds=wait_seconds)
+        retry_after = datetime.now() + timedelta(seconds=wait_seconds)
 
+        # Обновляем локальный статус
+        account.status = AccountStatus.RATE_LIMITED
+        account.rate_limit_until = retry_after
         await self._save_account(account)
-        logger.warning(f"[MultiAccount] Account {account_id} rate limited for {wait_seconds}s")
+
+        # Создаём LimitInfo и записываем в TelegramRateLimiter
+        limit_type = limit_type or LimitType.FLOOD_WAIT
+        limit_info = LimitInfo(
+            type=limit_type,
+            wait_seconds=wait_seconds,
+            message=error_message,
+            retry_after=retry_after,
+            phone=account.phone,
+        )
+
+        await self.rate_limiter.record_limit(account.phone, limit_info)
+
+        logger.warning(
+            f"[MultiAccount] Account {account_id} rate limited for {wait_seconds}s "
+            f"(type: {limit_type.value}, phone: {account.phone})"
+        )
 
     async def mark_failure(self, account_id: str, error: str = "") -> None:
         """
@@ -857,12 +914,19 @@ class MultiAccountRateLimiter:
 
         return True
 
-    async def clear_rate_limit(self, account_id: str) -> bool:
+    async def clear_rate_limit(
+        self,
+        account_id: str,
+        limit_type: Optional[LimitType] = None
+    ) -> bool:
         """
         Очистить лимит для аккаунта.
 
+        Очищает лимит как в локальном хранилище, так и в TelegramRateLimiter.
+
         Args:
             account_id: Идентификатор аккаунта
+            limit_type: Конкретный тип лимита для очистки (опционально)
 
         Returns:
             True если лимит был очищен
@@ -871,14 +935,76 @@ class MultiAccountRateLimiter:
         if not account:
             return False
 
-        if account.status == AccountStatus.RATE_LIMITED:
+        # Очищаем в TelegramRateLimiter
+        await self.rate_limiter.clear_limit(account.phone, limit_type)
+
+        # Очищаем локально
+        was_limited = account.status == AccountStatus.RATE_LIMITED
+        if was_limited:
             account.status = AccountStatus.ACTIVE
 
         account.rate_limit_until = None
         await self._save_account(account)
 
-        logger.info(f"[MultiAccount] Cleared rate limit for account {account_id}")
+        logger.info(
+            f"[MultiAccount] Cleared rate limit for account {account_id} "
+            f"(phone: {account.phone}, type: {limit_type.value if limit_type else 'all'})"
+        )
         return True
+
+    async def handle_error(self, account_id: str, error: Exception) -> Optional[LimitInfo]:
+        """
+        Обработать ошибку от Pyrogram и автоматически записать лимит.
+
+        Использует TelegramRateLimiter.parse_error() для извлечения информации
+        о лимите из ошибки и автоматически записывает его.
+
+        Args:
+            account_id: Идентификатор аккаунта
+            error: Исключение от Pyrogram
+
+        Returns:
+            LimitInfo если ошибка содержит лимит, None в противном случае
+        """
+        account = await self.get_account(account_id)
+        if not account:
+            logger.warning(f"[MultiAccount] Account {account_id} not found")
+            return None
+
+        # Парсим ошибку через TelegramRateLimiter
+        limit_info = self.rate_limiter.parse_error(error)
+
+        # Если это лимит, записываем его
+        if limit_info.wait_seconds > 0:
+            await self.mark_rate_limited(
+                account_id=account_id,
+                wait_seconds=limit_info.wait_seconds,
+                limit_type=limit_info.type,
+                error_message=limit_info.message
+            )
+
+            logger.warning(
+                f"[MultiAccount] Error handled for account {account_id}: "
+                f"{limit_info.type.value} ({limit_info.wait_seconds}s)"
+            )
+
+        return limit_info
+
+    async def get_active_limits(self, account_id: str) -> Dict[str, Any]:
+        """
+        Получить все активные лимиты для аккаунта.
+
+        Args:
+            account_id: Идентификатор аккаунта
+
+        Returns:
+            Словарь с информацией об активных лимитах
+        """
+        account = await self.get_account(account_id)
+        if not account:
+            return {}
+
+        return await self.rate_limiter.get_active_limits(account.phone)
 
     async def get_pool_stats(self) -> Dict[str, Any]:
         """
