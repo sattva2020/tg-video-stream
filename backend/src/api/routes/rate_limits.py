@@ -10,6 +10,7 @@ Endpoints:
   POST /api/v1/rate-limits/accounts - Add account to multi-account pool
   PUT /api/v1/rate-limits/accounts/{account_id} - Update account status (enable/disable)
   DELETE /api/v1/rate-limits/accounts/{account_id} - Remove account from pool
+  PUT /api/v1/rate-limits/settings - Configure alert thresholds and notification preferences
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -164,6 +165,34 @@ class AccountOperationResponse(BaseModel):
     success: bool = Field(..., description="Whether the operation succeeded")
     message: str = Field(..., description="Operation result message")
     account_id: str = Field(..., description="Account identifier")
+
+
+class AlertThresholds(BaseModel):
+    """Alert threshold configuration."""
+    warning_threshold_percent: float = Field(default=75.0, ge=0, le=100, description="Warning threshold as percentage (0-100)")
+    critical_threshold_percent: float = Field(default=90.0, ge=0, le=100, description="Critical threshold as percentage (0-100)")
+
+
+class NotificationPreferences(BaseModel):
+    """Notification preferences for rate limit alerts."""
+    enabled: bool = Field(default=True, description="Whether notifications are enabled")
+    channels: List[str] = Field(default_factory=list, description="List of notification channel IDs")
+    notify_on_warning: bool = Field(default=True, description="Whether to notify on warning threshold")
+    notify_on_critical: bool = Field(default=True, description="Whether to notify on critical threshold")
+    cooldown_seconds: int = Field(default=300, ge=0, description="Minimum seconds between notifications for same account")
+
+
+class RateLimitSettingsRequest(BaseModel):
+    """Request to update rate limit settings."""
+    alert_thresholds: Optional[AlertThresholds] = Field(None, description="Alert threshold configuration")
+    notification_preferences: Optional[NotificationPreferences] = Field(None, description="Notification preferences")
+
+
+class RateLimitSettingsResponse(BaseModel):
+    """Response containing current rate limit settings."""
+    alert_thresholds: AlertThresholds = Field(..., description="Current alert thresholds")
+    notification_preferences: NotificationPreferences = Field(..., description="Current notification preferences")
+    timestamp: str = Field(..., description="Settings timestamp (ISO 8601)")
 
 
 # Route Handlers
@@ -972,6 +1001,107 @@ async def remove_account_from_pool(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to remove account from pool: {str(e)}"
+        )
+
+
+@router.put("/settings", response_model=RateLimitSettingsResponse, status_code=200)
+async def update_rate_limit_settings(
+    request: RateLimitSettingsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Configure alert thresholds and notification preferences.
+
+    **Permission**: Authenticated user (admin access recommended)
+
+    **Rate Limit**: 30 requests/minute per user
+
+    **Request Body**:
+    ```json
+    {
+      "alert_thresholds": {
+        "warning_threshold_percent": 75.0,
+        "critical_threshold_percent": 90.0
+      },
+      "notification_preferences": {
+        "enabled": true,
+        "channels": ["channel-1", "channel-2"],
+        "notify_on_warning": true,
+        "notify_on_critical": true,
+        "cooldown_seconds": 300
+      }
+    }
+    ```
+
+    **Returns**:
+        - Updated alert thresholds
+        - Updated notification preferences
+        - Settings timestamp
+
+    **Example Response**:
+    ```json
+    {
+      "alert_thresholds": {
+        "warning_threshold_percent": 75.0,
+        "critical_threshold_percent": 90.0
+      },
+      "notification_preferences": {
+        "enabled": true,
+        "channels": ["channel-1", "channel-2"],
+        "notify_on_warning": true,
+        "notify_on_critical": true,
+        "cooldown_seconds": 300
+      },
+      "timestamp": "2025-01-24T12:00:00Z"
+    }
+    ```
+
+    **Notes**:
+        - Both `alert_thresholds` and `notification_preferences` are optional
+        - Only provided fields will be updated
+        - Thresholds must be between 0 and 100
+        - Warning threshold should be less than critical threshold (validated automatically)
+    """
+    try:
+        # Import settings manager if available, otherwise use in-memory storage
+        # For now, we'll implement a simple in-memory configuration store
+        if not hasattr(update_rate_limit_settings, '_settings'):
+            # Initialize default settings
+            update_rate_limit_settings._settings = {
+                "alert_thresholds": AlertThresholds(),
+                "notification_preferences": NotificationPreferences()
+            }
+
+        # Update alert thresholds if provided
+        if request.alert_thresholds is not None:
+            # Validate that warning < critical
+            if request.alert_thresholds.warning_threshold_percent >= request.alert_thresholds.critical_threshold_percent:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="warning_threshold_percent must be less than critical_threshold_percent"
+                )
+            update_rate_limit_settings._settings["alert_thresholds"] = request.alert_thresholds
+
+        # Update notification preferences if provided
+        if request.notification_preferences is not None:
+            update_rate_limit_settings._settings["notification_preferences"] = request.notification_preferences
+
+        logger.info(f"User {current_user.id} updated rate limit settings")
+
+        return RateLimitSettingsResponse(
+            alert_thresholds=update_rate_limit_settings._settings["alert_thresholds"],
+            notification_preferences=update_rate_limit_settings._settings["notification_preferences"],
+            timestamp=_get_timestamp()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating rate limit settings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update rate limit settings: {str(e)}"
         )
 
 
