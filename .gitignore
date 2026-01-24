@@ -198,3 +198,14 @@ mcp-test/node_modules/
 mcp-test/*.log
 data/music/
 tg-engine/AyuGramDesktop/
+
+# Auto Claude data directory
+.auto-claude/
+
+# Auto Claude generated files
+.auto-claude-security.json
+.auto-claude-status
+.claude_settings.json
+.worktrees/
+.security-key
+logs/security/
