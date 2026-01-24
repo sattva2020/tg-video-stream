@@ -241,6 +241,170 @@ class UsageTracker:
             summary[endpoint.value] = stats
         return summary
 
+    async def get_time_series_data(
+        self,
+        account_id: str,
+        endpoint_type: EndpointType,
+        interval: str = "minute",
+        points: int = 60
+    ) -> List[Dict[str, Any]]:
+        """
+        Получить данные временного ряда для графика.
+
+        Args:
+            account_id: ID аккаунта
+            endpoint_type: Тип запроса
+            interval: Интервал агрегации ('minute', 'hour')
+            points: Количество точек для возврата
+
+        Returns:
+            Список словарей с timestamp и count
+        """
+        r = await self._get_redis()
+        try:
+            key = f"{self.REDIS_PREFIX}:{account_id}:{endpoint_type.value}"
+
+            # Определяем окно на основе интервала
+            if interval == "minute":
+                window_seconds = points * 60
+                bucket_size = 60  # 1 минута
+            elif interval == "hour":
+                window_seconds = points * 3600
+                bucket_size = 3600  # 1 час
+            else:
+                raise ValueError(f"Invalid interval: {interval}")
+
+            now = datetime.now()
+            window_start = now - timedelta(seconds=window_seconds)
+
+            # Получаем все записи в окне
+            cutoff_ms = int(window_start.timestamp() * 1000)
+            timestamps = await r.zrangebyscore(key, cutoff_ms, "+inf")
+
+            # Агрегируем по бакетам
+            buckets = {}
+            for ts_str in timestamps:
+                ts_ms = int(ts_str)
+                ts = datetime.fromtimestamp(ts_ms / 1000)
+
+                # Определяем бакет
+                if interval == "minute":
+                    bucket_key = ts.replace(second=0, microsecond=0).isoformat()
+                else:  # hour
+                    bucket_key = ts.replace(minute=0, second=0, microsecond=0).isoformat()
+
+                buckets[bucket_key] = buckets.get(bucket_key, 0) + 1
+
+            # Преобразуем в список и сортируем
+            time_series = [
+                {"timestamp": ts, "count": count}
+                for ts, count in sorted(buckets.items())
+            ]
+
+            return time_series
+
+        finally:
+            await r.close()
+
+    async def aggregate_metrics(
+        self,
+        account_id: str,
+        endpoint_type: EndpointType
+    ) -> Dict[str, Any]:
+        """
+        Агрегировать метрики за разные периоды.
+
+        Args:
+            account_id: ID аккаунта
+            endpoint_type: Тип запроса
+
+        Returns:
+            Словарь с агрегированными метриками
+        """
+        r = await self._get_redis()
+        try:
+            key = f"{self.REDIS_PREFIX}:{account_id}:{endpoint_type.value}"
+
+            # Получаем статистику за разные окна
+            now = datetime.now()
+
+            # Последняя минута
+            minute_start = (now - timedelta(seconds=60)).timestamp() * 1000
+            minute_count = await r.zcount(key, minute_start, "+inf")
+
+            # Последний час
+            hour_start = (now - timedelta(seconds=3600)).timestamp() * 1000
+            hour_count = await r.zcount(key, hour_start, "+inf")
+
+            # Последние 24 часа
+            day_start = (now - timedelta(seconds=86400)).timestamp() * 1000
+            day_count = await r.zcount(key, day_start, "+inf")
+
+            return {
+                "account_id": account_id,
+                "endpoint_type": endpoint_type.value,
+                "last_minute": {
+                    "count": minute_count,
+                    "requests_per_second": round(minute_count / 60, 2)
+                },
+                "last_hour": {
+                    "count": hour_count,
+                    "requests_per_minute": round(hour_count / 60, 2)
+                },
+                "last_day": {
+                    "count": day_count,
+                    "requests_per_hour": round(day_count / 24, 2)
+                },
+                "window_size": SLIDING_WINDOW_SIZE
+            }
+
+        finally:
+            await r.close()
+
+    async def get_all_accounts_metrics(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Получить метрики для всех аккаунтов.
+
+        Returns:
+            Словарь {account_id: {endpoint_type: metrics}}
+        """
+        r = await self._get_redis()
+        try:
+            # Находим все ключи использования
+            pattern = f"{self.REDIS_PREFIX}:*"
+            cursor = 0
+            account_metrics = {}
+
+            while True:
+                cursor, keys = await r.scan(cursor, match=pattern, count=100)
+                for key in keys:
+                    try:
+                        # Парсим ключ: rate_limit_usage:account_id:endpoint_type
+                        parts = key.split(":")
+                        if len(parts) >= 3:
+                            account_id = parts[1]
+                            endpoint_str = parts[2]
+                            endpoint = EndpointType(endpoint_str)
+
+                            if account_id not in account_metrics:
+                                account_metrics[account_id] = {}
+
+                            # Получаем агрегированные метрики
+                            metrics = await self.aggregate_metrics(account_id, endpoint)
+                            account_metrics[account_id][endpoint_str] = metrics
+
+                    except (ValueError, IndexError) as e:
+                        logger.warning(f"Error parsing key {key}: {e}")
+                        continue
+
+                if cursor == 0:
+                    break
+
+            return account_metrics
+
+        finally:
+            await r.close()
+
 
 class RateLimitPredictor:
     """ML-модель для предсказания достижения лимитов"""
