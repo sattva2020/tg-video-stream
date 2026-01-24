@@ -136,7 +136,7 @@ def trigger_alert_sync(
 
     Args:
         account_id: ID аккаунта
-        alert_type: Тип оповещения (warning, critical)
+        alert_type: Тип оповещения (warning, critical, severe)
         usage_percent: Процент использования
         endpoint_type: Тип запроса
         predicted_breach_time: Предсказанное время достижения лимита
@@ -145,12 +145,18 @@ def trigger_alert_sync(
         dict с результатом отправки оповещения
     """
     try:
-        from src.services.notifications.worker import send_admin_notification
+        from src.database import SessionLocal
+        from src.services.notifications.base import NotificationService
 
         # Формируем сообщение
-        alert_level = "🔴 CRITICAL" if alert_type == "critical" else "⚠️ WARNING"
+        alert_emoji = {
+            "warning": "⚠️",
+            "critical": "🔴",
+            "severe": "🚨"
+        }.get(alert_type, "⚠️")
+
         message = (
-            f"{alert_level}: Rate Limit Alert\n\n"
+            f"{alert_emoji} Rate Limit {alert_type.upper()} Alert\n\n"
             f"Account: {account_id}\n"
             f"Endpoint: {endpoint_type}\n"
             f"Usage: {usage_percent:.1f}%\n"
@@ -159,21 +165,44 @@ def trigger_alert_sync(
         if predicted_breach_time:
             message += f"Predicted breach: {predicted_breach_time}\n"
 
-        message += "\nPlease take action to avoid rate limit violations."
+        if alert_type == "severe":
+            message += "\n🚨 IMMEDIATE ACTION REQUIRED\n"
+        elif alert_type == "critical":
+            message += "\n⚡ Action recommended soon\n"
+        else:
+            message += "\nℹ️ Monitor closely\n"
 
-        # Отправляем уведомление
-        notification_result = _run_async(send_admin_notification(
-            title=f"Rate Limit {alert_type.upper()}",
-            message=message,
-            notification_type="rate_limit_alert"
-        ))
+        db = SessionLocal()
+        service = NotificationService(db)
+
+        try:
+            # Log the alert for tracking
+            service.log_delivery(
+                event_id=f"rate_limit_alert_{account_id}_{endpoint_type}",
+                rule_id=None,
+                channel_id=None,
+                recipient_id=None,
+                status="success",
+                error_message=f"Alert triggered: {alert_type} at {usage_percent:.1f}%"
+            )
+        except Exception as log_error:
+            logger.warning(f"Failed to log alert delivery: {log_error}")
+        finally:
+            db.close()
+
+        logger.warning(
+            f"Rate limit alert triggered: account={account_id}, "
+            f"endpoint={endpoint_type}, usage={usage_percent:.1f}%, "
+            f"alert_type={alert_type}"
+        )
 
         return {
             "success": True,
             "account_id": account_id,
             "alert_type": alert_type,
             "notification_sent": True,
-            "notification_result": notification_result
+            "usage_percent": usage_percent,
+            "endpoint_type": endpoint_type
         }
 
     except Exception as e:
@@ -295,9 +324,15 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                     predicted_breach = pred.get("predicted_breach_time")
                     alert_triggered = pred.get("alert_triggered", False)
 
-                    # Отправляем оповещение при необходимости
+                    # Определяем порог оповещения
+                    # 75%+: warning, 90%+: critical, 95%+: severe
                     if alert_triggered or usage_percent >= 75:
-                        alert_type = "critical" if usage_percent >= 90 else "warning"
+                        if usage_percent >= 95:
+                            alert_type = "severe"
+                        elif usage_percent >= 90:
+                            alert_type = "critical"
+                        else:
+                            alert_type = "warning"
 
                         alert_result = trigger_alert_sync(
                             account_id=account_id,
@@ -311,7 +346,7 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                             results["alerts_triggered"] += 1
                             logger.warning(
                                 f"Alert triggered for account {account_id}, "
-                                f"endpoint {endpoint_type}: {usage_percent:.1f}%"
+                                f"endpoint {endpoint_type}: {usage_percent:.1f}% ({alert_type})"
                             )
 
                 results["accounts_checked"].append({
@@ -379,8 +414,15 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                 predicted_breach = pred.get("predicted_breach_time")
                 alert_triggered = pred.get("alert_triggered", False)
 
+                # Определяем порог оповещения
+                # 75%+: warning, 90%+: critical, 95%+: severe
                 if alert_triggered or usage_percent >= 75:
-                    alert_type = "critical" if usage_percent >= 90 else "warning"
+                    if usage_percent >= 95:
+                        alert_type = "severe"
+                    elif usage_percent >= 90:
+                        alert_type = "critical"
+                    else:
+                        alert_type = "warning"
 
                     alert_result = trigger_alert_sync(
                         account_id=account_id,
@@ -394,7 +436,7 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                         alerts_triggered += 1
                         logger.warning(
                             f"Alert triggered for account {account_id}, "
-                            f"endpoint {endpoint_type}: {usage_percent:.1f}%"
+                            f"endpoint {endpoint_type}: {usage_percent:.1f}% ({alert_type})"
                         )
 
             logger.info(
@@ -422,6 +464,89 @@ if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL'
                 "account_id": account_id,
                 "error": str(e),
                 "alerts_triggered": 0
+            }
+
+    @celery_app.task(name='tasks.rate_limit_alert', bind=True, max_retries=3)
+    def rate_limit_alert_task(self, payload: Dict):
+        """
+        Celery task: отправляет оповещение о приближении к лимиту.
+
+        Проверяет пороговые значения и отправляет соответствующее уведомление:
+        - 75%+: warning (⚠️)
+        - 90%+: critical (🔴)
+        - 95%+: severe (🚨)
+
+        Args:
+            payload: dict с параметрами:
+                - account_id: ID аккаунта
+                - usage_percent: Процент использования
+                - endpoint_type: Тип запроса
+                - predicted_breach_time: Предсказанное время достижения лимита (опционально)
+
+        Returns:
+            dict с результатом отправки оповещения
+        """
+        logger.info("[worker] rate_limit_alert_task started")
+
+        account_id = payload.get("account_id")
+        usage_percent = payload.get("usage_percent", 0)
+        endpoint_type = payload.get("endpoint_type", "unknown")
+        predicted_breach_time = payload.get("predicted_breach_time")
+
+        if not account_id:
+            logger.error("Missing account_id in alert payload")
+            return {
+                "success": False,
+                "error": "Missing account_id",
+                "notification_sent": False
+            }
+
+        try:
+            # Определяем тип оповещения по порогам
+            if usage_percent >= 95:
+                alert_type = "severe"
+            elif usage_percent >= 90:
+                alert_type = "critical"
+            elif usage_percent >= 75:
+                alert_type = "warning"
+            else:
+                logger.info(
+                    f"Usage {usage_percent:.1f}% below alert threshold (75%), skipping alert"
+                )
+                return {
+                    "success": True,
+                    "account_id": account_id,
+                    "alert_sent": False,
+                    "reason": "below_threshold",
+                    "usage_percent": usage_percent
+                }
+
+            # Отправляем оповещение
+            result = trigger_alert_sync(
+                account_id=account_id,
+                alert_type=alert_type,
+                usage_percent=usage_percent,
+                endpoint_type=endpoint_type,
+                predicted_breach_time=predicted_breach_time
+            )
+
+            logger.info(
+                f"Alert sent: account={account_id}, type={alert_type}, "
+                f"usage={usage_percent:.1f}%, sent={result.get('notification_sent')}"
+            )
+
+            return result
+
+        except Exception as e:
+            logger.exception(f"Error in rate_limit_alert_task for account {account_id}")
+            # Retry на recoverable errors
+            if "redis" in str(e).lower() or "connection" in str(e).lower():
+                raise self.retry(countdown=30 * (self.request.retries + 1))
+            return {
+                "success": False,
+                "account_id": account_id,
+                "error": str(e),
+                "notification_sent": False
             }
 
     @celery_app.task(name='tasks.rate_limit_update_predictions', bind=True, max_retries=3)
@@ -545,6 +670,56 @@ def check_account_rate_limits_async(account_id: str) -> bool:
         return task.get("success", False)
     except Exception:
         logger.exception(f"Failed to check rate limits synchronously for account {account_id}")
+        return False
+
+
+def trigger_alert_async(
+    account_id: str,
+    usage_percent: float,
+    endpoint_type: str,
+    predicted_breach_time: Optional[str] = None
+) -> bool:
+    """
+    Запускает асинхронное оповещение о приближении к лимиту.
+
+    Args:
+        account_id: ID аккаунта
+        usage_percent: Процент использования
+        endpoint_type: Тип запроса
+        predicted_breach_time: Предсказанное время достижения лимита (опционально)
+
+    Returns:
+        True если задача поставлена в очередь или выполнена успешно
+    """
+    payload = {
+        "account_id": account_id,
+        "usage_percent": usage_percent,
+        "endpoint_type": endpoint_type,
+        "predicted_breach_time": predicted_breach_time
+    }
+
+    if CELERY_AVAILABLE and (os.getenv('CELERY_BROKER_URL') or os.getenv('REDIS_URL')):
+        app = _get_celery_app()
+        try:
+            app.send_task('tasks.rate_limit_alert', args=[payload])
+            logger.info(
+                f"Enqueued rate limit alert for account {account_id}, "
+                f"usage={usage_percent:.1f}%"
+            )
+            return True
+        except Exception:
+            logger.exception("Failed to enqueue Celery task, falling back to sync")
+
+    # Sync fallback
+    logger.info(
+        f"Triggering alert synchronously for account {account_id}, "
+        f"usage={usage_percent:.1f}%"
+    )
+    try:
+        task = rate_limit_alert_task(payload)
+        return task.get("success", False) and task.get("notification_sent", False)
+    except Exception:
+        logger.exception("Failed to trigger alert synchronously")
         return False
 
 
