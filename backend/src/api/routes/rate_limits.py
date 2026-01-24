@@ -4,6 +4,7 @@ API routes for rate limit monitoring and management.
 Endpoints:
   GET /api/v1/rate-limits/status - Get current rate limit status across all accounts
   GET /api/v1/rate-limits/metrics - Get detailed rate limit metrics and predictions
+  GET /api/v1/rate-limits/predictions - Get current rate limit predictions and breach times
   GET /api/v1/rate-limits/accounts - Get account pool status and distribution
   GET /api/v1/rate-limits/queue - Get queue statistics and pending requests
 """
@@ -73,12 +74,33 @@ class PredictionMetrics(BaseModel):
     is_critical: bool = Field(..., description="Whether usage is critical (≥90%)")
 
 
+class RateLimitPrediction(BaseModel):
+    """Rate limit prediction for a single account and endpoint."""
+    account_id: str = Field(..., description="Account identifier")
+    endpoint_type: str = Field(..., description="API endpoint type")
+    current_usage: int = Field(..., description="Current usage count")
+    limit: int = Field(..., description="Rate limit threshold")
+    usage_percent: float = Field(..., description="Usage as percentage of limit")
+    predicted_breach_time: Optional[str] = Field(None, description="Predicted breach time (ISO 8601)")
+    time_until_breach_seconds: Optional[int] = Field(None, description="Seconds until limit breach")
+    trend: str = Field(..., description="Usage trend: increasing, stable, decreasing")
+    confidence: float = Field(..., description="Prediction confidence (0.0-1.0)")
+    status: str = Field(..., description="Status: healthy, warning, critical")
+
+
 class RateLimitMetricsResponse(BaseModel):
     """Detailed rate limit metrics and predictions."""
     usage_metrics: List[UsageMetrics] = Field(..., description="Per-account usage metrics")
     predictions: List[PredictionMetrics] = Field(..., description="Rate limit predictions")
     summary: Dict[str, Any] = Field(..., description="Summary statistics")
     timestamp: str = Field(..., description="Metrics timestamp (ISO 8601)")
+
+
+class PredictionsResponse(BaseModel):
+    """Rate limit predictions for all accounts."""
+    predictions: List[RateLimitPrediction] = Field(..., description="Predictions for each account and endpoint type")
+    summary: Dict[str, Any] = Field(..., description="Summary statistics including overall status")
+    timestamp: str = Field(..., description="Predictions timestamp (ISO 8601)")
 
 
 class AccountInfo(BaseModel):
@@ -357,6 +379,133 @@ async def get_rate_limit_metrics(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve rate limit metrics"
+        )
+
+
+@router.get("/predictions", response_model=PredictionsResponse, status_code=200)
+async def get_rate_limit_predictions(
+    account_id: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current rate limit predictions and breach times.
+
+    **Permission**: Authenticated user (admin access recommended)
+
+    **Rate Limit**: 30 requests/minute per user (Lower limit for expensive queries)
+
+    **Query Parameters**:
+    - `account_id`: Optional account ID to filter predictions for specific account
+
+    **Returns**:
+        - Predicted breach times for all accounts and endpoint types
+        - Time until breach in seconds
+        - Usage trends and confidence scores
+        - Current usage status
+
+    **Example Response**:
+    ```json
+    {
+      "predictions": [
+        {
+          "account_id": "account-1",
+          "endpoint_type": "messages",
+          "current_usage": 45,
+          "limit": 60,
+          "usage_percent": 75.0,
+          "predicted_breach_time": "2025-01-24T12:30:00Z",
+          "time_until_breach_seconds": 1200,
+          "trend": "increasing",
+          "confidence": 0.85,
+          "status": "warning"
+        }
+      ],
+      "summary": {
+        "total_predictions": 5,
+        "approaching_limit": 2,
+        "critical_predictions": 0,
+        "overall_status": "warning"
+      },
+      "timestamp": "2025-01-24T12:00:00Z"
+    }
+    ```
+    """
+    try:
+        predictor = RateLimitPredictor()
+        multi_account_limiter = MultiAccountRateLimiter(db)
+
+        # Get all accounts
+        accounts = await multi_account_limiter.get_all_accounts()
+        if account_id:
+            accounts = [acc for acc in accounts if acc.account_id == account_id]
+            if not accounts:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Account {account_id} not found"
+                )
+
+        # Collect predictions for all accounts
+        all_predictions = []
+        approaching_count = 0
+        critical_count = 0
+
+        for account in accounts:
+            # Get predictions (returns list of dicts)
+            predictions_dict = await predictor.get_predictions(account.account_id)
+            for pred_dict in predictions_dict:
+                usage_percent = pred_dict.get("usage_percent", 0.0)
+                status = _determine_status(usage_percent)
+
+                all_predictions.append(RateLimitPrediction(
+                    account_id=pred_dict.get("account_id", account.account_id),
+                    endpoint_type=pred_dict.get("endpoint_type", "unknown"),
+                    current_usage=pred_dict.get("current_usage", 0),
+                    limit=pred_dict.get("limit", 0),
+                    usage_percent=usage_percent,
+                    predicted_breach_time=pred_dict.get("predicted_breach_time"),
+                    time_until_breach_seconds=pred_dict.get("time_until_breach_seconds"),
+                    trend=pred_dict.get("trend", "stable"),
+                    confidence=pred_dict.get("confidence", 0.0),
+                    status=status
+                ))
+
+                # Count for summary
+                if usage_percent >= 75:
+                    approaching_count += 1
+                if usage_percent >= 90:
+                    critical_count += 1
+
+        # Determine overall status
+        overall_status = "healthy"
+        if critical_count > 0:
+            overall_status = "critical"
+        elif approaching_count > 0:
+            overall_status = "warning"
+
+        # Build summary
+        summary = {
+            "total_predictions": len(all_predictions),
+            "approaching_limit": approaching_count,
+            "critical_predictions": critical_count,
+            "overall_status": overall_status
+        }
+
+        logger.info(f"User {current_user.id} retrieved rate limit predictions for {len(accounts)} accounts")
+
+        return PredictionsResponse(
+            predictions=all_predictions,
+            summary=summary,
+            timestamp=_get_timestamp()
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting rate limit predictions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve rate limit predictions"
         )
 
 
