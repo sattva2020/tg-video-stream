@@ -91,6 +91,76 @@ validate_docker() {
   log "Docker environment OK"
 }
 
+# Dependencies validation function
+validate_dependencies() {
+  log "=== Application Dependencies Validation ==="
+  log ""
+
+  # Check 1: PostgreSQL client
+  check "psql command (PostgreSQL client)"
+  if command -v psql >/dev/null 2>&1; then
+    pass
+    # Try to get version
+    if PSQL_VERSION=$(psql --version 2>/dev/null); then
+      log "  → $PSQL_VERSION"
+    else
+      log "  → psql found (version unavailable)"
+    fi
+  else
+    log ""
+    fail "psql not found. Install PostgreSQL client:
+  - Ubuntu/Debian: sudo apt-get install postgresql-client
+  - CentOS/RHEL: sudo yum install postgresql
+  - macOS: brew install postgresql
+  - Windows: Download from https://www.postgresql.org/download/windows/"
+  fi
+
+  # Check 2: Redis client
+  check "redis-cli command (Redis client)"
+  if command -v redis-cli >/dev/null 2>&1; then
+    pass
+    # Try to get version
+    if REDIS_VERSION=$(redis-cli --version 2>/dev/null); then
+      log "  → $REDIS_VERSION"
+    else
+      log "  → redis-cli found (version unavailable)"
+    fi
+  else
+    log ""
+    fail "redis-cli not found. Install Redis client:
+  - Ubuntu/Debian: sudo apt-get install redis-tools
+  - CentOS/RHEL: sudo yum install redis
+  - macOS: brew install redis
+  - Windows: Use WSL or download from https://redis.io/download"
+  fi
+
+  # Check 3: FFmpeg
+  check "ffmpeg command"
+  if command -v ffmpeg >/dev/null 2>&1; then
+    pass
+    # Try to get version
+    if FFMPEG_VERSION=$(ffmpeg -version 2>/dev/null | head -n1); then
+      log "  → $FFMPEG_VERSION"
+    else
+      log "  → ffmpeg found (version unavailable)"
+    fi
+  else
+    log ""
+    fail "ffmpeg not found. Install FFmpeg:
+  - Ubuntu/Debian: sudo apt-get install ffmpeg
+  - CentOS/RHEL: sudo yum install ffmpeg
+  - macOS: brew install ffmpeg
+  - Windows: Download from https://ffmpeg.org/download.html"
+  fi
+
+  # Summary
+  log ""
+  log "=== Summary ==="
+  log "All $CHECKS_PASSED checks passed"
+  log ""
+  log "Application dependencies OK"
+}
+
 # SOPS/Age validation function (original checks)
 validate_sops() {
   log "=== Preflight Validation ==="
@@ -196,6 +266,9 @@ case "$CHECK_MODE" in
   --check-docker)
     validate_docker
     ;;
+  --check-deps|--check-dependencies)
+    validate_dependencies
+    ;;
   --check-sops|--check-age)
     validate_sops
     ;;
@@ -203,11 +276,13 @@ case "$CHECK_MODE" in
     log "Usage: $0 [OPTION]"
     log ""
     log "Options:"
-    log "  (no argument)         Validate sops/age environment (default)"
-    log "  --check-docker        Validate Docker environment"
-    log "  --check-sops          Validate sops/age environment (explicit)"
-    log "  --check-age           Validate sops/age environment (alias)"
-    log "  --help, -h            Show this help message"
+    log "  (no argument)               Validate sops/age environment (default)"
+    log "  --check-docker              Validate Docker environment"
+    log "  --check-deps                Validate application dependencies (PostgreSQL, Redis, FFmpeg)"
+    log "  --check-dependencies        Validate application dependencies (alias)"
+    log "  --check-sops                Validate sops/age environment (explicit)"
+    log "  --check-age                 Validate sops/age environment (alias)"
+    log "  --help, -h                  Show this help message"
     exit 0
     ;;
   "")
