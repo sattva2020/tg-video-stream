@@ -18,10 +18,9 @@ SQLAlchemy models для персистентности Shoutout и CTA Entities
 """
 
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, String, BigInteger, Integer, Boolean, DateTime, Enum as SQLEnum, ForeignKey, func, Index, Text
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Enum as SQLEnum, ForeignKey, func, Index, Text
 from sqlalchemy.orm import relationship
 
 from src.database import Base, GUID

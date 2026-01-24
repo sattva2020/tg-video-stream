@@ -9,14 +9,12 @@ import {
     Input,
     Chip,
     Progress,
-    Textarea,
     Switch,
     Spinner
 } from '@heroui/react';
 import {
     Plus,
     Trash2,
-    BarChart3,
     RefreshCw,
     Check,
     X,
@@ -24,7 +22,7 @@ import {
 } from 'lucide-react';
 import { client } from '../api/client';
 import { useToast } from '../hooks/useToast';
-import { Poll, PollOption, CreatePollRequest } from '../../types/interactions';
+import { Poll, CreatePollRequest } from '../../types/interactions';
 
 interface PollManagerProps {
     token: string;

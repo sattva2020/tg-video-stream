@@ -17,6 +17,12 @@ Services модуль для обработки бизнес-логики.
 - TelegramChatService: интеграция Telegram чата с stream overlay
 """
 
+from src.services.poll_service import PollService
+from src.services.qa_service import QAService
+from src.services.moderation_service import ModerationService
+from src.services.interaction_analytics_service import InteractionAnalyticsService
+from src.services.telegram_chat_service import TelegramChatService
+
 __all__ = [
     "PlaybackService",
     "RadioService",

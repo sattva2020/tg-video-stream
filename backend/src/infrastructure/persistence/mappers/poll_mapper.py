@@ -233,7 +233,6 @@ class PollMapper:
 
         # Обновляем options (синхронизируем списки)
         # Сначала удаляем отсутствующие options
-        existing_option_ids = {opt.id for opt in orm_poll.options}
         entity_option_ids = {uuid.UUID(opt.id) for opt in poll_entity.options}
 
         for orm_option in orm_poll.options[:]:

@@ -21,11 +21,7 @@ import redis.asyncio as redis
 from src.config import settings
 from src.models.interaction import (
     EmojiReaction,
-    ChatMessage,
-    ReactionDisplayStatus,
-    ChatMessageStatus,
 )
-from src.models.qa import Question, QuestionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -497,7 +493,6 @@ class ModerationService:
             List ModerationResult для каждого текста
         """
         results = []
-        blacklist = await self.get_blacklist()
 
         for text in texts:
             should_filter, reason = await self.should_auto_filter(
