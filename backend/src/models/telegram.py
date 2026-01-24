@@ -47,6 +47,9 @@ class TelegramAccount(Base):
     - auto_refresh_enabled: Автоматический refresh перед истечением
     - refresh_before_expires_hours: За сколько часов до истечения делать refresh
 
+    **Rotation**:
+    - rotation_order: Порядок rotation для load balancing (0 = без rotation, 1-N = priority)
+
     **Timestamps**:
     - created_at: Время создания account
     - updated_at: Время последнего обновления
@@ -111,6 +114,14 @@ class TelegramAccount(Base):
         String,
         nullable=True,
         comment="Последняя ошибка при refresh session"
+    )
+
+    # Rotation Fields
+    rotation_order = Column(
+        Integer,
+        default=0,
+        nullable=False,
+        comment="Порядок rotation для load balancing (0 = без rotation, 1-N = priority)"
     )
 
     # Timestamps
@@ -200,6 +211,14 @@ class TelegramAccount(Base):
             True если auto_refresh_enabled включен и session требует refresh, иначе False
         """
         return self.auto_refresh_enabled and self.needs_refresh()
+
+    def participates_in_rotation(self) -> bool:
+        """Проверить, участвует ли account в rotation для load balancing.
+
+        Returns:
+            True если rotation_order > 0, иначе False
+        """
+        return self.rotation_order > 0
 
 class ChannelStatus(str, PyEnum):
     """Статусы channel."""

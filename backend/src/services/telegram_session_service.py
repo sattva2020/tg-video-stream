@@ -232,6 +232,148 @@ class TelegramSessionService:
             log.error(f"Database error in batch refresh: {e}")
             raise SessionRefreshError(f"Database error: {str(e)}") from e
 
+    # ========== Session Rotation Operations ==========
+
+    async def get_account_for_rotation(
+        self,
+        db: Session,
+        user_id: Optional[str] = None
+    ) -> Optional[TelegramAccount]:
+        """
+        Выбрать следующий аккаунт для rotation используя least-recently-used стратегию.
+
+        Выбирает аккаунт с наименьшим rotation_order > 0, который здоров и
+        имеет наиболее давний last_refreshed_at timestamp. Это гарантирует,
+        что нагрузка распределяется равномерно между всеми аккаунтами в rotation.
+
+        Args:
+            db: SQLAlchemy сессия
+            user_id: Опциональный фильтр по user_id
+
+        Returns:
+            TelegramAccount для rotation или None если нет подходящих аккаунтов
+        """
+        try:
+            # Build base query for accounts participating in rotation
+            query = db.query(TelegramAccount).filter(
+                TelegramAccount.rotation_order > 0,
+                TelegramAccount.is_active == True,
+                TelegramAccount.auto_refresh_enabled == True,
+                TelegramAccount.session_health_status.in_([
+                    SessionHealthStatus.HEALTHY,
+                    SessionHealthStatus.EXPIRING
+                ])
+            )
+
+            # Filter by user_id if provided
+            if user_id:
+                query = query.filter(TelegramAccount.user_id == user_id)
+
+            # Order by rotation_order (priority) then by last_refreshed_at (LRU)
+            # Это гарантирует, что мы выбираем аккаунт с наивысшим приоритетом,
+            # который был обновлен наиболее давно
+            accounts = query.order_by(
+                TelegramAccount.rotation_order.asc(),
+                TelegramAccount.last_refreshed_at.asc().nullsfirst()
+            ).first()
+
+            if not accounts:
+                log.debug("No accounts available for rotation")
+                return None
+
+            log.info(
+                f"Selected account {accounts.id} for rotation: "
+                f"order={accounts.rotation_order}, "
+                f"last_refreshed={accounts.last_refreshed_at}"
+            )
+            return accounts
+
+        except SQLAlchemyError as e:
+            log.error(f"Database error selecting account for rotation: {e}")
+            return None
+
+    async def rotate_sessions(
+        self,
+        db: Session,
+        user_id: Optional[str] = None,
+        max_accounts: int = 3
+    ) -> Dict[str, str]:
+        """
+        Выполнить rotation нескольких аккаунтов для load balancing.
+
+        Выбирает до max_accounts аккаунтов с различными rotation_order
+        и выполняет их refresh, распределяя нагрузку во времени.
+
+        Args:
+            db: SQLAlchemy сессия
+            user_id: Опциональный фильтр по user_id
+            max_accounts: Максимальное количество аккаунтов для refresh
+
+        Returns:
+            Словарь {account_id: status}
+        """
+        results = {}
+
+        try:
+            # Получить уникальные rotation_order значения для пользователя
+            query = db.query(TelegramAccount.rotation_order).filter(
+                TelegramAccount.rotation_order > 0,
+                TelegramAccount.is_active == True,
+                TelegramAccount.auto_refresh_enabled == True,
+                TelegramAccount.session_health_status.in_([
+                    SessionHealthStatus.HEALTHY,
+                    SessionHealthStatus.EXPIRING
+                ])
+            )
+
+            if user_id:
+                query = query.filter(TelegramAccount.user_id == user_id)
+
+            rotation_orders = query.distinct().order_by(
+                TelegramAccount.rotation_order.asc()
+            ).limit(max_accounts).all()
+
+            if not rotation_orders:
+                log.info("No accounts found for rotation")
+                return results
+
+            # Для каждого rotation_order выбрать один LRU аккаунт
+            for (order,) in rotation_orders:
+                account_query = db.query(TelegramAccount).filter(
+                    TelegramAccount.rotation_order == order,
+                    TelegramAccount.is_active == True,
+                    TelegramAccount.auto_refresh_enabled == True,
+                    TelegramAccount.session_health_status.in_([
+                        SessionHealthStatus.HEALTHY,
+                        SessionHealthStatus.EXPIRING
+                    ])
+                )
+
+                if user_id:
+                    account_query = account_query.filter(TelegramAccount.user_id == user_id)
+
+                # Выбрать LRU аккаунт для этого rotation_order
+                account = account_query.order_by(
+                    TelegramAccount.last_refreshed_at.asc().nullsfirst()
+                ).first()
+
+                if account:
+                    account_id = str(account.id)
+                    try:
+                        await self.refresh_session(db, account_id)
+                        results[account_id] = f"refreshed (order={order})"
+                        log.info(f"Rotated account {account_id} with order={order}")
+                    except SessionRefreshError as e:
+                        results[account_id] = f"failed: {str(e)}"
+                        log.error(f"Failed to rotate account {account_id}: {e}")
+
+            log.info(f"Rotation completed: {len(results)} accounts processed")
+            return results
+
+        except SQLAlchemyError as e:
+            log.error(f"Database error during rotation: {e}")
+            raise SessionRefreshError(f"Database error: {str(e)}") from e
+
     # ========== Session Backup Operations ==========
 
     async def backup_session(
