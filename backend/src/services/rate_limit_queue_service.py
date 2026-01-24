@@ -117,6 +117,30 @@ class QueueStats:
     oldest_request_age: float = 0  # В секундах
 
 
+@dataclass
+class AccountUsage:
+    """Информация об использовании аккаунта."""
+    account_id: str
+    requests_in_queue: int = 0
+    requests_processed: int = 0
+    requests_failed: int = 0
+    last_request_time: Optional[float] = None
+    total_wait_time: float = 0  # Общее время ожидания в очереди (сек)
+    avg_wait_time: float = 0  # Среднее время ожидания (сек)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Преобразовать в словарь."""
+        return {
+            "account_id": self.account_id,
+            "requests_in_queue": self.requests_in_queue,
+            "requests_processed": self.requests_processed,
+            "requests_failed": self.requests_failed,
+            "last_request_time": self.last_request_time,
+            "total_wait_time": self.total_wait_time,
+            "avg_wait_time": self.avg_wait_time,
+        }
+
+
 class RateLimitQueueService:
     """
     Сервис управления очередью запросов к API с приоритетами.
@@ -133,9 +157,14 @@ class RateLimitQueueService:
     """
 
     REDIS_KEY_PREFIX = "rate_limit_queue"
+    ACCOUNT_USAGE_PREFIX = "account_usage"
     DEFAULT_MAX_QUEUE_SIZE = 1000
     DEFAULT_BATCH_SIZE = 10
     DEFAULT_BATCH_TIMEOUT = 0.1  # 100ms
+
+    # Telegram per-account limits (запросов в минуту)
+    TG_RATE_LIMIT_PER_MINUTE = 30
+    TG_RATE_LIMIT_PER_SECOND = 1
 
     def __init__(
         self,
@@ -182,6 +211,11 @@ class RateLimitQueueService:
         return f"{RateLimitQueueService.REDIS_KEY_PREFIX}:global"
 
     @staticmethod
+    def _get_usage_key(account_id: str) -> str:
+        """Генерация Redis ключа для статистики использования аккаунта."""
+        return f"{RateLimitQueueService.ACCOUNT_USAGE_PREFIX}:{account_id}"
+
+    @staticmethod
     def _generate_score(priority: RequestPriority) -> float:
         """
         Генерация итогового score для sorted set.
@@ -200,6 +234,193 @@ class RateLimitQueueService:
         """
         timestamp_component = time.time() / 1e10
         return priority.value + timestamp_component
+
+    async def _track_request_submitted(self, account_id: Optional[str]) -> None:
+        """
+        Отследить добавление запроса в очередь.
+
+        Args:
+            account_id: ID аккаунта
+        """
+        if not account_id:
+            return
+
+        r = await self._get_redis()
+        usage_key = self._get_usage_key(account_id)
+
+        # Инкрементируем счетчик запросов в очереди
+        await r.hincrby(usage_key, "requests_in_queue", 1)
+        await r.hset(usage_key, "last_request_time", str(time.time()))
+        # Устанавливаем TTL на 1 час
+        await r.expire(usage_key, 3600)
+
+        # Добавляем в timeline для отслеживания rate limit
+        timeline_key = f"{self.ACCOUNT_USAGE_PREFIX}:timeline:{account_id}"
+        current_time = time.time()
+        await r.zadd(timeline_key, {str(uuid.uuid4()): current_time})
+        await r.expire(timeline_key, 120)  # Храним 2 минуты
+
+        logger.debug(f"[Queue] Отслежена отправка запроса для аккаунта {account_id}")
+
+    async def _track_request_processed(
+        self,
+        account_id: Optional[str],
+        request: QueuedRequest,
+        success: bool = True,
+    ) -> None:
+        """
+        Отследить обработку запроса.
+
+        Args:
+            account_id: ID аккаунта
+            request: Обработанный запрос
+            success: Успешно ли выполнен запрос
+        """
+        if not account_id:
+            return
+
+        r = await self._get_redis()
+        usage_key = self._get_usage_key(account_id)
+
+        # Декрементируем счетчик запросов в очереди
+        await r.hincrby(usage_key, "requests_in_queue", -1)
+
+        # Инкрементируем счетчик обработанных запросов
+        if success:
+            await r.hincrby(usage_key, "requests_processed", 1)
+        else:
+            await r.hincrby(usage_key, "requests_failed", 1)
+
+        # Обновляем статистику времени ожидания
+        wait_time = time.time() - request.created_at
+        total_wait_str = await r.hget(usage_key, "total_wait_time") or "0"
+        total_wait = float(total_wait_str) + wait_time
+        await r.hset(usage_key, "total_wait_time", str(total_wait))
+
+        # Обновляем среднее время ожидания
+        processed_str = await r.hget(usage_key, "requests_processed") or "0"
+        processed = int(processed_str)
+        if processed > 0:
+            avg_wait = total_wait / processed
+            await r.hset(usage_key, "avg_wait_time", str(avg_wait))
+
+        # Устанавливаем TTL
+        await r.expire(usage_key, 3600)
+
+        logger.debug(
+            f"[Queue] Отслежена обработка запроса для аккаунта {account_id}: "
+            f"success={success}, wait_time={wait_time:.2f}s"
+        )
+
+    async def get_account_usage(self, account_id: str) -> Optional[AccountUsage]:
+        """
+        Получить статистику использования аккаунта.
+
+        Args:
+            account_id: ID аккаунта
+
+        Returns:
+            AccountUsage с информацией об использовании или None
+        """
+        r = await self._get_redis()
+        usage_key = self._get_usage_key(account_id)
+
+        data = await r.hgetall(usage_key)
+
+        if not data:
+            return None
+
+        try:
+            return AccountUsage(
+                account_id=account_id,
+                requests_in_queue=int(data.get("requests_in_queue", 0)),
+                requests_processed=int(data.get("requests_processed", 0)),
+                requests_failed=int(data.get("requests_failed", 0)),
+                last_request_time=float(data.get("last_request_time", 0)) if data.get("last_request_time") else None,
+                total_wait_time=float(data.get("total_wait_time", 0)),
+                avg_wait_time=float(data.get("avg_wait_time", 0)),
+            )
+        except (ValueError, TypeError) as e:
+            logger.error(f"[Queue] Ошибка парсинга статистики аккаунта {account_id}: {e}")
+            return None
+
+    async def get_all_accounts_usage(self) -> List[AccountUsage]:
+        """
+        Получить статистику использования всех аккаунтов.
+
+        Returns:
+            Список AccountUsage для всех аккаунтов
+        """
+        r = await self._get_redis()
+        pattern = f"{self.ACCOUNT_USAGE_PREFIX}:*"
+
+        cursor = 0
+        usages = []
+
+        while True:
+            cursor, keys = await r.scan(cursor, match=pattern, count=100)
+            for key in keys:
+                # Извлекаем account_id из ключа
+                account_id = key.replace(f"{self.ACCOUNT_USAGE_PREFIX}:", "")
+                usage = await self.get_account_usage(account_id)
+                if usage:
+                    usages.append(usage)
+
+            if cursor == 0:
+                break
+
+        return usages
+
+    async def check_account_limit(self, account_id: str) -> Dict[str, Any]:
+        """
+        Проверить, достигнут ли лимит запросов для аккаунта.
+
+        Args:
+            account_id: ID аккаунта
+
+        Returns:
+            Словарь с информацией о лимитах:
+            {
+                "can_submit": bool,          # Можно ли добавлять запросы
+                "requests_per_minute": int,   # Текущее количество запросов в минуту
+                "limit_per_minute": int,      # Лимит запросов в минуту
+                "requests_in_queue": int,     # Запросов в очереди
+                "retry_after": float,         # Через сколько секунд можно повторить (если can_submit=False)
+            }
+        """
+        r = await self._get_redis()
+        usage_key = self._get_usage_key(account_id)
+
+        # Получаем статистику использования
+        usage = await self.get_account_usage(account_id)
+        requests_in_queue = usage.requests_in_queue if usage else 0
+
+        # Проверяем количество запросов за последнюю минуту
+        minute_ago = time.time() - 60
+        requests_last_minute = 0
+
+        # Используем Redis sorted set для отслеживания запросов по времени
+        timeline_key = f"{self.ACCOUNT_USAGE_PREFIX}:timeline:{account_id}"
+        await r.zremrangebyscore(timeline_key, 0, minute_ago)
+        requests_last_minute = await r.zcard(timeline_key)
+
+        can_submit = requests_last_minute < self.TG_RATE_LIMIT_PER_MINUTE
+        retry_after = 0
+
+        if not can_submit:
+            # Вычисляем время до освобождения слота
+            oldest = await r.zrange(timeline_key, 0, 0, withscores=True)
+            if oldest:
+                _, score = oldest[0]
+                retry_after = max(0, score - minute_ago)
+
+        return {
+            "can_submit": can_submit,
+            "requests_per_minute": requests_last_minute,
+            "limit_per_minute": self.TG_RATE_LIMIT_PER_MINUTE,
+            "requests_in_queue": requests_in_queue,
+            "retry_after": retry_after,
+        }
 
     @staticmethod
     def _get_priority_for_request_type(request_type: RequestType) -> RequestPriority:
@@ -275,6 +496,9 @@ class RateLimitQueueService:
 
         # Добавление в sorted set
         await r.zadd(key, {request.to_redis_json(): score})
+
+        # Отслеживаем отправку запроса
+        await self._track_request_submitted(account_id)
 
         logger.debug(
             f"Добавлен запрос в очередь: method={method}, "
@@ -728,6 +952,13 @@ class RateLimitQueueService:
                 result = await handler(request)
                 results.append(result)
 
+                # Отслеживаем успешное выполнение
+                await self._track_request_processed(
+                    request.account_id,
+                    request,
+                    success=True,
+                )
+
                 logger.debug(
                     f"Успешно выполнен запрос из пакета: "
                     f"method={request.method}, id={request.id}"
@@ -736,6 +967,13 @@ class RateLimitQueueService:
                 logger.error(
                     f"Ошибка выполнения запроса из пакета: "
                     f"method={request.method}, id={request.id}, error={e}"
+                )
+
+                # Отслеживаем неудачное выполнение
+                await self._track_request_processed(
+                    request.account_id,
+                    request,
+                    success=False,
                 )
 
                 # Проверяем возможность повтора
@@ -770,6 +1008,12 @@ class RateLimitQueueService:
                 score = self._generate_score(request.priority)
 
                 await r.zadd(key, {request.to_redis_json(): score})
+
+                # Инкрементируем счетчик запросов в очереди (так как запрос возвращается)
+                if request.account_id:
+                    usage_key = self._get_usage_key(request.account_id)
+                    await r.hincrby(usage_key, "requests_in_queue", 1)
+                    await r.expire(usage_key, 3600)
 
                 logger.debug(
                     f"Запрос возвращен в очередь: "
