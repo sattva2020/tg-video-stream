@@ -40,7 +40,7 @@ import {
 import { client } from '../api/client';
 import { useToast } from '../hooks/useToast';
 import {
-    InteractionAnalytics,
+    InteractionAnalytics as InteractionAnalyticsData,
     EngagementMetrics
 } from '../../types/interactions';
 
@@ -56,7 +56,7 @@ const InteractionAnalytics: React.FC<InteractionAnalyticsProps> = ({ token, chan
     const toast = useToast();
 
     // Data state
-    const [analytics, setAnalytics] = useState<InteractionAnalytics | null>(null);
+    const [analytics, setAnalytics] = useState<InteractionAnalyticsData | null>(null);
     const [engagementMetrics, setEngagementMetrics] = useState<EngagementMetrics | null>(null);
     const [loading, setLoading] = useState(false);
     const [period, setPeriod] = useState<TimePeriod>('24h');

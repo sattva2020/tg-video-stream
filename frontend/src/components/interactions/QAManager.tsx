@@ -16,7 +16,6 @@ import {
 import {
     Plus,
     MessageCircle,
-    ThumbsUp,
     Check,
     Trash2,
     Pin,

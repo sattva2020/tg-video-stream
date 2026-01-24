@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.user import User
@@ -96,7 +96,6 @@ def create_cta(
         raise HTTPException(status_code=404, detail="Stream not found or access denied")
 
     # Determine initial status based on scheduling
-    initial_status = CTAStatus.DRAFT
     if cta_in.scheduled_at:
         if cta_in.scheduled_at <= datetime.now(timezone.utc):
             initial_status = CTAStatus.ACTIVE

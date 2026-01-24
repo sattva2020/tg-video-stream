@@ -21,18 +21,12 @@ try:
 except ImportError:
     aioredis = None
 
-from sqlalchemy import select, func, and_, desc, case, literal_column
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_, desc, literal_column
 from sqlalchemy.orm import Session
 
-from src.models.poll import Poll, PollOption, PollVote, PollStatus
+from src.models.poll import Poll, PollVote, PollStatus
 from src.models.qa import Question, QuestionUpvote, QuestionStatus
-from src.models.interaction import EmojiReaction, ChatMessage, ReactionDisplayStatus, ChatMessageStatus
-from src.models.engagement import Shoutout, CTA
-from src.models.user import User
-from src.models.stream import Stream
-
-from src.core.config import settings
+from src.models.interaction import EmojiReaction, ChatMessage
 
 logger = logging.getLogger(__name__)
 
