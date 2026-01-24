@@ -18,3 +18,4 @@ export { UserManagementPanel } from './UserManagementPanel';
 
 export { default as RateLimitDashboard } from './RateLimitDashboard';
 export { default as RateLimitChart } from './RateLimitChart';
+export { AccountDistributionPanel } from './AccountDistributionPanel';
