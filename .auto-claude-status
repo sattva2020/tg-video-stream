@@ -1,17 +1,17 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "002-session-management-automation",
   "state": "building",
   "subtasks": {
     "completed": 10,
-    "total": 21,
+    "total": 26,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
+    "current": "Backend Background Tasks",
     "id": null,
-    "total": 3
+    "total": 4
   },
   "workers": {
     "active": 0,
@@ -19,7 +19,7 @@
   },
   "session": {
     "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "started_at": "2026-01-24T09:19:30.882129"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-24T10:38:29.460477"
 }
