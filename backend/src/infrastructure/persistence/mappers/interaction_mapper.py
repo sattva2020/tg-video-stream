@@ -26,13 +26,13 @@ InteractionMapper.update_reaction_orm(orm_reaction, reaction_entity)
 """
 
 import uuid
-from typing import Optional, List
+from typing import List
 from datetime import datetime
 
 from src.domain.entities.reaction import Reaction as ReactionEntity, ReactionType
 from src.domain.value_objects.chat_id import ChatId
 from src.domain.value_objects.user_id import UserId
-from src.models.interaction import EmojiReaction as EmojiReactionORM, ReactionDisplayStatus, ChatMessage as ChatMessageORM
+from src.models.interaction import EmojiReaction as EmojiReactionORM, ReactionDisplayStatus
 
 
 class InteractionMapper:

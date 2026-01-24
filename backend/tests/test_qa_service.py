@@ -14,10 +14,9 @@ Coverage target: 70%+
 """
 
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 from datetime import datetime, timezone
-from uuid import uuid4, UUID
-from sqlalchemy import select
+from uuid import uuid4
 
 from src.services.qa_service import (
     QAService,

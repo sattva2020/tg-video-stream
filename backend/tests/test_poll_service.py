@@ -14,16 +14,14 @@ Coverage target: 70%+
 """
 
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from datetime import datetime, timezone
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from src.services.poll_service import (
     PollService,
-    PollServiceError,
     PollNotFoundError,
     PollClosedError,
-    DuplicateVoteError,
     InvalidOptionsError,
 )
 from src.domain.entities.poll import Poll, PollOption, PollStatus
@@ -226,7 +224,7 @@ class TestPollServiceCreate:
         """Тест создания опроса с описанием."""
         poll_service._repository.save = AsyncMock()
 
-        poll = await poll_service.create(
+        await poll_service.create(
             stream_id=str(uuid4()),
             chat_id=123,
             created_by=str(uuid4()),

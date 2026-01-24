@@ -15,7 +15,6 @@ Domain: Poll Entity с бизнес-логикой
 
 import uuid
 import logging
-from datetime import datetime, timezone
 from typing import Optional, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +22,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.domain.entities.poll import Poll, PollOption, PollStatus
 from src.domain.value_objects.user_id import UserId
 from src.domain.value_objects.chat_id import ChatId
-from src.domain.errors import BusinessRuleViolationError
 from src.application.ports.i_poll_repository import IPollRepository
 from src.infrastructure.persistence.repositories.sqlalchemy_poll_repository import SqlAlchemyPollRepository
 from src.api.websocket import notify_poll_created, notify_poll_updated, notify_vote_cast
@@ -403,7 +401,6 @@ class PollService:
         poll = await self.get_by_id(poll_id)
 
         total_votes = poll.total_votes()
-        results = poll.get_results()
 
         # Формируем детализированные результаты с процентами
         options_results = []

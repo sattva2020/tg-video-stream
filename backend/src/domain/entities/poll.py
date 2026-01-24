@@ -9,7 +9,6 @@ Poll Entity - интерактивный опрос для зрителей (T02
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
 
 from src.domain.errors import BusinessRuleViolationError
 from src.domain.value_objects.chat_id import ChatId

@@ -34,7 +34,6 @@ QuestionMapper.update_orm(orm_question, question_entity)
 """
 
 import uuid
-from typing import Optional
 from datetime import datetime
 
 from src.domain.entities.question import Question as QuestionEntity, QuestionStatus as DomainQuestionStatus

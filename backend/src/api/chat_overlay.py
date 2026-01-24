@@ -9,7 +9,7 @@ Part of Feature 020 (Viewer Interaction & Engagement Features).
 **Pattern**: Following channels.py structure
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta

@@ -8,11 +8,10 @@ Poll является Aggregate Root, поэтому репозиторий уп
 
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
-from src.application.ports.i_poll_repository import IPollRepository
 from src.domain.entities.poll import Poll, PollStatus
 from src.domain.value_objects.user_id import UserId
 from src.domain.value_objects.chat_id import ChatId

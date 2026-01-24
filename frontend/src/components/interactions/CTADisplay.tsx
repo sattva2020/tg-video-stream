@@ -21,8 +21,6 @@ import {
     Input,
     Chip,
     Switch,
-    Select,
-    SelectItem,
     Slider,
     Spinner,
     Textarea
@@ -32,7 +30,6 @@ import {
     RefreshCw,
     Settings,
     Eye,
-    EyeOff,
     Plus,
     Trash2,
     ExternalLink,
@@ -107,7 +104,6 @@ const CTADisplay: React.FC<CTADisplayProps> = ({ token, channelId }) => {
     useEffect(() => {
         const interval = setInterval(() => {
             setActiveCTAs(prev => {
-                const now = Date.now();
                 return prev
                     .map(cta => ({
                         ...cta,

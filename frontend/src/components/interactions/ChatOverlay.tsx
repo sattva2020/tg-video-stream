@@ -12,7 +12,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
     Card,
     CardBody,
@@ -36,8 +36,6 @@ import {
     Trash2,
     Shield,
     AlertTriangle,
-    Check,
-    X,
     Ban
 } from 'lucide-react';
 import { client } from '../api/client';
@@ -164,13 +162,6 @@ const ChatOverlay: React.FC<ChatOverlayProps> = ({ token, channelId, streamId })
         await handleUpdateMessageStatus(messageId, {
             message_status: 'hidden',
             is_filtered: true
-        });
-    };
-
-    const handleFlagMessage = async (messageId: string) => {
-        await handleUpdateMessageStatus(messageId, {
-            message_status: 'flagged',
-            is_flagged: true
         });
     };
 

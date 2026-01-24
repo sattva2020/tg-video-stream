@@ -108,7 +108,6 @@ const ShoutoutBanner: React.FC<ShoutoutBannerProps> = ({ token, channelId }) => 
 
         const interval = setInterval(() => {
             setActiveShoutouts(prev => {
-                const now = Date.now();
                 return prev
                     .map(shoutout => ({
                         ...shoutout,
