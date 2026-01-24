@@ -12,7 +12,9 @@ Multi-Account Rate Limiter Service
 """
 
 import asyncio
+import enum
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass, field
@@ -37,6 +39,293 @@ class SelectionStrategy(Enum):
     LEAST_USED = "least_used"   # Наименее нагруженный
     ROUND_ROBIN = "round_robin" # По очереди
     WEIGHTED = "weighted"       # С весами (по производительности)
+
+
+class AccountHealthState(str, enum.Enum):
+    """Account health states.
+
+    **State Machine**:
+    - HEALTHY -> DEGRADED: When degradation threshold is reached
+    - DEGRADED -> FAILED: When failure threshold is reached
+    - DEGRADED -> HEALTHY: When recovery threshold is reached
+    - FAILED/DEGRADED -> DISABLED: Auto-disabled on too many failures
+    """
+    HEALTHY = "healthy"       # Account is working well
+    DEGRADED = "degraded"     # Account has some failures but still usable
+    FAILED = "failed"         # Account has failed too many times
+    DISABLED = "disabled"     # Account is automatically disabled
+
+
+@dataclass
+class AccountHealthConfig:
+    """Configuration for account health behavior.
+
+    **Purpose**: Define thresholds for health state transitions
+    **Layer**: Configuration (dataclass)
+    """
+    degradation_threshold: int = 3     # Failures before degraded state
+    failure_threshold: int = 5         # Failures before failed state
+    recovery_threshold: int = 2        # Successes to recover from degraded
+    failure_window_seconds: int = 300  # Time window to consider failures (5 min)
+    health_check_interval: int = 60    # Seconds between automatic health checks
+
+
+class AccountHealth:
+    """Health tracker for Telegram accounts.
+
+    **Purpose**: Track account health and automatically disable failed accounts
+    **Pattern**: Similar to CircuitBreaker but for account health
+    **States**: HEALTHY (normal), DEGRADED (some failures), FAILED (many failures), DISABLED (auto-disabled)
+
+    **State Machine**:
+    - HEALTHY -> DEGRADED: When degradation threshold is reached
+    - DEGRADED -> FAILED: When failure threshold is reached
+    - DEGRADED -> HEALTHY: When recovery threshold is reached
+    - FAILED -> DISABLED: When maximum failures exceeded
+
+    **Usage**:
+        health = AccountHealth("account-123")
+        if health.is_available():
+            try:
+                # Attempt operation
+                health.record_success()
+            except Exception:
+                health.record_failure()
+
+                # Check if account should be disabled
+                if health.should_disable():
+                    await disable_account(account_id)
+    """
+
+    def __init__(
+        self,
+        account_id: str,
+        config: Optional[AccountHealthConfig] = None
+    ):
+        """Initialize account health tracker.
+
+        Args:
+            account_id: Unique identifier for the account
+            config: Optional custom configuration
+        """
+        self.account_id = account_id
+        self.config = config or AccountHealthConfig()
+
+        # State tracking
+        self._state = AccountHealthState.HEALTHY
+        self._consecutive_failures = 0
+        self._consecutive_successes = 0
+        self._total_failures = 0
+        self._total_successes = 0
+        self._last_failure_time: Optional[float] = None
+        self._last_success_time: Optional[float] = None
+        self._last_state_change: float = time.time()
+        self._failure_history: List[float] = []  # Timestamps of recent failures
+
+        logger.info(
+            f"AccountHealth '{account_id}' initialized with state={self._state}, "
+            f"degradation_threshold={self.config.degradation_threshold}, "
+            f"failure_threshold={self.config.failure_threshold}"
+        )
+
+    @property
+    def state(self) -> AccountHealthState:
+        """Get current health state."""
+        # Auto-recovery from DEGRADED if enough consecutive successes
+        if self._state == AccountHealthState.DEGRADED:
+            if self._consecutive_successes >= self.config.recovery_threshold:
+                self._transition_to(AccountHealthState.HEALTHY)
+                logger.info(
+                    f"AccountHealth '{self.account_id}' transitioned "
+                    f"DEGRADED -> HEALTHY (recovery threshold reached)"
+                )
+
+        return self._state
+
+    @property
+    def consecutive_failures(self) -> int:
+        """Get current consecutive failure count."""
+        return self._consecutive_failures
+
+    @property
+    def consecutive_successes(self) -> int:
+        """Get current consecutive success count."""
+        return self._consecutive_successes
+
+    @property
+    def total_failures(self) -> int:
+        """Get total failure count."""
+        return self._total_failures
+
+    @property
+    def total_successes(self) -> int:
+        """Get total success count."""
+        return self._total_successes
+
+    @property
+    def success_rate(self) -> float:
+        """Calculate overall success rate."""
+        total = self._total_successes + self._total_failures
+        if total == 0:
+            return 1.0
+        return self._total_successes / total
+
+    def is_available(self) -> bool:
+        """Check if account is available for use.
+
+        Returns:
+            True if account is HEALTHY or DEGRADED, False if FAILED or DISABLED
+        """
+        current_state = self.state
+        return current_state in [AccountHealthState.HEALTHY, AccountHealthState.DEGRADED]
+
+    def should_disable(self) -> bool:
+        """Check if account should be automatically disabled.
+
+        Returns:
+            True if account is in FAILED state or exceeded failure threshold
+        """
+        current_state = self.state
+        return current_state in [AccountHealthState.FAILED, AccountHealthState.DISABLED]
+
+    def record_success(self):
+        """Record a successful operation.
+
+        May trigger state transition:
+        - DEGRADED -> HEALTHY: When recovery threshold is reached
+        """
+        current_state = self.state
+
+        self._total_successes += 1
+        self._consecutive_successes += 1
+        self._consecutive_failures = 0  # Reset consecutive failures
+        self._last_success_time = time.time()
+
+        if current_state == AccountHealthState.DEGRADED:
+            logger.debug(
+                f"AccountHealth '{self.account_id}' recorded success "
+                f"({self._consecutive_successes}/{self.config.recovery_threshold} in DEGRADED)"
+            )
+        elif current_state == AccountHealthState.HEALTHY:
+            logger.debug(f"AccountHealth '{self.account_id}' recorded success in HEALTHY state")
+
+    def record_failure(self):
+        """Record a failed operation.
+
+        May trigger state transitions:
+        - HEALTHY -> DEGRADED: When degradation threshold is reached
+        - DEGRADED -> FAILED: When failure threshold is reached
+        """
+        current_state = self.state
+
+        self._total_failures += 1
+        self._consecutive_failures += 1
+        self._consecutive_successes = 0  # Reset consecutive successes
+        self._last_failure_time = time.time()
+
+        # Track failure in sliding window
+        self._failure_history.append(self._last_failure_time)
+        self._cleanup_old_failures()
+
+        if current_state == AccountHealthState.HEALTHY:
+            logger.debug(
+                f"AccountHealth '{self.account_id}' recorded failure "
+                f"({self._consecutive_failures}/{self.config.degradation_threshold})"
+            )
+
+            if self._consecutive_failures >= self.config.degradation_threshold:
+                self._transition_to(AccountHealthState.DEGRADED)
+                logger.warning(
+                    f"AccountHealth '{self.account_id}' transitioned "
+                    f"HEALTHY -> DEGRADED (degradation threshold reached: "
+                    f"{self._consecutive_failures} failures)"
+                )
+
+        elif current_state == AccountHealthState.DEGRADED:
+            logger.debug(
+                f"AccountHealth '{self.account_id}' recorded failure in DEGRADED "
+                f"({self._consecutive_failures}/{self.config.failure_threshold})"
+            )
+
+            if self._consecutive_failures >= self.config.failure_threshold:
+                self._transition_to(AccountHealthState.FAILED)
+                logger.error(
+                    f"AccountHealth '{self.account_id}' transitioned "
+                    f"DEGRADED -> FAILED (failure threshold reached: "
+                    f"{self._consecutive_failures} failures)"
+                )
+
+    def _cleanup_old_failures(self):
+        """Remove failures outside the time window."""
+        cutoff_time = time.time() - self.config.failure_window_seconds
+        self._failure_history = [
+            t for t in self._failure_history if t > cutoff_time
+        ]
+
+    def reset(self):
+        """Manually reset health tracker to HEALTHY state.
+
+        Useful for manual intervention or after known fixes.
+        """
+        self._transition_to(AccountHealthState.HEALTHY)
+        self._consecutive_failures = 0
+        self._consecutive_successes = 0
+        self._failure_history = []
+        logger.info(f"AccountHealth '{self.account_id}' manually reset to HEALTHY")
+
+    def disable(self):
+        """Manually disable account."""
+        self._transition_to(AccountHealthState.DISABLED)
+        logger.warning(f"AccountHealth '{self.account_id}' manually DISABLED")
+
+    def _transition_to(self, new_state: AccountHealthState):
+        """Internal method to transition to a new state.
+
+        Args:
+            new_state: Target state
+        """
+        old_state = self._state
+        self._state = new_state
+        self._last_state_change = time.time()
+
+        logger.debug(
+            f"AccountHealth '{self.account_id}' state transition: "
+            f"{old_state} -> {new_state}"
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"<AccountHealth(account_id={self.account_id}, state={self.state}, "
+            f"consecutive_failures={self._consecutive_failures}, "
+            f"success_rate={self.success_rate:.2f})>"
+        )
+
+    def get_health_info(self) -> Dict[str, Any]:
+        """Get detailed health information for monitoring.
+
+        Returns:
+            Dictionary with current account health state
+        """
+        self._cleanup_old_failures()
+
+        return {
+            "account_id": self.account_id,
+            "state": self.state.value,
+            "consecutive_failures": self._consecutive_failures,
+            "consecutive_successes": self._consecutive_successes,
+            "total_failures": self._total_failures,
+            "total_successes": self._total_successes,
+            "success_rate": round(self.success_rate, 3),
+            "is_available": self.is_available(),
+            "should_disable": self.should_disable(),
+            "recent_failures_in_window": len(self._failure_history),
+            "last_failure_time": self._last_failure_time,
+            "last_success_time": self._last_success_time,
+            "last_state_change": self._last_state_change,
+            "degradation_threshold": self.config.degradation_threshold,
+            "failure_threshold": self.config.failure_threshold,
+            "recovery_threshold": self.config.recovery_threshold,
+        }
 
 
 @dataclass
