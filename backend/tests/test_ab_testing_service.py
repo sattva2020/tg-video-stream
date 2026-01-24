@@ -8,7 +8,7 @@ import uuid
 from unittest.mock import MagicMock, patch, AsyncMock
 
 from src.services.ab_testing_service import ABTestingService, get_ab_testing_service
-from src.models.ab_testing import ABTest, ABTestVariant, ABTestMetric, ABTestStatus
+from src.models.ab_testing import ABTest, ABTestVariant, ABTestStatus
 from src.schemas.ab_testing import (
     ABTestCreate,
     ABTestUpdate,
