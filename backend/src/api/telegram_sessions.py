@@ -17,7 +17,7 @@ from typing import List, Optional
 
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
 from src.database import get_db
@@ -108,6 +108,21 @@ class TOTPVerifyRequest(BaseModel):
 class TOTPDisableRequest(BaseModel):
     """Модель запроса для отключения TOTP."""
     code: str | None = None
+
+
+class SessionConfigResponse(BaseModel):
+    """Модель ответа для конфигурации сессии."""
+    account_id: uuid.UUID
+    auto_refresh_enabled: bool
+    refresh_before_expires_hours: int
+    phone: str
+    username: Optional[str] = None
+
+
+class UpdateSessionConfigRequest(BaseModel):
+    """Модель запроса для обновления конфигурации сессии."""
+    auto_refresh_enabled: bool | None = None
+    refresh_before_expires_hours: int | None = Field(None, ge=1, le=168, description="Hours before expiration to refresh (1-168)")
 
 
 # =============================================================================
@@ -402,6 +417,89 @@ def get_session_health(
             status_code=500,
             detail=f"Failed to check session health: {str(e)}"
         )
+
+
+@router.get("/{account_id}/config", response_model=SessionConfigResponse)
+def get_session_config(
+    account_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Получить конфигурацию автоматического refresh для Telegram сессии.
+
+    Args:
+        account_id: UUID аккаунта
+
+    Returns:
+        SessionConfigResponse: Текущая конфигурация сессии
+    """
+    # Verify ownership
+    account = db.query(TelegramAccount).filter(
+        TelegramAccount.id == account_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Telegram account not found")
+
+    return SessionConfigResponse(
+        account_id=account.id,
+        auto_refresh_enabled=account.auto_refresh_enabled,
+        refresh_before_expires_hours=account.refresh_before_expires_hours or 24,
+        phone=account.phone,
+        username=account.username
+    )
+
+
+@router.put("/{account_id}/config", response_model=SessionConfigResponse)
+def update_session_config(
+    account_id: uuid.UUID,
+    config: UpdateSessionConfigRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Обновить конфигурацию автоматического refresh для Telegram сессии.
+
+    Позволяет настроить параметры автоматического refresh и rotation для
+    распределения нагрузки между несколькими аккаунтами.
+
+    Args:
+        account_id: UUID аккаунта
+        config: Новые параметры конфигурации
+
+    Returns:
+        SessionConfigResponse: Обновленная конфигурация сессии
+    """
+    # Verify ownership
+    account = db.query(TelegramAccount).filter(
+        TelegramAccount.id == account_id,
+        TelegramAccount.user_id == current_user.id
+    ).first()
+
+    if not account:
+        raise HTTPException(status_code=404, detail="Telegram account not found")
+
+    # Update fields if provided
+    if config.auto_refresh_enabled is not None:
+        account.auto_refresh_enabled = config.auto_refresh_enabled
+
+    if config.refresh_before_expires_hours is not None:
+        account.refresh_before_expires_hours = config.refresh_before_expires_hours
+
+    # Save changes
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+
+    return SessionConfigResponse(
+        account_id=account.id,
+        auto_refresh_enabled=account.auto_refresh_enabled,
+        refresh_before_expires_hours=account.refresh_before_expires_hours or 24,
+        phone=account.phone,
+        username=account.username
+    )
 
 
 # =============================================================================
