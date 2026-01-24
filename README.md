@@ -49,11 +49,23 @@ backend/src/
 
 ## Возможности
 
+### Базовые функции
 - Крутит **YouTube-плейлист** по кругу (файл `streamer/playlist.txt`).
 - Стримит **видео+аудио** в видеочат Telegram (до 30 слотов видео; остальные — зрители).
 - Автовосстановление при падении трека, логирование.
 - Запуск как systemd-сервис: `tg_video_streamer`.
 - **Web Admin Panel** для управления стримом.
+
+### Advanced Rate Limiting ⚡
+- **Интеллектуальная очередь запросов** с приоритизацией (HIGH/MEDIUM/LOW)
+- **Мультиаккаунтная распределённая система** для балансировки нагрузки
+- **Предиктивная аналитика** — прогнозирование времени достижения лимитов
+- **Автоматические алерты** при приближении к порогам (75%/90%)
+- **Real-time Dashboard** для мониторинга и управления
+- Поддержка 10+ Telegram аккаунтов в пуле
+- Пропускная способность: 1000+ запросов/сек
+
+📖 [Документация](docs/features/rate-limit-optimization.md) | [API Reference](docs/api/rate-limits.md)
 
 ## Безопасность
 
@@ -197,6 +209,94 @@ sudo systemctl status tg_video_streamer -l
 - Обновить плейлист: отредактируйте `streamer/playlist.txt` — сервис подхватит
   новый список на следующей итерации.
 - Перезапуск: `sudo systemctl restart tg_video_streamer`.
+
+## Rate Limiting Dashboard ⚡
+
+Система включает **advanced rate limiting** с real-time dashboard для мониторинга и управления Telegram API лимитами.
+
+### Доступ
+
+**URL**: `http://localhost:3000/admin/rate-limits`
+**Требуемая роль**: ADMIN или SUPERADMIN
+
+### Возможности Dashboard
+
+1. **Overview Tab**:
+   - Общий статус системы (healthy/warning/critical)
+   - Статистика по аккаунтам (активные/ограниченные/отключённые)
+   - Прогресс-бары использования для каждого аккаунта
+   - Время до достижения лимита с обратным отсчётом
+
+2. **Trends Tab**:
+   - Графики использования по времени
+   - Предсказанное время достижения лимита
+   - Статистика (среднее/макс/мин использование)
+   - Детальная таблица предсказаний
+
+3. **Queue Tab**:
+   - Размер очереди по приоритетам (HIGH/MEDIUM/LOW)
+   - Обрабатываемые запросы
+   - Среднее время ожидания
+
+4. **Settings Tab**:
+   - Настройка порогов alert (75% warning, 90% critical)
+   - Управление каналами уведомлений
+   - Период cooldown для алертов
+
+### API Endpoints
+
+Система предоставляет 9 REST API endpoints для интеграции:
+
+```bash
+# Получить статус
+GET /api/v1/rate-limits/status
+
+# Получить предсказания
+GET /api/v1/rate-limits/predictions
+
+# Управление аккаунтами
+POST /api/v1/rate-limits/accounts
+PUT /api/v1/rate-limits/accounts/{id}
+DELETE /api/v1/rate-limits/accounts/{id}
+
+# Настройки
+PUT /api/v1/rate-limits/settings
+```
+
+Полная документация API: [docs/api/rate-limits.md](docs/api/rate-limits.md)
+
+### Конфигурация
+
+В `backend/.env`:
+
+```ini
+# Alert Thresholds
+RATE_LIMIT_ALERT_WARNING_THRESHOLD=75
+RATE_LIMIT_ALERT_CRITICAL_THRESHOLD=90
+
+# Queue Settings
+RATE_LIMIT_QUEUE_BATCH_SIZE=10
+RATE_LIMIT_QUEUE_BATCH_TIMEOUT=5
+
+# Multi-Account
+RATE_LIMIT_ACCOUNT_SELECTION_STRATEGY=least_used
+RATE_LIMIT_MAX_ACCOUNTS=10
+```
+
+### Мониторинг
+
+**Prometheus Metrics**:
+```
+telegram_api_requests_total{account_id, endpoint}
+telegram_rate_limit_remaining{account_id}
+telegram_account_usage_percent{account_id}
+rate_limit_queue_size{priority}
+rate_limit_prediction_breach_time{account_id}
+```
+
+Доступны на: `http://localhost:8000/metrics`
+
+📖 [Подробнее](docs/features/rate-limit-optimization.md)
 
 ## Журналы
 
