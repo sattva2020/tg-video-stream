@@ -1,0 +1,20 @@
+[Unit]
+Description=Automated Backup Timer
+Documentation=https://github.com/yourusername/telegram-video-streamer
+
+[Timer]
+# Запуск ежедневно в 02:00 UTC (05:00 MSK)
+# Выбрано время минимальной нагрузки сервера
+OnCalendar=*-*-* 02:00:00
+
+# Случайная задержка до 60 минут для распределения нагрузки
+RandomizedDelaySec=3600
+
+# Запустить при включении если пропустили время
+Persistent=true
+
+# Не запускать чаще чем раз в день
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target

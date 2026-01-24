@@ -1,0 +1,33 @@
+[Unit]
+Description=Automated Backup Service
+Documentation=https://github.com/yourusername/telegram-video-streamer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/sattva-streamer/scripts/backup-schedule.sh
+User=root
+Group=root
+
+# Безопасность
+NoNewPrivileges=false
+ProtectSystem=strict
+ReadWritePaths=/var/log /opt/sattva-streamer /opt/sattva-streamer/backups
+
+# Окружение
+EnvironmentFile=-/opt/sattva-streamer/.env
+Environment="BACKUP_DIR=/opt/sattva-streamer/backups"
+Environment="RETENTION_DAYS=30"
+Environment="MAX_BACKUPS=10"
+
+# Таймауты (backup может занять время)
+TimeoutStartSec=600
+
+# Логирование
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=automated-backup
+
+[Install]
+WantedBy=multi-user.target
