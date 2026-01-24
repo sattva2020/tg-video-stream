@@ -74,12 +74,18 @@ def make_celery():
             'tasks.send_admin_notification': {'queue': 'notifications'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
+            'tasks.rate_limit_monitor': {'queue': 'rate_limit_monitor'},
+            'tasks.rate_limit_check_account': {'queue': 'rate_limit_monitor'},
+            'tasks.rate_limit_alert': {'queue': 'rate_limit_monitor'},
+            'tasks.rate_limit_update_predictions': {'queue': 'rate_limit_monitor'},
+            'tasks.rate_limit_collect_metrics': {'queue': 'rate_limit_monitor'},
         },
 
         task_default_queue=settings.NOTIFICATIONS_QUEUE,
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('rate_limit_monitor', routing_key='rate_limit_monitor'),
         ],
         
         # Rate limits
