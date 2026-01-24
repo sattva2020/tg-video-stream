@@ -4,7 +4,6 @@ Contract tests для Q&A API endpoints.
 """
 
 import pytest
-import uuid
 from fastapi.testclient import TestClient
 from src.models.user import User
 from src.models.stream import Stream

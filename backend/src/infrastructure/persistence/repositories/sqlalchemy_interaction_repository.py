@@ -10,12 +10,9 @@ from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import selectinload
 
-from src.domain.entities.reaction import Reaction, ReactionType
-from src.domain.value_objects.chat_id import ChatId
+from src.domain.entities.reaction import Reaction
 from src.domain.value_objects.user_id import UserId
-from src.domain.value_objects.stream_id import StreamId
 from src.infrastructure.persistence.mappers.interaction_mapper import InteractionMapper
 from src.models.interaction import EmojiReaction as EmojiReactionORM, ReactionDisplayStatus, ChatMessage as ChatMessageORM, ChatMessageStatus
 from src.domain.errors import RepositoryError

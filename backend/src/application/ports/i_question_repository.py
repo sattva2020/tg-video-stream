@@ -7,7 +7,6 @@ IQuestionRepository Port Interface
 from typing import Protocol, Optional, List
 from src.domain.entities.question import Question, QuestionStatus
 from src.domain.value_objects.user_id import UserId
-from src.domain.value_objects.chat_id import ChatId
 
 
 class IQuestionRepository(Protocol):

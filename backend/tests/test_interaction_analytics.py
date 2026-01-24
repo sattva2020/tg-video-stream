@@ -15,9 +15,9 @@ Coverage target: 70%+
 """
 
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 from datetime import datetime, timezone, timedelta
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from src.services.interaction_analytics_service import (
     InteractionAnalyticsService,
@@ -28,10 +28,6 @@ from src.services.interaction_analytics_service import (
     EngagementSummary,
     _period_to_days,
 )
-from src.models.poll import Poll, PollVote, PollStatus
-from src.models.qa import Question, QuestionUpvote, QuestionStatus
-from src.models.interaction import EmojiReaction, ChatMessage
-from src.models.stream import Stream
 
 
 # ==================== Fixtures ====================
@@ -406,8 +402,6 @@ class TestChatStats:
     async def test_get_chat_stats_with_filtered(self, analytics_service, mock_db):
         """Тест статистики с отфильтрованными сообщениями."""
         mock_redis.get.return_value = None
-
-        call_count = [0]
 
         def mock_execute_func(query):
             result = Mock()

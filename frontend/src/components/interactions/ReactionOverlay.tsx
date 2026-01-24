@@ -95,7 +95,6 @@ const ReactionOverlay: React.FC<ReactionOverlayProps> = ({ token, channelId }) =
 
         const interval = setInterval(() => {
             setActiveReactions(prev => {
-                const now = Date.now();
                 return prev
                     .map(reaction => ({
                         ...reaction,

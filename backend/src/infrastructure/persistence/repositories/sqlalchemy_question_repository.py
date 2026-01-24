@@ -8,14 +8,12 @@ Question является Entity, поэтому репозиторий упра
 
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
-from src.application.ports.i_question_repository import IQuestionRepository
 from src.domain.entities.question import Question, QuestionStatus
 from src.domain.value_objects.user_id import UserId
-from src.domain.value_objects.chat_id import ChatId
 from src.infrastructure.persistence.mappers.question_mapper import QuestionMapper
 from src.models.qa import Question as QuestionORM
 from src.domain.errors import RepositoryError

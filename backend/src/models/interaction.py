@@ -17,7 +17,6 @@ SQLAlchemy models для персистентности EmojiReaction и ChatMes
 """
 
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 
 from sqlalchemy import Column, String, BigInteger, Integer, Boolean, DateTime, Enum as SQLEnum, ForeignKey, func, Index, Text
