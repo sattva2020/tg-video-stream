@@ -137,7 +137,7 @@ test.describe('PWA Install Prompt Modal', () => {
     });
 
     // Modal should appear if app is installable and not dismissed
-    expect(modalExists || hasInstallContent).toBeDefined();
+    expect(modalExists || hasInstallContent).toBeTruthy();
   });
 
   test('Install prompt has all required elements', async ({ page }) => {
@@ -145,8 +145,8 @@ test.describe('PWA Install Prompt Modal', () => {
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(4000);
 
-    // Check for key elements in the prompt
-    await page.evaluate(() => {
+    // Check for key elements in the prompt - title
+    const hasTitle = await page.evaluate(() => {
       const headings = document.querySelectorAll('h2, h3');
       return Array.from(headings).some(h =>
         h.textContent?.includes('Установить') ||
@@ -154,7 +154,8 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    await page.evaluate(() => {
+    // Check for description
+    const hasDescription = await page.evaluate(() => {
       const body = document.body;
       return body.textContent?.includes('быстрый доступ') ||
              body.textContent?.includes('quick access') ||
@@ -179,8 +180,8 @@ test.describe('PWA Install Prompt Modal', () => {
       );
     });
 
-    // At minimum, should have install button or cancel button
-    expect(hasInstallButton || hasCancelButton).toBeTruthy();
+    // Check for key elements: title, description, and buttons
+    expect(hasTitle && hasDescription && (hasInstallButton || hasCancelButton)).toBeTruthy();
   });
 
   test('Install prompt shows benefits', async ({ page }) => {
@@ -224,7 +225,7 @@ test.describe('PWA Install Prompt Modal', () => {
     });
 
     // Should have checkbox or text indicating the option
-    expect(hasCheckbox || hasDontShowText).toBeDefined();
+    expect(hasCheckbox || hasDontShowText).toBeTruthy();
   });
 });
 

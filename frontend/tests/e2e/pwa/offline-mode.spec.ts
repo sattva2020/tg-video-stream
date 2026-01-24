@@ -83,7 +83,7 @@ test.describe('Offline Fallback Page', () => {
     const hasRetryOption = await retryButton.count() > 0;
 
     // Retry option is recommended but not strictly required
-    expect(hasRetryOption || page.url()).toBeTruthy();
+    expect(hasRetryOption).toBeDefined();
   });
 });
 
