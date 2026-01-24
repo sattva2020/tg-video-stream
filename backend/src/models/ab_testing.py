@@ -5,11 +5,10 @@ Feature: 016-a-b-testing-framework-for-content
 """
 
 import uuid
-from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import (
     Column, String, DateTime, ForeignKey, Boolean,
-    Enum, Integer, Text, BigInteger, Numeric, Index, func
+    Enum, Text, BigInteger, Numeric, Index, func
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship

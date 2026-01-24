@@ -13,6 +13,8 @@ Services модуль для обработки бизнес-логики.
 - ABTestingService: управление A/B тестированием контента
 """
 
+from src.services.ab_testing_service import ABTestingService
+
 __all__ = [
     "PlaybackService",
     "RadioService",

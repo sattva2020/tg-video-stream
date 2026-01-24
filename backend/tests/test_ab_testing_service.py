@@ -6,11 +6,9 @@ Feature: 016-a-b-testing-framework-for-content
 import pytest
 import uuid
 from unittest.mock import MagicMock, patch, AsyncMock
-from decimal import Decimal
-from datetime import datetime, timezone
 
 from src.services.ab_testing_service import ABTestingService, get_ab_testing_service
-from src.models.ab_testing import ABTest, ABTestVariant, ABTestMetric, ABTestStatus
+from src.models.ab_testing import ABTest, ABTestVariant, ABTestStatus
 from src.schemas.ab_testing import (
     ABTestCreate,
     ABTestUpdate,
@@ -199,7 +197,6 @@ class TestCreateTest:
 
         # Mock flush to set ID
         test_id = uuid.uuid4()
-        variant_ids = [uuid.uuid4(), uuid.uuid4()]
 
         flush_call_count = [0]
 
@@ -363,8 +360,8 @@ class TestUpdateTest:
             description="Updated description",
         )
 
-        with patch.object(service, 'get_test', return_value=MagicMock()) as mock_get:
-            result = await service.update_test(test_id=sample_test.id, test_data=update_data)
+        with patch.object(service, 'get_test', return_value=MagicMock()):
+            await service.update_test(test_id=sample_test.id, test_data=update_data)
 
         assert sample_test.name == "Updated Test Name"
         assert sample_test.description == "Updated description"

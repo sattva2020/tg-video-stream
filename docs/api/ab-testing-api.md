@@ -140,7 +140,7 @@ Content-Type: application/json
       },
       "is_winner": false,
       "conversion_rate": null,
-      "improvement null,
+      "improvement": null,
       "created_at": "2026-01-23T10:00:00Z",
       "updated_at": null
     },
@@ -228,7 +228,7 @@ import { useQuery } from '@tanstack/react-query';
 function ABTestList() {
   const { data, isLoading } = useQuery({
     queryKey: ['ab-tests', { status: 'running' }],
-    queryFn: () => listABTests({ status: 'running', limit: 20 })
+    queryFn: () => listABTests(undefined, 'running', 20, 0)
   });
 
   if (isLoading) return <Skeleton />;
@@ -462,10 +462,9 @@ Authorization: Bearer <token>
 | Код | Описание |
 |-----|----------|
 | 200 | Успешно запущен |
-| 400 | Неверный статус (только draft или paused) |
+| 400 | Неверный статус (только draft или paused) или тест не найден |
 | 401 | Не авторизован |
 | 403 | Недостаточно прав |
-| 404 | Тест не найден |
 | 500 | Ошибка сервера |
 
 ---
@@ -600,6 +599,12 @@ Authorization: Bearer <token>
 ### POST /api/ab-tests/metrics
 
 Записывает метрику для варианта A/B теста. Внутренний эндпоинт для сбора данных.
+
+> **⚠️ Примечание по безопасности**: Этот эндпоинт в текущей реализации не требует аутентификации или авторизации. В продакшн-окружении рекомендуется:
+> - Ограничить доступ к эндпоинту через API-ключи, токены или аутентификацию
+> - Валидировать источник запросов (например, по IP или origin)
+> - Применить rate limiting для предотвращения накрутки метрик
+> - Логировать все запросы для аудита
 
 #### Request
 

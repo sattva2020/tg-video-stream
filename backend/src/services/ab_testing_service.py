@@ -11,12 +11,11 @@ Feature: 016-a-b-testing-framework-for-content
 
 import json
 import logging
-import uuid
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 try:
     import redis.asyncio as aioredis
@@ -24,7 +23,6 @@ except ImportError:
     aioredis = None
 
 from sqlalchemy import select, func, and_, desc, update
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from src.models.ab_testing import ABTest, ABTestVariant, ABTestMetric, ABTestStatus
@@ -42,7 +40,6 @@ from src.schemas.ab_testing import (
     ABTestStatistics,
     ABTestAnalysisResponse,
 )
-from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -932,8 +929,8 @@ class ABTestingService:
             )
 
         # Расчет конверсионных ставок
-        p1 = float(control_conversions) / float(control_total) if control_total > 0 else 0.0
-        p2 = float(treatment_conversions) / float(treatment_total) if treatment_total > 0 else 0.0
+        p1 = float(control_conversions) / float(control_total)
+        p2 = float(treatment_conversions) / float(treatment_total)
 
         # Объединенная пропорция (pooled proportion)
         pooled_p = float(control_conversions + treatment_conversions) / float(control_total + treatment_total)
@@ -941,7 +938,7 @@ class ABTestingService:
         # Стандартная ошибка разности пропорций
         se = math.sqrt(
             pooled_p * (1.0 - pooled_p) * (1.0 / control_total + 1.0 / treatment_total)
-        ) if (pooled_p > 0 and pooled_p < 1) else 0.0
+        )
 
         if se == 0.0:
             # Избегаем деления на ноль
@@ -999,16 +996,13 @@ class ABTestingService:
             return None, None
 
         # Пропорция
-        p = float(conversions) / float(total) if total > 0 else 0.0
+        p = float(conversions) / float(total)
 
         # Z-критическое значение
         z = self._get_z_critical(confidence_level)
 
         # Метод Уилсона (лучше работает для малых выборок и крайних значений)
         denominator = 1.0 + z * z / total
-
-        if denominator == 0:
-            return None, None
 
         center = (p + z * z / (2.0 * total)) / denominator
         margin = z * math.sqrt(p * (1.0 - p) / total + z * z / (4.0 * total * total)) / denominator
