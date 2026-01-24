@@ -181,6 +181,11 @@ class TelegramSessionMonitor:
         """Генерация Redis ключа для статуса здоровья."""
         return f"{TelegramSessionMonitor.HEALTH_KEY_PREFIX}:{account_id}"
 
+    @staticmethod
+    def _get_monitor_task_key(account_id: str) -> str:
+        """Генерация Redis ключа для мониторинговой задачи."""
+        return f"{TelegramSessionMonitor.MONITOR_TASKS_PREFIX}:{account_id}"
+
     async def close(self) -> None:
         """Закрытие соединений и задач."""
         # Отменить все мониторы
@@ -568,6 +573,11 @@ class TelegramSessionMonitor:
         task = asyncio.create_task(self._monitor_loop(account_id))
         self._monitor_tasks[account_id] = task
 
+        # Сохранить информацию о задаче в Redis
+        r = await self._get_redis()
+        monitor_key = self._get_monitor_task_key(account_id)
+        await r.set(monitor_key, "1", ex=86400)  # TTL: 24 часа
+
         log.info(f"Started background monitoring for account {account_id}")
 
     async def stop_monitoring(self, account_id: str) -> None:
@@ -586,6 +596,11 @@ class TelegramSessionMonitor:
                 pass
             log.info(f"Stopped monitoring for account {account_id}")
 
+        # Удалить информацию о задаче из Redis
+        r = await self._get_redis()
+        monitor_key = self._get_monitor_task_key(account_id)
+        await r.delete(monitor_key)
+
     async def _monitor_loop(self, account_id: str) -> None:
         """Фоновый цикл мониторинга."""
         try:
@@ -593,9 +608,39 @@ class TelegramSessionMonitor:
                 await self.check_account_health(account_id)
                 await asyncio.sleep(self.config.check_interval_seconds)
         except asyncio.CancelledError:
+            # Очистить Redis при отмене
+            r = await self._get_redis()
+            monitor_key = self._get_monitor_task_key(account_id)
+            await r.delete(monitor_key)
             pass
         except Exception as e:
             log.error(f"Monitor loop error for account {account_id}: {e}")
+            # Очистить Redis при ошибке
+            r = await self._get_redis()
+            monitor_key = self._get_monitor_task_key(account_id)
+            await r.delete(monitor_key)
+
+    async def is_monitoring(self, account_id: str) -> bool:
+        """
+        Проверить запущен ли мониторинг для аккаунта.
+
+        Args:
+            account_id: ID аккаунта
+
+        Returns:
+            True если мониторинг активен
+        """
+        # Проверить in-memory задачи
+        if account_id in self._monitor_tasks:
+            task = self._monitor_tasks[account_id]
+            if not task.done():
+                return True
+
+        # Проверить Redis
+        r = await self._get_redis()
+        monitor_key = self._get_monitor_task_key(account_id)
+        exists = await r.exists(monitor_key)
+        return exists > 0
 
     # ========== Health Metrics ==========
 
