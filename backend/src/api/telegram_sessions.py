@@ -7,13 +7,15 @@ Telegram Sessions API endpoints.
 - Бэкап и восстановление сессий
 - Проверка здоровья сессий
 - Настройка TOTP 2FA для автоматического refresh
+- Отправка тестовых алертов для проверки webhook интеграций
 
 Создано в рамках Session Management Automation (spec 002).
 """
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pyotp
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,6 +29,10 @@ from api.auth import get_current_user
 from src.services.telegram_session_service import get_telegram_session_service
 from src.services.telegram_session_monitor import get_telegram_session_monitor
 from src.services.encryption import encryption_service
+from src.celery_app import celery_app
+from src.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/telegram/sessions", tags=["Telegram Sessions"])
 
@@ -123,6 +129,14 @@ class UpdateSessionConfigRequest(BaseModel):
     """Модель запроса для обновления конфигурации сессии."""
     auto_refresh_enabled: bool | None = None
     refresh_before_expires_hours: int | None = Field(None, ge=1, le=168, description="Hours before expiration to refresh (1-168)")
+
+
+class TestAlertResponse(BaseModel):
+    """Модель ответа для тестового алерта."""
+    success: bool
+    message: str
+    event_id: str
+    tasks_enqueued: int
 
 
 # =============================================================================
@@ -654,3 +668,77 @@ def disable_totp(
     db.refresh(account)
 
     return {"status": "disabled", "message": "2FA successfully disabled"}
+
+
+# =============================================================================
+# Test Alert Endpoint
+# =============================================================================
+
+def _enqueue_process_event(payload: Dict, *, delay_sec: int = 0) -> bool:
+    """Кладёт задачу в очередь или логирует, если Celery недоступен."""
+    if celery_app:
+        try:
+            celery_app.send_task(
+                "notifications.process_event",
+                args=[payload],
+                queue=settings.NOTIFICATIONS_QUEUE,
+                countdown=delay_sec,
+            )
+            return True
+        except Exception:
+            logger.exception("Failed to enqueue notification task")
+            return False
+    logger.warning("Celery app not configured; skipping enqueue", extra={"payload": payload})
+    return False
+
+
+@router.post("/test-alert", response_model=TestAlertResponse)
+def send_test_alert(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Отправить тестовый алерт для проверки webhook интеграций.
+
+    Создаёт тестовое уведомление о здоровье сессии и отправляет его через
+    систему уведомлений. Полезно для проверки корректности настройки
+    webhook интеграций и получения алертов.
+
+    Returns:
+        TestAlertResponse: Результат отправки тестового алерта
+    """
+    event_id = str(uuid.uuid4())
+
+    # Build test event payload
+    payload = {
+        "event_id": event_id,
+        "severity": "info",
+        "tags": {
+            "source": "telegram_sessions",
+            "event_type": "health_alert_test",
+            "user_id": str(current_user.id),
+        },
+        "host": "telegram-session-service",
+        "context": {
+            "test": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "message": "This is a test alert for Telegram session health monitoring",
+        },
+        "subject": "Test Alert: Telegram Session Health Monitoring",
+        "body": (
+            "This is a test notification from the Telegram Session Health Monitoring system.\n\n"
+            f"User ID: {current_user.id}\n"
+            f"Test sent at: {datetime.now(timezone.utc).isoformat()}\n\n"
+            "If you receive this message, your webhook integration is working correctly."
+        ),
+    }
+
+    # Enqueue notification task
+    enqueued = 1 if _enqueue_process_event(payload) else 0
+
+    return TestAlertResponse(
+        success=enqueued > 0,
+        message="Test alert sent to notification system" if enqueued > 0 else "Failed to enqueue test alert",
+        event_id=event_id,
+        tasks_enqueued=enqueued,
+    )
