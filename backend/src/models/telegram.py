@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, func, ForeignKey, BigInteger
+from sqlalchemy import Column, String, DateTime, func, ForeignKey, BigInteger, Boolean, Integer
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -14,7 +14,17 @@ class TelegramAccount(Base):
     first_name = Column(String, nullable=True)
     username = Column(String, nullable=True)
     photo_url = Column(String, nullable=True)
-    
+
+    # Session health fields
+    session_health_status = Column(String, nullable=True)  # healthy, expiring, expired, needs_2fa, error
+    last_health_check = Column(DateTime(timezone=True), nullable=True)
+    session_expires_at = Column(DateTime(timezone=True), nullable=True)
+    totp_secret = Column(String, nullable=True)  # Encrypted TOTP secret for 2FA
+    auto_refresh_enabled = Column(Boolean, default=True, nullable=False)
+    refresh_before_expires_hours = Column(Integer, default=24, nullable=False)
+    last_refreshed_at = Column(DateTime(timezone=True), nullable=True)
+    refresh_error_message = Column(String, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
