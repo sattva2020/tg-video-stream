@@ -34,6 +34,13 @@ from src.config import settings
 logger = logging.getLogger(__name__)
 
 
+class PriorityLevel:
+    """Константы приоритетов для API запросов."""
+    HIGH = 0        # 0-999: Потоковое управление (play/pause/skip)
+    MEDIUM = 1000   # 1000-1999: Получение метаданных
+    LOW = 2000      # 2000+: Фоновые задачи
+
+
 class RequestPriority(Enum):
     """Уровни приоритетов для API запросов."""
     HIGH = 0        # 0-999: Потоковое управление (play/pause/skip)
