@@ -9,7 +9,7 @@ export const SessionsPage: React.FC = () => {
 
   const handleConfigureClick = (sessionId: string) => {
     // TODO: Open configuration modal
-    console.log('Configure session:', sessionId);
+    // Will be implemented in subtask-5-3
   };
 
   return (
