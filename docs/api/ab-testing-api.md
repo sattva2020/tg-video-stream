@@ -140,7 +140,7 @@ Content-Type: application/json
       },
       "is_winner": false,
       "conversion_rate": null,
-      "improvement null,
+      "improvement": null,
       "created_at": "2026-01-23T10:00:00Z",
       "updated_at": null
     },
