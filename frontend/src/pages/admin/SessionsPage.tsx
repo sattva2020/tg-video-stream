@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AppLayout } from '@/components/layout';
 import { SessionHealthList } from '@/components/admin/telegram-sessions/SessionHealthList';
 import { SessionConfigModal } from '@/components/admin/telegram-sessions/SessionConfigModal';
+import { TOTPSetupForm } from '@/components/admin/telegram-sessions/TOTPSetupForm';
 
 export const SessionsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -11,17 +12,33 @@ export const SessionsPage: React.FC = () => {
     id: string;
     phone?: string;
   } | null>(null);
+  const [totpModalSession, setTotpModalSession] = useState<{
+    id: string;
+    phone?: string;
+  } | null>(null);
 
   const handleConfigureClick = (sessionId: string, sessionPhone?: string) => {
     setConfigModalSession({ id: sessionId, phone: sessionPhone });
+  };
+
+  const handleSetup2FAClick = (sessionId: string, sessionPhone?: string) => {
+    setTotpModalSession({ id: sessionId, phone: sessionPhone });
   };
 
   const handleConfigSuccess = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  const handle2FASuccess = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   const handleCloseConfigModal = () => {
     setConfigModalSession(null);
+  };
+
+  const handleClose2FAModal = () => {
+    setTotpModalSession(null);
   };
 
   return (
@@ -37,6 +54,7 @@ export const SessionsPage: React.FC = () => {
         <SessionHealthList
           refreshTrigger={refreshTrigger}
           onConfigureClick={handleConfigureClick}
+          onSetup2FAClick={handleSetup2FAClick}
         />
       </div>
 
@@ -47,6 +65,16 @@ export const SessionsPage: React.FC = () => {
           sessionId={configModalSession.id}
           sessionPhone={configModalSession.phone}
           onSuccess={handleConfigSuccess}
+        />
+      )}
+
+      {totpModalSession && (
+        <TOTPSetupForm
+          isOpen={!!totpModalSession}
+          onClose={handleClose2FAModal}
+          sessionId={totpModalSession.id}
+          sessionPhone={totpModalSession.phone}
+          onSuccess={handle2FASuccess}
         />
       )}
     </AppLayout>

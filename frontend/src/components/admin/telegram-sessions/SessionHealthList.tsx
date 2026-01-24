@@ -19,11 +19,13 @@ import { useToast } from '@/components/ui/use-toast';
 interface SessionHealthListProps {
   refreshTrigger?: number;
   onConfigureClick?: (sessionId: string, sessionPhone?: string) => void;
+  onSetup2FAClick?: (sessionId: string, sessionPhone?: string) => void;
 }
 
 export const SessionHealthList: React.FC<SessionHealthListProps> = ({
   refreshTrigger,
-  onConfigureClick
+  onConfigureClick,
+  onSetup2FAClick
 }) => {
   const { toast } = useToast();
   const [sessions, setSessions] = useState<TelegramSession[]>([]);
@@ -286,6 +288,15 @@ export const SessionHealthList: React.FC<SessionHealthListProps> = ({
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${refreshingSessions.has(session.id) ? 'animate-spin' : ''}`} />
                   Refresh
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onSetup2FAClick?.(session.id, session.phone)}
+                  data-testid="setup-2fa-button"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Setup 2FA
                 </Button>
                 <Button
                   variant="outline"
