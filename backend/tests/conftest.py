@@ -487,3 +487,40 @@ def test_playlist(db_session, admin_user: User) -> Playlist:
     return playlist
 
 
+# ==================== JSON-RPC JWT Test Fixtures ====================
+
+@pytest.fixture(scope="function")
+def valid_jwt_token(test_user):
+    """Generate a valid JWT token for test user"""
+    from src.auth.jwt import create_access_token
+    return create_access_token({"sub": str(test_user.id)})
+
+
+@pytest.fixture(scope="function")
+def expired_jwt_token(test_user):
+    """Generate an expired JWT token"""
+    from src.auth.jwt import create_access_token
+    from datetime import timedelta
+    # Create token that expired 1 hour ago
+    return create_access_token(
+        {"sub": str(test_user.id)},
+        expires_delta=timedelta(hours=-1)
+    )
+
+
+@pytest.fixture(scope="function")
+def invalid_uuid_token():
+    """Generate token with invalid UUID format"""
+    from src.auth.jwt import create_access_token
+    return create_access_token({"sub": "not-a-valid-uuid"})
+
+
+@pytest.fixture(scope="function")
+def token_for_nonexistent_user():
+    """Generate token for user that doesn't exist in database"""
+    import uuid
+    from src.auth.jwt import create_access_token
+    nonexistent_id = uuid.uuid4()
+    return create_access_token({"sub": str(nonexistent_id)})
+
+
