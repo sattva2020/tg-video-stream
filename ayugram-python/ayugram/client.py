@@ -42,6 +42,7 @@ except ImportError:
 
 from ayugram.types import AudioPiped, AudioVideoPiped, StreamType
 from ayugram.exceptions import AyuGramError, CallError, ConnectionError
+from ayugram.stream import StreamControl
 
 logger = logging.getLogger("ayugram.client")
 
@@ -122,6 +123,7 @@ class AyuGramClient:
         self._active_calls: dict = {}
         self._playback_states: dict = {}  # chat_id -> playback state
         self._event_listeners: dict = {}  # event_name -> list of callbacks
+        self._stream_control = StreamControl()  # Stream control manager
 
         # Log which client type we're using
         if is_pyrogram:
@@ -342,6 +344,9 @@ class AyuGramClient:
                 del self._playback_states[chat_id_str]
                 logger.info(f"Cleaned up playback state for chat_id={chat_id}")
 
+            # Clean up stream control state
+            self._stream_control.clean_state(chat_id_str)
+
         except CallError as e:
             logger.error(f"Failed to leave group call: {e}")
             raise CallError(f"Failed to leave call for {chat_id}: {e}") from e
@@ -496,6 +501,303 @@ class AyuGramClient:
         except Exception as e:
             logger.error(f"Unexpected error resuming playback: {e}")
             raise CallError(f"Unexpected error resuming: {e}") from e
+
+    async def seek_stream(
+        self,
+        chat_id: Union[int, str],
+        position_seconds: int
+    ):
+        """
+        Seek stream to specific position.
+
+        This method seeks the active stream to the specified position
+        in seconds.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+            position_seconds: Target position in seconds
+
+        Raises:
+            CallError: If seek operation fails
+            AyuGramError: If client is not started or no active call exists
+            ValueError: If position is negative
+
+        Example:
+            >>> await client.seek_stream(-1001234567890, 60)  # Seek to 1 minute
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Seeking stream for chat_id={chat_id} to {position_seconds}s")
+
+            # Update stream state
+            self._stream_control.seek_stream(chat_id_str, position_seconds)
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+            # This will send a seek command to the AyuGram server
+
+            logger.info(f"Stream seeked to {position_seconds}s for chat_id={chat_id}")
+
+        except ValueError as e:
+            logger.error(f"Invalid seek position: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error seeking stream: {e}")
+            raise CallError(f"Unexpected error seeking: {e}") from e
+
+    async def rewind_stream(self, chat_id: Union[int, str], seconds: int):
+        """
+        Rewind stream by N seconds.
+
+        This method rewinds the active stream by the specified number
+        of seconds.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+            seconds: Number of seconds to rewind
+
+        Raises:
+            CallError: If rewind operation fails
+            AyuGramError: If client is not started or no active call exists
+            ValueError: If seconds is not positive
+
+        Example:
+            >>> await client.rewind_stream(-1001234567890, 10)  # Rewind 10 seconds
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Rewinding stream for chat_id={chat_id} by {seconds}s")
+
+            # Update stream state
+            self._stream_control.rewind_stream(chat_id_str, seconds)
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+
+            logger.info(f"Stream rewound by {seconds}s for chat_id={chat_id}")
+
+        except ValueError as e:
+            logger.error(f"Invalid rewind duration: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error rewinding stream: {e}")
+            raise CallError(f"Unexpected error rewinding: {e}") from e
+
+    async def forward_stream(self, chat_id: Union[int, str], seconds: int):
+        """
+        Forward stream by N seconds.
+
+        This method forwards the active stream by the specified number
+        of seconds.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+            seconds: Number of seconds to forward
+
+        Raises:
+            CallError: If forward operation fails
+            AyuGramError: If client is not started or no active call exists
+            ValueError: If seconds is not positive
+
+        Example:
+            >>> await client.forward_stream(-1001234567890, 30)  # Forward 30 seconds
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Forwarding stream for chat_id={chat_id} by {seconds}s")
+
+            # Update stream state
+            self._stream_control.forward_stream(chat_id_str, seconds)
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+
+            logger.info(f"Stream forwarded by {seconds}s for chat_id={chat_id}")
+
+        except ValueError as e:
+            logger.error(f"Invalid forward duration: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error forwarding stream: {e}")
+            raise CallError(f"Unexpected error forwarding: {e}") from e
+
+    async def set_volume(self, chat_id: Union[int, str], volume: float):
+        """
+        Set volume level for stream.
+
+        This method sets the volume level for the active stream.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+            volume: Volume level (0.0 to 1.0, where 1.0 is 100%)
+
+        Raises:
+            CallError: If volume control fails
+            AyuGramError: If client is not started or no active call exists
+            ValueError: If volume is out of valid range
+
+        Example:
+            >>> await client.set_volume(-1001234567890, 0.5)  # Set to 50%
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Setting volume for chat_id={chat_id} to {volume * 100:.0f}%")
+
+            # Update stream state
+            self._stream_control.set_volume(chat_id_str, volume)
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+
+            logger.info(f"Volume set to {volume * 100:.0f}% for chat_id={chat_id}")
+
+        except ValueError as e:
+            logger.error(f"Invalid volume level: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error setting volume: {e}")
+            raise CallError(f"Unexpected error setting volume: {e}") from e
+
+    async def set_speed(self, chat_id: Union[int, str], speed: float):
+        """
+        Set playback speed for stream.
+
+        This method sets the playback speed for the active stream.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+            speed: Speed multiplier (0.5 to 2.0, where 1.0 is normal speed)
+
+        Raises:
+            CallError: If speed control fails
+            AyuGramError: If client is not started or no active call exists
+            ValueError: If speed is out of valid range
+
+        Example:
+            >>> await client.set_speed(-1001234567890, 1.5)  # Set to 1.5x speed
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Setting speed for chat_id={chat_id} to {speed}x")
+
+            # Update stream state
+            self._stream_control.set_speed(chat_id_str, speed)
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+
+            logger.info(f"Speed set to {speed}x for chat_id={chat_id}")
+
+        except ValueError as e:
+            logger.error(f"Invalid speed value: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error setting speed: {e}")
+            raise CallError(f"Unexpected error setting speed: {e}") from e
+
+    def get_stream_state(self, chat_id: Union[int, str]):
+        """
+        Get current stream state for a chat.
+
+        This method returns the current stream state including position,
+        volume, speed, and playing status.
+
+        Args:
+            chat_id: Chat ID or username to get state for
+
+        Returns:
+            StreamState object with current state, or None if no state exists
+
+        Raises:
+            AyuGramError: If client is not started
+
+        Example:
+            >>> state = client.get_stream_state(-1001234567890)
+            >>> if state:
+            ...     print(f"Position: {state.position_ms // 1000}s")
+            ...     print(f"Volume: {state.volume * 100}%")
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+        return self._stream_control.get_state(chat_id_str)
+
+    def get_position(self, chat_id: Union[int, str]) -> int:
+        """
+        Get current playback position in seconds.
+
+        Args:
+            chat_id: Chat ID or username to get position for
+
+        Returns:
+            Current position in seconds, 0 if no state exists
+
+        Raises:
+            AyuGramError: If client is not started
+
+        Example:
+            >>> position = client.get_position(-1001234567890)
+            >>> print(f"Current position: {position}s")
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+        return self._stream_control.get_position(chat_id_str)
+
+    def get_volume(self, chat_id: Union[int, str]) -> float:
+        """
+        Get current volume level.
+
+        Args:
+            chat_id: Chat ID or username to get volume for
+
+        Returns:
+            Volume level (0.0 to 1.0), 1.0 if no state exists
+
+        Raises:
+            AyuGramError: If client is not started
+
+        Example:
+            >>> volume = client.get_volume(-1001234567890)
+            >>> print(f"Volume: {volume * 100:.0f}%")
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+        return self._stream_control.get_volume(chat_id_str)
 
     def on(self, event_name: str, callback):
         """
