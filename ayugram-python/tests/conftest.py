@@ -453,3 +453,108 @@ def ensure_tests_dir():
     if tests_dir not in sys.path:
         sys.path.insert(0, tests_dir)
     return tests_dir
+
+
+# ============================================================================
+# Mock JSON-RPC Server Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+async def mock_server():
+    """
+    Create and start a mock JSON-RPC server for integration testing.
+
+    This fixture provides a running MockAyuGramServer instance that
+    simulates the AyuGram JSON-RPC API. The server is started before
+    the test and stopped after the test completes.
+
+    The server runs on a random port to avoid conflicts with other services.
+
+    Returns:
+        MockAyuGramServer: Running mock server instance
+
+    Example:
+        >>> async def test_with_mock_server(mock_server):
+        ...     # Mock server is running at mock_server.server_url
+        ...     client = JsonRpcClient(mock_server.server_url)
+        ...     await client.start()
+        ...     result = await client.call("auth.send_code", {"phone": "+1234567890"})
+        ...     assert result["success"] == True
+    """
+    from tests.mock_server import MockAyuGramServer
+
+    # Use a random port to avoid conflicts
+    import socket
+    sock = socket.socket()
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+
+    server = MockAyuGramServer(port=port)
+
+    # Start the server
+    await server.start()
+
+    yield server
+
+    # Cleanup: stop the server
+    await server.stop()
+    server.clear_sessions()
+    server.clear_request_log()
+
+
+@pytest.fixture
+def mock_server_url(mock_server):
+    """
+    Get the URL of the running mock JSON-RPC server.
+
+    This is a convenience fixture that returns just the server URL,
+    making tests cleaner when they only need the endpoint URL.
+
+    Args:
+        mock_server: Running mock server fixture
+
+    Returns:
+        str: JSON-RPC endpoint URL
+
+    Example:
+        >>> async def test_with_url(mock_server_url):
+        ...     client = JsonRpcClient(mock_server_url)
+        ...     await client.start()
+    """
+    return mock_server.server_url
+
+
+@pytest.fixture
+async def mock_server_with_auth(mock_server):
+    """
+    Mock server with pre-authenticated session.
+
+    This fixture creates a mock server and simulates a successful
+    authentication flow, leaving an authenticated session ready for use.
+
+    Args:
+        mock_server: Running mock server fixture
+
+    Returns:
+        MockAyuGramServer: Server with authenticated session
+
+    Example:
+        >>> async def test_authenticated_call(mock_server_with_auth):
+        ...     # Server has an authenticated session for +1234567890
+        ...     sessions = mock_server_with_auth.get_sessions()
+        ...     assert "+1234567890" in sessions
+    """
+    # Simulate authentication by creating a session
+    phone = "+1234567890"
+    session_data = {
+        "phone": phone,
+        "user_id": 123456789,
+        "auth_key": "mock_auth_key_base64_encoded",
+        "first_name": "Test",
+        "last_name": "User",
+    }
+    mock_server._sessions[phone] = session_data
+
+    return mock_server
