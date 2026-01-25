@@ -12,7 +12,7 @@ Types:
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
 
 @dataclass

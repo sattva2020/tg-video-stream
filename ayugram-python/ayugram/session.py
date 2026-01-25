@@ -29,11 +29,12 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from ayugram.exceptions import AyuGramError, AuthenticationError
+from ayugram.exceptions import AuthenticationError, AyuGramError
 
 # Optional Redis support for session caching
 try:
     import redis.asyncio as aioredis
+
     REDIS_AVAILABLE = True
 except ImportError:
     aioredis = None
@@ -135,7 +136,9 @@ class SessionManager:
             self.session_dir.mkdir(parents=True, exist_ok=True)
             logger.debug("Session directory ensured: %s", self.session_dir)
         except OSError as e:
-            logger.warning("Failed to create session directory %s: %s", self.session_dir, e)
+            logger.warning(
+                "Failed to create session directory %s: %s", self.session_dir, e
+            )
 
     async def _get_redis(self) -> Optional[Any]:
         """
@@ -154,7 +157,9 @@ class SessionManager:
 
         if self._redis is None:
             try:
-                self._redis = await aioredis.from_url(self._redis_url, decode_responses=True)
+                self._redis = await aioredis.from_url(
+                    self._redis_url, decode_responses=True
+                )
                 logger.debug("Redis connection established: %s", self._redis_url)
             except Exception as e:
                 logger.warning("Failed to connect to Redis: %s", e)
@@ -181,7 +186,9 @@ class SessionManager:
         """
         return f"{self.REDIS_KEY_PREFIX}{session_name}"
 
-    async def _cache_session_redis(self, session_name: str, session_data: Dict[str, Any]) -> None:
+    async def _cache_session_redis(
+        self, session_name: str, session_data: Dict[str, Any]
+    ) -> None:
         """
         Cache session data in Redis.
 
@@ -202,11 +209,15 @@ class SessionManager:
         try:
             key = self._get_redis_key(session_name)
             await redis.setex(key, self._redis_ttl, json.dumps(session_data))
-            logger.debug("Session cached in Redis: %s (TTL: %ds)", session_name, self._redis_ttl)
+            logger.debug(
+                "Session cached in Redis: %s (TTL: %ds)", session_name, self._redis_ttl
+            )
         except Exception as e:
             logger.warning("Failed to cache session in Redis: %s - %s", session_name, e)
 
-    async def _get_cached_session_redis(self, session_name: str) -> Optional[Dict[str, Any]]:
+    async def _get_cached_session_redis(
+        self, session_name: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Get session data from Redis cache.
 
@@ -261,7 +272,9 @@ class SessionManager:
             await redis.delete(key)
             logger.debug("Session invalidated in Redis: %s", session_name)
         except Exception as e:
-            logger.warning("Failed to invalidate session in Redis: %s - %s", session_name, e)
+            logger.warning(
+                "Failed to invalidate session in Redis: %s - %s", session_name, e
+            )
 
     async def close_redis(self) -> None:
         """
@@ -347,16 +360,23 @@ class SessionManager:
                 try:
                     # Request OTP code from AyuGram
                     response = await rpc_client.call(
-                        "auth.send_code",
-                        {"phone": phone_number}
+                        "auth.send_code", {"phone": phone_number}
                     )
 
                     # Check if request was successful
-                    if not response or isinstance(response, dict) and response.get("error"):
-                        error_msg = response.get("error", {}).get("message", "Unknown error") if isinstance(response, dict) else "Unknown error"
+                    if (
+                        not response
+                        or isinstance(response, dict)
+                        and response.get("error")
+                    ):
+                        error_msg = (
+                            response.get("error", {}).get("message", "Unknown error")
+                            if isinstance(response, dict)
+                            else "Unknown error"
+                        )
                         raise AuthenticationError(
                             f"Failed to send code: {error_msg}",
-                            details={"phone": phone_number, "response": response}
+                            details={"phone": phone_number, "response": response},
                         )
 
                     logger.debug("OTP code requested successfully from AyuGram")
@@ -365,7 +385,9 @@ class SessionManager:
                     # If RPC call fails, check if it's a connection error or API error
                     if isinstance(e, AuthenticationError):
                         raise
-                    logger.warning("RPC call failed, attempting mock authentication: %s", e)
+                    logger.warning(
+                        "RPC call failed, attempting mock authentication: %s", e
+                    )
 
                     # Fall through to mock authentication for testing
                     rpc_client = None
@@ -387,14 +409,13 @@ class SessionManager:
                 error_msg = f"Failed to get code from callback: {str(e)}"
                 logger.error(error_msg)
                 raise AuthenticationError(
-                    error_msg,
-                    details={"phone": phone_number, "callback_error": str(e)}
+                    error_msg, details={"phone": phone_number, "callback_error": str(e)}
                 ) from e
 
             if not code or not isinstance(code, str):
                 raise AuthenticationError(
                     "Invalid code received from callback",
-                    details={"phone": phone_number, "code_type": type(code).__name__}
+                    details={"phone": phone_number, "code_type": type(code).__name__},
                 )
 
             # Step 3: Send code to AyuGram for verification (if rpc_client provided)
@@ -406,16 +427,23 @@ class SessionManager:
 
                 try:
                     response = await rpc_client.call(
-                        "auth.sign_in",
-                        {"phone": phone_number, "code": code}
+                        "auth.sign_in", {"phone": phone_number, "code": code}
                     )
 
                     # Check if authentication was successful
-                    if not response or isinstance(response, dict) and response.get("error"):
-                        error_msg = response.get("error", {}).get("message", "Invalid code") if isinstance(response, dict) else "Invalid code"
+                    if (
+                        not response
+                        or isinstance(response, dict)
+                        and response.get("error")
+                    ):
+                        error_msg = (
+                            response.get("error", {}).get("message", "Invalid code")
+                            if isinstance(response, dict)
+                            else "Invalid code"
+                        )
                         raise AuthenticationError(
                             f"Authentication failed: {error_msg}",
-                            details={"phone": phone_number}
+                            details={"phone": phone_number},
                         )
 
                     # Extract session data from response
@@ -426,10 +454,14 @@ class SessionManager:
                         if not user_id or not auth_key:
                             raise AuthenticationError(
                                 "Invalid session data received from AyuGram",
-                                details={"phone": phone_number, "response": response}
+                                details={"phone": phone_number, "response": response},
                             )
 
-                    logger.info("Authentication successful for phone: %s, user_id: %s", phone_number, user_id)
+                    logger.info(
+                        "Authentication successful for phone: %s, user_id: %s",
+                        phone_number,
+                        user_id,
+                    )
 
                 except AuthenticationError:
                     raise
@@ -437,12 +469,14 @@ class SessionManager:
                     logger.error("Failed to verify code with AyuGram: %s", e)
                     raise AuthenticationError(
                         f"Failed to verify code: {str(e)}",
-                        details={"phone": phone_number, "error": str(e)}
+                        details={"phone": phone_number, "error": str(e)},
                     ) from e
 
             else:
                 # Mock authentication for testing (when rpc_client is None)
-                logger.info("Using mock authentication for testing (no rpc_client provided)")
+                logger.info(
+                    "Using mock authentication for testing (no rpc_client provided)"
+                )
 
                 # For mock auth, use a fake user_id based on phone number
                 user_id = hash(phone_number) % 1000000000
@@ -463,7 +497,11 @@ class SessionManager:
                 "last_used": current_time,
             }
 
-            logger.info("Session created successfully for phone: %s (user_id: %s)", phone_number, user_id)
+            logger.info(
+                "Session created successfully for phone: %s (user_id: %s)",
+                phone_number,
+                user_id,
+            )
 
             return session_data
 
@@ -475,11 +513,12 @@ class SessionManager:
             error_msg = f"Unexpected error during session creation: {str(e)}"
             logger.error(error_msg)
             raise AuthenticationError(
-                error_msg,
-                details={"phone": phone_number, "error": str(e)}
+                error_msg, details={"phone": phone_number, "error": str(e)}
             ) from e
 
-    def _validate_session_data(self, session_data: Dict[str, Any], session_name: str) -> None:
+    def _validate_session_data(
+        self, session_data: Dict[str, Any], session_name: str
+    ) -> None:
         """
         Validate session data structure and required fields.
 
@@ -496,26 +535,41 @@ class SessionManager:
             if field not in session_data:
                 raise AyuGramError(
                     f"Invalid session data: missing required field '{field}'",
-                    {"session_name": session_name, "present_fields": list(session_data.keys())}
+                    {
+                        "session_name": session_name,
+                        "present_fields": list(session_data.keys()),
+                    },
                 )
 
         # Validate field types
         if not isinstance(session_data["phone"], str) or not session_data["phone"]:
             raise AyuGramError(
-                f"Invalid session data: 'phone' must be a non-empty string",
-                {"session_name": session_name, "phone_type": type(session_data["phone"]).__name__}
+                "Invalid session data: 'phone' must be a non-empty string",
+                {
+                    "session_name": session_name,
+                    "phone_type": type(session_data["phone"]).__name__,
+                },
             )
 
         if not isinstance(session_data["user_id"], int):
             raise AyuGramError(
-                f"Invalid session data: 'user_id' must be an integer",
-                {"session_name": session_name, "user_id_type": type(session_data["user_id"]).__name__}
+                "Invalid session data: 'user_id' must be an integer",
+                {
+                    "session_name": session_name,
+                    "user_id_type": type(session_data["user_id"]).__name__,
+                },
             )
 
-        if not isinstance(session_data["auth_key"], str) or not session_data["auth_key"]:
+        if (
+            not isinstance(session_data["auth_key"], str)
+            or not session_data["auth_key"]
+        ):
             raise AyuGramError(
-                f"Invalid session data: 'auth_key' must be a non-empty string",
-                {"session_name": session_name, "auth_key_type": type(session_data["auth_key"]).__name__}
+                "Invalid session data: 'auth_key' must be a non-empty string",
+                {
+                    "session_name": session_name,
+                    "auth_key_type": type(session_data["auth_key"]).__name__,
+                },
             )
 
     async def load_session(self, session_name: str) -> Dict[str, Any]:
@@ -567,17 +621,21 @@ class SessionManager:
                 logger.info("Session loaded from Redis cache: %s", session_name)
                 return cached_data.copy()
             except AyuGramError as e:
-                logger.warning("Invalid session data in Redis cache: %s - %s", session_name, e)
+                logger.warning(
+                    "Invalid session data in Redis cache: %s - %s", session_name, e
+                )
                 # Remove invalid data from Redis
                 await self._invalidate_session_redis(session_name)
 
         if not session_path.exists():
             # Try to restore from backup if main file doesn't exist
             if backup_path.exists():
-                logger.info("Main session file not found, attempting to restore from backup: %s", session_name)
+                logger.info(
+                    "Main session file not found, attempting to restore from backup: %s",
+                    session_name,
+                )
                 try:
                     # Read backup file
-                    loop = asyncio.get_event_loop()
                     with open(backup_path, "r", encoding="utf-8") as f:
                         session_data = json.load(f)
 
@@ -585,11 +643,15 @@ class SessionManager:
                     self._validate_session_data(session_data, session_name)
 
                     # Restore from backup by saving to main location
-                    logger.info("Backup validated, restoring to main session file: %s", session_name)
+                    logger.info(
+                        "Backup validated, restoring to main session file: %s",
+                        session_name,
+                    )
                     await self.save_session(session_name, session_data)
 
                     # Update last_used timestamp
                     from datetime import datetime
+
                     session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
 
                     # Cache the session
@@ -601,10 +663,16 @@ class SessionManager:
                     return session_data
 
                 except (json.JSONDecodeError, OSError, AyuGramError) as e:
-                    logger.error("Failed to restore from backup file %s: %s", backup_path, e)
+                    logger.error(
+                        "Failed to restore from backup file %s: %s", backup_path, e
+                    )
                     raise AyuGramError(
                         f"Session file not found and backup restoration failed: {session_name}",
-                        {"session_path": str(session_path), "backup_path": str(backup_path), "error": str(e)}
+                        {
+                            "session_path": str(session_path),
+                            "backup_path": str(backup_path),
+                            "error": str(e),
+                        },
                     ) from e
             else:
                 raise AyuGramError(
@@ -613,8 +681,7 @@ class SessionManager:
                 )
 
         try:
-            # Read file asynchronously
-            loop = asyncio.get_event_loop()
+            # Read file
             with open(session_path, "r", encoding="utf-8") as f:
                 session_data = json.load(f)
 
@@ -625,6 +692,7 @@ class SessionManager:
 
             # Update last_used timestamp
             from datetime import datetime
+
             session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
 
             # Cache the session
@@ -636,12 +704,14 @@ class SessionManager:
 
         except json.JSONDecodeError as e:
             # Main file is corrupted, try to restore from backup
-            logger.warning("Main session file is corrupted, attempting to restore from backup: %s", session_name)
+            logger.warning(
+                "Main session file is corrupted, attempting to restore from backup: %s",
+                session_name,
+            )
 
             if backup_path.exists():
                 try:
                     # Read backup file
-                    loop = asyncio.get_event_loop()
                     with open(backup_path, "r", encoding="utf-8") as f:
                         session_data = json.load(f)
 
@@ -649,11 +719,15 @@ class SessionManager:
                     self._validate_session_data(session_data, session_name)
 
                     # Restore from backup by saving to main location
-                    logger.info("Backup validated, restoring to main session file: %s", session_name)
+                    logger.info(
+                        "Backup validated, restoring to main session file: %s",
+                        session_name,
+                    )
                     await self.save_session(session_name, session_data)
 
                     # Update last_used timestamp
                     from datetime import datetime
+
                     session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
 
                     # Cache the session
@@ -661,19 +735,26 @@ class SessionManager:
                     # Cache in Redis
                     await self._cache_session_redis(session_name, session_data)
 
-                    logger.info("Session restored from backup after corruption: %s", session_name)
+                    logger.info(
+                        "Session restored from backup after corruption: %s",
+                        session_name,
+                    )
                     return session_data
 
                 except (json.JSONDecodeError, OSError, AyuGramError) as backup_error:
-                    logger.error("Failed to restore from backup file %s: %s", backup_path, backup_error)
+                    logger.error(
+                        "Failed to restore from backup file %s: %s",
+                        backup_path,
+                        backup_error,
+                    )
                     raise AyuGramError(
                         f"Corrupted session file and backup restoration failed: {session_name}",
                         {
                             "session_path": str(session_path),
                             "backup_path": str(backup_path),
                             "main_error": str(e),
-                            "backup_error": str(backup_error)
-                        }
+                            "backup_error": str(backup_error),
+                        },
                     ) from e
             else:
                 # No backup available
@@ -684,8 +765,8 @@ class SessionManager:
                     {
                         "session_path": str(session_path),
                         "json_error": str(e),
-                        "suggestion": "Use create_session() to re-authenticate"
-                    }
+                        "suggestion": "Use create_session() to re-authenticate",
+                    },
                 ) from e
 
         except AyuGramError:
@@ -693,7 +774,9 @@ class SessionManager:
         except OSError as e:
             error_msg = f"Failed to read session file: {session_name}"
             logger.error(error_msg)
-            raise AyuGramError(error_msg, {"session_path": str(session_path), "os_error": str(e)}) from e
+            raise AyuGramError(
+                error_msg, {"session_path": str(session_path), "os_error": str(e)}
+            ) from e
 
     async def save_session(
         self,
@@ -747,10 +830,13 @@ class SessionManager:
                 logger.debug("Creating backup of existing session: %s", session_name)
                 try:
                     import shutil
+
                     shutil.copy2(session_path, backup_path)
                     logger.debug("Backup created: %s", backup_path)
                 except OSError as e:
-                    logger.warning("Failed to create backup file %s: %s", backup_path, e)
+                    logger.warning(
+                        "Failed to create backup file %s: %s", backup_path, e
+                    )
                     # Continue without backup - non-critical error
 
             # Add timestamps if not present
@@ -761,8 +847,7 @@ class SessionManager:
 
             session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
 
-            # Write to file asynchronously
-            loop = asyncio.get_event_loop()
+            # Write to file
             with open(session_path, "w", encoding="utf-8") as f:
                 json.dump(session_data, f, indent=2)
 
@@ -770,14 +855,20 @@ class SessionManager:
             try:
                 os.chmod(session_path, 0o600)
             except (OSError, AttributeError) as e:
-                logger.debug("Could not set file permissions for %s: %s", session_path, e)
+                logger.debug(
+                    "Could not set file permissions for %s: %s", session_path, e
+                )
 
             # Also set restrictive permissions on backup
             if backup_path.exists():
                 try:
                     os.chmod(backup_path, 0o600)
                 except (OSError, AttributeError) as e:
-                    logger.debug("Could not set backup file permissions for %s: %s", backup_path, e)
+                    logger.debug(
+                        "Could not set backup file permissions for %s: %s",
+                        backup_path,
+                        e,
+                    )
 
             # Update cache
             self._session_cache[session_name] = session_data.copy()
@@ -791,12 +882,16 @@ class SessionManager:
         except OSError as e:
             error_msg = f"Failed to save session file: {session_name}"
             logger.error(error_msg)
-            raise AyuGramError(error_msg, {"session_path": str(session_path), "os_error": str(e)}) from e
+            raise AyuGramError(
+                error_msg, {"session_path": str(session_path), "os_error": str(e)}
+            ) from e
 
         except TypeError as e:
             error_msg = f"Failed to serialize session data: {session_name}"
             logger.error(error_msg)
-            raise AyuGramError(error_msg, {"session_path": str(session_path), "type_error": str(e)}) from e
+            raise AyuGramError(
+                error_msg, {"session_path": str(session_path), "type_error": str(e)}
+            ) from e
 
     async def delete_session(self, session_name: str) -> bool:
         """
@@ -831,7 +926,9 @@ class SessionManager:
         await self._invalidate_session_redis(session_name)
 
         if not session_path.exists():
-            logger.debug("Session file does not exist, nothing to delete: %s", session_name)
+            logger.debug(
+                "Session file does not exist, nothing to delete: %s", session_name
+            )
             return False
 
         try:
@@ -844,7 +941,9 @@ class SessionManager:
                     backup_path.unlink()
                     logger.debug("Backup file deleted: %s", backup_path)
                 except OSError as e:
-                    logger.warning("Failed to delete backup file %s: %s", backup_path, e)
+                    logger.warning(
+                        "Failed to delete backup file %s: %s", backup_path, e
+                    )
                     # Continue - main file was deleted successfully
 
             logger.info("Session deleted: %s", session_name)
@@ -853,7 +952,9 @@ class SessionManager:
         except OSError as e:
             error_msg = f"Failed to delete session file: {session_name}"
             logger.error(error_msg)
-            raise AyuGramError(error_msg, {"session_path": str(session_path), "os_error": str(e)}) from e
+            raise AyuGramError(
+                error_msg, {"session_path": str(session_path), "os_error": str(e)}
+            ) from e
 
     def list_sessions(self) -> list[str]:
         """
@@ -876,7 +977,9 @@ class SessionManager:
             session_files = list(self.session_dir.glob("*.json"))
             session_names = [f.stem for f in session_files if f.is_file()]
 
-            logger.debug("Found %d sessions in %s", len(session_names), self.session_dir)
+            logger.debug(
+                "Found %d sessions in %s", len(session_names), self.session_dir
+            )
             return session_names
 
         except OSError as e:
@@ -951,7 +1054,9 @@ class SessionManager:
                         keys.append(key)
                     if keys:
                         await redis.delete(*keys)
-                        logger.debug("Cleared %d session(s) from Redis cache", len(keys))
+                        logger.debug(
+                            "Cleared %d session(s) from Redis cache", len(keys)
+                        )
                 except Exception as e:
                     logger.warning("Failed to clear Redis cache: %s", e)
 

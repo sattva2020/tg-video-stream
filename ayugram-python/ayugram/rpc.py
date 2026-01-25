@@ -16,10 +16,17 @@ import asyncio
 import json
 import logging
 from typing import Any, Dict, Optional, Union
+
 import aiohttp
 from aiohttp import ClientError, ClientSession, ClientTimeout, TCPConnector
 
-from ayugram.exceptions import AyuGramError, ConnectionError, TimeoutError as AyuTimeoutError
+from ayugram.exceptions import (
+    AyuGramError,
+    ConnectionError,
+)
+from ayugram.exceptions import (
+    TimeoutError as AyuTimeoutError,
+)
 
 logger = logging.getLogger("ayugram.rpc")
 
@@ -141,7 +148,9 @@ class JsonRpcClient:
                 connector = TCPConnector(
                     limit=self._connection_pool_size,
                     limit_per_host=self._connection_pool_limit,
-                    keepalive_timeout=self._keep_alive_timeout if self._enable_keep_alive else None,
+                    keepalive_timeout=self._keep_alive_timeout
+                    if self._enable_keep_alive
+                    else None,
                     enable_cleanup_closed=True,
                 )
 
@@ -210,7 +219,9 @@ class JsonRpcClient:
             return False
 
         if self._reconnect_attempt >= self._max_reconnect_attempts:
-            logger.error("Max reconnection attempts (%d) reached", self._max_reconnect_attempts)
+            logger.error(
+                "Max reconnection attempts (%d) reached", self._max_reconnect_attempts
+            )
             return False
 
         self._reconnecting = True
@@ -244,7 +255,9 @@ class JsonRpcClient:
                 connector = TCPConnector(
                     limit=self._connection_pool_size,
                     limit_per_host=self._connection_pool_limit,
-                    keepalive_timeout=self._keep_alive_timeout if self._enable_keep_alive else None,
+                    keepalive_timeout=self._keep_alive_timeout
+                    if self._enable_keep_alive
+                    else None,
                     enable_cleanup_closed=True,
                 )
 
@@ -264,7 +277,9 @@ class JsonRpcClient:
             return True
 
         except Exception as exc:
-            logger.error("Reconnection attempt %d failed: %s", self._reconnect_attempt, exc)
+            logger.error(
+                "Reconnection attempt %d failed: %s", self._reconnect_attempt, exc
+            )
             self._reconnecting = False
 
             # Try again recursively if we haven't exhausted attempts
@@ -288,7 +303,7 @@ class JsonRpcClient:
 
         try:
             # Try to connect with a simple request
-            async with self._session.get(self.endpoint_url.replace("/jsonrpc", "/")) as response:
+            async with self._session.get(self.endpoint_url.replace("/jsonrpc", "/")):
                 # We don't care about the response, just that it's reachable
                 pass
         except Exception as exc:
@@ -296,7 +311,9 @@ class JsonRpcClient:
             # We'll test actual RPC calls later
             logger.debug("Connection test returned: %s (continuing)", exc)
 
-    def _validate_request(self, payload: Dict[str, Any], is_notification: bool = False) -> None:
+    def _validate_request(
+        self, payload: Dict[str, Any], is_notification: bool = False
+    ) -> None:
         """
         Validate JSON-RPC request payload for spec compliance.
 
@@ -314,7 +331,9 @@ class JsonRpcClient:
             raise ValueError("Missing required field 'jsonrpc'")
 
         if payload["jsonrpc"] != "2.0":
-            raise ValueError(f"Invalid jsonrpc version: {payload['jsonrpc']} (must be '2.0')")
+            raise ValueError(
+                f"Invalid jsonrpc version: {payload['jsonrpc']} (must be '2.0')"
+            )
 
         if "method" not in payload:
             raise ValueError("Missing required field 'method'")
@@ -325,7 +344,9 @@ class JsonRpcClient:
         # Check id field (required for requests, absent for notifications)
         if is_notification:
             if "id" in payload:
-                logger.debug("Notification should not have 'id' field (per JSON-RPC 2.0 spec)")
+                logger.debug(
+                    "Notification should not have 'id' field (per JSON-RPC 2.0 spec)"
+                )
         else:
             if "id" not in payload:
                 raise ValueError("Missing required field 'id' for request")
@@ -511,12 +532,18 @@ class JsonRpcClient:
                     self._is_connected = False
 
                 if retry_count > self.max_retries:
-                    logger.error("Notification failed after %d retries: %s", self.max_retries, exc)
+                    logger.error(
+                        "Notification failed after %d retries: %s",
+                        self.max_retries,
+                        exc,
+                    )
                     raise
 
                 # If connection was lost, try to reconnect first
                 if connection_lost and not self._reconnecting:
-                    logger.warning("Connection lost during notify, attempting to reconnect...")
+                    logger.warning(
+                        "Connection lost during notify, attempting to reconnect..."
+                    )
                     if await self._try_reconnect():
                         connection_lost = False
                         logger.info("Reconnected successfully, retrying notification")
@@ -624,7 +651,10 @@ class JsonRpcClient:
 
         # Check jsonrpc version
         if "jsonrpc" in response_data and response_data["jsonrpc"] != "2.0":
-            logger.warning("JSON-RPC response version: %s (expected '2.0')", response_data["jsonrpc"])
+            logger.warning(
+                "JSON-RPC response version: %s (expected '2.0')",
+                response_data["jsonrpc"],
+            )
 
         # Handle error responses
         if "error" in response_data:
@@ -668,7 +698,9 @@ class JsonRpcClient:
 
         # Check for result field (required for successful responses)
         if "result" not in response_data:
-            logger.error("Invalid JSON-RPC response: missing both 'result' and 'error' fields")
+            logger.error(
+                "Invalid JSON-RPC response: missing both 'result' and 'error' fields"
+            )
             raise AyuGramError(
                 "Invalid JSON-RPC response: missing 'result' field (successful responses must have result)",
                 details={"response": response_data},

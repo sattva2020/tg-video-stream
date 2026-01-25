@@ -13,10 +13,9 @@ Integration Points:
 """
 
 import logging
-from typing import Optional, Dict, Any
 from dataclasses import dataclass, field
 from datetime import datetime
-
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,7 @@ class StreamState:
         speed: Playback speed multiplier (0.5 to 2.0)
         updated_at: Timestamp of last state update
     """
+
     position_ms: int = 0
     duration_ms: int = 0
     is_playing: bool = False
@@ -188,7 +188,9 @@ class StreamControl:
         state = self._ensure_state(chat_id)
         current_position_s = state.position_ms // 1000
         # Cap at duration if known
-        max_position = (state.duration_ms // 1000) if state.duration_ms > 0 else float('inf')
+        max_position = (
+            (state.duration_ms // 1000) if state.duration_ms > 0 else float("inf")
+        )
         new_position_s = min(max_position, current_position_s + seconds)
 
         return self.seek_stream(chat_id, int(new_position_s))
@@ -359,7 +361,9 @@ class StreamControl:
         state.duration_ms = duration_ms
         state.updated_at = datetime.now()
 
-        self.logger.info(f"chat_id={chat_id}: duration updated to {duration_ms // 1000}s")
+        self.logger.info(
+            f"chat_id={chat_id}: duration updated to {duration_ms // 1000}s"
+        )
 
     def mark_playing(self, chat_id: str, is_playing: bool = True) -> None:
         """

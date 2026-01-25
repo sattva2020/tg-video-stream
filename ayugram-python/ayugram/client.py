@@ -23,8 +23,11 @@ Example:
 import asyncio
 import logging
 import os
-from typing import Union, Optional, Any
-from unittest.mock import MagicMock
+from typing import Any, Optional, Union
+
+from ayugram.exceptions import AyuGramError, CallError, ConnectionError
+from ayugram.stream import StreamControl
+from ayugram.types import AudioPiped, AudioVideoPiped, StreamType
 
 # Check if we're in testing mode
 TESTING = os.environ.get("TESTING", "false").lower() == "true"
@@ -32,6 +35,7 @@ TESTING = os.environ.get("TESTING", "false").lower() == "true"
 # Try to import Pyrogram client
 try:
     from pyrogram import Client as PyrogramClient
+
     PYROGRAM_AVAILABLE = True
 except ImportError:
     PYROGRAM_AVAILABLE = False
@@ -40,14 +44,11 @@ except ImportError:
 # Try to import Telethon client
 try:
     from telethon import TelegramClient as TelethonClient
+
     TELETHON_AVAILABLE = True
 except ImportError:
     TELETHON_AVAILABLE = False
     TelethonClient = Any  # type: ignore
-
-from ayugram.types import AudioPiped, AudioVideoPiped, StreamType
-from ayugram.exceptions import AyuGramError, CallError, ConnectionError
-from ayugram.stream import StreamControl
 
 logger = logging.getLogger("ayugram.client")
 
@@ -115,14 +116,18 @@ class AyuGramClient:
         """
         # Validate client type
         # Check for mock markers first during testing
-        if TESTING and hasattr(app, '_is_mock_pyrogram'):
+        if TESTING and hasattr(app, "_is_mock_pyrogram"):
             # It's a mock Pyrogram client
             self._client_type = "pyrogram"
-            logger.info("AyuGramClient initialized with mock Pyrogram client (testing mode)")
-        elif TESTING and hasattr(app, '_is_mock_telethon'):
+            logger.info(
+                "AyuGramClient initialized with mock Pyrogram client (testing mode)"
+            )
+        elif TESTING and hasattr(app, "_is_mock_telethon"):
             # It's a mock Telethon client
             self._client_type = "telethon"
-            logger.info("AyuGramClient initialized with mock Telethon client (testing mode)")
+            logger.info(
+                "AyuGramClient initialized with mock Telethon client (testing mode)"
+            )
         else:
             is_pyrogram = PYROGRAM_AVAILABLE and isinstance(app, PyrogramClient)
             is_telethon = TELETHON_AVAILABLE and isinstance(app, TelethonClient)
@@ -171,7 +176,7 @@ class AyuGramClient:
             logger.info("Starting AyuGramClient...")
 
             # Start the underlying client
-            if hasattr(self._app, 'start'):
+            if hasattr(self._app, "start"):
                 # Both Pyrogram and Telethon have a start() method
                 await self._app.start()
             else:
@@ -217,7 +222,7 @@ class AyuGramClient:
                         logger.warning(f"Error leaving call for {chat_id}: {e}")
 
             # Stop the underlying client
-            if hasattr(self._app, 'stop'):
+            if hasattr(self._app, "stop"):
                 await self._app.stop()
             else:
                 raise AyuGramError("Underlying client does not have a stop() method")
@@ -250,11 +255,12 @@ class AyuGramClient:
             logger.info("AyuGramClient entering idle mode")
 
             # Use the underlying client's idle method if available
-            if hasattr(self._app, 'idle'):
+            if hasattr(self._app, "idle"):
                 await self._app.idle()
             else:
                 # Fallback: run forever until interrupted
                 import asyncio
+
                 try:
                     await asyncio.Event().wait()
                 except (asyncio.CancelledError, KeyboardInterrupt):
@@ -401,7 +407,7 @@ class AyuGramClient:
             if chat_id_str not in self._playback_states:
                 self._playback_states[chat_id_str] = {
                     "is_playing": True,
-                    "is_paused": False
+                    "is_paused": False,
                 }
             else:
                 self._playback_states[chat_id_str]["is_playing"] = True
@@ -450,7 +456,7 @@ class AyuGramClient:
             if chat_id_str not in self._playback_states:
                 self._playback_states[chat_id_str] = {
                     "is_playing": False,
-                    "is_paused": True
+                    "is_paused": True,
                 }
             else:
                 self._playback_states[chat_id_str]["is_playing"] = False
@@ -499,7 +505,7 @@ class AyuGramClient:
             if chat_id_str not in self._playback_states:
                 self._playback_states[chat_id_str] = {
                     "is_playing": True,
-                    "is_paused": False
+                    "is_paused": False,
                 }
             else:
                 self._playback_states[chat_id_str]["is_playing"] = True
@@ -517,11 +523,7 @@ class AyuGramClient:
             logger.error(f"Unexpected error resuming playback: {e}")
             raise CallError(f"Unexpected error resuming: {e}") from e
 
-    async def seek_stream(
-        self,
-        chat_id: Union[int, str],
-        position_seconds: int
-    ):
+    async def seek_stream(self, chat_id: Union[int, str], position_seconds: int):
         """
         Seek stream to specific position.
 
@@ -862,7 +864,9 @@ class AyuGramClient:
         # Add callback to event listeners
         self._event_listeners[event_name].append(callback)
 
-        logger.debug(f"Registered listener for event '{event_name}': {callback.__name__}")
+        logger.debug(
+            f"Registered listener for event '{event_name}': {callback.__name__}"
+        )
 
     def remove_listener(self, event_name: str, callback):
         """
@@ -899,7 +903,9 @@ class AyuGramClient:
         try:
             # Remove the first occurrence of the callback
             self._event_listeners[event_name].remove(callback)
-            logger.debug(f"Removed listener for event '{event_name}': {callback.__name__}")
+            logger.debug(
+                f"Removed listener for event '{event_name}': {callback.__name__}"
+            )
 
             # Clean up empty event lists
             if not self._event_listeners[event_name]:
@@ -933,7 +939,9 @@ class AyuGramClient:
             logger.debug(f"No listeners registered for event '{event_name}'")
             return
 
-        logger.debug(f"Emitting event '{event_name}' to {len(self._event_listeners[event_name])} listeners")
+        logger.debug(
+            f"Emitting event '{event_name}' to {len(self._event_listeners[event_name])} listeners"
+        )
 
         for callback in self._event_listeners[event_name]:
             try:
@@ -987,7 +995,10 @@ class AyuGramClient:
             >>> listeners = client.event_listeners
             >>> print(f"Registered events: {list(listeners.keys())}")
         """
-        return {event: listeners.copy() for event, listeners in self._event_listeners.items()}
+        return {
+            event: listeners.copy()
+            for event, listeners in self._event_listeners.items()
+        }
 
 
 __all__ = ["AyuGramClient"]
