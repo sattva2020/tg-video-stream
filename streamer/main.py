@@ -57,6 +57,9 @@ except ImportError:
     AYUGRAM_AVAILABLE = False
     logging.getLogger("tg_video_streamer").info("ayugram_adapter not available — streaming functionality requires it")
 
+# PyTgCalls imports (legacy - removed in phase 8)
+PYG_AVAILABLE = False
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
@@ -179,7 +182,7 @@ if USE_AYUGRAM == "1" or USE_AYUGRAM == "ayugram":
     if AYUGRAM_AVAILABLE and app:
         try:
             ayugram = AyuGramAdapter(app)
-            log.info("AyuGram adapter initialized (USE_AYUGRAM=%s)", USE_AYUGRAM)
+            log.info("Streaming backend: AyuGram adapter initialized (USE_AYUGRAM=%s)", USE_AYUGRAM)
         except Exception as e:
             log.warning("AyuGram adapter initialization failed: %s", e)
             ayugram = None
@@ -202,6 +205,7 @@ else:
     if PYG_AVAILABLE and app:
         try:
             pytg = PyTgCalls(app)
+            log.info("Streaming backend: PyTgCalls initialized (legacy mode, USE_AYUGRAM=%s)", USE_AYUGRAM)
         except Exception as e:
             log.warning("pytgcalls initialization failed: %s", e)
             pytg = None

@@ -306,7 +306,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         return False
     use_ayugram = True
     backend = "AyuGram"
-    log.info(f"Channel {channel_id}: Using {backend} backend")
+    log.info(f"Channel {channel_id}: Using {backend} streaming backend")
 
     # Check if already running
     if channel_id in running_channels:
@@ -528,7 +528,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 break
             except BadMsgNotification as e:
                 start_attempts += 1
-                log.warning(f"BadMsgNotification during {backend_type}.start (attempt {start_attempts}): {e}. Retrying after backoff...")
+                log.warning(f"BadMsgNotification during {backend}.start (attempt {start_attempts}): {e}. Retrying after backoff...")
                 try:
                     await streaming_backend.stop()
                 except Exception:
@@ -561,7 +561,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 async def participant_handler(_, update: UpdatedGroupCallParticipant):
                     await on_participant_joined(_, update)
             except RPCError as e:
-                log.exception(f"RPCError during {backend_type}.start: {e}")
+                log.exception(f"RPCError during {backend}.start: {e}")
                 try:
                     await streaming_backend.stop()
                 except Exception:
@@ -1066,7 +1066,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                 media_kwargs["video_parameters"] = video_quality
                                 media = MediaStream(stream_url, **media_kwargs)
                             
-                            log.info(f"Channel {channel_id}: Calling {backend_type}.join_group_call() with MediaStream('{stream_url}')")
+                            log.info(f"Channel {channel_id}: Calling {backend}.join_group_call() with MediaStream('{stream_url}')")
 
                             # AyuGram has built-in retry logic
                             # GroupCallConfig(auto_start=True) tells AyuGram to create
@@ -1107,7 +1107,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                             config=GroupCallConfig(auto_start=auto_start)
                                         )
 
-                                log.info(f"Channel {channel_id}: {backend_type}.join_group_call() completed successfully")
+                                log.info(f"Channel {channel_id}: {backend}.join_group_call() completed successfully")
                             except Exception as play_error:
                                 formatted = _format_exception(play_error)
                                 hint = _human_hint_for_telegram_error(play_error)
