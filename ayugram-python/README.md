@@ -372,49 +372,166 @@ await ayugram.resume(chat_id: Union[int, str])
 
 **Returns:** `None`
 
-##### `seek()`
+##### `seek_stream()`
 Seek to a specific position.
 
 ```python
-await ayugram.seek(chat_id: Union[int, str], position_ms: int)
+await ayugram.seek_stream(chat_id: Union[int, str], position_seconds: int)
 ```
 
 **Parameters:**
 - `chat_id` - Channel or group ID
-- `position_ms` - Position in milliseconds
+- `position_seconds` - Target position in seconds
 
 **Returns:** `None`
 
+**Example:**
+```python
+await ayugram.seek_stream(chat_id, 60)  # Seek to 1 minute
+```
+
 **Note:** Only supported if tg-engine implements seek functionality.
+
+##### `rewind_stream()`
+Rewind stream by N seconds.
+
+```python
+await ayugram.rewind_stream(chat_id: Union[int, str], seconds: int)
+```
+
+**Parameters:**
+- `chat_id` - Channel or group ID
+- `seconds` - Number of seconds to rewind (must be positive)
+
+**Returns:** `None`
+
+**Example:**
+```python
+await ayugram.rewind_stream(chat_id, 10)  # Rewind 10 seconds
+```
+
+##### `forward_stream()`
+Forward stream by N seconds.
+
+```python
+await ayugram.forward_stream(chat_id: Union[int, str], seconds: int)
+```
+
+**Parameters:**
+- `chat_id` - Channel or group ID
+- `seconds` - Number of seconds to forward (must be positive)
+
+**Returns:** `None`
+
+**Example:**
+```python
+await ayugram.forward_stream(chat_id, 30)  # Forward 30 seconds
+```
 
 ##### `set_volume()`
 Set playback volume.
 
 ```python
-await ayugram.set_volume(chat_id: Union[int, str], volume: int)
+await ayugram.set_volume(chat_id: Union[int, str], volume: float)
 ```
 
 **Parameters:**
 - `chat_id` - Channel or group ID
-- `volume` - Volume level (0-100)
+- `volume` - Volume level (0-100 or 0.0-1.0 range)
 
 **Returns:** `None`
 
-##### `get_state()`
+**Example:**
+```python
+# Both formats work
+await ayugram.set_volume(chat_id, 50)   # 50% (0-100 range)
+await ayugram.set_volume(chat_id, 0.5)  # 50% (0.0-1.0 range)
+```
+
+##### `set_speed()`
+Set playback speed.
+
+```python
+await ayugram.set_speed(chat_id: Union[int, str], speed: float)
+```
+
+**Parameters:**
+- `chat_id` - Channel or group ID
+- `speed` - Speed multiplier (0.5 to 2.0, where 1.0 is normal speed)
+
+**Returns:** `None`
+
+**Example:**
+```python
+await ayugram.set_speed(chat_id, 1.5)  # Set to 1.5x speed
+await ayugram.set_speed(chat_id, 0.75) # Set to 0.75x speed
+```
+
+##### `get_stream_state()`
 Get current playback state.
 
 ```python
-state = await ayugram.get_state(chat_id: Union[int, str])
+state = ayugram.get_stream_state(chat_id: Union[int, str])
 ```
 
 **Parameters:**
 - `chat_id` - Channel or group ID
 
-**Returns:** `PlaybackState` object with fields:
-- `is_playing: bool`
-- `position_ms: int`
-- `volume: int`
-- `duration_ms: int` (if available)
+**Returns:** `StreamState` object or `None` if no state exists
+
+**StreamState Fields:**
+- `position_ms: int` - Current playback position in milliseconds
+- `duration_ms: int` - Total stream duration in milliseconds (0 if unknown)
+- `is_playing: bool` - Whether the stream is currently playing
+- `is_paused: bool` - Whether the stream is currently paused
+- `volume: float` - Volume level (0.0 to 1.0)
+- `speed: float` - Playback speed multiplier (0.5 to 2.0)
+- `updated_at: datetime` - Timestamp of last state update
+
+**Example:**
+```python
+state = ayugram.get_stream_state(chat_id)
+if state:
+    print(f"Position: {state.position_ms // 1000}s")
+    print(f"Volume: {state.volume * 100}%")
+    print(f"Speed: {state.speed}x")
+```
+
+##### `get_position()`
+Get current playback position in seconds.
+
+```python
+position = ayugram.get_position(chat_id: Union[int, str])
+```
+
+**Parameters:**
+- `chat_id` - Channel or group ID
+
+**Returns:** `int` - Current position in seconds, 0 if no state exists
+
+**Example:**
+```python
+position = ayugram.get_position(chat_id)
+print(f"Current position: {position}s")
+```
+
+##### `get_volume()`
+Get current volume level.
+
+```python
+volume = ayugram.get_volume(chat_id: Union[int, str])
+```
+
+**Parameters:**
+- `chat_id` - Channel or group ID
+
+**Returns:** `float` - Volume level (0.0 to 1.0), 1.0 if no state exists
+
+**Example:**
+```python
+volume = ayugram.get_volume(chat_id)
+print(f"Volume: {volume * 100:.0f}%")
+```
 
 #### Event Handling
 
@@ -440,6 +557,135 @@ Remove an event listener.
 ayugram.remove_listener('event_name', handler)
 ```
 
+#### Properties
+
+##### `is_started`
+
+Check if the client is started.
+
+```python
+if ayugram.is_started:
+    print("Client is running")
+```
+
+**Returns:** `bool` - True if the client is started, False otherwise
+
+##### `active_calls`
+
+Get all active group calls.
+
+```python
+calls = ayugram.active_calls
+print(f"Active calls: {len(calls)}")
+```
+
+**Returns:** `dict` - Dictionary mapping chat IDs to their call info
+
+##### `event_listeners`
+
+Get all registered event listeners.
+
+```python
+listeners = ayugram.event_listeners
+print(f"Registered events: {list(listeners.keys())}")
+```
+
+**Returns:** `dict` - Dictionary mapping event names to lists of callbacks
+
+### SessionManager
+
+Manages AyuGram sessions with file system storage and optional Redis caching. This class can be used independently for advanced session management scenarios.
+
+```python
+from ayugram.session import SessionManager
+
+manager = SessionManager("./sessions", redis_url="redis://localhost:6379")
+```
+
+#### Constructor
+
+```python
+SessionManager(
+    session_dir: str = "./sessions",
+    redis_url: Optional[str] = None,
+    redis_ttl: int = 3600
+)
+```
+
+**Parameters:**
+- `session_dir` - Directory path for storing session files (default: "./sessions")
+- `redis_url` - Optional Redis URL for caching (default: None)
+- `redis_ttl` - Redis TTL for cached sessions in seconds (default: 3600)
+
+#### Methods
+
+##### `create_session()`
+
+Create a new session via authentication flow.
+
+```python
+session_data = await manager.create_session(
+    phone_number: str,
+    on_code_callback: Callable,
+    rpc_client: Optional[Any] = None
+)
+```
+
+**Returns:** Dictionary with session data (phone, user_id, auth_key, created_at, last_used)
+
+##### `load_session()`
+
+Load an existing session from Redis cache or file system.
+
+```python
+session_data = await manager.load_session(session_name: str)
+```
+
+**Returns:** Dictionary containing session data
+
+##### `save_session()`
+
+Save session data to file system.
+
+```python
+await manager.save_session(
+    session_name: str,
+    session_data: Dict[str, Any]
+)
+```
+
+**Returns:** `None`
+
+##### `delete_session()`
+
+Delete a session from file system and cache.
+
+```python
+success = await manager.delete_session(session_name: str)
+```
+
+**Returns:** `bool` - True if session was deleted, False if it didn't exist
+
+##### `list_sessions()`
+
+List all available sessions in the session directory.
+
+```python
+sessions = manager.list_sessions()
+```
+
+**Returns:** List of session names (without .json extension)
+
+##### `session_exists()`
+
+Check if a session exists in file system or cache.
+
+```python
+exists = await manager.session_exists(session_name: str)
+```
+
+**Returns:** `bool` - True if session exists, False otherwise
+
 ### Stream Types
 
 #### AudioPiped
@@ -456,8 +702,21 @@ stream = AudioPiped(
 ```
 
 **Parameters:**
-- `path` - Path to audio file or URL
-- `audio_parameters` - Optional audio quality parameters
+- `data_path` (str) - Path to audio file or URL (required)
+- `audio_parameters` (HighQualityAudio, optional) - Audio quality parameters
+- `additional_ffmpeg_parameters` (List[str], optional) - Additional FFmpeg command-line arguments
+
+**Example:**
+```python
+# Basic audio stream
+stream = AudioPiped("https://example.com/audio.mp3")
+
+# With custom FFmpeg parameters
+stream = AudioPiped(
+    "https://example.com/audio.mp3",
+    additional_ffmpeg_parameters=["-re", "-bufsize", "96000k"]
+)
+```
 
 #### AudioVideoPiped
 
@@ -474,9 +733,22 @@ stream = AudioVideoPiped(
 ```
 
 **Parameters:**
-- `path` - Path to video file or URL
-- `audio_parameters` - Optional audio quality parameters
-- `video_parameters` - Optional video quality parameters
+- `data_path` (str) - Path to video file or URL (required)
+- `audio_parameters` (HighQualityAudio, optional) - Audio quality parameters
+- `video_parameters` (HighQualityVideo, optional) - Video quality parameters
+- `additional_ffmpeg_parameters` (List[str], optional) - Additional FFmpeg command-line arguments
+
+**Example:**
+```python
+# Basic video stream
+stream = AudioVideoPiped("https://example.com/video.mp4")
+
+# With custom FFmpeg parameters
+stream = AudioVideoPiped(
+    "https://example.com/video.mp4",
+    additional_ffmpeg_parameters=["-re", "-preset", "fast"]
+)
+```
 
 ### Quality Parameters
 
@@ -508,16 +780,44 @@ video = HighQualityVideo(
 )
 ```
 
+### State Types
+
+#### StreamState
+
+Represents the current playback state for a stream.
+
+```python
+from ayugram.stream import StreamState
+
+# StreamState is returned by get_stream_state()
+state = ayugram.get_stream_state(chat_id)
+if state:
+    print(f"Position: {state.position_ms}ms")
+    print(f"Duration: {state.duration_ms}ms")
+    print(f"Playing: {state.is_playing}")
+    print(f"Paused: {state.is_paused}")
+    print(f"Volume: {state.volume}")
+    print(f"Speed: {state.speed}")
+```
+
+**Fields:**
+- `position_ms` (int) - Current playback position in milliseconds
+- `duration_ms` (int) - Total stream duration in milliseconds (0 if unknown)
+- `is_playing` (bool) - Whether the stream is currently playing
+- `is_paused` (bool) - Whether the stream is currently paused
+- `volume` (float) - Volume level (0.0 to 1.0)
+- `speed` (float) - Playback speed multiplier (0.5 to 2.0)
+- `updated_at` (datetime) - Timestamp of last state update
+
 ### Exceptions
 
 All exceptions inherit from `AyuGramError`.
 
-- `AyuGramError` - Base exception
+- `AyuGramError` - Base exception for all AyuGram SDK errors
 - `ConnectionError` - Engine connection failed
 - `AuthenticationError` - Authentication failed
 - `CallError` - Voice call operation failed
 - `TimeoutError` - Operation timed out
-- `InvalidParameterError` - Invalid parameter provided
 
 ```python
 from ayugram.exceptions import AyuGramError, ConnectionError
@@ -529,6 +829,10 @@ except ConnectionError as e:
 except AyuGramError as e:
     print(f"Error: {e}")
 ```
+
+**Exception Attributes:**
+- `message` (str) - Human-readable error description
+- `details` (dict) - Optional dictionary with additional error context
 
 ## Configuration
 
