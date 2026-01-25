@@ -288,9 +288,51 @@ class SessionManager:
                 details={"phone": phone_number, "error": str(e)}
             ) from e
 
+    def _validate_session_data(self, session_data: Dict[str, Any], session_name: str) -> None:
+        """
+        Validate session data structure and required fields.
+
+        Args:
+            session_data: Dictionary containing session data to validate
+            session_name: Name of the session (for error messages)
+
+        Raises:
+            AyuGramError: If session data is invalid or missing required fields
+        """
+        required_fields = ["phone", "user_id", "auth_key"]
+
+        for field in required_fields:
+            if field not in session_data:
+                raise AyuGramError(
+                    f"Invalid session data: missing required field '{field}'",
+                    {"session_name": session_name, "present_fields": list(session_data.keys())}
+                )
+
+        # Validate field types
+        if not isinstance(session_data["phone"], str) or not session_data["phone"]:
+            raise AyuGramError(
+                f"Invalid session data: 'phone' must be a non-empty string",
+                {"session_name": session_name, "phone_type": type(session_data["phone"]).__name__}
+            )
+
+        if not isinstance(session_data["user_id"], int):
+            raise AyuGramError(
+                f"Invalid session data: 'user_id' must be an integer",
+                {"session_name": session_name, "user_id_type": type(session_data["user_id"]).__name__}
+            )
+
+        if not isinstance(session_data["auth_key"], str) or not session_data["auth_key"]:
+            raise AyuGramError(
+                f"Invalid session data: 'auth_key' must be a non-empty string",
+                {"session_name": session_name, "auth_key_type": type(session_data["auth_key"]).__name__}
+            )
+
     async def load_session(self, session_name: str) -> Dict[str, Any]:
         """
         Load an existing session from file system.
+
+        If the main session file is corrupted, this method will attempt to restore
+        from a backup file (if available) with a .bak extension.
 
         Args:
             session_name: Name of the session to load (without .json extension)
@@ -299,7 +341,7 @@ class SessionManager:
             Dictionary containing session data
 
         Raises:
-            AyuGramError: If session file doesn't exist or is corrupted
+            AyuGramError: If session file doesn't exist or is corrupted (and no backup available)
             ValueError: If session_name is empty
 
         Example:
@@ -311,6 +353,7 @@ class SessionManager:
             raise ValueError("session_name cannot be empty")
 
         session_path = self._get_session_path(session_name)
+        backup_path = self.session_dir / f"{session_name}.json.bak"
 
         # Check cache first
         if session_name in self._session_cache:
@@ -318,16 +361,52 @@ class SessionManager:
             return self._session_cache[session_name].copy()
 
         if not session_path.exists():
-            raise AyuGramError(
-                f"Session file not found: {session_name}",
-                {"session_path": str(session_path)},
-            )
+            # Try to restore from backup if main file doesn't exist
+            if backup_path.exists():
+                logger.info("Main session file not found, attempting to restore from backup: %s", session_name)
+                try:
+                    # Read backup file
+                    loop = asyncio.get_event_loop()
+                    with open(backup_path, "r", encoding="utf-8") as f:
+                        session_data = json.load(f)
+
+                    # Validate session data
+                    self._validate_session_data(session_data, session_name)
+
+                    # Restore from backup by saving to main location
+                    logger.info("Backup validated, restoring to main session file: %s", session_name)
+                    await self.save_session(session_name, session_data)
+
+                    # Update last_used timestamp
+                    from datetime import datetime
+                    session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
+
+                    # Cache the session
+                    self._session_cache[session_name] = session_data
+
+                    logger.info("Session restored from backup: %s", session_name)
+                    return session_data
+
+                except (json.JSONDecodeError, OSError, AyuGramError) as e:
+                    logger.error("Failed to restore from backup file %s: %s", backup_path, e)
+                    raise AyuGramError(
+                        f"Session file not found and backup restoration failed: {session_name}",
+                        {"session_path": str(session_path), "backup_path": str(backup_path), "error": str(e)}
+                    ) from e
+            else:
+                raise AyuGramError(
+                    f"Session file not found: {session_name}",
+                    {"session_path": str(session_path)},
+                )
 
         try:
             # Read file asynchronously
             loop = asyncio.get_event_loop()
             with open(session_path, "r", encoding="utf-8") as f:
                 session_data = json.load(f)
+
+            # Validate session data structure
+            self._validate_session_data(session_data, session_name)
 
             logger.info("Session loaded from file: %s", session_name)
 
@@ -341,10 +420,59 @@ class SessionManager:
             return session_data
 
         except json.JSONDecodeError as e:
-            error_msg = f"Corrupted session file: {session_name} - Invalid JSON"
-            logger.error(error_msg)
-            raise AyuGramError(error_msg, {"session_path": str(session_path), "json_error": str(e)}) from e
+            # Main file is corrupted, try to restore from backup
+            logger.warning("Main session file is corrupted, attempting to restore from backup: %s", session_name)
 
+            if backup_path.exists():
+                try:
+                    # Read backup file
+                    loop = asyncio.get_event_loop()
+                    with open(backup_path, "r", encoding="utf-8") as f:
+                        session_data = json.load(f)
+
+                    # Validate session data
+                    self._validate_session_data(session_data, session_name)
+
+                    # Restore from backup by saving to main location
+                    logger.info("Backup validated, restoring to main session file: %s", session_name)
+                    await self.save_session(session_name, session_data)
+
+                    # Update last_used timestamp
+                    from datetime import datetime
+                    session_data["last_used"] = datetime.utcnow().isoformat() + "Z"
+
+                    # Cache the session
+                    self._session_cache[session_name] = session_data
+
+                    logger.info("Session restored from backup after corruption: %s", session_name)
+                    return session_data
+
+                except (json.JSONDecodeError, OSError, AyuGramError) as backup_error:
+                    logger.error("Failed to restore from backup file %s: %s", backup_path, backup_error)
+                    raise AyuGramError(
+                        f"Corrupted session file and backup restoration failed: {session_name}",
+                        {
+                            "session_path": str(session_path),
+                            "backup_path": str(backup_path),
+                            "main_error": str(e),
+                            "backup_error": str(backup_error)
+                        }
+                    ) from e
+            else:
+                # No backup available
+                error_msg = f"Corrupted session file: {session_name} - Invalid JSON (no backup available)"
+                logger.error(error_msg)
+                raise AyuGramError(
+                    error_msg,
+                    {
+                        "session_path": str(session_path),
+                        "json_error": str(e),
+                        "suggestion": "Use create_session() to re-authenticate"
+                    }
+                ) from e
+
+        except AyuGramError:
+            raise
         except OSError as e:
             error_msg = f"Failed to read session file: {session_name}"
             logger.error(error_msg)
@@ -359,7 +487,8 @@ class SessionManager:
         Save session data to file system.
 
         Session files are saved with restricted permissions (0600 on Unix-like systems)
-        to protect sensitive authentication data.
+        to protect sensitive authentication data. A backup file (.bak) is automatically
+        created if a session file already exists.
 
         Args:
             session_name: Name for the session (without .json extension)
@@ -367,7 +496,7 @@ class SessionManager:
 
         Raises:
             ValueError: If session_name or session_data is empty
-            AyuGramError: If file write fails
+            AyuGramError: If file write fails or session data is invalid
 
         Example:
             >>> manager = SessionManager()
@@ -384,13 +513,28 @@ class SessionManager:
         if not session_data:
             raise ValueError("session_data cannot be empty")
 
+        # Validate session data before saving
+        self._validate_session_data(session_data, session_name)
+
         session_path = self._get_session_path(session_name)
+        backup_path = self.session_dir / f"{session_name}.json.bak"
 
         logger.info("Saving session: %s", session_name)
 
         try:
             # Ensure session directory exists
             self._ensure_session_directory()
+
+            # Create backup if session file already exists
+            if session_path.exists():
+                logger.debug("Creating backup of existing session: %s", session_name)
+                try:
+                    import shutil
+                    shutil.copy2(session_path, backup_path)
+                    logger.debug("Backup created: %s", backup_path)
+                except OSError as e:
+                    logger.warning("Failed to create backup file %s: %s", backup_path, e)
+                    # Continue without backup - non-critical error
 
             # Add timestamps if not present
             from datetime import datetime
@@ -411,11 +555,20 @@ class SessionManager:
             except (OSError, AttributeError) as e:
                 logger.debug("Could not set file permissions for %s: %s", session_path, e)
 
+            # Also set restrictive permissions on backup
+            if backup_path.exists():
+                try:
+                    os.chmod(backup_path, 0o600)
+                except (OSError, AttributeError) as e:
+                    logger.debug("Could not set backup file permissions for %s: %s", backup_path, e)
+
             # Update cache
-            self._session_cache[session_name] = session_data
+            self._session_cache[session_name] = session_data.copy()
 
             logger.info("Session saved successfully: %s", session_name)
 
+        except AyuGramError:
+            raise
         except OSError as e:
             error_msg = f"Failed to save session file: {session_name}"
             logger.error(error_msg)
@@ -430,6 +583,8 @@ class SessionManager:
         """
         Delete a session from file system and cache.
 
+        This method deletes both the main session file and its backup (.bak) if it exists.
+
         Args:
             session_name: Name of the session to delete (without .json extension)
 
@@ -438,6 +593,7 @@ class SessionManager:
 
         Raises:
             ValueError: If session_name is empty
+            AyuGramError: If file deletion fails
 
         Example:
             >>> manager = SessionManager()
@@ -448,6 +604,7 @@ class SessionManager:
             raise ValueError("session_name cannot be empty")
 
         session_path = self._get_session_path(session_name)
+        backup_path = self.session_dir / f"{session_name}.json.bak"
 
         # Remove from cache
         self._session_cache.pop(session_name, None)
@@ -457,9 +614,17 @@ class SessionManager:
             return False
 
         try:
-            # Delete file asynchronously
-            loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, session_path.unlink)
+            # Delete main file
+            session_path.unlink()
+
+            # Also delete backup file if it exists
+            if backup_path.exists():
+                try:
+                    backup_path.unlink()
+                    logger.debug("Backup file deleted: %s", backup_path)
+                except OSError as e:
+                    logger.warning("Failed to delete backup file %s: %s", backup_path, e)
+                    # Continue - main file was deleted successfully
 
             logger.info("Session deleted: %s", session_name)
             return True
