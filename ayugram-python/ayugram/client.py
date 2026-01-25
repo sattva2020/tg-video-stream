@@ -119,6 +119,7 @@ class AyuGramClient:
         self._app = app
         self._is_started = False
         self._active_calls: dict = {}
+        self._playback_states: dict = {}  # chat_id -> playback state
 
         # Log which client type we're using
         if is_pyrogram:
@@ -327,11 +328,17 @@ class AyuGramClient:
 
             # TODO: Implement actual AyuGram RPC call in subsequent subtasks
             # For now, just remove from active calls
-            if str(chat_id) in self._active_calls:
-                del self._active_calls[str(chat_id)]
+            chat_id_str = str(chat_id)
+            if chat_id_str in self._active_calls:
+                del self._active_calls[chat_id_str]
                 logger.info(f"Successfully left group call for chat_id={chat_id}")
             else:
                 logger.warning(f"No active call found for chat_id={chat_id}")
+
+            # Clean up playback state
+            if chat_id_str in self._playback_states:
+                del self._playback_states[chat_id_str]
+                logger.info(f"Cleaned up playback state for chat_id={chat_id}")
 
         except CallError as e:
             logger.error(f"Failed to leave group call: {e}")
@@ -339,6 +346,154 @@ class AyuGramClient:
         except Exception as e:
             logger.error(f"Unexpected error leaving group call: {e}")
             raise CallError(f"Unexpected error leaving call: {e}") from e
+
+    async def play(self, chat_id: Union[int, str]):
+        """
+        Start or resume playback for a group call.
+
+        This method starts playback if it was paused, or ensures the stream
+        is playing if already active.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+
+        Raises:
+            CallError: If playback control fails
+            AyuGramError: If client is not started or no active call exists
+
+        Example:
+            >>> await client.play(-1001234567890)
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Starting playback for chat_id={chat_id}")
+
+            # Update playback state
+            if chat_id_str not in self._playback_states:
+                self._playback_states[chat_id_str] = {
+                    "is_playing": True,
+                    "is_paused": False
+                }
+            else:
+                self._playback_states[chat_id_str]["is_playing"] = True
+                self._playback_states[chat_id_str]["is_paused"] = False
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+            # This will send a play command to the AyuGram server
+
+            logger.info(f"Playback started for chat_id={chat_id}")
+
+        except CallError as e:
+            logger.error(f"Failed to start playback: {e}")
+            raise CallError(f"Failed to play for {chat_id}: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error starting playback: {e}")
+            raise CallError(f"Unexpected error playing: {e}") from e
+
+    async def pause(self, chat_id: Union[int, str]):
+        """
+        Pause playback for a group call.
+
+        This method pauses the active stream without leaving the call.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+
+        Raises:
+            CallError: If pause operation fails
+            AyuGramError: If client is not started or no active call exists
+
+        Example:
+            >>> await client.pause(-1001234567890)
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Pausing playback for chat_id={chat_id}")
+
+            # Update playback state
+            if chat_id_str not in self._playback_states:
+                self._playback_states[chat_id_str] = {
+                    "is_playing": False,
+                    "is_paused": True
+                }
+            else:
+                self._playback_states[chat_id_str]["is_playing"] = False
+                self._playback_states[chat_id_str]["is_paused"] = True
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+            # This will send a pause command to the AyuGram server
+
+            logger.info(f"Playback paused for chat_id={chat_id}")
+
+        except CallError as e:
+            logger.error(f"Failed to pause playback: {e}")
+            raise CallError(f"Failed to pause for {chat_id}: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error pausing playback: {e}")
+            raise CallError(f"Unexpected error pausing: {e}") from e
+
+    async def resume(self, chat_id: Union[int, str]):
+        """
+        Resume paused playback for a group call.
+
+        This method resumes a previously paused stream.
+
+        Args:
+            chat_id: Chat ID or username where the voice chat is located
+
+        Raises:
+            CallError: If resume operation fails
+            AyuGramError: If client is not started or no active call exists
+
+        Example:
+            >>> await client.resume(-1001234567890)
+        """
+        if not self._is_started:
+            raise AyuGramError("Client is not started")
+
+        chat_id_str = str(chat_id)
+
+        if chat_id_str not in self._active_calls:
+            raise CallError(f"No active call for chat_id={chat_id}")
+
+        try:
+            logger.info(f"Resuming playback for chat_id={chat_id}")
+
+            # Update playback state
+            if chat_id_str not in self._playback_states:
+                self._playback_states[chat_id_str] = {
+                    "is_playing": True,
+                    "is_paused": False
+                }
+            else:
+                self._playback_states[chat_id_str]["is_playing"] = True
+                self._playback_states[chat_id_str]["is_paused"] = False
+
+            # TODO: Implement actual AyuGram RPC call in subsequent subtasks
+            # This will send a resume command to the AyuGram server
+
+            logger.info(f"Playback resumed for chat_id={chat_id}")
+
+        except CallError as e:
+            logger.error(f"Failed to resume playback: {e}")
+            raise CallError(f"Failed to resume for {chat_id}: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error resuming playback: {e}")
+            raise CallError(f"Unexpected error resuming: {e}") from e
 
     @property
     def is_started(self) -> bool:
