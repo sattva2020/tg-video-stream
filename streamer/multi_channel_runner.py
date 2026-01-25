@@ -44,26 +44,30 @@ except ImportError:
     PYROGRAM_AVAILABLE = False
     log.warning("pyrogram not available")
 
+# PyTgCalls imports removed - using AyuGram adapter types instead
+# All streaming types (MediaStream, AudioQuality, etc.) are now from ayugram_adapter
+
+# AyuGram imports (streaming backend)
 try:
-    from pytgcalls import PyTgCalls
-    from pytgcalls import filters as fl
-    from pytgcalls.types import (
+    from ayugram_adapter import (
+        AyuGramAdapter,
         MediaStream, AudioQuality, VideoQuality, StreamEnded,
         ChatUpdate, GroupCallParticipant, UpdatedGroupCallParticipant,
-        GroupCallConfig  # For auto_start group call creation
+        GroupCallConfig, filters
     )
-    PYTGCALLS_AVAILABLE = True
-except ImportError:
-    PYTGCALLS_AVAILABLE = False
-    log.warning("pytgcalls not available")
-
-# AyuGram imports (optional - alternative streaming backend)
-try:
-    from ayugram_adapter import AyuGramAdapter
     AYUGRAM_AVAILABLE = True
 except ImportError:
     AYUGRAM_AVAILABLE = False
-    log.info("ayugram_adapter not available — pyrogram/pytgcalls mode only")
+    MediaStream = None  # type: ignore
+    AudioQuality = None  # type: ignore
+    VideoQuality = None  # type: ignore
+    StreamEnded = None  # type: ignore
+    ChatUpdate = None  # type: ignore
+    GroupCallParticipant = None  # type: ignore
+    UpdatedGroupCallParticipant = None  # type: ignore
+    GroupCallConfig = None  # type: ignore
+    filters = None  # type: ignore
+    log.error("ayugram_adapter not available — streaming functionality requires it")
 
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
@@ -237,8 +241,12 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
     log.info(f"Starting stream for channel {channel_id} ({config.name})")
 
     # Determine which backend to use
-    use_ayugram = _env_truthy("USE_AYUGRAM", default=False)
-    backend = "AyuGram" if use_ayugram and AYUGRAM_AVAILABLE else "PyTgCalls"
+    # AyuGram is now the only supported backend
+    if not AYUGRAM_AVAILABLE:
+        log.error("AyuGram adapter is required but not available")
+        return False
+    use_ayugram = True
+    backend = "AyuGram"
     log.info(f"Channel {channel_id}: Using {backend} backend")
 
     # Check if already running
@@ -255,14 +263,9 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         log.error("Pyrogram not available")
         return False
 
-    if use_ayugram:
-        if not AYUGRAM_AVAILABLE:
-            log.error("AyuGram requested but not available")
-            return False
-    else:
-        if not PYTGCALLS_AVAILABLE:
-            log.error("PyTgCalls not available")
-            return False
+    if not AYUGRAM_AVAILABLE:
+        log.error("AyuGram adapter is required but not available")
+        return False
     
     try:
         # Create Pyrogram client with channel's session
@@ -402,22 +405,16 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
         # the backend will create the group call if it doesn't exist.
         # This avoids race conditions with internal caches.
 
-        # Create streaming backend instance (PyTgCalls or AyuGram)
-        streaming_backend = None
-        if use_ayugram and AYUGRAM_AVAILABLE:
-            from ayugram_adapter import AyuGramAdapter
-            streaming_backend = AyuGramAdapter(client)
-            log.info(f"Channel {channel_id}: Created AyuGram adapter")
-        else:
-            streaming_backend = PyTgCalls(client)
-            log.info(f"Channel {channel_id}: Created PyTgCalls instance")
+        # Create streaming backend instance (AyuGram only)
+        streaming_backend = AyuGramAdapter(client)
+        log.info(f"Channel {channel_id}: Created AyuGram adapter")
 
         # Import filters based on backend
-        if use_ayugram and AYUGRAM_AVAILABLE:
-            from ayugram_adapter import filters as ayugram_filters
-            backend_filters = ayugram_filters
-        else:
-            backend_filters = fl
+        # Note: AyuGram is now the only supported backend
+        if not AYUGRAM_AVAILABLE:
+            log.error("AyuGram adapter is required for streaming")
+            return False
+        backend_filters = filters
 
         # Register StreamEnded handler for automatic track switching
         @streaming_backend.on_update(backend_filters.stream_end())
@@ -425,19 +422,11 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             await on_stream_ended(_, update)
 
         # Register ChatUpdate handler for kicked/left detection
-        if use_ayugram and AYUGRAM_AVAILABLE:
-            from ayugram_adapter import ChatUpdate as AyuGramChatUpdate
-            status_mask = (
-                AyuGramChatUpdate.Status.KICKED |
-                AyuGramChatUpdate.Status.LEFT_GROUP |
-                AyuGramChatUpdate.Status.CLOSED_VOICE_CHAT
-            )
-        else:
-            status_mask = (
-                ChatUpdate.Status.KICKED |
-                ChatUpdate.Status.LEFT_GROUP |
-                ChatUpdate.Status.CLOSED_VOICE_CHAT
-            )
+        status_mask = (
+            ChatUpdate.Status.KICKED |
+            ChatUpdate.Status.LEFT_GROUP |
+            ChatUpdate.Status.CLOSED_VOICE_CHAT
+        )
 
         @streaming_backend.on_update(backend_filters.chat_update(status_mask))
         async def chat_update_handler(_, update: ChatUpdate):
@@ -500,11 +489,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 )
                 await client.start()
 
-                if use_ayugram and AYUGRAM_AVAILABLE:
-                    from ayugram_adapter import AyuGramAdapter
-                    streaming_backend = AyuGramAdapter(client)
-                else:
-                    streaming_backend = PyTgCalls(client)
+                streaming_backend = AyuGramAdapter(client)
 
                 # Re-register handlers
                 @streaming_backend.on_update(backend_filters.stream_end())
@@ -575,11 +560,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 except Exception as e4:
                     log.debug(f"Channel {channel_id}: Exception while re-resolving chat: {e4}")
 
-                if use_ayugram and AYUGRAM_AVAILABLE:
-                    from ayugram_adapter import AyuGramAdapter
-                    streaming_backend = AyuGramAdapter(client)
-                else:
-                    streaming_backend = PyTgCalls(client)
+                streaming_backend = AyuGramAdapter(client)
 
                 # Re-register handlers
                 @streaming_backend.on_update(backend_filters.stream_end())
@@ -626,11 +607,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                         log.exception(f"Failed to restart client after transient error: {e2}")
                         continue
 
-                    if use_ayugram and AYUGRAM_AVAILABLE:
-                        from ayugram_adapter import AyuGramAdapter
-                        streaming_backend = AyuGramAdapter(client)
-                    else:
-                        streaming_backend = PyTgCalls(client)
+                    streaming_backend = AyuGramAdapter(client)
 
                     # Re-register handlers
                     @streaming_backend.on_update(backend_filters.stream_end())
@@ -673,13 +650,9 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             "client": client,
             "config": config,
             "chat_id": resolved_chat_id,
-            "backend_type": backend.lower()  # "ayugram" or "pytg"
+            "backend_type": "ayugram",
+            "ayugram": streaming_backend
         }
-
-        if use_ayugram and AYUGRAM_AVAILABLE:
-            channel_data["ayugram"] = streaming_backend
-        else:
-            channel_data["pytg"] = streaming_backend
 
         running_channels[channel_id] = channel_data
         
@@ -740,8 +713,7 @@ async def stop_channel_stream(channel_id: str) -> bool:
                 pass
         
         # Leave call
-        backend_type = channel_data.get("backend_type", "pytg")
-        streaming_backend = channel_data.get("ayugram") if backend_type == "ayugram" else channel_data.get("pytg")
+        streaming_backend = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
         if streaming_backend and chat_id:
             try:
@@ -802,9 +774,8 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
         log.error(f"Channel {channel_id} data not found")
         return
 
-    # Get streaming backend (AyuGram or PyTgCalls)
-    backend_type = channel_data.get("backend_type", "pytg")
-    streaming_backend = channel_data.get("ayugram") if backend_type == "ayugram" else channel_data.get("pytg")
+    # Get streaming backend (AyuGram)
+    streaming_backend = channel_data.get("ayugram")
     chat_id = channel_data["chat_id"]  # Use resolved chat_id from start_channel_stream
     
     v_args, a_args = build_ffmpeg_av_args(config.video_quality)
@@ -1166,11 +1137,11 @@ async def pause_channel_stream(channel_id: str) -> bool:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            await pytg.pause(chat_id)
+
+        if ayugram and chat_id:
+            await ayugram.pause(chat_id)
             log.info(f"Channel {channel_id} paused")
             return True
         return False
@@ -1187,11 +1158,11 @@ async def resume_channel_stream(channel_id: str) -> bool:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            await pytg.resume(chat_id)
+
+        if ayugram and chat_id:
+            await ayugram.resume(chat_id)
             log.info(f"Channel {channel_id} resumed")
             return True
         return False
@@ -1228,11 +1199,11 @@ async def get_channel_time(channel_id: str) -> Optional[int]:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            position = await pytg.time(chat_id)
+
+        if ayugram and chat_id:
+            position = await ayugram.time(chat_id)
             log.debug(f"Channel {channel_id} position: {position}s")
             return position
         return None
@@ -1249,13 +1220,13 @@ async def change_channel_volume(channel_id: str, volume: int) -> bool:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
+
+        if ayugram and chat_id:
             # Clamp volume to valid range
             volume = max(0, min(200, volume))
-            await pytg.change_volume_call(chat_id, volume)
+            await ayugram.change_volume_call(chat_id, volume)
             log.info(f"Channel {channel_id} volume changed to {volume}%")
             return True
         return False
@@ -1272,11 +1243,11 @@ async def mute_channel_stream(channel_id: str) -> bool:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            await pytg.mute(chat_id)
+
+        if ayugram and chat_id:
+            await ayugram.mute(chat_id)
             log.info(f"Channel {channel_id} muted")
             return True
         return False
@@ -1293,11 +1264,11 @@ async def unmute_channel_stream(channel_id: str) -> bool:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            await pytg.unmute(chat_id)
+
+        if ayugram and chat_id:
+            await ayugram.unmute(chat_id)
             log.info(f"Channel {channel_id} unmuted")
             return True
         return False
@@ -1313,11 +1284,11 @@ async def get_channel_participants(channel_id: str) -> Optional[list]:
     
     try:
         channel_data = running_channels[channel_id]
-        pytg = channel_data.get("pytg")
+        ayugram = channel_data.get("ayugram")
         chat_id = channel_data.get("chat_id")
-        
-        if pytg and chat_id:
-            participants = await pytg.get_participants(chat_id)
+
+        if ayugram and chat_id:
+            participants = await ayugram.get_participants(chat_id)
             log.info(f"Channel {channel_id} has {len(participants) if participants else 0} participants")
             return [
                 {
