@@ -197,9 +197,13 @@ class StreamControl:
         """
         Set volume level for stream.
 
+        Accepts volume in two formats:
+        - 0-100 range: User-friendly percentage (e.g., 50 for 50%)
+        - 0.0-1.0 range: Normalized value (e.g., 0.5 for 50%)
+
         Args:
             chat_id: Chat ID where the stream is active
-            volume: Volume level (0.0 to 1.0, where 1.0 is 100%)
+            volume: Volume level (0-100 or 0.0-1.0)
 
         Returns:
             True if volume was set successfully, False otherwise
@@ -208,18 +212,43 @@ class StreamControl:
             ValueError: If volume is out of valid range
 
         Example:
-            >>> control.set_volume("chat_id", 0.5)  # Set volume to 50%
+            >>> control.set_volume("chat_id", 50)  # Set volume to 50%
+            >>> control.set_volume("chat_id", 75)  # Set volume to 75%
+            >>> control.set_volume("chat_id", 0.5)  # Also works (0.0-1.0 range)
         """
-        if not (self.MIN_VOLUME <= volume <= self.MAX_VOLUME):
-            raise ValueError(
-                f"Volume must be between {self.MIN_VOLUME} and {self.MAX_VOLUME}, got {volume}"
-            )
+        # Convert 0-100 range to 0.0-1.0 range if needed
+        # Values >= 5.0 are assumed to be in 0-100 range (avoid ambiguity with 1.0-5.0)
+        # Values < 5.0 are treated as 0.0-1.0 range
+        if volume >= 5.0:
+            # User passed 0-100 range
+            if volume > 100:
+                raise ValueError(
+                    f"Volume must be between 0 and 100 (or 0.0 and 1.0), got {volume}"
+                )
+            if volume < 0:
+                raise ValueError(
+                    f"Volume must be between 0 and 100 (or 0.0 and 1.0), got {volume}"
+                )
+            volume_normalized = volume / 100.0
+            volume_percent = volume
+        else:
+            # User passed 0.0-1.0 range
+            if volume < 0:
+                raise ValueError(
+                    f"Volume must be between {self.MIN_VOLUME} and {self.MAX_VOLUME} (or 0-100), got {volume}"
+                )
+            if volume > 1.0:
+                raise ValueError(
+                    f"Ambiguous volume value {volume}. Use 0.0-1.0 range or >= 5 for 0-100 range"
+                )
+            volume_normalized = volume
+            volume_percent = volume * 100
 
         state = self._ensure_state(chat_id)
-        state.volume = volume
+        state.volume = volume_normalized
         state.updated_at = datetime.now()
 
-        self.logger.info(f"chat_id={chat_id}: volume set to {volume * 100:.0f}%")
+        self.logger.info(f"chat_id={chat_id}: volume set to {volume_percent:.0f}%")
 
         # TODO: Implement actual volume control via AyuGram RPC in subsequent subtasks
         # For now, just update the state
