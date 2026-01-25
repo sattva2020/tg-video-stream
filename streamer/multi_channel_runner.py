@@ -148,16 +148,22 @@ async def on_stream_ended(streaming_client, update: StreamEnded):
         log.warning(f"StreamEnded for unknown chat {chat_id}")
 
 
-async def on_chat_update(pytg: PyTgCalls, update: ChatUpdate):
+async def on_chat_update(streaming_client, update: ChatUpdate):
     """
     Handler for chat status updates (kicked, left group, etc.).
-    
+
     Automatically stops the stream if we get kicked or leave the group.
+
+    Args:
+        streaming_client: PyTgCalls or AyuGramAdapter instance
+        update: ChatUpdate event with chat_id and status
     """
     chat_id = update.chat_id
     status = update.status
-    
-    log.warning(f"ChatUpdate for chat {chat_id}: {status}")
+
+    # Detect backend type for debugging
+    backend = "AyuGram" if AYUGRAM_AVAILABLE and hasattr(streaming_client, '_event_handlers') else "PyTgCalls"
+    log.warning(f"ChatUpdate for chat {chat_id}: {status} (backend={backend})")
     
     # Find channel_id by chat_id
     channel_id = None
