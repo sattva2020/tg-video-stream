@@ -516,7 +516,8 @@ def is_available() -> bool:
         bool: True if adapter should be used
     """
     # Check USE_AYUGRAM environment variable
-    use_ayugram = os.getenv("USE_AYUGRAM", "0").strip().lower() in {"1", "true", "yes"}
+    # Accept: "1", "true", "yes", "ayugram" (to match main.py)
+    use_ayugram = os.getenv("USE_AYUGRAM", "0").strip().lower() in {"1", "true", "yes", "ayugram"}
 
     # Check if tg-engine path is configured
     tg_engine_path = os.getenv("AYUGRAM_TG_ENGINE_PATH")

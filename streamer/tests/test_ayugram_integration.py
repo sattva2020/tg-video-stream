@@ -1885,4 +1885,284 @@ class TestAutoEndWithAyuGram:
         assert handler.is_timer_active is True
         assert handler.is_running is True
 
+
+class TestPyTgCallsFallback:
+    """Тесты для fallback к PyTgCalls когда AyuGram недоступен."""
+
+    def test_fallback_when_use_ayugram_unset(self):
+        """Когда USE_AYUGRAM не установлен, должен использоваться PyTgCalls."""
+        import os
+        from unittest.mock import patch
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Удаляем USE_AYUGRAM из окружения
+            if "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
+            # Проверяем что is_available() возвращает False
+            from ayugram_adapter import is_available
+            assert is_available() is False
+
+            print("✅ test_fallback_when_use_ayugram_unset passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+
+    def test_fallback_when_use_ayugram_zero(self):
+        """Когда USE_AYUGRAM=0, должен использоваться PyTgCalls."""
+        import os
+        from unittest.mock import patch
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Устанавливаем USE_AYUGRAM=0
+            os.environ["USE_AYUGRAM"] = "0"
+
+            # Проверяем что is_available() возвращает False
+            from ayugram_adapter import is_available
+            assert is_available() is False
+
+            print("✅ test_fallback_when_use_ayugram_zero passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            elif "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
+    def test_fallback_when_use_ayugram_pytg(self):
+        """Когда USE_AYUGRAM=pytg, должен использоваться PyTgCalls."""
+        import os
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Устанавливаем USE_AYUGRAM=pytg
+            os.environ["USE_AYUGRAM"] = "pytg"
+
+            # Проверяем что is_available() возвращает False
+            from ayugram_adapter import is_available
+            assert is_available() is False
+
+            print("✅ test_fallback_when_use_ayugram_pytg passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            elif "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
+    def test_no_ayugram_import_errors(self):
+        """AyuGram импорты не должны вызывать ошибки когда USE_AYUGRAM не установлен."""
+        import os
+        import sys
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Удаляем USE_AYUGRAM из окружения
+            if "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
+            # Перезагружаем модуль для правильной инициализации AYUGRAM_AVAILABLE
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+
+            # Импортируем модуль - не должно быть ошибок
+            from ayugram_adapter import AyuGramAdapter, AYUGRAM_AVAILABLE, is_available
+
+            # AYUGRAM_AVAILABLE должен быть False (без env var)
+            # но модуль должен быть импортируем
+            assert AYUGRAM_AVAILABLE is False
+            assert is_available() is False
+
+            # Создание адаптера должно работать
+            mock_client = MagicMock()
+            adapter = AyuGramAdapter(mock_client)
+            assert adapter is not None
+
+            print("✅ test_no_ayugram_import_errors passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            # Перезагружаем модуль для восстановления состояния
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+
+    def test_ayugram_available_flag_reflects_env(self):
+        """AYUGRAM_AVAILABLE флаг должен отражать состояние USE_AYUGRAM."""
+        import os
+        import sys
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Тест 1: Без USE_AYUGRAM -> False
+            if "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+
+            from ayugram_adapter import AYUGRAM_AVAILABLE
+            assert AYUGRAM_AVAILABLE is False
+
+            # Тест 2: USE_AYUGRAM=0 -> False
+            os.environ["USE_AYUGRAM"] = "0"
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+            from ayugram_adapter import AYUGRAM_AVAILABLE as FLAG2
+            assert FLAG2 is False
+
+            print("✅ test_ayugram_available_flag_reflects_env passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            elif "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+            # Перезагружаем модуль для восстановления состояния
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+
+    @pytest.mark.asyncio
+    async def test_adapter_works_without_env_var(self):
+        """AyuGramAdapter должен работать даже без USE_AYUGRAM."""
+        import os
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Удаляем USE_AYUGRAM из окружения
+            if "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
+            # Создаём и запускаем адаптер
+            from ayugram_adapter import AyuGramAdapter
+
+            mock_client = MagicMock()
+            adapter = AyuGramAdapter(mock_client)
+
+            # Метод start() должен работать
+            await adapter.start()
+            assert adapter._is_running is True
+
+            # Метод stop() должен работать
+            await adapter.stop()
+            assert adapter._is_running is False
+
+            print("✅ test_adapter_works_without_env_var passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+
+    def test_backend_detection_main_py(self):
+        """Проверка логики определения backend в main.py."""
+        import os
+        import sys
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Helper function to reload module and get is_available
+            def check_is_available(env_value):
+                if env_value is None:
+                    if "USE_AYUGRAM" in os.environ:
+                        del os.environ["USE_AYUGRAM"]
+                else:
+                    os.environ["USE_AYUGRAM"] = env_value
+
+                # Перезагружаем модуль для нового env var
+                if 'ayugram_adapter' in sys.modules:
+                    del sys.modules['ayugram_adapter']
+
+                from ayugram_adapter import is_available
+                return is_available()
+
+            # Тест 1: USE_AYUGRAM не установлен -> PyTgCalls
+            result = check_is_available(None)
+            assert result is False, "Without USE_AYUGRAM, should return False"
+
+            # Тест 2: USE_AYUGRAM=0 -> PyTgCalls
+            result = check_is_available("0")
+            assert result is False, "With USE_AYUGRAM=0, should return False"
+
+            # Тест 3: USE_AYUGRAM=pytg -> PyTgCalls
+            result = check_is_available("pytg")
+            assert result is False, "With USE_AYUGRAM=pytg, should return False"
+
+            # Тест 4: USE_AYUGRAM=1 -> AyuGram
+            result = check_is_available("1")
+            assert result is True, "With USE_AYUGRAM=1, should return True"
+
+            # Тест 5: USE_AYUGRAM=ayugram -> AyuGram
+            result = check_is_available("ayugram")
+            assert result is True, "With USE_AYUGRAM=ayugram, should return True"
+
+            print("✅ test_backend_detection_main_py passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            elif "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+            # Перезагружаем модуль для восстановления состояния
+            if 'ayugram_adapter' in sys.modules:
+                del sys.modules['ayugram_adapter']
+
+    @pytest.mark.asyncio
+    async def test_fallback_integration_with_streaming(self):
+        """Интеграционный тест: fallback работает при стриминге."""
+        import os
+
+        # Сохраняем текущее значение
+        old_use_ayugram = os.environ.get("USE_AYUGRAM")
+
+        try:
+            # Устанавливаем USE_AYUGRAM=0 (PyTgCalls режим)
+            os.environ["USE_AYUGRAM"] = "0"
+
+            # Проверяем что AyuGramAdapter не активен через is_available
+            from ayugram_adapter import is_available
+            assert is_available() is False
+
+            # AyuGramAdapter может быть создан, но не должен использоваться
+            # когда is_available() возвращает False
+            from ayugram_adapter import AyuGramAdapter
+
+            mock_client = MagicMock()
+            adapter = AyuGramAdapter(mock_client)
+
+            # Адаптер создаётся, но при проверке is_available
+            # код должен понять что нужно использовать PyTgCalls
+            assert is_available() is False
+
+            print("✅ test_fallback_integration_with_streaming passed")
+
+        finally:
+            # Восстанавливаем значение
+            if old_use_ayugram is not None:
+                os.environ["USE_AYUGRAM"] = old_use_ayugram
+            elif "USE_AYUGRAM" in os.environ:
+                del os.environ["USE_AYUGRAM"]
+
         await handler.stop()
