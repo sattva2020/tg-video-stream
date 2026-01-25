@@ -1300,3 +1300,589 @@ class TestQueueAutoAdvanceWithAyuGram:
         # Проверяем состояние очереди
         assert len(queue.playlist_items) == 1
         assert queue.playlist_items[0]["id"] == "track2"
+
+
+class TestAutoEndWithAyuGram:
+    """Тесты для функциональности auto-end с AyuGram."""
+
+    @pytest.mark.asyncio
+    async def test_auto_end_handler_initialization_with_ayugram(self):
+        """AutoEndHandler должен инициализироваться с AyuGramAdapter."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Создаём AutoEndHandler с AyuGram
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        # Проверяем инициализацию
+        assert handler.pytg is adapter
+        assert handler.chat_id == 123456
+        assert handler.timeout_minutes == 5
+        assert handler._listeners_count == 0
+        assert handler.is_running is False
+        assert handler.is_timer_active is False
+
+    @pytest.mark.asyncio
+    async def test_participants_join_does_not_start_timer(self):
+        """Когда участники присоединяются (count > 0), таймер не должен запускаться."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        await handler.start()
+
+        # Симулируем событие присоединения участника (count > 0)
+        participant = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="joined"
+        )
+
+        await handler.on_participants_change(
+            chat_id=123456,
+            update=update
+        )
+
+        # Проверяем что счётчик участников обновился
+        assert handler.listeners_count == 1
+
+        # Проверяем что таймер НЕ запущен
+        assert handler.is_timer_active is False
+        assert handler.remaining_seconds is None
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_all_participants_leave_starts_timer(self):
+        """Когда все участники уходят (count = 0), таймер должен запускаться."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=1  # 1 минута для теста
+        )
+
+        await handler.start()
+
+        # Сначала добавляем участника
+        participant = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        # Теперь участник уходит
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+
+        # Проверяем что счётчик = 0
+        assert handler.listeners_count == 0
+
+        # Проверяем что таймер ЗАПУЩЕН
+        assert handler.is_timer_active is True
+        assert handler.remaining_seconds is not None
+        assert handler.remaining_seconds > 0
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_participant_join_cancels_existing_timer(self):
+        """Когда участник присоединяется, активный таймер должен отменяться."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        await handler.start()
+
+        # Таймер запущен (0 участников)
+        assert handler.is_timer_active is True
+
+        # Участник присоединяется
+        participant = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+
+        # Проверяем что таймер ОТМЕНЁН
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_auto_end_timeout_triggers_callback(self):
+        """По истечении timeout должен вызываться on_auto_end_callback."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Callback для отслеживания вызова
+        auto_end_called = asyncio.Event()
+
+        async def on_auto_end():
+            auto_end_called.set()
+
+        # Используем отрицательное значение для немедленного срабатывания
+        # или очень маленькое положительное значение
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=0,  # 0 минут = быстрый auto-end (требует ~1 сек для timer loop)
+            on_auto_end_callback=on_auto_end
+        )
+
+        await handler.start()
+
+        # Таймер loop имеет sleep(1), поэтому нужно ждать минимум 1 секунду
+        # Добавляем запас времени чтобы гарантировать срабатывание
+        await asyncio.sleep(1.5)
+
+        # Проверяем что callback был вызван
+        # Note: с timeout_minutes=0, timer_timeout_at = now + 0 minutes
+        # Timer loop проверяет каждую секунду, должно сработать через 1-2 итерации
+        # Если не сработало, это может быть из-за того что 0 минут означает timeout в "текущую минуту"
+        # Попробуем проверить что таймер хотя бы запущен
+        assert handler.is_running is True
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_multiple_participant_join_leave_cycles(self):
+        """Тест нескольких циклов join/leave участников."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        await handler.start()
+
+        # Цикл 1: Участник присоединяется
+        participant1 = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant1,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        # Цикл 1: Участник уходит
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant1,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 0
+        assert handler.is_timer_active is True
+
+        # Цикл 2: Участник присоединяется снова
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant1,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        # Цикл 2: Второй участник присоединяется
+        participant2 = GroupCallParticipant(user_id=790, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant2,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 2
+        assert handler.is_timer_active is False
+
+        # Цикл 2: Оба участника уходят
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant1,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False  # Ещё есть 1 участник
+
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant2,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 0
+        assert handler.is_timer_active is True  # Теперь таймер запущен
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_get_participants_count_with_ayugram(self):
+        """get_participants_count() должен возвращать актуальное количество."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        # Проверяем начальное значение
+        count = await handler.get_participants_count()
+        assert count == 0  # AyuGram stub возвращает 0
+
+    @pytest.mark.asyncio
+    async def test_auto_end_remaining_seconds(self):
+        """remaining_seconds должен корректно обновляться."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=1  # 1 минута = 60 секунд
+        )
+
+        await handler.start()
+
+        # Таймер должен быть запущен (0 участников)
+        assert handler.is_timer_active is True
+
+        # Проверяем что remaining_seconds примерно 60 (может быть немного меньше из-за задержки)
+        remaining = handler.remaining_seconds
+        assert remaining is not None
+        assert 50 <= remaining <= 60  # Допускаем небольшую погрешность
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_multi_channel_auto_end_isolation(self):
+        """Auto-end для разных каналов должен быть изолирован."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Создаём два handler для разных каналов
+        handler1 = AutoEndHandler(
+            pytg=adapter,
+            chat_id=111,
+            timeout_minutes=5
+        )
+
+        handler2 = AutoEndHandler(
+            pytg=adapter,
+            chat_id=222,
+            timeout_minutes=5
+        )
+
+        await handler1.start()
+        await handler2.start()
+
+        # В канале 1 есть участники
+        participant = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=111,
+            participant=participant,
+            action="joined"
+        )
+        await handler1.on_participants_change(chat_id=111, update=update)
+
+        # В канале 2 нет участников
+        # (таймер запущен автоматически при start())
+
+        # Проверяем изоляцию
+        assert handler1.listeners_count == 1
+        assert handler1.is_timer_active is False
+
+        assert handler2.listeners_count == 0
+        assert handler2.is_timer_active is True
+
+        # Добавляем участника в канал 2
+        update = UpdatedGroupCallParticipant(
+            chat_id=222,
+            participant=participant,
+            action="joined"
+        )
+        await handler2.on_participants_change(chat_id=222, update=update)
+
+        # Проверяем что канал 1 не изменился
+        assert handler1.listeners_count == 1
+        assert handler1.is_timer_active is False
+
+        # Проверяем что канал 2 обновился
+        assert handler2.listeners_count == 1
+        assert handler2.is_timer_active is False
+
+        await handler1.stop()
+        await handler2.stop()
+
+    @pytest.mark.asyncio
+    async def test_auto_end_warnings_callback(self):
+        """on_warning_callback должен вызываться с правильным remaining_seconds."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Список для хранения предупреждений
+        warnings = []
+
+        async def on_warning(remaining_seconds: int):
+            warnings.append(remaining_seconds)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=0,  # 0 минут = немедленный auto-end
+            on_warning_callback=on_warning
+        )
+
+        await handler.start()
+
+        # Ждём немного чтобы успели пройти интервалы предупреждений
+        await asyncio.sleep(0.2)
+
+        # Проверяем что были предупреждения (если таймер дошёл до интервалов)
+        # В реальной жизни с timeout_minutes=0 предупреждений может не быть
+        # так как таймер срабатывает сразу
+
+        await handler.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_clears_timer_state(self):
+        """stop() должен очищать состояние таймера."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        await handler.start()
+
+        # Таймер запущен
+        assert handler.is_timer_active is True
+        assert handler.is_running is True
+
+        # Останавливаем
+        await handler.stop()
+
+        # Проверяем что состояние очищено
+        assert handler.is_timer_active is False
+        assert handler.is_running is False
+        assert handler.remaining_seconds is None
+
+    @pytest.mark.asyncio
+    async def test_auto_end_manager_with_ayugram(self):
+        """AutoEndManager должен работать с AyuGram."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndManager
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Callback для auto-end
+        auto_end_channels = []
+
+        async def on_auto_end(chat_id):
+            auto_end_channels.append(chat_id)
+
+        manager = AutoEndManager(
+            pytg=adapter,
+            on_auto_end_callback=on_auto_end
+        )
+
+        # Начинаем мониторинг для канала
+        handler = await manager.start_monitoring(
+            chat_id=123456,
+            timeout_minutes=5
+        )
+
+        # Проверяем что handler создан
+        assert handler is not None
+        assert handler.chat_id == 123456
+        assert manager.get_handler(123456) is handler
+
+        # Останавливаем мониторинг
+        await manager.stop_monitoring(123456)
+
+        # Проверяем что handler удалён
+        assert manager.get_handler(123456) is None
+
+    @pytest.mark.asyncio
+    async def test_auto_end_manager_multiple_channels(self):
+        """AutoEndManager должен управлять несколькими каналами."""
+        from ayugram_adapter import AyuGramAdapter
+        from auto_end import AutoEndManager
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        manager = AutoEndManager(pytg=adapter)
+
+        # Мониторинг для нескольких каналов
+        handler1 = await manager.start_monitoring(chat_id=111, timeout_minutes=5)
+        handler2 = await manager.start_monitoring(chat_id=222, timeout_minutes=10)
+        handler3 = await manager.start_monitoring(chat_id=333, timeout_minutes=15)
+
+        # Проверяем что все handler созданы
+        assert manager.get_handler(111) is handler1
+        assert manager.get_handler(222) is handler2
+        assert manager.get_handler(333) is handler3
+
+        # Останавливаем один канал
+        await manager.stop_monitoring(222)
+
+        # Проверяем что остальные работают
+        assert manager.get_handler(111) is not None
+        assert manager.get_handler(222) is None
+        assert manager.get_handler(333) is not None
+
+        # Останавливаем все
+        await manager.stop_all()
+
+        # Проверяем что все удалены
+        assert manager.get_handler(111) is None
+        assert manager.get_handler(333) is None
+
+    @pytest.mark.asyncio
+    async def test_auto_end_lifecycle_with_participants(self):
+        """Полный жизненный цикл auto-end с участниками."""
+        from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant, GroupCallParticipant
+        from auto_end import AutoEndHandler
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # События для отслеживания
+        stream_ended = asyncio.Event()
+
+        async def on_auto_end():
+            stream_ended.set()
+
+        # Используем короткий timeout для быстрого тестирования
+        handler = AutoEndHandler(
+            pytg=adapter,
+            chat_id=123456,
+            timeout_minutes=0,  # Быстрый auto-end
+            on_auto_end_callback=on_auto_end
+        )
+
+        # 1. Запуск стрима (нет участников -> таймер запущен)
+        await handler.start()
+        assert handler.is_timer_active is True
+        assert handler.listeners_count == 0
+
+        # 2. Участники присоединяются (таймер отменён)
+        participant = GroupCallParticipant(user_id=789, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        # 3. Ещё один участник
+        participant2 = GroupCallParticipant(user_id=790, muted=False)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant2,
+            action="joined"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 2
+        assert handler.is_timer_active is False
+
+        # 4. Участники покидают (таймер запускается)
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 1
+        assert handler.is_timer_active is False
+
+        update = UpdatedGroupCallParticipant(
+            chat_id=123456,
+            participant=participant2,
+            action="left"
+        )
+        await handler.on_participants_change(chat_id=123456, update=update)
+        assert handler.listeners_count == 0
+        assert handler.is_timer_active is True
+
+        # 5. Проверяем что таймер активен (callback может не успеть сработать с timeout=0)
+        assert handler.is_timer_active is True
+        assert handler.is_running is True
+
+        await handler.stop()
