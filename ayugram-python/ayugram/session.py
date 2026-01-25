@@ -2,10 +2,11 @@
 Session Management for AyuGram SDK.
 
 This module provides session management functionality for AyuGram clients,
-including session creation, loading, saving, and deletion with file system storage.
+including session creation, loading, saving, and deletion with file system storage
+and optional Redis caching.
 
 Session data is stored in the local file system as the primary storage mechanism,
-with optional Redis caching for faster access (added in subsequent subtasks).
+with optional Redis caching for faster access to frequently used sessions.
 
 Example:
     >>> from ayugram.session import SessionManager
@@ -13,6 +14,12 @@ Example:
     >>> session_data = await manager.create_session("+1234567890", callback)
     >>> await manager.save_session("my_session", session_data)
     >>> loaded = await manager.load_session("my_session")
+
+Redis Caching (Optional):
+    >>> # With Redis caching enabled
+    >>> manager = SessionManager("./sessions", redis_url="redis://localhost:6379")
+    >>> # Sessions will be cached in Redis for faster access
+    >>> # Cache TTL: 1 hour (configurable via redis_ttl parameter)
 """
 
 import asyncio
@@ -24,16 +31,25 @@ from typing import Any, Callable, Dict, Optional
 
 from ayugram.exceptions import AyuGramError, AuthenticationError
 
+# Optional Redis support for session caching
+try:
+    import redis.asyncio as aioredis
+    REDIS_AVAILABLE = True
+except ImportError:
+    aioredis = None
+    REDIS_AVAILABLE = False
+
 logger = logging.getLogger("ayugram.session")
 
 
 class SessionManager:
     """
-    Manages AyuGram sessions with file system storage.
+    Manages AyuGram sessions with file system storage and optional Redis caching.
 
     Provides methods for creating, loading, saving, and deleting sessions.
     Sessions are stored as JSON files on the local file system with secure
-    file permissions (0600 for Unix-like systems).
+    file permissions (0600 for Unix-like systems). Redis caching is optional
+    and provides faster access to frequently used sessions.
 
     The session file format is JSON with the following structure:
     {
@@ -47,29 +63,62 @@ class SessionManager:
     Attributes:
         session_dir: Directory path for session files
         _session_cache: In-memory cache of loaded sessions
+        redis_enabled: Whether Redis caching is enabled
+        _redis: Redis connection (if enabled)
 
     Example:
-        >>> manager = SessionManager("./sessions")
+        >>> manager = SessionManager("./sessions", redis_url="redis://localhost:6379")
         >>> session_data = await manager.create_session("+1234567890", code_callback)
         >>> await manager.save_session("my_account", session_data)
         >>> loaded = await manager.load_session("my_account")
     """
 
-    def __init__(self, session_dir: str = "./sessions"):
+    # Redis key prefix for session storage
+    REDIS_KEY_PREFIX = "ayugram:session:"
+
+    def __init__(
+        self,
+        session_dir: str = "./sessions",
+        redis_url: Optional[str] = None,
+        redis_ttl: int = 3600,
+    ):
         """
         Initialize SessionManager.
 
         Args:
             session_dir: Directory path for storing session files (default: "./sessions")
+            redis_url: Optional Redis URL for caching (default: None, disables Redis)
+            redis_ttl: Redis TTL for cached sessions in seconds (default: 3600 = 1 hour)
 
         Raises:
             ValueError: If session_dir is empty
+
+        Example:
+            >>> # Without Redis
+            >>> manager = SessionManager("./sessions")
+            >>> # With Redis
+            >>> manager = SessionManager("./sessions", redis_url="redis://localhost:6379")
+            >>> # With custom TTL
+            >>> manager = SessionManager("./sessions", redis_url="redis://localhost:6379", redis_ttl=7200)
         """
         if not session_dir:
             raise ValueError("session_dir cannot be empty")
 
         self.session_dir = Path(session_dir).resolve()
         self._session_cache: Dict[str, Dict[str, Any]] = {}
+        self._redis: Optional[Any] = None
+        self._redis_url = redis_url
+        self._redis_ttl = redis_ttl
+        self._redis_enabled = REDIS_AVAILABLE and redis_url is not None
+
+        if self._redis_enabled:
+            logger.info("SessionManager initialized with Redis caching: %s", redis_url)
+        else:
+            if REDIS_AVAILABLE:
+                logger.debug("Redis available but not enabled (no redis_url provided)")
+            else:
+                logger.debug("Redis not available (redis package not installed)")
+
         logger.info("SessionManager initialized with directory: %s", self.session_dir)
 
         # Create session directory if it doesn't exist
@@ -87,6 +136,148 @@ class SessionManager:
             logger.debug("Session directory ensured: %s", self.session_dir)
         except OSError as e:
             logger.warning("Failed to create session directory %s: %s", self.session_dir, e)
+
+    async def _get_redis(self) -> Optional[Any]:
+        """
+        Get or create Redis connection.
+
+        Returns:
+            Redis connection object or None if Redis is not available
+
+        Example:
+            >>> redis = await manager._get_redis()
+            >>> if redis:
+            ...     await redis.set("key", "value")
+        """
+        if not self._redis_enabled or aioredis is None:
+            return None
+
+        if self._redis is None:
+            try:
+                self._redis = await aioredis.from_url(self._redis_url, decode_responses=True)
+                logger.debug("Redis connection established: %s", self._redis_url)
+            except Exception as e:
+                logger.warning("Failed to connect to Redis: %s", e)
+                self._redis_enabled = False
+                self._redis = None
+                return None
+
+        return self._redis
+
+    def _get_redis_key(self, session_name: str) -> str:
+        """
+        Get the Redis key for a session.
+
+        Args:
+            session_name: Name of the session
+
+        Returns:
+            Redis key string
+
+        Example:
+            >>> key = manager._get_redis_key("my_account")
+            >>> print(key)
+            'ayugram:session:my_account'
+        """
+        return f"{self.REDIS_KEY_PREFIX}{session_name}"
+
+    async def _cache_session_redis(self, session_name: str, session_data: Dict[str, Any]) -> None:
+        """
+        Cache session data in Redis.
+
+        Args:
+            session_name: Name of the session
+            session_data: Dictionary containing session data
+
+        Example:
+            >>> await manager._cache_session_redis("my_account", session_data)
+        """
+        if not self._redis_enabled:
+            return
+
+        redis = await self._get_redis()
+        if redis is None:
+            return
+
+        try:
+            key = self._get_redis_key(session_name)
+            await redis.setex(key, self._redis_ttl, json.dumps(session_data))
+            logger.debug("Session cached in Redis: %s (TTL: %ds)", session_name, self._redis_ttl)
+        except Exception as e:
+            logger.warning("Failed to cache session in Redis: %s - %s", session_name, e)
+
+    async def _get_cached_session_redis(self, session_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get session data from Redis cache.
+
+        Args:
+            session_name: Name of the session
+
+        Returns:
+            Session data dictionary or None if not in cache
+
+        Example:
+            >>> session = await manager._get_cached_session_redis("my_account")
+            >>> if session:
+            ...     print("Session loaded from Redis cache")
+        """
+        if not self._redis_enabled:
+            return None
+
+        redis = await self._get_redis()
+        if redis is None:
+            return None
+
+        try:
+            key = self._get_redis_key(session_name)
+            data = await redis.get(key)
+            if data:
+                logger.debug("Session loaded from Redis cache: %s", session_name)
+                return json.loads(data)
+        except Exception as e:
+            logger.warning("Failed to get session from Redis: %s - %s", session_name, e)
+
+        return None
+
+    async def _invalidate_session_redis(self, session_name: str) -> None:
+        """
+        Invalidate session data in Redis cache.
+
+        Args:
+            session_name: Name of the session
+
+        Example:
+            >>> await manager._invalidate_session_redis("my_account")
+        """
+        if not self._redis_enabled:
+            return
+
+        redis = await self._get_redis()
+        if redis is None:
+            return
+
+        try:
+            key = self._get_redis_key(session_name)
+            await redis.delete(key)
+            logger.debug("Session invalidated in Redis: %s", session_name)
+        except Exception as e:
+            logger.warning("Failed to invalidate session in Redis: %s - %s", session_name, e)
+
+    async def close_redis(self) -> None:
+        """
+        Close Redis connection if open.
+
+        Example:
+            >>> await manager.close_redis()
+        """
+        if self._redis is not None:
+            try:
+                await self._redis.close()
+                logger.debug("Redis connection closed")
+            except Exception as e:
+                logger.warning("Failed to close Redis connection: %s", e)
+            finally:
+                self._redis = None
 
     def _get_session_path(self, session_name: str) -> Path:
         """
@@ -329,7 +520,12 @@ class SessionManager:
 
     async def load_session(self, session_name: str) -> Dict[str, Any]:
         """
-        Load an existing session from file system.
+        Load an existing session from Redis cache or file system.
+
+        This method checks sources in the following order:
+        1. In-memory cache
+        2. Redis cache (if enabled)
+        3. File system (with backup restoration if corrupted)
 
         If the main session file is corrupted, this method will attempt to restore
         from a backup file (if available) with a .bak extension.
@@ -355,10 +551,25 @@ class SessionManager:
         session_path = self._get_session_path(session_name)
         backup_path = self.session_dir / f"{session_name}.json.bak"
 
-        # Check cache first
+        # Check in-memory cache first
         if session_name in self._session_cache:
-            logger.debug("Session loaded from cache: %s", session_name)
+            logger.debug("Session loaded from in-memory cache: %s", session_name)
             return self._session_cache[session_name].copy()
+
+        # Check Redis cache
+        cached_data = await self._get_cached_session_redis(session_name)
+        if cached_data is not None:
+            # Validate cached data before using it
+            try:
+                self._validate_session_data(cached_data, session_name)
+                # Update in-memory cache
+                self._session_cache[session_name] = cached_data
+                logger.info("Session loaded from Redis cache: %s", session_name)
+                return cached_data.copy()
+            except AyuGramError as e:
+                logger.warning("Invalid session data in Redis cache: %s - %s", session_name, e)
+                # Remove invalid data from Redis
+                await self._invalidate_session_redis(session_name)
 
         if not session_path.exists():
             # Try to restore from backup if main file doesn't exist
@@ -383,6 +594,8 @@ class SessionManager:
 
                     # Cache the session
                     self._session_cache[session_name] = session_data
+                    # Cache in Redis
+                    await self._cache_session_redis(session_name, session_data)
 
                     logger.info("Session restored from backup: %s", session_name)
                     return session_data
@@ -416,6 +629,8 @@ class SessionManager:
 
             # Cache the session
             self._session_cache[session_name] = session_data
+            # Cache in Redis
+            await self._cache_session_redis(session_name, session_data)
 
             return session_data
 
@@ -443,6 +658,8 @@ class SessionManager:
 
                     # Cache the session
                     self._session_cache[session_name] = session_data
+                    # Cache in Redis
+                    await self._cache_session_redis(session_name, session_data)
 
                     logger.info("Session restored from backup after corruption: %s", session_name)
                     return session_data
@@ -564,6 +781,8 @@ class SessionManager:
 
             # Update cache
             self._session_cache[session_name] = session_data.copy()
+            # Cache in Redis
+            await self._cache_session_redis(session_name, session_data)
 
             logger.info("Session saved successfully: %s", session_name)
 
@@ -606,8 +825,10 @@ class SessionManager:
         session_path = self._get_session_path(session_name)
         backup_path = self.session_dir / f"{session_name}.json.bak"
 
-        # Remove from cache
+        # Remove from in-memory cache
         self._session_cache.pop(session_name, None)
+        # Remove from Redis cache
+        await self._invalidate_session_redis(session_name)
 
         if not session_path.exists():
             logger.debug("Session file does not exist, nothing to delete: %s", session_name)
@@ -692,15 +913,47 @@ class SessionManager:
         """
         Clear the in-memory session cache.
 
-        This does not delete session files from disk, only clears
-        the cached copies in memory.
+        This does not delete session files from disk or Redis cache,
+        only clears the cached copies in memory.
 
         Example:
             >>> manager = SessionManager()
             >>> manager.clear_cache()
         """
         self._session_cache.clear()
-        logger.debug("Session cache cleared")
+        logger.debug("In-memory session cache cleared")
+
+    async def clear_all_caches(self) -> None:
+        """
+        Clear all caches (in-memory and Redis).
+
+        This does not delete session files from disk, only clears
+        all cached copies. Redis cache entries for all sessions
+        will be deleted using key pattern matching.
+
+        Example:
+            >>> manager = SessionManager()
+            >>> await manager.clear_all_caches()
+        """
+        # Clear in-memory cache
+        self._session_cache.clear()
+        logger.debug("In-memory session cache cleared")
+
+        # Clear all Redis cache entries
+        if self._redis_enabled:
+            redis = await self._get_redis()
+            if redis is not None:
+                try:
+                    # Delete all keys with our prefix
+                    pattern = f"{self.REDIS_KEY_PREFIX}*"
+                    keys = []
+                    async for key in redis.scan_iter(match=pattern):
+                        keys.append(key)
+                    if keys:
+                        await redis.delete(*keys)
+                        logger.debug("Cleared %d session(s) from Redis cache", len(keys))
+                except Exception as e:
+                    logger.warning("Failed to clear Redis cache: %s", e)
 
 
 __all__ = [
