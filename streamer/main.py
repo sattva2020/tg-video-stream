@@ -88,6 +88,8 @@ LOOP = os.getenv("LOOP", "1") == "1"
 PROMETHEUS_PORT = int(os.getenv("PROMETHEUS_PORT", "9090"))
 AUTO_END_TIMEOUT_MINUTES = int(os.getenv("AUTO_END_TIMEOUT_MINUTES", "5"))
 AUTO_END_ENABLED = os.getenv("AUTO_END_ENABLED", "1") == "1"
+# USE_AYUGRAM: Select implementation - 'pytg' (default) or 'ayugram'
+USE_AYUGRAM = os.getenv("USE_AYUGRAM", "pytg")
 
 # Global auto-end handler instance
 auto_end_handler = None
