@@ -3,23 +3,23 @@
   "spec": "029-json-rpc-api-ayugram",
   "state": "building",
   "subtasks": {
-    "completed": 4,
+    "completed": 8,
     "total": 12,
-    "in_progress": 1,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Media Streaming RPC Methods",
+    "current": "Router Registration",
     "id": null,
-    "total": 1
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 5,
+    "number": 8,
     "started_at": "2026-01-25T10:18:07.668916"
   },
-  "last_update": "2026-01-25T10:43:36.775337"
+  "last_update": "2026-01-25T11:30:00.000000"
 }
