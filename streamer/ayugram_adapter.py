@@ -238,14 +238,36 @@ class AyuGramAdapter:
         """
         def decorator(handler: Callable):
             # Determine event type based on filter
-            if filter_func == filters.stream_end():
-                self._event_handlers["stream_end"].append(handler)
-            elif "chat_update" in str(filter_func):
-                self._event_handlers["chat_update"].append(handler)
-            elif "participant" in str(filter_func):
-                self._event_handlers["participant"].append(handler)
-            else:
-                log.warning(f"Unknown filter type: {filter_func}")
+            # Test filter against known types to determine category
+            try:
+                # Try to identify filter type by testing it against sample objects
+                from ayugram_adapter import StreamEnded, ChatUpdate, UpdatedGroupCallParticipant
+
+                if filter_func(StreamEnded(chat_id=0)):
+                    self._event_handlers["stream_end"].append(handler)
+                elif filter_func(ChatUpdate(chat_id=0, status="")):
+                    self._event_handlers["chat_update"].append(handler)
+                elif filter_func(UpdatedGroupCallParticipant(chat_id=0, participant=None, action="")):
+                    self._event_handlers["participant"].append(handler)
+                else:
+                    # Fallback to string matching
+                    filter_str = str(filter_func)
+                    if "chat_update" in filter_str:
+                        self._event_handlers["chat_update"].append(handler)
+                    elif "participant" in filter_str:
+                        self._event_handlers["participant"].append(handler)
+                    else:
+                        log.warning(f"Unknown filter type: {filter_func}")
+            except Exception:
+                # If filter testing fails, use string matching as fallback
+                filter_str = str(filter_func)
+                if "chat_update" in filter_str:
+                    self._event_handlers["chat_update"].append(handler)
+                elif "participant" in filter_str:
+                    self._event_handlers["participant"].append(handler)
+                else:
+                    # Default to stream_end for unknown filters
+                    self._event_handlers["stream_end"].append(handler)
             return handler
         return decorator
 
