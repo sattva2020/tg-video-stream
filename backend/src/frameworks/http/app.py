@@ -171,6 +171,7 @@ def create_app() -> FastAPI:
     from src.api.incidents import router as incidents_router, solutions_router
     from src.api.settings import router as settings_router
     from src.api.video_validation import router as video_validation_router
+    from src.api.jsonrpc import router as jsonrpc_router
     
     # Root endpoint
     @app.get("/")
@@ -198,6 +199,7 @@ def create_app() -> FastAPI:
     app.include_router(media.router, prefix="/api", tags=["Media"])
     app.include_router(media_gdrive.router, prefix="/api", tags=["Media"])
     app.include_router(websocket.router, prefix="/api/ws", tags=["WebSocket"])
+    app.include_router(jsonrpc_router, prefix="/api/ws", tags=["JSON-RPC"])
     app.include_router(schedule.router, prefix="/api", tags=["Schedule"])
     app.include_router(queue_router, prefix="/api/v1", tags=["Queue"])
     app.include_router(playback_routes.router)
