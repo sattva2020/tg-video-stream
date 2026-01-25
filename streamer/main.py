@@ -7,26 +7,6 @@ import requests
 
 from pyrogram import Client
 from pyrogram.errors import SessionExpired, SessionPasswordNeeded, AuthKeyInvalid, RPCError
-try:
-    from pytgcalls import PyTgCalls
-    from pytgcalls.exceptions import AlreadyJoinedError
-    from pytgcalls.types import AudioVideoPiped, AudioPiped, HighQualityAudio, HighQualityVideo
-    PYG_AVAILABLE = True
-except Exception as e:
-    # pytgcalls / tgcalls not available — run in degraded mode
-    # Persist the full import error to a temporary file for debugging (visible to sysadmin).
-    try:
-        import traceback
-        import pathlib
-        p = pathlib.Path('/tmp/pytgcalls_import_error.log')
-        with p.open('a', encoding='utf-8') as fh:
-            fh.write('--- Import error at startup ---\n')
-            fh.write(repr(e) + '\n')
-            traceback.print_exc(file=fh)
-    except Exception:
-        # best-effort only
-        pass
-    PYG_AVAILABLE = False
 
 from dotenv import load_dotenv
 from utils import expand_playlist, build_ffmpeg_av_args, best_stream_url
