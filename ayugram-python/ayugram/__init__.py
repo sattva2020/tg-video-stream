@@ -24,13 +24,13 @@ __license__ = "MIT"
 # These imports are commented out until the modules are created
 # from .client import AyuGramClient
 from .types import AudioPiped, AudioVideoPiped, HighQualityAudio, HighQualityVideo
-# from .exceptions import (
-#     AyuGramError,
-#     ConnectionError,
-#     AuthenticationError,
-#     CallError,
-#     TimeoutError,
-# )
+from .exceptions import (
+    AyuGramError,
+    ConnectionError,
+    AuthenticationError,
+    CallError,
+    TimeoutError,
+)
 
 __all__ = [
     "__version__",
@@ -39,9 +39,9 @@ __all__ = [
     "AudioVideoPiped",
     "HighQualityAudio",
     "HighQualityVideo",
-    # "AyuGramError",
-    # "ConnectionError",
-    # "AuthenticationError",
-    # "CallError",
-    # "TimeoutError",
+    "AyuGramError",
+    "ConnectionError",
+    "AuthenticationError",
+    "CallError",
+    "TimeoutError",
 ]
