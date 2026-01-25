@@ -115,28 +115,33 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
     return None
 
 
-async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
+async def on_stream_ended(streaming_client, update: StreamEnded):
     """
     Global handler for StreamEnded event.
-    
-    Called by PyTgCalls when a stream finishes playing.
+
+    Called by PyTgCalls or AyuGram when a stream finishes playing.
     Sets the event to signal playback loop to move to next track.
-    
+
     IMPORTANT: We ignore StreamEnded events that fire during play() execution,
-    because PyTgCalls can emit a 'stale' StreamEnded from previous state.
+    because the streaming backend can emit a 'stale' StreamEnded from previous state.
+
+    Args:
+        streaming_client: PyTgCalls or AyuGramAdapter instance
+        update: StreamEnded event with chat_id
     """
     chat_id = update.chat_id
-    
+
     # Debug: log current state
     is_playing = play_in_progress.get(chat_id, False)
-    log.info(f"StreamEnded event for chat {chat_id} (play_in_progress={is_playing}, known_chats={list(play_in_progress.keys())})")
-    
+    backend = "AyuGram" if AYUGRAM_AVAILABLE and hasattr(streaming_client, '_event_handlers') else "PyTgCalls"
+    log.info(f"StreamEnded event for chat {chat_id} (backend={backend}, play_in_progress={is_playing}, known_chats={list(play_in_progress.keys())})")
+
     # Ignore StreamEnded if play() is still executing for this chat
     # This prevents race condition where StreamEnded fires during play() call
     if is_playing:
         log.warning(f"StreamEnded IGNORED for chat {chat_id} - play() still in progress")
         return
-    
+
     if chat_id in stream_ended_events:
         stream_ended_events[chat_id].set()
     else:
