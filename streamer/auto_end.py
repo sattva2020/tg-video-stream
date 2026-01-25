@@ -3,13 +3,13 @@ Auto-End Handler for Streamer
 
 Модуль для отслеживания слушателей и автоматического завершения стрима.
 
-Интеграция с PyTgCalls для получения событий on_participants_change.
+Интеграция с PyTgCalls или AyuGram для получения событий on_participants_change.
 
 Использование:
     auto_end = AutoEndHandler(pytg, chat_id)
     await auto_end.start()  # Начать мониторинг
     await auto_end.stop()   # Остановить
-    
+
     # Или через декоратор
     @pytg.on_participants_change()
     async def handler(client, update):
@@ -34,6 +34,14 @@ except ImportError:
     PYTG_AVAILABLE = False
     log.warning("pytgcalls not available — AutoEndHandler disabled")
 
+# Попытка импорта AyuGram
+try:
+    from ayugram_adapter import AyuGramAdapter
+    AYUGRAM_AVAILABLE = True
+except ImportError:
+    AYUGRAM_AVAILABLE = False
+    log.debug("ayugram_adapter not available")
+
 # Попытка импорта Redis
 try:
     import redis.asyncio as aioredis
@@ -46,12 +54,12 @@ except ImportError:
 class AutoEndHandler:
     """
     Обработчик автоматического завершения стрима.
-    
-    Отслеживает количество слушателей через PyTgCalls и
+
+    Отслеживает количество слушателей через PyTgCalls или AyuGram и
     запускает таймер завершения при отсутствии слушателей.
-    
+
     Attributes:
-        pytg: Экземпляр PyTgCalls
+        pytg: Экземпляр PyTgCalls или AyuGramAdapter
         chat_id: ID чата/канала
         timeout_minutes: Таймаут до завершения
         is_running: Флаг активного мониторинга
@@ -63,7 +71,7 @@ class AutoEndHandler:
     
     def __init__(
         self,
-        pytg: Optional["PyTgCalls"],
+        pytg: Optional[Union["PyTgCalls", "AyuGramAdapter"]],
         chat_id: Union[int, str],
         timeout_minutes: Optional[int] = None,
         on_auto_end_callback: Optional[Callable[[], Awaitable[None]]] = None,
@@ -72,9 +80,9 @@ class AutoEndHandler:
     ):
         """
         Инициализация AutoEndHandler.
-        
+
         Args:
-            pytg: Экземпляр PyTgCalls
+            pytg: Экземпляр PyTgCalls или AyuGramAdapter (совместимый интерфейс)
             chat_id: ID чата для мониторинга
             timeout_minutes: Таймаут в минутах (из env если не указан)
             on_auto_end_callback: Callback при срабатывании auto-end
@@ -397,16 +405,16 @@ class AutoEndHandler:
 class AutoEndManager:
     """
     Менеджер AutoEndHandler для управления несколькими каналами.
-    
+
     Использование:
-        manager = AutoEndManager(pytg)
+        manager = AutoEndManager(pytg)  # pytg может быть PyTgCalls или AyuGramAdapter
         await manager.start_monitoring(channel_id)
         await manager.stop_monitoring(channel_id)
     """
-    
+
     def __init__(
         self,
-        pytg: Optional["PyTgCalls"],
+        pytg: Optional[Union["PyTgCalls", "AyuGramAdapter"]],
         on_auto_end_callback: Optional[Callable[[Union[int, str]], Awaitable[None]]] = None
     ):
         self.pytg = pytg
@@ -483,10 +491,19 @@ _auto_end_manager: Optional[AutoEndManager] = None
 
 
 def get_auto_end_manager(
-    pytg: Optional["PyTgCalls"] = None,
+    pytg: Optional[Union["PyTgCalls", "AyuGramAdapter"]] = None,
     on_auto_end_callback: Optional[Callable[[Union[int, str]], Awaitable[None]]] = None
 ) -> AutoEndManager:
-    """Получить singleton экземпляр AutoEndManager."""
+    """
+    Получить singleton экземпляр AutoEndManager.
+
+    Args:
+        pytg: Экземпляр PyTgCalls или AyuGramAdapter (совместимый интерфейс)
+        on_auto_end_callback: Callback при срабатывании auto-end
+
+    Returns:
+        AutoEndManager singleton экземпляр
+    """
     global _auto_end_manager
     if _auto_end_manager is None:
         _auto_end_manager = AutoEndManager(pytg, on_auto_end_callback)
