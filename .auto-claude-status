@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "031-ayugram-streamer",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
+    "completed": 2,
+    "total": 34,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
-    "id": null,
-    "total": 3
+    "current": "Add AyuGram Integration",
+    "id": 1,
+    "total": 4
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 3,
+    "started_at": "2026-01-25T10:20:29.178967"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-25T10:27:23.578527"
 }
