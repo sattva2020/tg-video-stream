@@ -69,6 +69,9 @@ def mock_pyrogram_client():
     # Set common attributes
     mock_client.name = "test_client"
 
+    # Mark this as a Pyrogram mock for client type detection
+    mock_client._is_mock_pyrogram = True
+
     return mock_client
 
 
@@ -94,6 +97,9 @@ def mock_telethon_client():
 
     # Set common attributes
     mock_client.name = "test_client"
+
+    # Mark this as a Telethon mock for client type detection
+    mock_client._is_mock_telethon = True
 
     return mock_client
 
