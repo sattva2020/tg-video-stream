@@ -182,20 +182,29 @@ async def on_chat_update(streaming_client, update: ChatUpdate):
             )
 
 
-async def on_participant_joined(pytg: PyTgCalls, update: UpdatedGroupCallParticipant):
+async def on_participant_joined(streaming_client, update: UpdatedGroupCallParticipant):
     """
     Handler for participant join events.
-    
-    Logs when someone joins the voice chat.
+
+    Logs when someone joins or leaves the voice chat.
+
+    Works with both PyTgCalls and AyuGram backends.
+
+    Args:
+        streaming_client: PyTgCalls or AyuGramAdapter instance
+        update: UpdatedGroupCallParticipant event with chat_id and participant info
     """
     chat_id = update.chat_id
     participant = update.participant
     action = update.action
-    
+
+    # Detect backend type for debugging
+    backend = "AyuGram" if AYUGRAM_AVAILABLE and hasattr(streaming_client, '_event_handlers') else "PyTgCalls"
+
     if action == GroupCallParticipant.Action.JOINED:
-        log.info(f"Participant {participant.user_id} joined voice chat in {chat_id}")
+        log.info(f"Participant {participant.user_id} joined voice chat in {chat_id} (backend={backend})")
     elif action == GroupCallParticipant.Action.LEFT:
-        log.info(f"Participant {participant.user_id} left voice chat in {chat_id}")
+        log.info(f"Participant {participant.user_id} left voice chat in {chat_id} (backend={backend})")
 
 
 def get_redis_url() -> str:
