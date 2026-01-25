@@ -69,6 +69,14 @@ except ImportError:
     PROMETHEUS_AVAILABLE = False
     logging.getLogger("tg_video_streamer").warning("prometheus_client not available — metrics will not be exported")
 
+# AyuGram imports (optional - alternative streaming backend)
+try:
+    from ayugram_client import AyuGramClient
+    AYUGRAM_AVAILABLE = True
+except ImportError:
+    AYUGRAM_AVAILABLE = False
+    logging.getLogger("tg_video_streamer").info("ayugram_client not available — pyrogram/pytgcalls mode only")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s"
