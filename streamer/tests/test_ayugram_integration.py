@@ -613,3 +613,357 @@ class TestAyuGramBackendDetection:
                     # For truthy values, we expect True (or could be True with warning)
                     # The function may return True even without TG_ENGINE_PATH
                     assert result is True or value.lower() in {"1", "true", "yes"}
+
+
+class TestMultiChannelConcurrentStreaming:
+    """Тесты для multi-channel concurrent streaming с AyuGram."""
+
+    @pytest.mark.asyncio
+    async def test_two_adapters_independent_initialization(self):
+        """Два адаптера AyuGram должны создаваться независимо."""
+        from ayugram_adapter import AyuGramAdapter
+
+        # Создаём два независимых адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Проверяем что адаптеры независимы
+        assert adapter1 is not adapter2
+        assert adapter1.client is mock_client1
+        assert adapter2.client is mock_client2
+        assert adapter1._event_handlers is not adapter2._event_handlers
+        assert adapter1._is_running is False
+        assert adapter2._is_running is False
+
+    @pytest.mark.asyncio
+    async def test_two_adapters_can_start_independently(self):
+        """Два адаптера могут запускаться независимо."""
+        from ayugram_adapter import AyuGramAdapter
+
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Запускаем оба адаптера
+        await adapter1.start()
+        await adapter2.start()
+
+        # Проверяем что оба запущены
+        assert adapter1._is_running is True
+        assert adapter2._is_running is True
+
+    @pytest.mark.asyncio
+    async def test_event_handlers_isolated_between_channels(self):
+        """Event handlers для разных каналов не должны пересекаться."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+
+        # Создаём два адаптера для двух каналов
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Регистрируем handlers для канала 1
+        channel1_events = []
+
+        async def channel1_handler(adapter, update):
+            channel1_events.append(update.chat_id)
+
+        adapter1._event_handlers["stream_end"].append(channel1_handler)
+
+        # Регистрируем handlers для канала 2
+        channel2_events = []
+
+        async def channel2_handler(adapter, update):
+            channel2_events.append(update.chat_id)
+
+        adapter2._event_handlers["stream_end"].append(channel2_handler)
+
+        # Эмитируем событие для канала 1
+        await adapter1._emit_event("stream_end", StreamEnded(chat_id=111))
+
+        # Эмитируем событие для канала 2
+        await adapter2._emit_event("stream_end", StreamEnded(chat_id=222))
+
+        # Проверяем изоляцию: channel1 handler получил только свои события
+        assert len(channel1_events) == 1
+        assert channel1_events[0] == 111
+        assert len(channel2_events) == 1
+        assert channel2_events[0] == 222
+
+    @pytest.mark.asyncio
+    async def test_stop_channel_does_not_affect_other_channel(self):
+        """Остановка одного канала не должна влиять на другой."""
+        from ayugram_adapter import AyuGramAdapter
+
+        # Создаём два адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Запускаем оба
+        await adapter1.start()
+        await adapter2.start()
+
+        assert adapter1._is_running is True
+        assert adapter2._is_running is True
+
+        # Останавливаем только первый
+        await adapter1.stop()
+
+        # Проверяем что первый остановлен, а второй работает
+        assert adapter1._is_running is False
+        assert adapter2._is_running is True
+
+    @pytest.mark.asyncio
+    async def test_concurrent_event_emission(self):
+        """События могут обрабатываться concurrently для разных каналов."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+
+        # Создаём два адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Счётчики вызовов
+        handler1_calls = asyncio.Event()
+        handler2_calls = asyncio.Event()
+
+        async def handler1(adapter, update):
+            handler1_calls.set()
+
+        async def handler2(adapter, update):
+            handler2_calls.set()
+
+        adapter1._event_handlers["stream_end"].append(handler1)
+        adapter2._event_handlers["stream_end"].append(handler2)
+
+        # Эмитируем события concurrently
+        await asyncio.gather(
+            adapter1._emit_event("stream_end", StreamEnded(chat_id=111)),
+            adapter2._emit_event("stream_end", StreamEnded(chat_id=222)),
+        )
+
+        # Проверяем что оба handlers были вызваны
+        assert handler1_calls.is_set()
+        assert handler2_calls.is_set()
+
+    @pytest.mark.asyncio
+    async def test_multi_channel_state_isolation(self):
+        """Состояние разных каналов должно быть изолировано."""
+        from ayugram_adapter import AyuGramAdapter
+
+        # Создаём два адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Меняем состояние первого адаптера
+        await adapter1.start()
+        adapter1._event_handlers["stream_end"].append(lambda a, u: None)
+
+        # Проверяем что состояние второго не изменилось
+        assert adapter2._is_running is False
+        assert len(adapter2._event_handlers["stream_end"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_different_event_types_per_channel(self):
+        """Разные типы событий могут обрабатываться на разных каналах."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded, ChatUpdate
+
+        # Создаём два адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Канал 1 обрабатывает stream_end
+        stream_end_events = []
+
+        async def stream_end_handler(adapter, update):
+            stream_end_events.append(update.chat_id)
+
+        adapter1._event_handlers["stream_end"].append(stream_end_handler)
+
+        # Канал 2 обрабатывает chat_update
+        chat_update_events = []
+
+        async def chat_update_handler(adapter, update):
+            chat_update_events.append((update.chat_id, update.status))
+
+        adapter2._event_handlers["chat_update"].append(chat_update_handler)
+
+        # Эмитируем события
+        await adapter1._emit_event("stream_end", StreamEnded(chat_id=111))
+        await adapter2._emit_event("chat_update", ChatUpdate(chat_id=222, status="left"))
+
+        # Проверяем что каждый канал получил только свои события
+        assert len(stream_end_events) == 1
+        assert stream_end_events[0] == 111
+        assert len(chat_update_events) == 1
+        assert chat_update_events[0] == (222, "left")
+
+    @pytest.mark.asyncio
+    async def test_running_channels_dict_pattern(self):
+        """Тест для pattern использования running_channels dict."""
+        from ayugram_adapter import AyuGramAdapter
+
+        # Симулируем running_channels pattern из multi_channel_runner.py
+        running_channels = {}
+
+        # Создаём два клиента и адаптера
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Добавляем каналы в running_channels
+        running_channels["channel1"] = {
+            "client": mock_client1,
+            "ayugram": adapter1,
+            "backend_type": "ayugram",
+            "task": None,
+        }
+
+        running_channels["channel2"] = {
+            "client": mock_client2,
+            "ayugram": adapter2,
+            "backend_type": "ayugram",
+            "task": None,
+        }
+
+        # Проверяем что каналы изолированы
+        assert running_channels["channel1"]["ayugram"] is adapter1
+        assert running_channels["channel2"]["ayugram"] is adapter2
+        assert running_channels["channel1"]["backend_type"] == "ayugram"
+        assert running_channels["channel2"]["backend_type"] == "ayugram"
+
+        # Запускаем оба
+        await adapter1.start()
+        await adapter2.start()
+
+        assert running_channels["channel1"]["ayugram"]._is_running is True
+        assert running_channels["channel2"]["ayugram"]._is_running is True
+
+        # Удаляем канал 1
+        del running_channels["channel1"]
+
+        # Проверяем что канал 2 не пострадал
+        assert "channel1" not in running_channels
+        assert "channel2" in running_channels
+        assert adapter2._is_running is True
+
+    @pytest.mark.asyncio
+    async def test_stream_ended_events_isolation(self):
+        """Тест изоляции stream_ended_events между каналами."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+
+        # Симулируем stream_ended_events pattern
+        stream_ended_events = {}
+
+        # Создаём события для разных chat_id
+        stream_ended_events[111] = asyncio.Event()
+        stream_ended_events[222] = asyncio.Event()
+
+        # Создаём адаптеры
+        mock_client1 = MagicMock()
+        mock_client2 = MagicMock()
+
+        adapter1 = AyuGramAdapter(mock_client1)
+        adapter2 = AyuGramAdapter(mock_client2)
+
+        # Handler для канала 1 устанавливает событие 111
+        async def handler1(adapter, update):
+            if update.chat_id == 111:
+                stream_ended_events[111].set()
+
+        adapter1._event_handlers["stream_end"].append(handler1)
+
+        # Handler для канала 2 устанавливает событие 222
+        async def handler2(adapter, update):
+            if update.chat_id == 222:
+                stream_ended_events[222].set()
+
+        adapter2._event_handlers["stream_end"].append(handler2)
+
+        # Эмитируем события
+        await adapter1._emit_event("stream_end", StreamEnded(chat_id=111))
+        await adapter2._emit_event("stream_end", StreamEnded(chat_id=222))
+
+        # Проверяем изоляцию событий
+        assert stream_ended_events[111].is_set()
+        assert stream_ended_events[222].is_set()
+
+        # Очищаем событие 111
+        stream_ended_events[111].clear()
+
+        # Проверяем что событие 222 всё ещё установлено
+        assert stream_ended_events[222].is_set()
+        assert not stream_ended_events[111].is_set()
+
+    @pytest.mark.asyncio
+    async def test_play_in_progress_isolation(self):
+        """Тест изоляции play_in_progress между каналами."""
+        # Симулируем play_in_progress pattern
+        play_in_progress = {}
+
+        # Устанавливаем play_in_progress для разных chat_id
+        play_in_progress[111] = False
+        play_in_progress[222] = False
+
+        # Симулируем начало воспроизведения на канале 1
+        play_in_progress[111] = True
+
+        # Проверяем изоляцию
+        assert play_in_progress[111] is True
+        assert play_in_progress[222] is False
+
+        # Завершаем воспроизведение на канале 1
+        play_in_progress[111] = False
+
+        # Проверяем состояние
+        assert play_in_progress[111] is False
+        assert play_in_progress[222] is False
+
+    @pytest.mark.asyncio
+    async def test_multiple_event_handlers_per_channel(self):
+        """Несколько handlers могут быть зарегистрированы на одном канале."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Регистрируем несколько handlers
+        handler1_calls = []
+        handler2_calls = []
+
+        async def handler1(adapter, update):
+            handler1_calls.append(update.chat_id)
+
+        async def handler2(adapter, update):
+            handler2_calls.append(update.chat_id)
+
+        adapter._event_handlers["stream_end"].extend([handler1, handler2])
+
+        # Эмитируем событие
+        await adapter._emit_event("stream_end", StreamEnded(chat_id=123))
+
+        # Проверяем что оба handlers были вызваны
+        assert len(handler1_calls) == 1
+        assert len(handler2_calls) == 1
+        assert handler1_calls[0] == 123
+        assert handler2_calls[0] == 123
