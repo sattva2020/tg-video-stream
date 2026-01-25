@@ -707,7 +707,19 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
 
 
 async def stop_channel_stream(channel_id: str) -> bool:
-    """Stop streaming for a channel."""
+    """
+    Stop streaming for a channel.
+
+    Works with both PyTgCalls and AyuGram backends.
+    Automatically detects which backend the channel is using
+    and calls the appropriate leave_call() method.
+
+    Args:
+        channel_id: Channel identifier
+
+    Returns:
+        True if stopped successfully, False otherwise
+    """
     global running_channels
     
     if channel_id not in running_channels:
