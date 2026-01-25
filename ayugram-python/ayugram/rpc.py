@@ -24,9 +24,7 @@ from ayugram.exceptions import (
     AyuGramError,
     ConnectionError,
 )
-from ayugram.exceptions import (
-    TimeoutError as AyuTimeoutError,
-)
+from ayugram.exceptions import TimeoutError as AyuTimeoutError
 
 logger = logging.getLogger("ayugram.rpc")
 
@@ -148,9 +146,9 @@ class JsonRpcClient:
                 connector = TCPConnector(
                     limit=self._connection_pool_size,
                     limit_per_host=self._connection_pool_limit,
-                    keepalive_timeout=self._keep_alive_timeout
-                    if self._enable_keep_alive
-                    else None,
+                    keepalive_timeout=(
+                        self._keep_alive_timeout if self._enable_keep_alive else None
+                    ),
                     enable_cleanup_closed=True,
                 )
 
@@ -255,9 +253,9 @@ class JsonRpcClient:
                 connector = TCPConnector(
                     limit=self._connection_pool_size,
                     limit_per_host=self._connection_pool_limit,
-                    keepalive_timeout=self._keep_alive_timeout
-                    if self._enable_keep_alive
-                    else None,
+                    keepalive_timeout=(
+                        self._keep_alive_timeout if self._enable_keep_alive else None
+                    ),
                     enable_cleanup_closed=True,
                 )
 
