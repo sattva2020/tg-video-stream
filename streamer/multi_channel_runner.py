@@ -57,6 +57,14 @@ except ImportError:
     PYTGCALLS_AVAILABLE = False
     log.warning("pytgcalls not available")
 
+# AyuGram imports (optional - alternative streaming backend)
+try:
+    from ayugram_adapter import AyuGramAdapter
+    AYUGRAM_AVAILABLE = True
+except ImportError:
+    AYUGRAM_AVAILABLE = False
+    log.info("ayugram_adapter not available — pyrogram/pytgcalls mode only")
+
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
