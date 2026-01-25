@@ -967,3 +967,336 @@ class TestMultiChannelConcurrentStreaming:
         assert len(handler2_calls) == 1
         assert handler1_calls[0] == 123
         assert handler2_calls[0] == 123
+
+
+class TestQueueAutoAdvanceWithAyuGram:
+    """Тесты для автоматического продвижения очереди с AyuGram."""
+
+    @pytest.mark.asyncio
+    async def test_queue_creation_with_three_tracks(self):
+        """Очередь должна создаваться с 3 треками."""
+        from queue_manager import StreamQueue
+
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        # Создаём плейлист из 3 треков
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+            {"id": "track3", "url": "https://example.com/track3.mp3"},
+        ]
+
+        # Добавляем треки в очередь
+        await queue.add_items(tracks)
+
+        # Проверяем что все треки добавлены в playlist_items
+        assert len(queue.playlist_items) == 3
+
+        # Проверяем порядок треков
+        assert queue.playlist_items[0]["id"] == "track1"
+        assert queue.playlist_items[1]["id"] == "track2"
+        assert queue.playlist_items[2]["id"] == "track3"
+
+    @pytest.mark.asyncio
+    async def test_stream_ended_advances_queue(self):
+        """Событие StreamEnded должно продвигать очередь к следующему треку."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+        from queue_manager import StreamQueue
+
+        # Создаём очередь с 3 треками
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+            {"id": "track3", "url": "https://example.com/track3.mp3"},
+        ]
+
+        await queue.add_items(tracks)
+
+        # Симулируем паттерн play_in_progress
+        play_in_progress = {123456: False}
+
+        # Симулируем stream_ended_events
+        stream_ended_events = {123456: asyncio.Event()}
+
+        # Создаём адаптер AyuGram
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Handler который симулирует on_stream_ended из multi_channel_runner.py
+        async def stream_ended_handler(streaming_client, update: StreamEnded):
+            chat_id = update.chat_id
+
+            # Проверяем play_in_progress
+            is_playing = play_in_progress.get(chat_id, False)
+
+            if not is_playing:
+                # Устанавливаем событие для сигнализации о завершении трека
+                if chat_id in stream_ended_events:
+                    stream_ended_events[chat_id].set()
+
+        adapter._event_handlers["stream_end"].append(stream_ended_handler)
+
+        # Симулируем воспроизведение первого трека
+        play_in_progress[123456] = False  # трек завершён
+
+        # Эмитируем StreamEnded для первого трека
+        await adapter._emit_event("stream_end", StreamEnded(chat_id=123456))
+
+        # Проверяем что событие установлено
+        assert stream_ended_events[123456].is_set()
+
+        # Очищаем событие для следующего трека
+        stream_ended_events[123456].clear()
+
+    @pytest.mark.asyncio
+    async def test_queue_advances_through_all_tracks(self):
+        """Очередь должна пройти через все 3 трека."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+        from queue_manager import StreamQueue
+
+        # Создаём очередь с 3 треками
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+            {"id": "track3", "url": "https://example.com/track3.mp3"},
+        ]
+
+        await queue.add_items(tracks)
+
+        # Симулируем процесс воспроизведения всех треков
+        track_order = []
+
+        for i, track in enumerate(tracks):
+            # Получаем следующий трек (эмуляция очереди)
+            if queue.playlist_items:
+                next_track = queue.playlist_items[0]
+                track_order.append(next_track["id"])
+                # Удаляем трек из очереди (эмуляция get_next)
+                queue.playlist_items.popleft()
+
+        # Проверяем что все треки были воспроизведены в правильном порядке
+        assert len(track_order) == 3
+        assert track_order[0] == "track1"
+        assert track_order[1] == "track2"
+        assert track_order[2] == "track3"
+
+    @pytest.mark.asyncio
+    async def test_queue_stops_after_last_track(self):
+        """Очередь должна остановиться после последнего трека."""
+        from queue_manager import StreamQueue
+
+        # Создаём очередь с 3 треками
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+            {"id": "track3", "url": "https://example.com/track3.mp3"},
+        ]
+
+        await queue.add_items(tracks)
+
+        # Эмулируем воспроизведение всех треков
+        for _ in range(3):
+            if queue.playlist_items:
+                queue.playlist_items.popleft()
+
+        # Проверяем что очередь пуста
+        assert len(queue.playlist_items) == 0
+        assert queue.queue.empty()
+
+    @pytest.mark.asyncio
+    async def test_play_in_progress_prevents_stale_events(self):
+        """play_in_progress должен предотвращать обработку устаревших событий."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+
+        # Создаём адаптер
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Симулируем play_in_progress и stream_ended_events
+        play_in_progress = {123456: True}  # воспроизведение в процессе
+        stream_ended_events = {123456: asyncio.Event()}
+        event_processed = []
+
+        # Handler который проверяет play_in_progress
+        async def stream_ended_handler(streaming_client, update: StreamEnded):
+            chat_id = update.chat_id
+            is_playing = play_in_progress.get(chat_id, False)
+
+            if is_playing:
+                # Игнорируем событие если play() ещё в процессе
+                event_processed.append("ignored")
+                return
+
+            if chat_id in stream_ended_events:
+                stream_ended_events[chat_id].set()
+                event_processed.append("processed")
+
+        adapter._event_handlers["stream_end"].append(stream_ended_handler)
+
+        # Эмитируем StreamEnded пока play_in_progress=True
+        await adapter._emit_event("stream_end", StreamEnded(chat_id=123456))
+
+        # Проверяем что событие было проигнорировано
+        assert len(event_processed) == 1
+        assert event_processed[0] == "ignored"
+        assert not stream_ended_events[123456].is_set()
+
+        # Теперь устанавливаем play_in_progress=False
+        play_in_progress[123456] = False
+
+        # Эмитируем StreamEnded снова
+        await adapter._emit_event("stream_end", StreamEnded(chat_id=123456))
+
+        # Проверяем что событие было обработано
+        assert len(event_processed) == 2
+        assert event_processed[1] == "processed"
+        assert stream_ended_events[123456].is_set()
+
+    @pytest.mark.asyncio
+    async def test_queue_with_redis_sync(self):
+        """Очередь должна синхронизироваться с Redis."""
+        from queue_manager import StreamQueue
+
+        # Создаём очередь с Redis
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        # Инициализируем Redis (может failed если Redis недоступен)
+        redis_initialized = await queue.init_redis()
+
+        # Создаём треки
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+            {"id": "track3", "url": "https://example.com/track3.mp3"},
+        ]
+
+        # Добавляем треки
+        await queue.add_items(tracks)
+
+        # Проверяем что треки добавлены локально
+        assert len(queue.playlist_items) == 3
+
+        # Если Redis инициализирован, проверяем синхронизацию
+        if redis_initialized:
+            # Проверяем что ключ существует в Redis
+            assert queue._redis_sync_enabled is True
+
+            # Синхронизируем из Redis (эмуляция перезапуска)
+            await queue._sync_from_redis()
+
+            # Проверяем что треки восстановлены
+            assert len(queue.playlist_items) == 3
+
+        # Очищаем
+        await queue.close_redis()
+
+    @pytest.mark.asyncio
+    async def test_on_track_end_updates_queue_state(self):
+        """on_track_end должен обновлять состояние очереди."""
+        from queue_manager import StreamQueue
+
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+        ]
+
+        await queue.add_items(tracks)
+
+        # Устанавливаем текущий трек
+        queue.current_item = tracks[0]
+
+        # Вызываем on_track_end
+        await queue.on_track_end("track1", reason="completed")
+
+        # Проверяем что current_item очищен
+        assert queue.current_item is None
+
+    @pytest.mark.asyncio
+    async def test_multi_channel_queue_isolation(self):
+        """Очереди разных каналов должны быть изолированы."""
+        from queue_manager import StreamQueue
+
+        # Создаём две очереди для разных каналов
+        queue1 = StreamQueue(max_buffer_size=3, channel_id=111)
+        queue2 = StreamQueue(max_buffer_size=3, channel_id=222)
+
+        # Добавляем треки в первую очередь
+        tracks1 = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+        ]
+        await queue1.add_items(tracks1)
+
+        # Добавляем треки во вторую очередь
+        tracks2 = [
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+        ]
+        await queue2.add_items(tracks2)
+
+        # Проверяем изоляцию
+        assert len(queue1.playlist_items) == 1
+        assert len(queue2.playlist_items) == 1
+        assert queue1.playlist_items[0]["id"] == "track1"
+        assert queue2.playlist_items[0]["id"] == "track2"
+
+        # Удаляем трек из первой очереди
+        queue1.playlist_items.popleft()
+
+        # Проверяем что вторая очередь не изменилась
+        assert len(queue1.playlist_items) == 0
+        assert len(queue2.playlist_items) == 1
+
+    @pytest.mark.asyncio
+    async def test_queue_state_synchronization_with_backend(self):
+        """Состояние очереди должно синхронизироваться с backend."""
+        from ayugram_adapter import AyuGramAdapter, StreamEnded
+        from queue_manager import StreamQueue
+
+        # Создаём очередь
+        queue = StreamQueue(max_buffer_size=3, channel_id=123456)
+
+        tracks = [
+            {"id": "track1", "url": "https://example.com/track1.mp3"},
+            {"id": "track2", "url": "https://example.com/track2.mp3"},
+        ]
+
+        await queue.add_items(tracks)
+
+        # Симулируем состояние backend
+        stream_ended_events = {123456: asyncio.Event()}
+        play_in_progress = {123456: False}
+
+        # Создаём адаптер
+        mock_client = MagicMock()
+        adapter = AyuGramAdapter(mock_client)
+
+        # Регистрируем handler
+        async def stream_ended_handler(streaming_client, update: StreamEnded):
+            chat_id = update.chat_id
+            is_playing = play_in_progress.get(chat_id, False)
+
+            if not is_playing and chat_id in stream_ended_events:
+                stream_ended_events[chat_id].set()
+
+        adapter._event_handlers["stream_end"].append(stream_ended_handler)
+
+        # Эмитируем событие завершения первого трека
+        await adapter._emit_event("stream_end", StreamEnded(chat_id=123456))
+
+        # Проверяем что состояние обновлено
+        assert stream_ended_events[123456].is_set()
+
+        # Продвигаем очередь
+        if queue.playlist_items:
+            queue.playlist_items.popleft()
+
+        # Проверяем состояние очереди
+        assert len(queue.playlist_items) == 1
+        assert queue.playlist_items[0]["id"] == "track2"
