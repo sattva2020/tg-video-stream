@@ -3,23 +3,23 @@
   "spec": "030-python-sdk-ayugram",
   "state": "building",
   "subtasks": {
-    "completed": 22,
+    "completed": 25,
     "total": 43,
-    "in_progress": 1,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Stream Control Methods",
+    "current": "Unit Tests",
     "id": null,
-    "total": 4
+    "total": 6
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 23,
+    "number": 25,
     "started_at": "2026-01-25T10:18:58.987395"
   },
-  "last_update": "2026-01-25T12:20:56.320962"
+  "last_update": "2026-01-25T12:33:00.000000"
 }
