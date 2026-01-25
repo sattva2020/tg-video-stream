@@ -3,23 +3,23 @@
   "spec": "031-ayugram-streamer",
   "state": "building",
   "subtasks": {
-    "completed": 13,
+    "completed": 15,
     "total": 34,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Migrate multi_channel_runner.py to AyuGram",
-    "id": 3,
-    "total": 6
+    "current": "Migrate queue_manager.py to AyuGram",
+    "id": 4,
+    "total": 2
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 14,
+    "number": 16,
     "started_at": "2026-01-25T10:20:29.178967"
   },
-  "last_update": "2026-01-25T11:10:14.648829"
+  "last_update": "2026-01-25T11:19:56.677970"
 }
