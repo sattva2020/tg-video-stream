@@ -3,14 +3,14 @@
   "spec": "031-ayugram-streamer",
   "state": "building",
   "subtasks": {
-    "completed": 3,
+    "completed": 4,
     "total": 34,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Add AyuGram Integration",
-    "id": 1,
+    "current": "Migrate main.py to AyuGram",
+    "id": 2,
     "total": 4
   },
   "workers": {
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 4,
+    "number": 5,
     "started_at": "2026-01-25T10:20:29.178967"
   },
-  "last_update": "2026-01-25T10:30:10.540679"
+  "last_update": "2026-01-25T10:33:01.250787"
 }

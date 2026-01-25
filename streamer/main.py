@@ -250,11 +250,24 @@ async def ensure_join(chat: Union[int, str]):
 
 async def play_sequence(items: List[dict]):
     global queue_manager
-    
+
     v_args, a_args = build_ffmpeg_av_args(VIDEO_QUALITY)
     log.info("Playlist contains %d items", len(items))
-    if not pytg:
-        log.warning("pytgcalls not available — entering degraded idle loop (no streaming)")
+
+    # Determine which streaming backend to use
+    streaming_backend = None
+    backend_name = None
+
+    if ayugram:
+        streaming_backend = ayugram
+        backend_name = "AyuGram"
+        log.info("Using AyuGram backend for streaming")
+    elif pytg:
+        streaming_backend = pytg
+        backend_name = "PyTgCalls"
+        log.info("Using PyTgCalls backend for streaming")
+    else:
+        log.warning("No streaming backend available (pytgcalls and AyuGram unavailable) — entering degraded idle loop")
         await asyncio.sleep(60)
         return
 
@@ -264,10 +277,10 @@ async def play_sequence(items: List[dict]):
         queue_manager = QueueManager()
         redis_url = _get_redis_url()
         await queue_manager.init(redis_url)
-    
+
     queue = await queue_manager.get_queue(chat_id)
     await queue.add_items(items)
-    
+
     try:
         while True:
             # Check if we are done
@@ -298,74 +311,144 @@ async def play_sequence(items: List[dict]):
 
                 _report_streamer_status(track_id, "playing", duration=original_item.get("duration"))
 
-                if is_audio:
-                    log.info("Detected audio-only source")
-                    
-                    if profile:
-                        log.info("Transcoding required (%s): %s", profile.get('description'), direct)
-                        
-                        # Log Rust transcoder status (future: use for actual transcoding)
-                        if transcode_client is not None:
-                            is_healthy = await transcode_client.health_check()
-                            if is_healthy:
-                                log.info("Rust transcoder available — will use for transcoding")
-                            else:
-                                log.warning("Rust transcoder unavailable — using direct ffmpeg fallback")
-                        
-                        add_args = ['-re', *profile.get('ffmpeg_args', [])]
-                        try:
+                # Create stream based on backend type
+                if backend_name == "AyuGram":
+                    # AyuGram backend uses MediaStream from adapter
+                    from ayugram_adapter import MediaStream, AudioQuality, VideoQuality
+
+                    if is_audio:
+                        log.info("Detected audio-only source for AyuGram")
+
+                        if profile:
+                            log.info("Transcoding required (%s): %s", profile.get('description'), direct)
+
+                            # Log Rust transcoder status (future: use for actual transcoding)
+                            if transcode_client is not None:
+                                is_healthy = await transcode_client.health_check()
+                                if is_healthy:
+                                    log.info("Rust transcoder available — will use for transcoding")
+                                else:
+                                    log.warning("Rust transcoder unavailable — using direct ffmpeg fallback")
+
+                            # TODO: Map FFmpeg args to AyuGram MediaStream format
+                            # For now, pass URL directly
+                            stream = MediaStream(
+                                url_or_path=direct,
+                                audio_parameters=AudioQuality.HIGH,
+                                ffmpeg_parameters=" ".join(['-re', *profile.get('ffmpeg_args', [])])
+                            )
+                        else:
+                            log.info("No transcoding profile matched, using direct MediaStream")
+                            stream = MediaStream(
+                                url_or_path=direct,
+                                audio_parameters=AudioQuality.HIGH
+                            )
+                    else:
+                        # Video stream
+                        video_quality_map = {
+                            "480p": VideoQuality.SD_480p,
+                            "720p": VideoQuality.HD_720p,
+                            "1080p": VideoQuality.FHD_1080p,
+                            "2k": VideoQuality.QHD_2K,
+                            "4k": VideoQuality.UHD_4K,
+                        }
+                        vq = video_quality_map.get(VIDEO_QUALITY, VideoQuality.HD_720p)
+
+                        stream = MediaStream(
+                            url_or_path=direct,
+                            audio_parameters=AudioQuality.HIGH,
+                            video_parameters=vq,
+                            ffmpeg_parameters=" ".join(['-re', *v_args, *a_args])
+                        )
+
+                    # Join call with AyuGram
+                    await streaming_backend.join_group_call(chat_id, stream)
+
+                else:
+                    # PyTgCalls backend (original implementation)
+                    if is_audio:
+                        log.info("Detected audio-only source")
+
+                        if profile:
+                            log.info("Transcoding required (%s): %s", profile.get('description'), direct)
+
+                            # Log Rust transcoder status (future: use for actual transcoding)
+                            if transcode_client is not None:
+                                is_healthy = await transcode_client.health_check()
+                                if is_healthy:
+                                    log.info("Rust transcoder available — will use for transcoding")
+                                else:
+                                    log.warning("Rust transcoder unavailable — using direct ffmpeg fallback")
+
+                            add_args = ['-re', *profile.get('ffmpeg_args', [])]
+                            try:
+                                stream = AudioPiped(
+                                    direct,
+                                    audio_parameters=HighQualityAudio(),
+                                    additional_ffmpeg_parameters=add_args
+                                )
+                            except Exception as e:
+                                log.exception("Transcoding initialization failed for %s: %s", direct, e)
+                                await asyncio.sleep(1)
+                                continue
+                        else:
+                            log.info("No transcoding profile matched, using direct AudioPiped")
                             stream = AudioPiped(
                                 direct,
-                                audio_parameters=HighQualityAudio(),
-                                additional_ffmpeg_parameters=add_args
+                                audio_parameters=HighQualityAudio()
                             )
-                        except Exception as e:
-                            log.exception("Transcoding initialization failed for %s: %s", direct, e)
-                            await asyncio.sleep(1)
-                            continue
                     else:
-                        log.info("No transcoding profile matched, using direct AudioPiped")
-                        stream = AudioPiped(
+                        stream = AudioVideoPiped(
                             direct,
-                            audio_parameters=HighQualityAudio()
+                            video_parameters=HighQualityVideo(),
+                            audio_parameters=HighQualityAudio(),
+                            additional_ffmpeg_parameters=[
+                                "-re",
+                                *v_args,
+                                *a_args
+                            ]
                         )
-                else:
-                    stream = AudioVideoPiped(
-                        direct,
-                        video_parameters=HighQualityVideo(),
-                        audio_parameters=HighQualityAudio(),
-                        additional_ffmpeg_parameters=[
-                            "-re",
-                            *v_args,
-                            *a_args
-                        ]
-                    )
 
-                await pytg.join_group_call(CHAT_ID, stream)
-                
+                    # Join call with PyTgCalls
+                    await streaming_backend.join_group_call(chat_id, stream)
+
                 # Monitor playback
                 # We check every 5 seconds. Max duration 2 hours (1440 * 5s = 7200s).
-                for _ in range(1440): 
+                for _ in range(1440):
                     await asyncio.sleep(5)
-                    if pytg.get_call(CHAT_ID) is None:
-                        break
-                
-                await pytg.leave_group_call(CHAT_ID)
-                
+                    # Check if call is still active using backend-specific method
+                    if backend_name == "AyuGram":
+                        call_info = await streaming_backend.get_call(chat_id)
+                        if call_info is None:
+                            break
+                    else:
+                        if streaming_backend.get_call(chat_id) is None:
+                            break
+
+                # Leave call using backend-specific method
+                if backend_name == "AyuGram":
+                    await streaming_backend.leave_call(chat_id)
+                else:
+                    await streaming_backend.leave_group_call(chat_id)
+
                 # Notify track ended
                 await queue.on_track_end(track_id, reason="completed")
-                
+
                 _report_streamer_status(track_id, "queued")
-                
+
             except Exception as e:
                 log.exception("Stream error while playing %s: %s", link, e)
-                
+
                 # Notify track ended with error
                 await queue.on_track_end(track_id, reason="error")
-                
+
                 _report_streamer_status(track_id, "error")
                 try:
-                    await pytg.leave_group_call(CHAT_ID)
+                    # Leave call using backend-specific method
+                    if backend_name == "AyuGram":
+                        await streaming_backend.leave_call(chat_id)
+                    else:
+                        await streaming_backend.leave_group_call(chat_id)
                 except Exception:
                     pass
                 await asyncio.sleep(5)
