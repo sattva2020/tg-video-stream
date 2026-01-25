@@ -36,10 +36,11 @@ except ImportError:
 
 # Попытка импорта AyuGram
 try:
-    from ayugram_adapter import AyuGramAdapter
+    from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant
     AYUGRAM_AVAILABLE = True
 except ImportError:
     AYUGRAM_AVAILABLE = False
+    UpdatedGroupCallParticipant = None  # type: ignore
     log.debug("ayugram_adapter not available")
 
 # Попытка импорта Redis
@@ -345,58 +346,110 @@ class AutoEndHandler:
             log.warning(f"Failed to delete timer from Redis: {e}")
     
     # ========== Listeners Monitoring ==========
-    
+
     async def _update_listeners_count(self) -> None:
-        """Обновить количество слушателей."""
-        if not PYTG_AVAILABLE or self.pytg is None:
+        """
+        Обновить количество слушателей.
+
+        Работает с PyTgCalls и AyuGram.
+        Для PyTgCalls использует get_call(), для AyuGram использует get_participants().
+        """
+        if self.pytg is None:
             return
-        
+
         try:
-            # Получить участников голосового чата
-            call = self.pytg.get_call(self.chat_id)
-            if call is None:
-                self._listeners_count = 0
-                return
-            
-            # Получить количество участников (исключая бота)
-            # Примечание: в реальном PyTgCalls это может требовать других методов
-            # Здесь используем приблизительный подход
-            self._listeners_count = 0  # TODO: Реализовать получение участников
-            
+            # Detect backend type
+            is_ayugram = AYUGRAM_AVAILABLE and hasattr(self.pytg, '_event_handlers')
+
+            if is_ayugram:
+                # AyuGram: use get_participants()
+                try:
+                    participants = await self.pytg.get_participants(self.chat_id)
+                    # Exclude the bot itself - filter by user_id if available
+                    self._listeners_count = len(participants)
+                except NotImplementedError:
+                    # AyuGram stub - assume 0 listeners
+                    log.debug("AyuGram get_participants not implemented, assuming 0 listeners")
+                    self._listeners_count = 0
+            else:
+                # PyTgCalls: use get_call()
+                if not PYTG_AVAILABLE:
+                    return
+                call = self.pytg.get_call(self.chat_id)
+                if call is None:
+                    self._listeners_count = 0
+                    return
+
+                # Получить количество участников (исключая бота)
+                # Примечание: в реальном PyTgCalls это может требовать других методов
+                # Здесь используем приблизительный подход
+                self._listeners_count = 0  # TODO: Реализовать получение участников
+
         except Exception as e:
             log.warning(f"Failed to get listeners count: {e}")
             self._listeners_count = 0
-    
+
     async def on_participants_change(
         self,
         chat_id: Union[int, str],
-        participants_count: int
+        participants_count: Optional[int] = None,
+        update: Optional["UpdatedGroupCallParticipant"] = None
     ) -> None:
         """
         Обработчик изменения количества участников.
-        
-        Вызывается из PyTgCalls on_participants_change.
-        
+
+        Работает с PyTgCalls и AyuGram событиями.
+
+        Для PyTgCalls:
+            Вызывается из on_participants_change с параметром participants_count.
+
+        Для AyuGram:
+            Вызывается из on_update с UpdatedGroupCallParticipant событием.
+            Отслеживает individual join/leave события и обновляет счетчик.
+
         Args:
             chat_id: ID чата
-            participants_count: Новое количество участников
+            participants_count: Новое количество участников (PyTgCalls)
+            update: UpdatedGroupCallParticipant событие (AyuGram)
         """
         if str(chat_id) != str(self.chat_id):
             return
-        
+
         old_count = self._listeners_count
-        # Вычитаем 1 (бота) из общего количества
-        self._listeners_count = max(0, participants_count - 1)
-        
-        log.debug(
-            f"Participants change: chat_id={chat_id}, "
-            f"old={old_count}, new={self._listeners_count}"
-        )
-        
+
+        # Detect backend type
+        is_ayugram = AYUGRAM_AVAILABLE and hasattr(self.pytg, '_event_handlers')
+
+        if is_ayugram and update is not None:
+            # AyuGram: обработка индивидуальных событий join/leave
+            action = getattr(update, 'action', '')
+            if action == 'joined' or action == 'JOINED':
+                # Увеличить счетчик (исключая бота, если это он)
+                self._listeners_count += 1
+            elif action == 'left' or action == 'LEFT':
+                # Уменьшить счетчик
+                self._listeners_count = max(0, self._listeners_count - 1)
+
+            log.debug(
+                f"Participant event: chat_id={chat_id}, action={action}, "
+                f"listeners={self._listeners_count}"
+            )
+
+        elif participants_count is not None:
+            # PyTgCalls: использовать готовое количество участников
+            # Вычитаем 1 (бота) из общего количества
+            self._listeners_count = max(0, participants_count - 1)
+
+            log.debug(
+                f"Participants change: chat_id={chat_id}, "
+                f"old={old_count}, new={self._listeners_count}"
+            )
+
+        # Trigger timer logic based on count changes
         if old_count > 0 and self._listeners_count == 0:
             # Были слушатели, теперь нет — запустить таймер
             await self._start_timer()
-            
+
         elif old_count == 0 and self._listeners_count > 0:
             # Не было слушателей, появились — отменить таймер
             await self._cancel_timer()
