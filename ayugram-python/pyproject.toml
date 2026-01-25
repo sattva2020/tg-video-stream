@@ -78,12 +78,24 @@ extend-ignore = ["E203"]
 [tool.pytest.ini_options]
 filterwarnings = [
     "error::DeprecationWarning",
+    # Ignore deprecation warnings from external dependencies
     "ignore::DeprecationWarning:aiohttp.*",
+    "ignore::DeprecationWarning:pyrogram.*",
+    "ignore::DeprecationWarning:telethon.*",
+    "ignore:'audioop' is deprecated:DeprecationWarning",
+    "ignore::pydantic.warnings.PydanticDeprecatedSince20",
 ]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "--cov=ayugram --cov-report=html --cov-report=term"
+addopts = """
+    --verbose
+    --strict-markers
+    --cov=ayugram
+    --cov-report=html
+    --cov-report=term-missing
+    --cov-report=xml
+"""
 
 [tool.coverage.run]
 source = ["ayugram"]
