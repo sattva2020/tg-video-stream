@@ -766,15 +766,24 @@ async def main():
             
             # Initialize auto-end handler if available
             global auto_end_handler
-            if AUTO_END_AVAILABLE and AUTO_END_ENABLED and pytg:
+            streaming_backend = None
+            backend_name = None
+            if ayugram:
+                streaming_backend = ayugram
+                backend_name = "AyuGram"
+            elif pytg:
+                streaming_backend = pytg
+                backend_name = "PyTgCalls"
+
+            if AUTO_END_AVAILABLE and AUTO_END_ENABLED and streaming_backend:
                 try:
                     auto_end_handler = AutoEndHandler(
-                        pytgcalls=pytg,
+                        pytgcalls=streaming_backend,
                         chat_id=CHAT_ID,
                         timeout_minutes=AUTO_END_TIMEOUT_MINUTES
                     )
                     await auto_end_handler.start()
-                    log.info("Auto-end handler started with %d min timeout", AUTO_END_TIMEOUT_MINUTES)
+                    log.info("Auto-end handler started with %s backend, %d min timeout", backend_name, AUTO_END_TIMEOUT_MINUTES)
                 except Exception as e:
                     log.warning("Failed to start auto-end handler: %s", e)
                     auto_end_handler = None
