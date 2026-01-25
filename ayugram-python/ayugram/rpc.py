@@ -157,6 +157,48 @@ class JsonRpcClient:
             # We'll test actual RPC calls later
             logger.debug("Connection test returned: %s (continuing)", exc)
 
+    def _validate_request(self, payload: Dict[str, Any], is_notification: bool = False) -> None:
+        """
+        Validate JSON-RPC request payload for spec compliance.
+
+        Ensures request follows JSON-RPC 2.0 specification requirements.
+
+        Args:
+            payload: Request payload to validate
+            is_notification: True if this is a notification (no id field)
+
+        Raises:
+            ValueError: If payload fails validation
+        """
+        # Check required fields
+        if "jsonrpc" not in payload:
+            raise ValueError("Missing required field 'jsonrpc'")
+
+        if payload["jsonrpc"] != "2.0":
+            raise ValueError(f"Invalid jsonrpc version: {payload['jsonrpc']} (must be '2.0')")
+
+        if "method" not in payload:
+            raise ValueError("Missing required field 'method'")
+
+        if not isinstance(payload["method"], str) or not payload["method"]:
+            raise ValueError("Field 'method' must be a non-empty string")
+
+        # Check id field (required for requests, absent for notifications)
+        if is_notification:
+            if "id" in payload:
+                logger.debug("Notification should not have 'id' field (per JSON-RPC 2.0 spec)")
+        else:
+            if "id" not in payload:
+                raise ValueError("Missing required field 'id' for request")
+
+        # Validate params if present
+        if "params" in payload:
+            params = payload["params"]
+            if not isinstance(params, (dict, list)):
+                raise ValueError(
+                    f"Field 'params' must be an object or array, got {type(params).__name__}"
+                )
+
     async def call(
         self,
         method: str,
@@ -194,12 +236,20 @@ class JsonRpcClient:
                 self._request_id += 1
                 request_id = self._request_id
 
+        # Build payload according to JSON-RPC 2.0 spec
+        # params field should be omitted if None (not sent as empty object)
         payload = {
             "jsonrpc": "2.0",
             "method": method,
-            "params": params or {},
             "id": request_id,
         }
+
+        # Only include params if provided (per JSON-RPC 2.0 spec)
+        if params is not None:
+            payload["params"] = params
+
+        # Validate payload before sending
+        self._validate_request(payload)
 
         logger.debug("JSON-RPC request: %s -> %s", method, params)
 
@@ -272,11 +322,19 @@ class JsonRpcClient:
         if not self._is_connected:
             await self.start()
 
+        # Build notification payload according to JSON-RPC 2.0 spec
+        # Notifications are requests without an "id" field
         payload = {
             "jsonrpc": "2.0",
             "method": method,
-            "params": params or {},
         }
+
+        # Only include params if provided (per JSON-RPC 2.0 spec)
+        if params is not None:
+            payload["params"] = params
+
+        # Validate payload before sending
+        self._validate_request(payload, is_notification=True)
 
         logger.debug("JSON-RPC notification: %s -> %s", method, params)
 
@@ -354,7 +412,7 @@ class JsonRpcClient:
 
     def _parse_response(self, response_data: Dict[str, Any]) -> Any:
         """
-        Parse JSON-RPC response and handle errors.
+        Parse JSON-RPC response and handle errors with spec compliance.
 
         Args:
             response_data: Raw JSON-RPC response dict
@@ -363,13 +421,43 @@ class JsonRpcClient:
             Result data from response
 
         Raises:
-            AyuGramError: If JSON-RPC error response received
+            AyuGramError: If JSON-RPC error response received or invalid response
         """
+        # Validate response structure per JSON-RPC 2.0 spec
+        if not isinstance(response_data, dict):
+            logger.error("Invalid JSON-RPC response: not an object")
+            raise AyuGramError(
+                "Invalid JSON-RPC response: response must be an object",
+                details={"response_type": type(response_data).__name__},
+            )
+
+        # Check jsonrpc version
+        if "jsonrpc" in response_data and response_data["jsonrpc"] != "2.0":
+            logger.warning("JSON-RPC response version: %s (expected '2.0')", response_data["jsonrpc"])
+
+        # Handle error responses
         if "error" in response_data:
             error = response_data["error"]
+
+            # Validate error object structure
+            if not isinstance(error, dict):
+                logger.error("Invalid JSON-RPC error: not an object")
+                raise AyuGramError(
+                    "Invalid JSON-RPC error response: error must be an object",
+                    details={"error": error},
+                )
+
             error_code = error.get("code", -32603)
             error_message = error.get("message", "Unknown error")
             error_data = error.get("data")
+
+            # Validate error code is an integer
+            if not isinstance(error_code, int):
+                logger.error("Invalid JSON-RPC error code: not an integer")
+
+            # Validate error message is a string
+            if not isinstance(error_message, str):
+                logger.error("Invalid JSON-RPC error message: not a string")
 
             logger.error(
                 "JSON-RPC error %d: %s (data: %s)",
@@ -387,10 +475,11 @@ class JsonRpcClient:
                 },
             )
 
+        # Check for result field (required for successful responses)
         if "result" not in response_data:
-            logger.error("Invalid JSON-RPC response: missing 'result' field")
+            logger.error("Invalid JSON-RPC response: missing both 'result' and 'error' fields")
             raise AyuGramError(
-                "Invalid JSON-RPC response: missing 'result' field",
+                "Invalid JSON-RPC response: missing 'result' field (successful responses must have result)",
                 details={"response": response_data},
             )
 
