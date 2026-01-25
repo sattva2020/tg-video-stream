@@ -147,12 +147,12 @@ class TestClientLifecycle:
         stream = AudioPiped("https://example.com/audio.mp3")
         await ayugram_client.join_group_call(test_chat_id, stream)
 
-        assert test_chat_id in ayugram_client.active_calls
+        assert str(test_chat_id) in ayugram_client.active_calls
 
         await ayugram_client.stop()
 
         # Verify call was removed
-        assert test_chat_id not in ayugram_client.active_calls
+        assert str(test_chat_id) not in ayugram_client.active_calls
         assert ayugram_client.is_started == False
 
     @pytest.mark.asyncio

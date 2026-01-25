@@ -165,7 +165,7 @@ class TestReconnectionLogic:
         await client.join_group_call(chat_id, stream)
 
         # Verify call is active
-        assert chat_id in client.active_calls
+        assert str(chat_id) in client.active_calls
 
         # Stop server to simulate connection loss
         await mock_server.stop()
@@ -176,14 +176,14 @@ class TestReconnectionLogic:
         await asyncio.sleep(0.5)  # Wait for reconnection
 
         # Verify call is still tracked after reconnection
-        assert chat_id in client.active_calls
+        assert str(chat_id) in client.active_calls
 
         # Verify operations work after reconnection
         await client.pause(chat_id)
-        assert client._playback_states[chat_id]["is_paused"] is True
+        assert client._playback_states[str(chat_id)]["is_paused"] is True
 
         await client.resume(chat_id)
-        assert client._playback_states[chat_id]["is_paused"] is False
+        assert client._playback_states[str(chat_id)]["is_paused"] is False
 
         # Cleanup
         await client.stop()

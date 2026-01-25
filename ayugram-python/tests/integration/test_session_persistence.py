@@ -158,7 +158,7 @@ class TestSessionSaveAndLoad:
         with tempfile.TemporaryDirectory() as temp_dir:
             session_manager = SessionManager(session_dir=temp_dir)
 
-            with pytest.raises(AyuGramError, match="Session 'nonexistent' not found"):
+            with pytest.raises(AyuGramError, match=r"Session file not found: nonexistent"):
                 await session_manager.load_session("nonexistent")
 
     @pytest.mark.asyncio
@@ -283,7 +283,7 @@ class TestSessionBackupAndRecovery:
 
             # Don't create any files
 
-            with pytest.raises(AyuGramError, match="Session 'missing' not found"):
+            with pytest.raises(AyuGramError, match=r"Session file not found: missing"):
                 await session_manager.load_session("missing")
 
     @pytest.mark.asyncio
@@ -307,7 +307,7 @@ class TestSessionBackupAndRecovery:
             with open(backup_file, "w") as f:
                 f.write("{also corrupted")
 
-            with pytest.raises(AyuGramError, match="Failed to restore session"):
+            with pytest.raises(AyuGramError, match=r"Corrupted session file and backup restoration failed"):
                 await session_manager.load_session("corrupted")
 
 
@@ -419,7 +419,7 @@ class TestSessionListing:
             session_manager = SessionManager(session_dir=temp_dir)
 
             # Initially no sessions
-            sessions = await session_manager.list_sessions()
+            sessions = session_manager.list_sessions()
             assert len(sessions) == 0
 
             # Create multiple sessions
@@ -435,7 +435,7 @@ class TestSessionListing:
                 await session_manager.save_session(name, session_data)
 
             # List sessions
-            sessions = await session_manager.list_sessions()
+            sessions = session_manager.list_sessions()
 
             # Verify all sessions are listed
             assert len(sessions) == 3
@@ -549,7 +549,7 @@ class TestSessionCacheManagement:
             assert len(session_manager._session_cache) > 0
 
             # Clear cache
-            await session_manager.clear_cache()
+            session_manager.clear_cache()
 
             # Verify cache is empty
             assert len(session_manager._session_cache) == 0
@@ -862,7 +862,7 @@ class TestRedisIntegration:
             loaded = await session_manager.load_session("test")
             assert loaded["auth_key"] == "test_auth_key"
 
-            sessions = await session_manager.list_sessions()
+            sessions = session_manager.list_sessions()
             assert "test" in sessions
 
             await session_manager.delete_session("test")

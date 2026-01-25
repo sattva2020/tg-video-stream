@@ -369,10 +369,12 @@ def mock_rpc_session():
     mock_response.json = AsyncMock(return_value={"result": "ok"})
     mock_response.status = 200
 
-    mock_post = AsyncMock()
-    mock_post.return_value.__aenter__.return_value = mock_response
+    # Create async context manager for post
+    mock_post_cm = AsyncMock()
+    mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = Mock(return_value=mock_post_cm)
 
-    mock_session.post = mock_post
     mock_session.close = AsyncMock(return_value=None)
 
     return mock_session

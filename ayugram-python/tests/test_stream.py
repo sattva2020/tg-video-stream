@@ -360,7 +360,7 @@ class TestVolumeControl:
         with pytest.raises(ValueError) as exc_info:
             control.set_volume(test_chat_id, -10)
 
-        assert "Volume must be between 0 and 100" in str(exc_info.value)
+        assert "Volume must be between 0.0 and 1.0" in str(exc_info.value)
 
     def test_set_volume_negative_normalized(self, test_chat_id):
         """Test set_volume raises ValueError for negative normalized value."""

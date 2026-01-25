@@ -328,10 +328,10 @@ class TestExceptionHierarchy:
     def test_base_exception_catches_all(self):
         """Test that AyuGramError catches all specific exceptions."""
         exceptions_to_raise = [
-            ConnectionError("test"),
-            AuthenticationError("test"),
-            CallError("test"),
-            TimeoutError("test"),
+            ConnectionError,
+            AuthenticationError,
+            CallError,
+            TimeoutError,
         ]
 
         for exc_class in exceptions_to_raise:
@@ -438,7 +438,7 @@ class TestExceptionEdgeCases:
         """Test exception with very long message."""
         long_message = "Error: " + "x" * 1000
         error = AyuGramError(long_message)
-        assert len(error.message) == 1006  # "Error: " + 1000 chars
+        assert len(error.message) == 1007  # "Error: " (7 chars) + 1000 'x' chars
 
     def test_exception_with_unicode_message(self):
         """Test exception with unicode characters in message."""

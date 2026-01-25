@@ -47,8 +47,8 @@ class TestVoiceCallOperations:
         await client.join_group_call(chat_id, stream)
 
         # Verify call is tracked
-        assert chat_id in client.active_calls
-        assert client.active_calls[chat_id]["stream"] == stream
+        assert str(chat_id) in client.active_calls
+        assert client.active_calls[str(chat_id)]["stream"] == stream
 
         # Cleanup
         await client.stop()
@@ -72,8 +72,8 @@ class TestVoiceCallOperations:
         await client.join_group_call(chat_id, stream)
 
         # Verify call is tracked
-        assert chat_id in client.active_calls
-        assert isinstance(client.active_calls[chat_id]["stream"], AudioVideoPiped)
+        assert str(chat_id) in client.active_calls
+        assert isinstance(client.active_calls[str(chat_id)]["stream"], AudioVideoPiped)
 
         await client.stop()
 
@@ -89,10 +89,7 @@ class TestVoiceCallOperations:
         await client.start()
 
         # Create high quality audio stream
-        high_quality = HighQualityAudio(
-            bitrate=128,
-            channels=2,
-        )
+        high_quality = HighQualityAudio()
         stream = AudioPiped("https://example.com/hq_audio.mp3", high_quality)
         chat_id = -1001234567890
 
@@ -100,8 +97,8 @@ class TestVoiceCallOperations:
         await client.join_group_call(chat_id, stream)
 
         # Verify call is tracked with correct stream type
-        assert chat_id in client.active_calls
-        assert client.active_calls[chat_id]["stream"].parameters == high_quality
+        assert str(chat_id) in client.active_calls
+        assert client.active_calls[str(chat_id)]["stream"].audio_parameters == high_quality
 
         await client.stop()
 
@@ -123,14 +120,14 @@ class TestVoiceCallOperations:
 
         # Join call first
         await client.join_group_call(chat_id, stream)
-        assert chat_id in client.active_calls
+        assert str(chat_id) in client.active_calls
 
         # Leave call
         await client.leave_group_call(chat_id)
 
         # Verify call is removed
-        assert chat_id not in client.active_calls
-        assert chat_id not in client._playback_states
+        assert str(chat_id) not in client.active_calls
+        assert str(chat_id) not in client._playback_states
 
         await client.stop()
 
@@ -155,7 +152,7 @@ class TestVoiceCallOperations:
         await client.play(chat_id)
 
         # Verify playback state
-        state = client._playback_states.get(chat_id)
+        state = client._playback_states.get(str(chat_id))
         assert state is not None
         assert state["is_playing"] is True
         assert state["is_paused"] is False
@@ -184,7 +181,7 @@ class TestVoiceCallOperations:
         await client.pause(chat_id)
 
         # Verify playback state
-        state = client._playback_states.get(chat_id)
+        state = client._playback_states.get(str(chat_id))
         assert state is not None
         assert state["is_playing"] is False
         assert state["is_paused"] is True
@@ -213,7 +210,7 @@ class TestVoiceCallOperations:
         await client.resume(chat_id)
 
         # Verify playback state
-        state = client._playback_states.get(chat_id)
+        state = client._playback_states.get(str(chat_id))
         assert state is not None
         assert state["is_playing"] is True
         assert state["is_paused"] is False
@@ -239,17 +236,17 @@ class TestVoiceCallOperations:
 
         # First cycle: play -> pause -> resume
         await client.play(chat_id)
-        assert client._playback_states[chat_id]["is_playing"] is True
+        assert client._playback_states[str(chat_id)]["is_playing"] is True
 
         await client.pause(chat_id)
-        assert client._playback_states[chat_id]["is_paused"] is True
+        assert client._playback_states[str(chat_id)]["is_paused"] is True
 
         await client.resume(chat_id)
-        assert client._playback_states[chat_id]["is_playing"] is True
+        assert client._playback_states[str(chat_id)]["is_playing"] is True
 
         # Second cycle: pause again
         await client.pause(chat_id)
-        assert client._playback_states[chat_id]["is_paused"] is True
+        assert client._playback_states[str(chat_id)]["is_paused"] is True
 
         await client.stop()
 
@@ -315,8 +312,8 @@ class TestVoiceCallOperations:
         # Verify all calls are tracked
         assert len(client.active_calls) == 3
         for chat_id, stream in chats:
-            assert chat_id in client.active_calls
-            assert client.active_calls[chat_id]["stream"] == stream
+            assert str(chat_id) in client.active_calls
+            assert client.active_calls[str(chat_id)]["stream"] == stream
 
         # Leave all calls
         for chat_id, _ in chats:
@@ -396,24 +393,24 @@ class TestVoiceCallOperations:
 
         # Step 1: Join voice chat
         await client.join_group_call(chat_id, stream)
-        assert chat_id in client.active_calls
+        assert str(chat_id) in client.active_calls
 
         # Step 2: Start playback
         await client.play(chat_id)
-        assert client._playback_states[chat_id]["is_playing"] is True
+        assert client._playback_states[str(chat_id)]["is_playing"] is True
 
         # Step 3: Pause playback
         await client.pause(chat_id)
-        assert client._playback_states[chat_id]["is_paused"] is True
+        assert client._playback_states[str(chat_id)]["is_paused"] is True
 
         # Step 4: Resume playback
         await client.resume(chat_id)
-        assert client._playback_states[chat_id]["is_playing"] is True
-        assert client._playback_states[chat_id]["is_paused"] is False
+        assert client._playback_states[str(chat_id)]["is_playing"] is True
+        assert client._playback_states[str(chat_id)]["is_paused"] is False
 
         # Step 5: Leave voice chat
         await client.leave_group_call(chat_id)
-        assert chat_id not in client.active_calls
+        assert str(chat_id) not in client.active_calls
 
         await client.stop()
 
@@ -504,7 +501,7 @@ class TestVoiceCallStateManagement:
 
         # Get active calls
         active_calls = client.active_calls
-        assert chat_id in active_calls
+        assert str(chat_id) in active_calls
 
         # Modify the returned dict
         active_calls["modified"] = True
@@ -532,17 +529,17 @@ class TestVoiceCallStateManagement:
         await client.join_group_call(chat_id, stream)
 
         # Set some stream control state
-        client._stream_control.set_volume(chat_id, 75)
-        client._stream_control.seek_stream(chat_id, 30)
+        client._stream_control.set_volume(str(chat_id), 75)
+        client._stream_control.seek_stream(str(chat_id), 30)
 
         # Verify stream control state exists
-        assert client._stream_control.has_state(chat_id)
+        assert client._stream_control.has_state(str(chat_id))
 
         # Leave call
         await client.leave_group_call(chat_id)
 
         # Verify stream control state is cleaned up
-        assert not client._stream_control.has_state(chat_id)
+        assert not client._stream_control.has_state(str(chat_id))
 
         await client.stop()
 

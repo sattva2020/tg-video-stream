@@ -42,15 +42,17 @@ async def mock_aiohttp_session():
     mock_response.json = AsyncMock()
     mock_response.text = AsyncMock(return_value="Error text")
 
-    # Mock post context manager
-    mock_post = AsyncMock()
-    mock_post.return_value.__aenter__.return_value = mock_response
-    mock_session.post = mock_post
+    # Mock post context manager - use regular Mock, not AsyncMock
+    mock_post_cm = AsyncMock()
+    mock_post_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_post_cm.__aexit__ = AsyncMock(return_value=None)
+    mock_session.post = Mock(return_value=mock_post_cm)
 
     # Mock get context manager (for connection testing)
-    mock_get = AsyncMock()
-    mock_get.return_value.__aenter__.return_value = mock_response
-    mock_session.get = mock_get
+    mock_get_cm = AsyncMock()
+    mock_get_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_get_cm.__aexit__ = AsyncMock(return_value=None)
+    mock_session.get = Mock(return_value=mock_get_cm)
 
     # Mock close
     mock_session.close = AsyncMock()
@@ -600,10 +602,14 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_timeout_error(self, rpc_client, mock_aiohttp_session):
         """Test handling of timeout error."""
-        mock_aiohttp_session.post.side_effect = asyncio.TimeoutError()
+        # Make __aenter__ raise TimeoutError every time it's called
+        mock_post_cm = mock_aiohttp_session.post.return_value
+        mock_post_cm.__aenter__.side_effect = asyncio.TimeoutError
 
         rpc_client._session = mock_aiohttp_session
+        rpc_client._owned_session = False  # Prevent reconnection from creating real session
         rpc_client._is_connected = True
+        rpc_client.max_retries = 0  # No retries for this test
 
         with pytest.raises(AyuTimeoutError, match="Request timeout"):
             await rpc_client.call("test_method")
@@ -611,10 +617,14 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_connection_error(self, rpc_client, mock_aiohttp_session):
         """Test handling of connection error."""
-        mock_aiohttp_session.post.side_effect = ClientError("Connection failed")
+        # Make __aenter__ raise ClientError
+        mock_post_cm = mock_aiohttp_session.post.return_value
+        mock_post_cm.__aenter__.side_effect = ClientError("Connection failed")
 
         rpc_client._session = mock_aiohttp_session
+        rpc_client._owned_session = False  # Prevent reconnection from creating real session
         rpc_client._is_connected = True
+        rpc_client.max_retries = 0  # No retries for this test
 
         with pytest.raises(ConnectionError, match="Request failed"):
             await rpc_client.call("test_method")
@@ -643,22 +653,33 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_retry_on_timeout(self, rpc_client, mock_aiohttp_session, rpc_success_response):
         """Test that request is retried on timeout."""
-        mock_response = mock_aiohttp_session.post.return_value.__aenter__.return_value
+        mock_post_cm = mock_aiohttp_session.post.return_value
+        mock_response = mock_post_cm.__aenter__.return_value
 
-        # Fail first time, succeed second time
+        # Create separate mock context managers for each call
         call_count = 0
 
-        async def side_effect(*args, **kwargs):
+        mock_post_cm1 = AsyncMock()
+        mock_post_cm1.__aenter__ = AsyncMock(side_effect=asyncio.TimeoutError)
+        mock_post_cm1.__aexit__ = AsyncMock(return_value=None)
+
+        mock_post_cm2 = AsyncMock()
+        mock_post_cm2.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_post_cm2.__aexit__ = AsyncMock(return_value=None)
+        mock_response.json.return_value = rpc_success_response
+
+        def side_effect(*args, **kwargs):
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                raise asyncio.TimeoutError()
-            mock_response.json.return_value = rpc_success_response
-            return mock_response
+                return mock_post_cm1
+            else:
+                return mock_post_cm2
 
         mock_aiohttp_session.post.side_effect = side_effect
 
         rpc_client._session = mock_aiohttp_session
+        rpc_client._owned_session = False  # Prevent reconnection from creating real session
         rpc_client._is_connected = True
 
         result = await rpc_client.call("test_method")
@@ -669,9 +690,12 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_retry_exhaustion(self, rpc_client, mock_aiohttp_session):
         """Test that retry is exhausted after max attempts."""
-        mock_aiohttp_session.post.side_effect = asyncio.TimeoutError()
+        # Create multiple mock context managers, all raising TimeoutError
+        mock_post_cm = mock_aiohttp_session.post.return_value
+        mock_post_cm.__aenter__.side_effect = asyncio.TimeoutError
 
         rpc_client._session = mock_aiohttp_session
+        rpc_client._owned_session = False  # Prevent reconnection from creating real session
         rpc_client._is_connected = True
         rpc_client.max_retries = 2
 
@@ -693,10 +717,12 @@ class TestReconnection:
     @pytest.mark.asyncio
     async def test_reconnect_on_connection_loss(self, rpc_client, mock_aiohttp_session, rpc_success_response):
         """Test reconnection on connection loss."""
-        mock_response = mock_aiohttp_session.post.return_value.__aenter__.return_value
+        mock_post_cm = mock_aiohttp_session.post.return_value
+        mock_response = mock_post_cm.__aenter__.return_value
         mock_response.json.return_value = rpc_success_response
 
         rpc_client._session = mock_aiohttp_session
+        rpc_client._owned_session = False  # Prevent reconnection from creating real session
         rpc_client._is_connected = True
 
         # Mock _try_reconnect to return True
@@ -704,13 +730,22 @@ class TestReconnection:
             # First call fails with connection error
             call_count = 0
 
-            async def side_effect(*args, **kwargs):
+            mock_post_cm1 = AsyncMock()
+            mock_post_cm1.__aenter__ = AsyncMock(side_effect=ConnectionError("Connection lost"))
+            mock_post_cm1.__aexit__ = AsyncMock(return_value=None)
+
+            mock_post_cm2 = AsyncMock()
+            mock_post_cm2.__aenter__ = AsyncMock(return_value=mock_response)
+            mock_post_cm2.__aexit__ = AsyncMock(return_value=None)
+            mock_response.json.return_value = rpc_success_response
+
+            def side_effect(*args, **kwargs):
                 nonlocal call_count
                 call_count += 1
                 if call_count == 1:
-                    raise ConnectionError("Connection lost")
-                mock_response.json.return_value = rpc_success_response
-                return mock_response
+                    return mock_post_cm1
+                else:
+                    return mock_post_cm2
 
             mock_aiohttp_session.post.side_effect = side_effect
 

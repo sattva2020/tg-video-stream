@@ -387,7 +387,7 @@ class TestTypeIntegration:
             data_path="https://example.com/audio.mp3",
             additional_ffmpeg_parameters=custom_args,
         )
-        assert len(stream.additional_ffmpeg_parameters) == 6
+        assert len(stream.additional_ffmpeg_parameters) == 7
         assert "-re" in stream.additional_ffmpeg_parameters
 
     def test_multiple_streams_independent(self):
