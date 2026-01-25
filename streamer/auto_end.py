@@ -166,8 +166,23 @@ class AutoEndHandler:
         """Получить Redis ключ для таймера."""
         return f"{self.TIMER_KEY_PREFIX}:{self.chat_id}"
     
+    # ========== Public API ==========
+
+    async def get_participants_count(self) -> int:
+        """
+        Получить текущее количество участников.
+
+        Обновляет счетчик участников через AyuGram или PyTgCalls
+        и возвращает актуальное значение.
+
+        Returns:
+            int: Количество участников (слушателей)
+        """
+        await self._update_listeners_count()
+        return self._listeners_count
+
     # ========== Lifecycle ==========
-    
+
     async def start(self) -> None:
         """Начать мониторинг слушателей."""
         if self._is_running:
