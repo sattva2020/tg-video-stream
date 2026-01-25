@@ -101,6 +101,8 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
     name = type(e).__name__
     text = (str(e) or "").upper()
 
+    # === General Telegram Errors ===
+
     # Чаще всего auto_start упирается в админские права.
     if "ADMIN" in name.upper() or "CHAT_ADMIN_REQUIRED" in text or "ADMIN" in text:
         return (
@@ -115,6 +117,66 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
             "Похоже на сетевую проблему Telegram Calls (UDP/VoIP). Проверьте звонки 1-на-1, "
             "попробуйте другую сеть/моб.интернет или VPN."
         )
+
+    # === AyuGram/tg-engine Specific Errors ===
+
+    # tg-engine service not available or not configured
+    if "TG_ENGINE" in text or "AYUGRAM" in text and ("NOT FOUND" in text or "NOT AVAILABLE" in text or "MISSING" in text):
+        return (
+            "Сервис tg-engine для AyuGram не найден. Убедитесь, что USE_AYUGRAM=1 "
+            "и AYUGRAM_TG_ENGINE_PATH указывает на корректный путь к tg-engine."
+        )
+
+    # AyuGram group call creation errors
+    if "GROUP_CALL" in text or "GROUPCALL" in text:
+        if "ALREADY EXISTS" in text or "EXISTS" in text:
+            return "Видеочат уже существует. Попробуйте оставить текущий видеочат и переподключиться."
+        if "NOT FOUND" in text or "ACTIVE" in text:
+            return "Активный видеочат не найден. Убедитесь, что видеочат создан, или попробуйте TG_CALL_AUTO_START=1."
+
+    # AyuGram stream/media errors
+    if "STREAM" in text or "MEDIASTREAM" in text:
+        if "UNSUPPORTED" in text or "FORMAT" in text or "CODEC" in text:
+            return (
+                "Неподдерживаемый формат медиа. Проверьте URL, попробуйте другой формат "
+                "или настройте FFmpeg параметры через FFMPEG_ARGS."
+            )
+        if "TIMEOUT" in text or "FETCH" in text or "DOWNLOAD" in text:
+            return "Ошибка загрузки медиа. Проверьте URL или попробуйте другой источник/видео."
+
+    # AyuGram connection/initialization errors
+    if "INITIALIZ" in text or "CONNECT" in text or "START" in text:
+        if "TIMEOUT" in text or "FAILED" in text:
+            return "Ошибка инициализации AyuGram/tg-engine. Проверьте, что сервис запущен и доступен."
+
+    # FFmpeg/Audio-Video processing errors (AyuGram uses FFmpeg internally)
+    if "FFMPEG" in text or "ENCODER" in text or "DECODER" in text:
+        return (
+            "Ошибка обработки медиа (FFmpeg). Проверьте логи, попробуйте другие параметры качества "
+            "или другой видеофайл."
+        )
+
+    # tg-engine process errors
+    if "PROCESS" in text or "SUBPROCESS" in text:
+        if "EXIT" in text or "TERMINATED" in text or "DIED" in text:
+            return "Процесс tg-engine завершился с ошибкой. Проверьте системные логи и перезапустите сервис."
+
+    # AyuGram adapter specific (NotImplementedError from stub)
+    if "NOTIMPLEMENTED" in name.upper() and "AYUGRAM" in text:
+        return (
+            "Функция AyuGram еще не реализована. Это временное ограничение stub-реализации. "
+            "Требуется интеграция с tg-engine сервисом."
+        )
+
+    # File/URL access errors
+    if "FILE" in text or "PATH" in text or "URL" in text:
+        if "NOT FOUND" in text or "ACCESS" in text or "PERMISSION" in text:
+            return "Ошибка доступа к файлу или URL. Проверьте путь и права доступа."
+
+    # Audio/Video quality parameter errors
+    if "QUALITY" in text or "AUDIO" in text or "VIDEO" in text:
+        if "INVALID" in text or "UNKNOWN" in text:
+            return "Неверные параметры качества. Проверьте настройки AUDIO_QUALITY и VIDEO_QUALITY."
 
     return None
 
