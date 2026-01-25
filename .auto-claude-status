@@ -3,23 +3,23 @@
   "spec": "030-python-sdk-ayugram",
   "state": "building",
   "subtasks": {
-    "completed": 12,
+    "completed": 13,
     "total": 43,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Session Management",
+    "current": "PyTgCalls-Compatible Client",
     "id": null,
-    "total": 4
+    "total": 6
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 13,
+    "number": 14,
     "started_at": "2026-01-25T10:18:58.987395"
   },
-  "last_update": "2026-01-25T11:22:08.109139"
+  "last_update": "2026-01-25T11:30:15.053347"
 }

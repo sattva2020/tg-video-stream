@@ -20,9 +20,8 @@ __version__ = "0.1.0"
 __author__ = "Sattva Team"
 __license__ = "MIT"
 
-# Main exports (will be implemented in subsequent subtasks)
-# These imports are commented out until the modules are created
-# from .client import AyuGramClient
+# Main exports
+from .client import AyuGramClient
 from .types import AudioPiped, AudioVideoPiped, HighQualityAudio, HighQualityVideo
 from .exceptions import (
     AyuGramError,
@@ -34,7 +33,7 @@ from .exceptions import (
 
 __all__ = [
     "__version__",
-    # "AyuGramClient",  # Uncomment when implemented
+    "AyuGramClient",
     "AudioPiped",
     "AudioVideoPiped",
     "HighQualityAudio",
