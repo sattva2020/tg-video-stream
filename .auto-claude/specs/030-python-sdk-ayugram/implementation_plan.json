@@ -950,7 +950,9 @@
               "Stop mock server"
             ]
           },
-          "status": "pending"
+          "status": "completed",
+          "notes": "Created verify_examples.py script to run all example scripts in demo mode. All 3 examples passed verification successfully: basic_usage.py (1.25s), session_management.py (3.38s), voice_call.py (2.78s). All examples demonstrate SDK functionality: client lifecycle, session management, voice call operations, stream control, and event handling. Examples run successfully in demo mode without requiring actual server.",
+          "updated_at": "2026-01-25T12:00:00.000000+00:00"
         }
       ]
     }
@@ -1117,6 +1119,6 @@
   "qa_signoff": null,
   "status": "in_progress",
   "planStatus": "in_progress",
-  "updated_at": "2026-01-25T12:46:28.230Z",
+  "updated_at": "2026-01-25T12:50:53.416Z",
   "last_updated": "2026-01-25T12:00:00.000000+00:00"
 }
