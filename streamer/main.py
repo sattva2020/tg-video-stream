@@ -71,11 +71,11 @@ except ImportError:
 
 # AyuGram imports (optional - alternative streaming backend)
 try:
-    from ayugram_client import AyuGramClient
+    from ayugram_adapter import AyuGramAdapter
     AYUGRAM_AVAILABLE = True
 except ImportError:
     AYUGRAM_AVAILABLE = False
-    logging.getLogger("tg_video_streamer").info("ayugram_client not available — pyrogram/pytgcalls mode only")
+    logging.getLogger("tg_video_streamer").info("ayugram_adapter not available — pyrogram/pytgcalls mode only")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -190,15 +190,43 @@ app = Client(
     workdir="./tdlib"
 ) if SESSION_STRING else None
 
+# Initialize streaming backend (AyuGram or PyTgCalls)
 pytg = None
-if PYG_AVAILABLE and app:
-    try:
-        pytg = PyTgCalls(app)
-    except Exception as e:
-        log.warning("pytgcalls initialization failed: %s", e)
-        pytg = None
-elif not PYG_AVAILABLE:
-    log.warning("pytgcalls not available — running in degraded mode (no voice/video).")
+ayugram = None
+
+if USE_AYUGRAM == "1" or USE_AYUGRAM == "ayugram":
+    # Use AyuGram adapter
+    if AYUGRAM_AVAILABLE and app:
+        try:
+            ayugram = AyuGramAdapter(app)
+            log.info("AyuGram adapter initialized (USE_AYUGRAM=%s)", USE_AYUGRAM)
+        except Exception as e:
+            log.warning("AyuGram adapter initialization failed: %s", e)
+            ayugram = None
+    elif not AYUGRAM_AVAILABLE:
+        log.warning("AyuGram requested (USE_AYUGRAM=%s) but not available — falling back to PyTgCalls", USE_AYUGRAM)
+        # Fall through to PyTgCalls initialization below
+        if PYG_AVAILABLE and app:
+            try:
+                pytg = PyTgCalls(app)
+            except Exception as e:
+                log.warning("pytgcalls initialization failed: %s", e)
+                pytg = None
+        elif not PYG_AVAILABLE:
+            log.warning("pytgcalls not available — running in degraded mode (no voice/video).")
+elif not SESSION_STRING:
+    # No session string yet - skip initialization
+    pass
+else:
+    # Use PyTgCalls (default)
+    if PYG_AVAILABLE and app:
+        try:
+            pytg = PyTgCalls(app)
+        except Exception as e:
+            log.warning("pytgcalls initialization failed: %s", e)
+            pytg = None
+    elif not PYG_AVAILABLE:
+        log.warning("pytgcalls not available — running in degraded mode (no voice/video).")
 
 async def ensure_join(chat: Union[int, str]):
     if not pytg:
