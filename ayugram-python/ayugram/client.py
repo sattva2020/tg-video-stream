@@ -20,6 +20,7 @@ Example:
     >>> await client.idle()
 """
 
+import asyncio
 import logging
 from typing import Union, Optional, Any
 
@@ -120,6 +121,7 @@ class AyuGramClient:
         self._is_started = False
         self._active_calls: dict = {}
         self._playback_states: dict = {}  # chat_id -> playback state
+        self._event_listeners: dict = {}  # event_name -> list of callbacks
 
         # Log which client type we're using
         if is_pyrogram:
@@ -495,6 +497,139 @@ class AyuGramClient:
             logger.error(f"Unexpected error resuming playback: {e}")
             raise CallError(f"Unexpected error resuming: {e}") from e
 
+    def on(self, event_name: str, callback):
+        """
+        Register an event listener for the specified event.
+
+        This method allows you to subscribe to events emitted by the client.
+        Multiple listeners can be registered for the same event.
+
+        Args:
+            event_name: Name of the event to listen for (e.g., 'stream_ended', 'call_joined')
+            callback: Async or sync function to call when the event is triggered.
+                     The callback will receive event-specific arguments.
+
+        Raises:
+            TypeError: If callback is not callable
+            AyuGramError: If event_name is empty or invalid
+
+        Example:
+            >>> def on_stream_ended(chat_id):
+            ...     print(f"Stream ended for {chat_id}")
+            >>>
+            >>> client.on('stream_ended', on_stream_ended)
+            >>>
+            >>> # Async callback
+            >>> async def on_call_joined(chat_id):
+            ...     await handle_join(chat_id)
+            >>>
+            >>> client.on('call_joined', on_call_joined)
+
+        Note:
+            Supported events include:
+            - 'stream_ended': Emitted when a stream finishes playing
+            - 'call_joined': Emitted when successfully joining a group call
+            - 'call_left': Emitted when leaving a group call
+            - 'connection_state_changed': Emitted when connection state changes
+        """
+        if not event_name:
+            raise AyuGramError("Event name cannot be empty")
+
+        if not callable(callback):
+            raise TypeError(f"Callback must be callable, got {type(callback).__name__}")
+
+        # Initialize event list if not exists
+        if event_name not in self._event_listeners:
+            self._event_listeners[event_name] = []
+
+        # Add callback to event listeners
+        self._event_listeners[event_name].append(callback)
+
+        logger.debug(f"Registered listener for event '{event_name}': {callback.__name__}")
+
+    def remove_listener(self, event_name: str, callback):
+        """
+        Remove an event listener for the specified event.
+
+        This method removes a previously registered callback from the event.
+        If the callback is not registered, this method does nothing.
+
+        Args:
+            event_name: Name of the event to remove the listener from
+            callback: The callback function to remove
+
+        Raises:
+            AyuGramError: If event_name is empty or invalid
+
+        Example:
+            >>> def on_stream_ended(chat_id):
+            ...     print(f"Stream ended for {chat_id}")
+            >>>
+            >>> client.on('stream_ended', on_stream_ended)
+            >>> client.remove_listener('stream_ended', on_stream_ended)
+
+        Note:
+            If multiple instances of the same callback are registered,
+            only the first occurrence will be removed.
+        """
+        if not event_name:
+            raise AyuGramError("Event name cannot be empty")
+
+        if event_name not in self._event_listeners:
+            logger.warning(f"No listeners registered for event '{event_name}'")
+            return
+
+        try:
+            # Remove the first occurrence of the callback
+            self._event_listeners[event_name].remove(callback)
+            logger.debug(f"Removed listener for event '{event_name}': {callback.__name__}")
+
+            # Clean up empty event lists
+            if not self._event_listeners[event_name]:
+                del self._event_listeners[event_name]
+                logger.debug(f"Removed empty event '{event_name}'")
+
+        except ValueError:
+            logger.warning(
+                f"Callback {callback.__name__} not found in listeners for event '{event_name}'"
+            )
+
+    async def _emit_event(self, event_name: str, *args, **kwargs):
+        """
+        Emit an event to all registered listeners.
+
+        This internal method triggers all callbacks registered for the
+        specified event with the provided arguments.
+
+        Args:
+            event_name: Name of the event to emit
+            *args: Positional arguments to pass to callbacks
+            **kwargs: Keyword arguments to pass to callbacks
+
+        Note:
+            - Async callbacks are awaited
+            - Sync callbacks are called directly
+            - Errors in callbacks are logged but don't stop other callbacks
+            - This method is used internally by the client
+        """
+        if event_name not in self._event_listeners:
+            logger.debug(f"No listeners registered for event '{event_name}'")
+            return
+
+        logger.debug(f"Emitting event '{event_name}' to {len(self._event_listeners[event_name])} listeners")
+
+        for callback in self._event_listeners[event_name]:
+            try:
+                # Check if callback is async
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(*args, **kwargs)
+                else:
+                    callback(*args, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"Error in event listener '{callback.__name__}' for event '{event_name}': {e}"
+                )
+
     @property
     def is_started(self) -> bool:
         """
@@ -522,6 +657,20 @@ class AyuGramClient:
             >>> print(f"Active calls: {len(calls)}")
         """
         return self._active_calls.copy()
+
+    @property
+    def event_listeners(self) -> dict:
+        """
+        Get all registered event listeners.
+
+        Returns:
+            Dictionary mapping event names to lists of callbacks
+
+        Example:
+            >>> listeners = client.event_listeners
+            >>> print(f"Registered events: {list(listeners.keys())}")
+        """
+        return {event: listeners.copy() for event, listeners in self._event_listeners.items()}
 
 
 __all__ = ["AyuGramClient"]
