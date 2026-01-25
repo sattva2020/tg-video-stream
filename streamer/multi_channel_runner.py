@@ -70,7 +70,7 @@ from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
 
 # Global state
-running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
+running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, ayugram/pytg, backend_type, task}
 stream_ended_events: Dict[int, asyncio.Event] = {}  # chat_id -> Event (signals stream ended)
 playlist_update_events: Dict[str, asyncio.Event] = {}  # channel_id -> Event (signals playlist update)
 play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
@@ -218,35 +218,51 @@ def get_redis_url() -> str:
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
 
 
-# NOTE: ensure_group_call() was removed - PyTgCalls handles this automatically!
-# When calling pytg.play() with GroupCallConfig(auto_start=True) (default),
-# PyTgCalls creates the group call if it doesn't exist.
-# See: pytgcalls/methods/stream/play.py lines 71-76
+# NOTE: ensure_group_call() was removed - both backends handle this automatically!
+# When calling join_group_call() with GroupCallConfig(auto_start=True) (default),
+# the backend (PyTgCalls or AyuGram) creates the group call if it doesn't exist.
+# See: pytgcalls/methods/stream/play.py lines 71-76 (for PyTgCalls reference)
 
 
 async def start_channel_stream(config: ChannelConfig) -> bool:
     """
     Start streaming for a channel.
-    
-    Creates Pyrogram client with channel's session and starts PyTgCalls.
+
+    Creates Pyrogram client with channel's session and starts streaming backend.
+    Supports both PyTgCalls and AyuGram backends (selected via USE_AYUGRAM).
     """
     global running_channels
-    
+
     channel_id = config.channel_id
     log.info(f"Starting stream for channel {channel_id} ({config.name})")
-    
+
+    # Determine which backend to use
+    use_ayugram = _env_truthy("USE_AYUGRAM", default=False)
+    backend = "AyuGram" if use_ayugram and AYUGRAM_AVAILABLE else "PyTgCalls"
+    log.info(f"Channel {channel_id}: Using {backend} backend")
+
     # Check if already running
     if channel_id in running_channels:
         log.warning(f"Channel {channel_id} already running, stopping first")
         await stop_channel_stream(channel_id)
-    
+
     if not config.session_string:
         log.error(f"No session string for channel {channel_id}")
         return False
-    
-    if not PYROGRAM_AVAILABLE or not PYTGCALLS_AVAILABLE:
-        log.error("Pyrogram or PyTgCalls not available")
+
+    # Verify required libraries are available for selected backend
+    if not PYROGRAM_AVAILABLE:
+        log.error("Pyrogram not available")
         return False
+
+    if use_ayugram:
+        if not AYUGRAM_AVAILABLE:
+            log.error("AyuGram requested but not available")
+            return False
+    else:
+        if not PYTGCALLS_AVAILABLE:
+            log.error("PyTgCalls not available")
+            return False
     
     try:
         # Create Pyrogram client with channel's session
@@ -381,32 +397,58 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             await client.stop()
             return f"Could not resolve chat: {last_error}"
         
-        # NOTE: We removed manual ensure_group_call() - PyTgCalls handles this automatically!
-        # When calling pytg.play() with GroupCallConfig(auto_start=True) (default),
-        # PyTgCalls will create the group call if it doesn't exist.
-        # This avoids race conditions with PyTgCalls' internal cache.
-        
-        # Create PyTgCalls instance
-        pytg = PyTgCalls(client)
-        
+        # NOTE: We removed manual ensure_group_call() - both backends handle this automatically!
+        # When calling join_group_call/play() with auto_start=True (default),
+        # the backend will create the group call if it doesn't exist.
+        # This avoids race conditions with internal caches.
+
+        # Create streaming backend instance (PyTgCalls or AyuGram)
+        streaming_backend = None
+        if use_ayugram and AYUGRAM_AVAILABLE:
+            from ayugram_adapter import AyuGramAdapter
+            streaming_backend = AyuGramAdapter(client)
+            log.info(f"Channel {channel_id}: Created AyuGram adapter")
+        else:
+            streaming_backend = PyTgCalls(client)
+            log.info(f"Channel {channel_id}: Created PyTgCalls instance")
+
+        # Import filters based on backend
+        if use_ayugram and AYUGRAM_AVAILABLE:
+            from ayugram_adapter import filters as ayugram_filters
+            backend_filters = ayugram_filters
+        else:
+            backend_filters = fl
+
         # Register StreamEnded handler for automatic track switching
-        @pytg.on_update(fl.stream_end())
-        async def stream_end_handler(_: PyTgCalls, update: StreamEnded):
+        @streaming_backend.on_update(backend_filters.stream_end())
+        async def stream_end_handler(_, update: StreamEnded):
             await on_stream_ended(_, update)
-        
+
         # Register ChatUpdate handler for kicked/left detection
-        @pytg.on_update(fl.chat_update(
-            ChatUpdate.Status.KICKED | ChatUpdate.Status.LEFT_GROUP | ChatUpdate.Status.CLOSED_VOICE_CHAT
-        ))
-        async def chat_update_handler(_: PyTgCalls, update: ChatUpdate):
+        if use_ayugram and AYUGRAM_AVAILABLE:
+            from ayugram_adapter import ChatUpdate as AyuGramChatUpdate
+            status_mask = (
+                AyuGramChatUpdate.Status.KICKED |
+                AyuGramChatUpdate.Status.LEFT_GROUP |
+                AyuGramChatUpdate.Status.CLOSED_VOICE_CHAT
+            )
+        else:
+            status_mask = (
+                ChatUpdate.Status.KICKED |
+                ChatUpdate.Status.LEFT_GROUP |
+                ChatUpdate.Status.CLOSED_VOICE_CHAT
+            )
+
+        @streaming_backend.on_update(backend_filters.chat_update(status_mask))
+        async def chat_update_handler(_, update: ChatUpdate):
             await on_chat_update(_, update)
-        
+
         # Register participant join/leave handler for logging
-        @pytg.on_update(fl.call_participant())
-        async def participant_handler(_: PyTgCalls, update: UpdatedGroupCallParticipant):
+        @streaming_backend.on_update(backend_filters.call_participant())
+        async def participant_handler(_, update: UpdatedGroupCallParticipant):
             await on_participant_joined(_, update)
 
-        # Sanity-check get_me before starting PyTgCalls - helps detect BadMsgNotification early
+        # Sanity-check get_me before starting streaming backend - helps detect BadMsgNotification early
         get_me_attempts = 0
         while get_me_attempts < 4:
             try:
@@ -423,24 +465,24 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 log.warning(f"Channel {channel_id}: client.get_me failed (attempt {get_me_attempts}): {e!r}")
                 await asyncio.sleep(1 + get_me_attempts * 2)
         else:
-            log.error(f"Channel {channel_id}: client.get_me failed repeatedly before starting PyTgCalls, aborting")
+            log.error(f"Channel {channel_id}: client.get_me failed repeatedly before starting {backend}, aborting")
             try:
                 await client.stop()
             except Exception:
                 pass
             return f"Failed to start: client.get_me failed"
         
-        # Start PyTgCalls with retries to handle transient BadMsgNotification errors
+        # Start streaming backend with retries to handle transient BadMsgNotification errors
         start_attempts = 0
         while start_attempts < 5:
             try:
-                await pytg.start()
+                await streaming_backend.start()
                 break
             except BadMsgNotification as e:
                 start_attempts += 1
-                log.warning(f"BadMsgNotification during pytg.start (attempt {start_attempts}): {e}. Retrying after backoff...")
+                log.warning(f"BadMsgNotification during {backend_type}.start (attempt {start_attempts}): {e}. Retrying after backoff...")
                 try:
-                    await pytg.stop()
+                    await streaming_backend.stop()
                 except Exception:
                     pass
                 try:
@@ -448,7 +490,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 except Exception:
                     pass
                 await asyncio.sleep(1 + start_attempts * 2)
-                # Recreate client and pytg for next attempt
+                # Recreate client and streaming_backend for next attempt
                 client = Client(
                     name=f"channel_{channel_id}",
                     api_id=config.api_id,
@@ -457,38 +499,42 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                     in_memory=True
                 )
                 await client.start()
-                pytg = PyTgCalls(client)
-                # re-register handlers
-                @pytg.on_update(fl.stream_end())
-                async def stream_end_handler(_: PyTgCalls, update: StreamEnded):
+
+                if use_ayugram and AYUGRAM_AVAILABLE:
+                    from ayugram_adapter import AyuGramAdapter
+                    streaming_backend = AyuGramAdapter(client)
+                else:
+                    streaming_backend = PyTgCalls(client)
+
+                # Re-register handlers
+                @streaming_backend.on_update(backend_filters.stream_end())
+                async def stream_end_handler(_, update: StreamEnded):
                     await on_stream_ended(_, update)
-                @pytg.on_update(fl.chat_update(
-                    ChatUpdate.Status.KICKED | ChatUpdate.Status.LEFT_GROUP | ChatUpdate.Status.CLOSED_VOICE_CHAT
-                ))
-                async def chat_update_handler(_: PyTgCalls, update: ChatUpdate):
+                @streaming_backend.on_update(backend_filters.chat_update(status_mask))
+                async def chat_update_handler(_, update: ChatUpdate):
                     await on_chat_update(_, update)
-                @pytg.on_update(fl.call_participant())
-                async def participant_handler(_: PyTgCalls, update: UpdatedGroupCallParticipant):
+                @streaming_backend.on_update(backend_filters.call_participant())
+                async def participant_handler(_, update: UpdatedGroupCallParticipant):
                     await on_participant_joined(_, update)
             except RPCError as e:
-                log.exception(f"RPCError during pytg.start: {e}")
+                log.exception(f"RPCError during {backend_type}.start: {e}")
                 try:
-                    await pytg.stop()
+                    await streaming_backend.stop()
                 except Exception:
                     pass
                 return f"Failed to start: {str(e)}"
             except AttributeError as e:
                 # AttributeError here often means Pyrogram returned an unexpected object
                 # (e.g. BadMsgNotification) which caused attribute access to fail.
-                # Treat AttributeError as transient: retry with backoff, recreate client and pytg,
+                # Treat AttributeError as transient: retry with backoff, recreate client and streaming_backend,
                 # and re-resolve the chat id in case the session cache needs refreshing.
                 start_attempts += 1
                 log.warning(
-                    f"AttributeError during pytg.start (attempt {start_attempts}): {e!r}. "
+                    f"AttributeError during streaming_backend.start (attempt {start_attempts}): {e!r}. "
                     "Treating as transient and retrying after backoff..."
                 )
                 try:
-                    await pytg.stop()
+                    await streaming_backend.stop()
                 except Exception:
                     pass
                 try:
@@ -499,7 +545,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                 # Backoff delay increases with attempts
                 await asyncio.sleep(1 + start_attempts * 3)
 
-                # Recreate client and pytg for next attempt
+                # Recreate client and streaming_backend for next attempt
                 client = Client(
                     name=f"channel_{channel_id}",
                     api_id=config.api_id,
@@ -525,36 +571,39 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                         resolved_chat_id = refreshed.id
                         log.info(f"Channel {channel_id}: Re-resolved chat after retry: {refreshed.title} (id: {resolved_chat_id})")
                     else:
-                        log.debug(f"Channel {channel_id}: Re-resolve did not return chat; will retry pytg.start anyway")
+                        log.debug(f"Channel {channel_id}: Re-resolve did not return chat; will retry streaming_backend.start anyway")
                 except Exception as e4:
                     log.debug(f"Channel {channel_id}: Exception while re-resolving chat: {e4}")
 
-                pytg = PyTgCalls(client)
-                # re-register handlers
-                @pytg.on_update(fl.stream_end())
-                async def stream_end_handler(_: PyTgCalls, update: StreamEnded):
+                if use_ayugram and AYUGRAM_AVAILABLE:
+                    from ayugram_adapter import AyuGramAdapter
+                    streaming_backend = AyuGramAdapter(client)
+                else:
+                    streaming_backend = PyTgCalls(client)
+
+                # Re-register handlers
+                @streaming_backend.on_update(backend_filters.stream_end())
+                async def stream_end_handler(_, update: StreamEnded):
                     await on_stream_ended(_, update)
-                @pytg.on_update(fl.chat_update(
-                    ChatUpdate.Status.KICKED | ChatUpdate.Status.LEFT_GROUP | ChatUpdate.Status.CLOSED_VOICE_CHAT
-                ))
-                async def chat_update_handler(_: PyTgCalls, update: ChatUpdate):
+                @streaming_backend.on_update(backend_filters.chat_update(status_mask))
+                async def chat_update_handler(_, update: ChatUpdate):
                     await on_chat_update(_, update)
-                @pytg.on_update(fl.call_participant())
-                async def participant_handler(_: PyTgCalls, update: UpdatedGroupCallParticipant):
+                @streaming_backend.on_update(backend_filters.call_participant())
+                async def participant_handler(_, update: UpdatedGroupCallParticipant):
                     await on_participant_joined(_, update)
 
                 # Continue retry loop
                 continue
             except Exception as e:
-                # Some pyrogram/pytgcalls errors arrive as generic exceptions but contain
+                # Some pyrogram/backend errors arrive as generic exceptions but contain
                 # transient hints (BadMsgNotification / msg_seqno too high). Treat these
                 # as retryable with the same backoff and recreation logic.
                 msg = str(e) or ""
                 if "BadMsgNotification" in msg or "msg_seqno" in msg or "too high" in msg:
                     start_attempts += 1
-                    log.warning(f"Transient error during pytg.start (attempt {start_attempts}): {e!r}. Retrying after backoff...")
+                    log.warning(f"Transient error during streaming_backend.start (attempt {start_attempts}): {e!r}. Retrying after backoff...")
                     try:
-                        await pytg.stop()
+                        await streaming_backend.stop()
                     except Exception:
                         pass
                     try:
@@ -563,7 +612,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                         pass
                     await asyncio.sleep(1 + start_attempts * 3)
 
-                    # Recreate client and pytg for next attempt
+                    # Recreate client and streaming_backend for next attempt
                     client = Client(
                         name=f"channel_{channel_id}",
                         api_id=config.api_id,
@@ -577,51 +626,62 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
                         log.exception(f"Failed to restart client after transient error: {e2}")
                         continue
 
-                    pytg = PyTgCalls(client)
-                    # re-register handlers
-                    @pytg.on_update(fl.stream_end())
-                    async def stream_end_handler(_: PyTgCalls, update: StreamEnded):
+                    if use_ayugram and AYUGRAM_AVAILABLE:
+                        from ayugram_adapter import AyuGramAdapter
+                        streaming_backend = AyuGramAdapter(client)
+                    else:
+                        streaming_backend = PyTgCalls(client)
+
+                    # Re-register handlers
+                    @streaming_backend.on_update(backend_filters.stream_end())
+                    async def stream_end_handler(_, update: StreamEnded):
                         await on_stream_ended(_, update)
-                    @pytg.on_update(fl.chat_update(
-                        ChatUpdate.Status.KICKED | ChatUpdate.Status.LEFT_GROUP | ChatUpdate.Status.CLOSED_VOICE_CHAT
-                    ))
-                    async def chat_update_handler(_: PyTgCalls, update: ChatUpdate):
+                    @streaming_backend.on_update(backend_filters.chat_update(status_mask))
+                    async def chat_update_handler(_, update: ChatUpdate):
                         await on_chat_update(_, update)
-                    @pytg.on_update(fl.call_participant())
-                    async def participant_handler(_: PyTgCalls, update: UpdatedGroupCallParticipant):
+                    @streaming_backend.on_update(backend_filters.call_participant())
+                    async def participant_handler(_, update: UpdatedGroupCallParticipant):
                         await on_participant_joined(_, update)
 
                     continue
 
-                log.exception(f"Unexpected error during pytg.start: {e}")
+                log.exception(f"Unexpected error during streaming_backend.start: {e}")
                 try:
-                    await pytg.stop()
+                    await streaming_backend.stop()
                 except Exception:
                     pass
                 return f"Failed to start: {str(e)}"
         else:
-            log.error(f"Channel {channel_id}: Could not start PyTgCalls after retries")
+            log.error(f"Channel {channel_id}: Could not start {backend} after retries")
             try:
                 await client.stop()
             except Exception:
                 pass
-            return f"Failed to start: could not initialize PyTgCalls"
+            return f"Failed to start: could not initialize {backend}"
 
-        # Wait for PyTgCalls to fully initialize
+        # Wait for streaming backend to fully initialize
         await asyncio.sleep(5)
         
         # Create stream ended event for this chat
         stream_ended_events[resolved_chat_id] = asyncio.Event()
         playlist_update_events[channel_id] = asyncio.Event()
         play_in_progress[resolved_chat_id] = False  # Initialize play flag
-        
+
         # Store channel state with resolved chat_id
-        running_channels[channel_id] = {
+        # Store backend with appropriate key for later use
+        channel_data = {
             "client": client,
-            "pytg": pytg,
             "config": config,
-            "chat_id": resolved_chat_id
+            "chat_id": resolved_chat_id,
+            "backend_type": backend.lower()  # "ayugram" or "pytg"
         }
+
+        if use_ayugram and AYUGRAM_AVAILABLE:
+            channel_data["ayugram"] = streaming_backend
+        else:
+            channel_data["pytg"] = streaming_backend
+
+        running_channels[channel_id] = channel_data
         
         # Start playback loop in background
         task = asyncio.create_task(
@@ -668,27 +728,28 @@ async def stop_channel_stream(channel_id: str) -> bool:
                 pass
         
         # Leave call
-        pytg = channel_data.get("pytg")
+        backend_type = channel_data.get("backend_type", "pytg")
+        streaming_backend = channel_data.get("ayugram") if backend_type == "ayugram" else channel_data.get("pytg")
         chat_id = channel_data.get("chat_id")
-        if pytg and chat_id:
+        if streaming_backend and chat_id:
             try:
-                await pytg.leave_call(chat_id)
+                await streaming_backend.leave_call(chat_id)
             except Exception as e:
                 log.debug(f"Leave call error (ok): {e}")
-            
+
             # Remove stream ended event for this chat
             if chat_id in stream_ended_events:
                 del stream_ended_events[chat_id]
             if chat_id in play_in_progress:
                 del play_in_progress[chat_id]
-        
+
         if channel_id in playlist_update_events:
             del playlist_update_events[channel_id]
 
-        # Stop PyTgCalls
-        if pytg:
+        # Stop streaming backend
+        if streaming_backend:
             try:
-                await pytg.stop()
+                await streaming_backend.stop()
             except Exception:
                 pass
         
@@ -723,13 +784,15 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     backend_url = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
     
     log.info(f"Starting playback loop for channel {channel_id}")
-    
+
     channel_data = running_channels.get(channel_id)
     if not channel_data:
         log.error(f"Channel {channel_id} data not found")
         return
-    
-    pytg = channel_data["pytg"]
+
+    # Get streaming backend (AyuGram or PyTgCalls)
+    backend_type = channel_data.get("backend_type", "pytg")
+    streaming_backend = channel_data.get("ayugram") if backend_type == "ayugram" else channel_data.get("pytg")
     chat_id = channel_data["chat_id"]  # Use resolved chat_id from start_channel_stream
     
     v_args, a_args = build_ffmpeg_av_args(config.video_quality)
@@ -965,10 +1028,10 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                 media_kwargs["video_parameters"] = video_quality
                                 media = MediaStream(stream_url, **media_kwargs)
                             
-                            log.info(f"Channel {channel_id}: Calling pytg.play() with MediaStream('{stream_url}')")
-                            
-                            # PyTgCalls has built-in retry (4 attempts) in connect_call.py
-                            # GroupCallConfig(auto_start=True) tells PyTgCalls to create
+                            log.info(f"Channel {channel_id}: Calling {backend_type}.join_group_call() with MediaStream('{stream_url}')")
+
+                            # Both PyTgCalls and AyuGram have built-in retry logic
+                            # GroupCallConfig(auto_start=True) tells the backend to create
                             # the video chat if it doesn't exist (default behavior)
                             auto_start = _env_truthy("TG_CALL_AUTO_START", default=True)
                             if not auto_start:
@@ -980,10 +1043,10 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             try:
                                 # Set flag BEFORE play() to ignore any StreamEnded during execution
                                 play_in_progress[chat_id] = True
-                                
+
                                 try:
                                     # Try to join explicitly first to handle BadMsgNotification
-                                    await pytg.join_group_call(
+                                    await streaming_backend.join_group_call(
                                         chat_id,
                                         media,
                                         config=GroupCallConfig(auto_start=auto_start)
@@ -993,20 +1056,20 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                         log.warning(f"Channel {channel_id}: BadMsgNotification on join, retrying in 2s...")
                                         await asyncio.sleep(2)
                                         # Retry with play() which handles connection internally
-                                        await pytg.play(
+                                        await streaming_backend.play(
                                             chat_id,
                                             media,
                                             config=GroupCallConfig(auto_start=auto_start)
                                         )
                                     else:
                                         # If join failed for other reasons, try play() anyway as fallback
-                                        await pytg.play(
-                                            chat_id, 
-                                            media, 
+                                        await streaming_backend.play(
+                                            chat_id,
+                                            media,
                                             config=GroupCallConfig(auto_start=auto_start)
                                         )
 
-                                log.info(f"Channel {channel_id}: pytg.play() completed successfully")
+                                log.info(f"Channel {channel_id}: {backend_type}.join_group_call() completed successfully")
                             except Exception as play_error:
                                 formatted = _format_exception(play_error)
                                 hint = _human_hint_for_telegram_error(play_error)
