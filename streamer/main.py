@@ -49,13 +49,13 @@ except ImportError:
     PROMETHEUS_AVAILABLE = False
     logging.getLogger("tg_video_streamer").warning("prometheus_client not available — metrics will not be exported")
 
-# AyuGram imports (optional - alternative streaming backend)
+# AyuGram imports (streaming backend)
 try:
     from ayugram_adapter import AyuGramAdapter
     AYUGRAM_AVAILABLE = True
 except ImportError:
     AYUGRAM_AVAILABLE = False
-    logging.getLogger("tg_video_streamer").info("ayugram_adapter not available — pyrogram/pytgcalls mode only")
+    logging.getLogger("tg_video_streamer").info("ayugram_adapter not available — streaming functionality requires it")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,8 +76,8 @@ LOOP = os.getenv("LOOP", "1") == "1"
 PROMETHEUS_PORT = int(os.getenv("PROMETHEUS_PORT", "9090"))
 AUTO_END_TIMEOUT_MINUTES = int(os.getenv("AUTO_END_TIMEOUT_MINUTES", "5"))
 AUTO_END_ENABLED = os.getenv("AUTO_END_ENABLED", "1") == "1"
-# USE_AYUGRAM: Select implementation - 'pytg' (default) or 'ayugram'
-USE_AYUGRAM = os.getenv("USE_AYUGRAM", "pytg")
+# USE_AYUGRAM: Select streaming backend - 'ayugram' (default) or 'pytg' (legacy)
+USE_AYUGRAM = os.getenv("USE_AYUGRAM", "ayugram")
 
 # Global auto-end handler instance
 auto_end_handler = None
@@ -170,7 +170,7 @@ app = Client(
     workdir="./tdlib"
 ) if SESSION_STRING else None
 
-# Initialize streaming backend (AyuGram or PyTgCalls)
+# Initialize streaming backend (AyuGram or PyTgCalls legacy)
 pytg = None
 ayugram = None
 
@@ -184,7 +184,7 @@ if USE_AYUGRAM == "1" or USE_AYUGRAM == "ayugram":
             log.warning("AyuGram adapter initialization failed: %s", e)
             ayugram = None
     elif not AYUGRAM_AVAILABLE:
-        log.warning("AyuGram requested (USE_AYUGRAM=%s) but not available — falling back to PyTgCalls", USE_AYUGRAM)
+        log.warning("AyuGram requested (USE_AYUGRAM=%s) but not available — falling back to PyTgCalls (legacy)", USE_AYUGRAM)
         # Fall through to PyTgCalls initialization below
         if PYG_AVAILABLE and app:
             try:
@@ -198,7 +198,7 @@ elif not SESSION_STRING:
     # No session string yet - skip initialization
     pass
 else:
-    # Use PyTgCalls (default)
+    # Use PyTgCalls (legacy)
     if PYG_AVAILABLE and app:
         try:
             pytg = PyTgCalls(app)
@@ -247,7 +247,7 @@ async def play_sequence(items: List[dict]):
         backend_name = "PyTgCalls"
         log.info("Using PyTgCalls backend for streaming")
     else:
-        log.warning("No streaming backend available (pytgcalls and AyuGram unavailable) — entering degraded idle loop")
+        log.warning("No streaming backend available (AyuGram and PyTgCalls unavailable) — entering degraded idle loop")
         await asyncio.sleep(60)
         return
 
@@ -345,7 +345,7 @@ async def play_sequence(items: List[dict]):
                     await streaming_backend.join_group_call(chat_id, stream)
 
                 else:
-                    # PyTgCalls backend (original implementation)
+                    # PyTgCalls backend (legacy)
                     if is_audio:
                         log.info("Detected audio-only source")
 
@@ -389,7 +389,7 @@ async def play_sequence(items: List[dict]):
                             ]
                         )
 
-                    # Join call with PyTgCalls
+                    # Join call with streaming backend
                     await streaming_backend.join_group_call(chat_id, stream)
 
                 # Monitor playback
@@ -409,6 +409,7 @@ async def play_sequence(items: List[dict]):
                 if backend_name == "AyuGram":
                     await streaming_backend.leave_call(chat_id)
                 else:
+                    # PyTgCalls legacy
                     await streaming_backend.leave_group_call(chat_id)
 
                 # Notify track ended
@@ -468,7 +469,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
     elif pytg:
         streaming_backend = pytg
         backend_name = "PyTgCalls"
-        log.info("Using PyTgCalls backend for channel %s", channel_id)
+        log.info("Using PyTgCalls backend (legacy) for channel %s", channel_id)
     else:
         # No backend available - try to initialize one
         if config.session_string:
@@ -492,7 +493,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
                         backend_name = "AyuGram"
                         log.info("AyuGram adapter initialized successfully")
                     else:
-                        log.warning("AyuGram requested but not available — falling back to PyTgCalls")
+                        log.warning("AyuGram requested but not available — falling back to PyTgCalls (legacy)")
                         if PYG_AVAILABLE:
                             pytg = PyTgCalls(app)
                             await pytg.start()
@@ -503,7 +504,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
                             log.error("Neither AyuGram nor PyTgCalls available")
                             return False
                 else:
-                    # Use PyTgCalls (default)
+                    # Use PyTgCalls (legacy)
                     if PYG_AVAILABLE:
                         pytg = PyTgCalls(app)
                         await pytg.start()
@@ -582,7 +583,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
                                 video_parameters=vq
                             )
                         else:
-                            # PyTgCalls backend
+                            # PyTgCalls backend (legacy)
                             v_args, a_args = build_ffmpeg_av_args(config.video_quality or "720p")
                             stream = AudioVideoPiped(stream_url, HighQualityVideo(), HighQualityAudio())
 
@@ -590,6 +591,7 @@ async def handle_channel_start(config: ChannelConfig) -> bool:
                         if backend_name == "AyuGram":
                             await streaming_backend.join_group_call(chat_id, stream)
                         else:
+                            # PyTgCalls legacy
                             await streaming_backend.join_group_call(chat_id, stream)
 
                         # Monitor playback
@@ -667,8 +669,7 @@ async def handle_channel_stop(channel_id: str) -> bool:
     # Try to leave group call
     if pytg:
         try:
-            # We need to know which chat_id to leave
-            # For now, assume CHAT_ID (legacy single-channel mode)
+            # PyTgCalls legacy - leave call
             await pytg.leave_group_call(CHAT_ID)
         except Exception:
             pass

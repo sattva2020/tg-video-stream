@@ -1,12 +1,12 @@
 """
-AyuGram Adapter - Compatibility Layer for PyTgCalls API.
+AyuGram Adapter - Streaming Backend for Telegram Voice/Video Chats.
 
-This module provides an adapter that mimics the PyTgCalls interface but will
-use AyuGram's tg-engine service underneath. This allows gradual migration
-from PyTgCalls to AyuGram without breaking existing code.
+This module provides an adapter for streaming media to Telegram voice/video chats
+using AyuGram's tg-engine service. The API is designed for compatibility with
+existing streaming code.
 
 Current Status: Stub/Placeholder implementation
-- Interface matches PyTgCalls API
+- Interface designed for streaming operations
 - Methods raise NotImplementedError with helpful messages
 - Ready for tg-engine service integration
 
@@ -18,12 +18,12 @@ Usage:
     adapter = AyuGramAdapter(client)
     await adapter.start()
 
-    # Use same API as PyTgCalls
+    # Stream media to voice/video chat
     await adapter.join_group_call(chat_id, media_stream)
     await adapter.leave_call(chat_id)
 
 Environment Variables:
-    USE_AYUGRAM=1: Enable AyuGram adapter (default: disabled)
+    USE_AYUGRAM=1: Enable AyuGram adapter (default: ayugram)
     AYUGRAM_TG_ENGINE_PATH: Path to tg-engine binary/service
 """
 
@@ -39,7 +39,7 @@ log = logging.getLogger("ayugram_adapter")
 
 
 class AudioQuality(Enum):
-    """Audio quality options (matching PyTgCalls)."""
+    """Audio quality options for streaming."""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -47,7 +47,7 @@ class AudioQuality(Enum):
 
 
 class VideoQuality(Enum):
-    """Video quality options (matching PyTgCalls)."""
+    """Video quality options for streaming."""
     SD_480p = "480p"
     HD_720p = "720p"
     FHD_1080p = "1080p"
@@ -58,7 +58,7 @@ class VideoQuality(Enum):
 @dataclass
 class MediaStream:
     """
-    Media stream configuration (matching PyTgCalls MediaStream).
+    Media stream configuration.
 
     This is a simplified version for compatibility. The actual AyuGram
     implementation will use tg-engine's native media stream format.
@@ -80,7 +80,7 @@ class MediaStream:
 
 @dataclass
 class GroupCallConfig:
-    """Group call configuration (matching PyTgCalls)."""
+    """Group call configuration for streaming."""
     auto_start: bool = True
 
 
@@ -127,7 +127,7 @@ class UpdatedGroupCallParticipant:
 
 
 class Filter:
-    """Event filter system (matching PyTgCalls filters)."""
+    """Event filter system for streaming events."""
 
     @staticmethod
     def stream_end():
@@ -157,10 +157,10 @@ filters = Filter
 
 class AyuGramAdapter:
     """
-    AyuGram adapter that mimics PyTgCalls interface.
+    AyuGram streaming adapter for Telegram voice/video chats.
 
-    This adapter provides the same API as PyTgCalls but will use
-    AyuGram's tg-engine service for actual streaming operations.
+    This adapter provides an API for streaming media to Telegram voice/video chats
+    using AyuGram's tg-engine service for actual streaming operations.
 
     TODO: Integrate with tg-engine service via subprocess or RPC.
     Current implementation is a stub that raises NotImplementedError.
@@ -223,7 +223,7 @@ class AyuGramAdapter:
 
     def on_update(self, filter_func: Callable):
         """
-        Decorator to register event handlers (matching PyTgCalls API).
+        Decorator to register event handlers.
 
         Args:
             filter_func: Filter function to determine which updates trigger handler
@@ -312,8 +312,7 @@ class AyuGramAdapter:
 
         raise NotImplementedError(
             "AyuGram join_group_call not yet implemented. "
-            "tg-engine service integration required. "
-            "Set USE_AYUGRAM=0 to use PyTgCalls instead."
+            "tg-engine service integration required."
         )
 
     async def play(
@@ -340,8 +339,7 @@ class AyuGramAdapter:
 
         raise NotImplementedError(
             "AyuGram play not yet implemented. "
-            "tg-engine service integration required. "
-            "Set USE_AYUGRAM=0 to use PyTgCalls instead."
+            "tg-engine service integration required."
         )
 
     async def leave_call(self, chat_id: int) -> None:
@@ -362,8 +360,7 @@ class AyuGramAdapter:
 
         raise NotImplementedError(
             "AyuGram leave_call not yet implemented. "
-            "tg-engine service integration required. "
-            "Set USE_AYUGRAM=0 to use PyTgCalls instead."
+            "tg-engine service integration required."
         )
 
     async def pause(self, chat_id: int) -> None:

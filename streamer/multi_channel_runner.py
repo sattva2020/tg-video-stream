@@ -4,7 +4,7 @@ Multi-channel Stream Runner with Redis Control.
 This module integrates:
 - Redis command handler for receiving backend commands
 - Multi-channel manager for running concurrent streams
-- Pyrogram/PyTgCalls for Telegram streaming
+- Pyrogram/AyuGram for Telegram streaming
 
 Usage:
     python multi_channel_runner.py
@@ -38,14 +38,14 @@ try:
     from pyrogram import Client
     from pyrogram.errors import SessionExpired, AuthKeyInvalid, RPCError, BadMsgNotification
     # Note: 'from pyrogram import raw' removed - not needed anymore
-    # PyTgCalls handles group call creation internally via GroupCallConfig(auto_start=True)
+    # AyuGram handles group call creation internally via GroupCallConfig(auto_start=True)
     PYROGRAM_AVAILABLE = True
 except ImportError:
     PYROGRAM_AVAILABLE = False
     log.warning("pyrogram not available")
 
-# PyTgCalls imports removed - using AyuGram adapter types instead
-# All streaming types (MediaStream, AudioQuality, etc.) are now from ayugram_adapter
+# Streaming types are now provided by AyuGram adapter
+# All streaming types (MediaStream, AudioQuality, etc.) are from ayugram_adapter
 
 # AyuGram imports (streaming backend)
 try:
@@ -123,14 +123,14 @@ async def on_stream_ended(streaming_client, update: StreamEnded):
     """
     Global handler for StreamEnded event.
 
-    Called by PyTgCalls or AyuGram when a stream finishes playing.
+    Called by AyuGram when a stream finishes playing.
     Sets the event to signal playback loop to move to next track.
 
     IMPORTANT: We ignore StreamEnded events that fire during play() execution,
     because the streaming backend can emit a 'stale' StreamEnded from previous state.
 
     Args:
-        streaming_client: PyTgCalls or AyuGramAdapter instance
+        streaming_client: AyuGramAdapter instance
         update: StreamEnded event with chat_id
     """
     chat_id = update.chat_id
@@ -159,7 +159,7 @@ async def on_chat_update(streaming_client, update: ChatUpdate):
     Automatically stops the stream if we get kicked or leave the group.
 
     Args:
-        streaming_client: PyTgCalls or AyuGramAdapter instance
+        streaming_client: AyuGramAdapter instance
         update: ChatUpdate event with chat_id and status
     """
     chat_id = update.chat_id
@@ -192,10 +192,8 @@ async def on_participant_joined(streaming_client, update: UpdatedGroupCallPartic
 
     Logs when someone joins or leaves the voice chat.
 
-    Works with both PyTgCalls and AyuGram backends.
-
     Args:
-        streaming_client: PyTgCalls or AyuGramAdapter instance
+        streaming_client: AyuGramAdapter instance
         update: UpdatedGroupCallParticipant event with chat_id and participant info
     """
     chat_id = update.chat_id
@@ -222,18 +220,17 @@ def get_redis_url() -> str:
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
 
 
-# NOTE: ensure_group_call() was removed - both backends handle this automatically!
+# NOTE: ensure_group_call() was removed - AyuGram handles this automatically!
 # When calling join_group_call() with GroupCallConfig(auto_start=True) (default),
-# the backend (PyTgCalls or AyuGram) creates the group call if it doesn't exist.
-# See: pytgcalls/methods/stream/play.py lines 71-76 (for PyTgCalls reference)
+# AyuGram creates the group call if it doesn't exist.
 
 
 async def start_channel_stream(config: ChannelConfig) -> bool:
     """
     Start streaming for a channel.
 
-    Creates Pyrogram client with channel's session and starts streaming backend.
-    Supports both PyTgCalls and AyuGram backends (selected via USE_AYUGRAM).
+    Creates Pyrogram client with channel's session and starts AyuGram streaming backend.
+    AyuGram is the only supported streaming backend.
     """
     global running_channels
 
@@ -318,7 +315,7 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             log.error(f"Channel {channel_id}: Could not initialize client after retries")
             return f"Failed to start: could not initialize client after retries"
         
-        # Resolve chat to get proper peer (required by PyTgCalls)
+        # Resolve chat to get proper peer (required by AyuGram)
         # Try username first (more reliable for peer resolution), then fallback to chat_id
         resolved_chat_id = None
         chat_target = f"@{config.chat_username}" if config.chat_username else config.chat_id
@@ -400,9 +397,9 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             await client.stop()
             return f"Could not resolve chat: {last_error}"
         
-        # NOTE: We removed manual ensure_group_call() - both backends handle this automatically!
+        # NOTE: We removed manual ensure_group_call() - AyuGram handles this automatically!
         # When calling join_group_call/play() with auto_start=True (default),
-        # the backend will create the group call if it doesn't exist.
+        # AyuGram will create the group call if it doesn't exist.
         # This avoids race conditions with internal caches.
 
         # Create streaming backend instance (AyuGram only)
@@ -683,9 +680,7 @@ async def stop_channel_stream(channel_id: str) -> bool:
     """
     Stop streaming for a channel.
 
-    Works with both PyTgCalls and AyuGram backends.
-    Automatically detects which backend the channel is using
-    and calls the appropriate leave_call() method.
+    Uses AyuGram backend to leave the group call and cleanup resources.
 
     Args:
         channel_id: Channel identifier
@@ -945,8 +940,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             
                             if stream_type == 'audio' or is_audio_only:
                                 # Audio file with video placeholder - creates VIDEO CHAT (not voice chat)
-                                # Based on official PyTgCalls example: piped_image_calls
-                                # See: https://github.com/pytgcalls/pytgcalls/blob/master/example/piped_image_calls/
+                                # Based on streaming backend best practices for audio+video streaming
                                 
                                 # Path to placeholder - try .mp4 first (pre-rendered video), then .png
                                 # .mp4 is preferred because PyTgCalls 2.2.1 has a bug with is_image detection
@@ -960,6 +954,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                 placeholder_path = None
                                 placeholder_is_video = False
                                 # Prefer .mp4 files (pre-rendered video from static image)
+                                # More reliable than image files due to streaming backend compatibility
                                 if os_check.path.exists(channel_mp4):
                                     placeholder_path = channel_mp4
                                     placeholder_is_video = True
@@ -985,9 +980,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                         )
                                         log.info(f"Channel {channel_id}: Video chat mode with pre-rendered video placeholder '{placeholder_path}' + audio")
                                     else:
-                                        # PNG image - need workaround for PyTgCalls bug
-                                        # WORKAROUND for PyTgCalls 2.2.1 bug: is_image detection fails
-                                        # because `is_image &= ...` when initial value is False always = False
+                                        # PNG image - add ffmpeg parameters for proper video streaming
                                         # We manually add -loop 1 -framerate 1 via ffmpeg_parameters
                                         media = MediaStream(
                                             placeholder_path,
@@ -1013,8 +1006,8 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             
                             log.info(f"Channel {channel_id}: Calling {backend_type}.join_group_call() with MediaStream('{stream_url}')")
 
-                            # Both PyTgCalls and AyuGram have built-in retry logic
-                            # GroupCallConfig(auto_start=True) tells the backend to create
+                            # AyuGram has built-in retry logic
+                            # GroupCallConfig(auto_start=True) tells AyuGram to create
                             # the video chat if it doesn't exist (default behavior)
                             auto_start = _env_truthy("TG_CALL_AUTO_START", default=True)
                             if not auto_start:
