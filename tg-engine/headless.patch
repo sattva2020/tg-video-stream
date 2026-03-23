@@ -1,9 +1,7 @@
 diff --git a/Telegram/SourceFiles/core/launcher.cpp b/Telegram/SourceFiles/core/launcher.cpp
-index 58d5fe8..c8bf48f 100644
 --- a/Telegram/SourceFiles/core/launcher.cpp
 +++ b/Telegram/SourceFiles/core/launcher.cpp
-@@ -56,21 +56,15 @@ private:
- FilteredCommandLineArguments::FilteredCommandLineArguments(
+@@ -70,19 +70,15 @@ FilteredCommandLineArguments::FilteredCommandLineArguments(
  	int argc,
  	char **argv) {
 -	// For now just pass only the first argument, the executable path.
@@ -14,9 +12,9 @@ index 58d5fe8..c8bf48f 100644
 +	pushArgument(argv[0]);
 +	pushArgument("-platform");
 +	pushArgument("xcb");
- 
+
 -#if defined Q_OS_WIN || defined Q_OS_MAC
--	if (OptionFreeType.value()) {
+-	if (OptionFreeType.value() || OptionHighDpiDownscale.value()) {
 -		pushArgument("-platform");
 -#ifdef Q_OS_WIN
 -		pushArgument("windows:fontengine=freetype");
@@ -28,17 +26,16 @@ index 58d5fe8..c8bf48f 100644
 +		pushArgument(argv[i]);
  	}
 -#endif // Q_OS_WIN || Q_OS_MAC
- 
+
  	pushArgument(nullptr);
  }
 diff --git a/Telegram/SourceFiles/core/sandbox.cpp b/Telegram/SourceFiles/core/sandbox.cpp
-index 4f8c65e..e44cfe6 100644
 --- a/Telegram/SourceFiles/core/sandbox.cpp
 +++ b/Telegram/SourceFiles/core/sandbox.cpp
 @@ -331,7 +331,11 @@ void Sandbox::singleInstanceChecked() {
  		LOG(("App Info: Detected another instance"));
  	}
- 
+
 -	refreshGlobalProxy();
 +	// Headless: bypass all GUI windows and force launch application core
 +	launchApplication();
@@ -63,5 +60,5 @@ index 4f8c65e..e44cfe6 100644
  	});
 +	*/
  }
- 
+
  void Sandbox::socketDisconnected() {
