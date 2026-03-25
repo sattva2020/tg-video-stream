@@ -1,0 +1,14 @@
+# Ayugram Python SDK - Core Runtime Dependencies
+# This file contains the minimum dependencies required to use the SDK
+
+# Async HTTP client for JSON-RPC communication
+aiohttp>=3.10.5
+
+# Data validation and settings management
+pydantic>=2.9.2
+
+# Environment variable management
+python-dotenv>=1.0.1
+
+# Optional dependencies (uncomment if needed)
+# redis>=5.0.1  # For session state caching (optional)
