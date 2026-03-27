@@ -248,4 +248,132 @@ export const adminApi = {
     const response = await client.get(`/api/admin/stream/quality/alert/config/${encodeURIComponent(streamUrl)}`);
     return response.data;
   },
+
+  // ========== Feature 009: Adaptive Bitrate Streaming ==========
+
+  /**
+   * Detect bandwidth and get quality recommendation for a stream
+   */
+  detectBandwidth: async (
+    streamId: string,
+    forceMeasurement: boolean = false,
+    timeoutSeconds: number = 10
+  ) => {
+    const response = await client.get('/api/adaptive-streaming/bandwidth', {
+      params: {
+        stream_id: streamId,
+        force_measurement: forceMeasurement,
+        timeout_seconds: timeoutSeconds
+      }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get adaptive streaming configuration for a stream
+   */
+  getAdaptiveConfig: async (streamId: string) => {
+    const response = await client.get(`/api/adaptive-streaming/config/${encodeURIComponent(streamId)}`);
+    return response.data;
+  },
+
+  /**
+   * Create adaptive streaming configuration for a stream
+   */
+  createAdaptiveConfig: async (config: {
+    stream_id: string;
+    enabled: boolean;
+    default_quality: string;
+    min_quality: string;
+    max_quality: string;
+    bandwidth_threshold_low_kbps: number;
+    bandwidth_threshold_medium_kbps: number;
+    bandwidth_threshold_high_kbps: number;
+    bandwidth_threshold_ultra_kbps: number;
+    adaptation_interval_seconds: number;
+    bandwidth_smoothing_factor: number;
+    consecutive_measurements_required: number;
+    device_rules?: Record<string, unknown>;
+    quality_profiles?: Record<string, unknown>;
+    enable_bandwidth_monitoring: boolean;
+    enable_quality_logging: boolean;
+  }) => {
+    const response = await client.post('/api/adaptive-streaming/config', config);
+    return response.data;
+  },
+
+  /**
+   * Update adaptive streaming configuration for a stream
+   */
+  updateAdaptiveConfig: async (
+    streamId: string,
+    config: {
+      enabled?: boolean;
+      default_quality?: string;
+      min_quality?: string;
+      max_quality?: string;
+      bandwidth_threshold_low_kbps?: number;
+      bandwidth_threshold_medium_kbps?: number;
+      bandwidth_threshold_high_kbps?: number;
+      bandwidth_threshold_ultra_kbps?: number;
+      adaptation_interval_seconds?: number;
+      bandwidth_smoothing_factor?: number;
+      consecutive_measurements_required?: number;
+      device_rules?: Record<string, unknown>;
+      quality_profiles?: Record<string, unknown>;
+      enable_bandwidth_monitoring?: boolean;
+      enable_quality_logging?: boolean;
+    }
+  ) => {
+    const response = await client.put(`/api/adaptive-streaming/config/${encodeURIComponent(streamId)}`, config);
+    return response.data;
+  },
+
+  /**
+   * Delete adaptive streaming configuration for a stream
+   */
+  deleteAdaptiveConfig: async (streamId: string) => {
+    const response = await client.delete(`/api/adaptive-streaming/config/${encodeURIComponent(streamId)}`);
+    return response.data;
+  },
+
+  /**
+   * Get full adaptive streaming status for a stream
+   */
+  getAdaptiveStatus: async (streamId: string, deviceType: string = 'unknown') => {
+    const response = await client.get(`/api/adaptive-streaming/status/${encodeURIComponent(streamId)}`, {
+      params: { device_type: deviceType }
+    });
+    return response.data;
+  },
+
+  /**
+   * Get quality change history for a stream
+   */
+  getQualityChangeHistory: async (streamId: string, limit: number = 50) => {
+    const response = await client.get(`/api/adaptive-streaming/history/${encodeURIComponent(streamId)}`, {
+      params: { limit }
+    });
+    return response.data;
+  },
+
+  /**
+   * Select optimal quality for a stream based on current conditions
+   */
+  selectQuality: async (
+    streamId: string,
+    deviceType: string = 'unknown',
+    userAgent?: string,
+    forceMeasurement: boolean = false
+  ) => {
+    const response = await client.post('/api/adaptive-streaming/quality-select', null, {
+      params: {
+        stream_id: streamId,
+        device_type: deviceType,
+        user_agent: userAgent,
+        force_measurement: forceMeasurement
+      }
+    });
+    return response.data;
+  },
 };

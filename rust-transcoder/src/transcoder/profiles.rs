@@ -2,7 +2,7 @@
 //!
 //! Определяет параметры транскодирования и генерирует FFmpeg аргументы.
 
-use crate::models::{AudioCodec, AudioFormat, TranscodeRequest};
+use crate::models::{AudioCodec, AudioFormat, TranscodeRequest, VideoCodec, VideoFormat};
 
 /// Профиль транскодирования с полной конфигурацией FFmpeg
 #[derive(Debug, Clone)]
@@ -27,6 +27,18 @@ pub struct TranscodeProfile {
     pub fade_in: Option<f32>,
     /// Fade out (секунды)
     pub fade_out: Option<f32>,
+    /// Видео формат (для адаптивного стриминга)
+    pub video_format: Option<VideoFormat>,
+    /// Видео кодек (для адаптивного стриминга)
+    pub video_codec: Option<VideoCodec>,
+    /// Ширина видео в пикселях
+    pub width: Option<u32>,
+    /// Высота видео в пикселях
+    pub height: Option<u32>,
+    /// Видео битрейт в kbps
+    pub video_bitrate: Option<u32>,
+    /// FPS (кадров в секунду)
+    pub fps: Option<u32>,
 }
 
 impl TranscodeProfile {
@@ -49,6 +61,12 @@ impl TranscodeProfile {
             target_loudness: req.target_loudness,
             fade_in: req.fade_in,
             fade_out: req.fade_out,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
         }
     }
 
@@ -66,6 +84,31 @@ impl TranscodeProfile {
 
         // Input
         args.extend(["-i".to_string(), self.source_url.clone()]);
+
+        // Video codec (если это видео профиль)
+        if let (Some(video_codec), Some(video_format)) = (self.video_codec, self.video_format) {
+            args.extend(["-c:v".to_string(), video_codec.ffmpeg_codec().to_string()]);
+
+            // Video bitrate
+            if let Some(vbitrate) = self.video_bitrate {
+                args.extend(["-b:v".to_string(), format!("{}k", vbitrate)]);
+            }
+
+            // Resolution
+            if let (Some(width), Some(height)) = (self.width, self.height) {
+                args.extend(["-vf".to_string(), format!("scale={}x{}", width, height)]);
+            }
+
+            // FPS
+            if let Some(fps) = self.fps {
+                args.extend(["-r".to_string(), fps.to_string()]);
+            }
+
+            // Quick sync/FAST encoding для H.264
+            if video_codec == VideoCodec::H264 {
+                args.extend(["-preset".to_string(), "fast".to_string()]);
+            }
+        }
 
         // Audio codec
         args.extend(["-c:a".to_string(), self.codec.ffmpeg_codec().to_string()]);
@@ -88,7 +131,15 @@ impl TranscodeProfile {
         }
 
         // Output format
-        args.extend(["-f".to_string(), self.format.ffmpeg_format().to_string()]);
+        if let Some(video_format) = self.video_format {
+            args.extend(["-f".to_string(), video_format.ffmpeg_format().to_string()]);
+            // MP4 requires faststart for streaming
+            if video_format == VideoFormat::Mp4 {
+                args.extend(["-movflags".to_string(), "faststart".to_string()]);
+            }
+        } else {
+            args.extend(["-f".to_string(), self.format.ffmpeg_format().to_string()]);
+        }
 
         // Output to stdout for streaming
         args.push("pipe:1".to_string());
@@ -134,6 +185,12 @@ impl TranscodeProfile {
             target_loudness: -16.0,
             fade_in: None,
             fade_out: None,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
         }
     }
 
@@ -150,6 +207,12 @@ impl TranscodeProfile {
             target_loudness: -16.0,
             fade_in: None,
             fade_out: None,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
         }
     }
 
@@ -166,6 +229,112 @@ impl TranscodeProfile {
             target_loudness: -14.0,
             fade_in: None,
             fade_out: None,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
+        }
+    }
+
+    /// Адаптивный профиль качества 360p
+    ///
+    /// Низкое качество для медленных соединений или мобильных устройств.
+    /// Видео: 640x360, 1000 kbps, Аудио: 64 kbps
+    pub fn quality_360p(source_url: &str) -> Self {
+        Self {
+            source_url: source_url.to_string(),
+            format: AudioFormat::Aac,
+            codec: AudioCodec::Aac,
+            bitrate: 64,
+            sample_rate: 48000,
+            channels: 2,
+            normalize: false,
+            target_loudness: -16.0,
+            fade_in: None,
+            fade_out: None,
+            video_format: Some(VideoFormat::Mp4),
+            video_codec: Some(VideoCodec::H264),
+            width: Some(640),
+            height: Some(360),
+            video_bitrate: Some(1000),
+            fps: Some(30),
+        }
+    }
+
+    /// Адаптивный профиль качества 480p
+    ///
+    /// Среднее качество для баланса между качеством и битрейтом.
+    /// Видео: 854x480, 2500 kbps, Аудио: 64 kbps
+    pub fn quality_480p(source_url: &str) -> Self {
+        Self {
+            source_url: source_url.to_string(),
+            format: AudioFormat::Aac,
+            codec: AudioCodec::Aac,
+            bitrate: 64,
+            sample_rate: 48000,
+            channels: 2,
+            normalize: false,
+            target_loudness: -16.0,
+            fade_in: None,
+            fade_out: None,
+            video_format: Some(VideoFormat::Mp4),
+            video_codec: Some(VideoCodec::H264),
+            width: Some(854),
+            height: Some(480),
+            video_bitrate: Some(2500),
+            fps: Some(30),
+        }
+    }
+
+    /// Адаптивный профиль качества 720p
+    ///
+    /// Высокое качество для хорошего соединения.
+    /// Видео: 1280x720, 5000 kbps, Аудио: 128 kbps
+    pub fn quality_720p(source_url: &str) -> Self {
+        Self {
+            source_url: source_url.to_string(),
+            format: AudioFormat::Aac,
+            codec: AudioCodec::Aac,
+            bitrate: 128,
+            sample_rate: 48000,
+            channels: 2,
+            normalize: false,
+            target_loudness: -16.0,
+            fade_in: None,
+            fade_out: None,
+            video_format: Some(VideoFormat::Mp4),
+            video_codec: Some(VideoCodec::H264),
+            width: Some(1280),
+            height: Some(720),
+            video_bitrate: Some(5000),
+            fps: Some(30),
+        }
+    }
+
+    /// Адаптивный профиль качества 1080p
+    ///
+    /// Максимальное качество для быстрого соединения.
+    /// Видео: 1920x1080, 8000 kbps, Аудио: 128 kbps
+    pub fn quality_1080p(source_url: &str) -> Self {
+        Self {
+            source_url: source_url.to_string(),
+            format: AudioFormat::Aac,
+            codec: AudioCodec::Aac,
+            bitrate: 128,
+            sample_rate: 48000,
+            channels: 2,
+            normalize: false,
+            target_loudness: -16.0,
+            fade_in: None,
+            fade_out: None,
+            video_format: Some(VideoFormat::Mp4),
+            video_codec: Some(VideoCodec::H264),
+            width: Some(1920),
+            height: Some(1080),
+            video_bitrate: Some(8000),
+            fps: Some(30),
         }
     }
 }
@@ -198,6 +367,12 @@ mod tests {
             target_loudness: -16.0,
             fade_in: None,
             fade_out: None,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
         };
 
         let args = profile.build_ffmpeg_args();
@@ -223,6 +398,12 @@ mod tests {
             target_loudness: -16.0,
             fade_in: Some(2.0),
             fade_out: None,
+            video_format: None,
+            video_codec: None,
+            width: None,
+            height: None,
+            video_bitrate: None,
+            fps: None,
         };
 
         let args = profile.build_ffmpeg_args();
@@ -233,5 +414,81 @@ mod tests {
         let filters = &args[af_idx + 1];
         assert!(filters.contains("afade"));
         assert!(filters.contains("loudnorm"));
+    }
+
+    #[test]
+    fn test_quality_360p_profile() {
+        let profile = TranscodeProfile::quality_360p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // Проверяем видео параметры
+        assert!(args.contains(&"-c:v".to_string()));
+        assert!(args.contains(&"libx264".to_string()));
+        assert!(args.contains(&"-b:v".to_string()));
+        assert!(args.contains(&"1000k".to_string()));
+        assert!(args.contains(&"-vf".to_string()));
+        assert!(args.iter().any(|a| a.contains("scale=640x360")));
+
+        // Проверяем аудио параметры
+        assert!(args.contains(&"-c:a".to_string()));
+        assert!(args.contains(&"aac".to_string()));
+        assert!(args.contains(&"-b:a".to_string()));
+        assert!(args.contains(&"64k".to_string()));
+
+        // Проверяем формат
+        assert!(args.contains(&"-f".to_string()));
+        assert!(args.contains(&"mp4".to_string()));
+    }
+
+    #[test]
+    fn test_quality_480p_profile() {
+        let profile = TranscodeProfile::quality_480p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // Проверяем разрешение и битрейт
+        assert!(args.iter().any(|a| a.contains("scale=854x480")));
+        assert!(args.contains(&"2500k".to_string()));
+    }
+
+    #[test]
+    fn test_quality_720p_profile() {
+        let profile = TranscodeProfile::quality_720p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // Проверяем разрешение и битрейт
+        assert!(args.iter().any(|a| a.contains("scale=1280x720")));
+        assert!(args.contains(&"5000k".to_string()));
+        // Аудио битрейт выше
+        assert!(args.contains(&"128k".to_string()));
+    }
+
+    #[test]
+    fn test_quality_1080p_profile() {
+        let profile = TranscodeProfile::quality_1080p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // Проверяем разрешение и битрейт
+        assert!(args.iter().any(|a| a.contains("scale=1920x1080")));
+        assert!(args.contains(&"8000k".to_string()));
+    }
+
+    #[test]
+    fn test_video_profile_has_fast_preset() {
+        let profile = TranscodeProfile::quality_720p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // H.264 должен иметь preset fast для быстрого кодирования
+        assert!(args.contains(&"-preset".to_string()));
+        assert!(args.contains(&"fast".to_string()));
+    }
+
+    #[test]
+    fn test_video_profile_mp4_faststart() {
+        let profile = TranscodeProfile::quality_720p("https://example.com/video.mp4");
+        let args = profile.build_ffmpeg_args();
+
+        // MP4 должен иметь movflags faststart для стриминга
+        assert!(args.contains(&"-movflags".to_string()));
+        assert!(args.contains(&"faststart".to_string()));
     }
 }

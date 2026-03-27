@@ -44,6 +44,7 @@ class Stream(Base):
     - owner: User (FK to users.id)
     - playlists: List[PlaylistItem] (one-to-many, cascade delete)
     - recovery_logs: List[RecoveryLog] (one-to-many, cascade delete)
+    - adaptive_config: AdaptiveStreamConfig (one-to-one, cascade delete)
     
     **Timestamps**:
     - created_at: Время создания stream
@@ -108,6 +109,13 @@ class Stream(Base):
         order_by="desc(src.models.recovery_log.RecoveryLog.started_at)",
         lazy="select"
     )
-    
+    adaptive_config = relationship(
+        "src.models.adaptive_stream_config.AdaptiveStreamConfig",
+        back_populates="stream",
+        uselist=False,
+        cascade="all, delete-orphan",
+        lazy="joined"
+    )
+
     def __repr__(self) -> str:
         return f"<Stream(id={self.id}, title='{self.title}', status={self.status}, chat_id={self.chat_id})>"

@@ -60,6 +60,8 @@ except ImportError:
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
+from adaptive_quality_manager import get_adaptive_quality_manager
+from video_transcoder import QualityProfile
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
@@ -68,6 +70,7 @@ playlist_update_events: Dict[str, asyncio.Event] = {}  # channel_id -> Event (si
 play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+quality_manager = None  # AdaptiveQualityManager instance
 
 
 def _env_truthy(name: str, default: bool = True) -> bool:
@@ -82,6 +85,34 @@ def _format_exception(e: BaseException) -> str:
     if msg:
         return f"{type(e).__name__}: {msg}"
     return type(e).__name__
+
+
+def _get_initial_quality(config) -> QualityProfile:
+    """
+    Определяет начальное качество на основе конфигурации канала.
+
+    Args:
+        config: ChannelConfig с video_quality настройкой
+
+    Returns:
+        QualityProfile для adaptive streaming
+    """
+    quality_map = {
+        "360p": QualityProfile.LOW,
+        "480p": QualityProfile.LOW,
+        "sd": QualityProfile.LOW,
+        "720p": QualityProfile.MEDIUM,
+        "hd": QualityProfile.MEDIUM,
+        "1080p": QualityProfile.HIGH,
+        "fhd": QualityProfile.HIGH,
+        "1440p": QualityProfile.ULTRA,
+        "2k": QualityProfile.ULTRA,
+        "2160p": QualityProfile.ULTRA,
+        "4k": QualityProfile.ULTRA,
+    }
+
+    video_quality = (config.video_quality or "480p").lower()
+    return quality_map.get(video_quality, QualityProfile.LOW)
 
 
 def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
@@ -105,6 +136,44 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
         )
 
     return None
+
+
+def _on_quality_change(
+    stream_id: str,
+    old_quality: QualityProfile,
+    new_quality: QualityProfile,
+    reason: str,
+):
+    """
+    Callback для уведомления об изменениях качества от AdaptiveQualityManager.
+
+    Логирует изменения качества и обновляет статус в Redis.
+
+    Args:
+        stream_id: ID stream (channel_id)
+        old_quality: Старое качество
+        new_quality: Новое качество
+        reason: Причина изменения
+    """
+    log.info(
+        f"Quality changed for channel {stream_id}: "
+        f"{old_quality.value} -> {new_quality.value} (reason: {reason})"
+    )
+
+    # Update status in Redis if command_handler is available
+    if command_handler:
+        try:
+            # Note: We use asyncio.create_task to avoid blocking
+            # The status update will include quality information
+            asyncio.create_task(
+                command_handler.update_status(
+                    stream_id,
+                    "playing",
+                    current_item=f"Quality: {new_quality.value}"
+                )
+            )
+        except Exception as e:
+            log.warning(f"Failed to update quality status in Redis: {e}")
 
 
 async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
@@ -594,7 +663,24 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             "config": config,
             "chat_id": resolved_chat_id
         }
-        
+
+        # Start adaptive quality monitoring if enabled
+        if quality_manager and _env_truthy("ADAPTIVE_QUALITY_ENABLED", default=False):
+            # Determine initial quality from config
+            initial_quality = _get_initial_quality(config)
+            try:
+                quality_manager.start_monitoring(
+                    channel_id,
+                    initial_quality,
+                    auto_monitor=True
+                )
+                log.info(
+                    f"Channel {channel_id}: Started adaptive quality monitoring "
+                    f"with initial quality {initial_quality.value}"
+                )
+            except Exception as e:
+                log.warning(f"Channel {channel_id}: Failed to start quality monitoring: {e}")
+
         # Start playback loop in background
         task = asyncio.create_task(
             channel_playback_loop(channel_id, config)
@@ -656,6 +742,19 @@ async def stop_channel_stream(channel_id: str) -> bool:
         
         if channel_id in playlist_update_events:
             del playlist_update_events[channel_id]
+
+        # Stop adaptive quality monitoring
+        if quality_manager and quality_manager.is_monitoring(channel_id):
+            try:
+                final_state = quality_manager.stop_monitoring(channel_id, cancel_task=True)
+                if final_state:
+                    log.info(
+                        f"Channel {channel_id}: Stopped quality monitoring. "
+                        f"Final quality: {final_state.current_quality.value}, "
+                        f"Changes: {final_state.quality_change_count}"
+                    )
+            except Exception as e:
+                log.warning(f"Channel {channel_id}: Error stopping quality monitoring: {e}")
 
         # Stop PyTgCalls
         if pytg:
@@ -1252,10 +1351,19 @@ async def update_channel_playlist(channel_id: str) -> bool:
 
 async def main():
     """Main entry point."""
-    global manager, command_handler
-    
+    global manager, command_handler, quality_manager
+
     log.info("Starting Multi-Channel Stream Runner")
-    
+
+    # Initialize adaptive quality manager if enabled
+    if _env_truthy("ADAPTIVE_QUALITY_ENABLED", default=False):
+        quality_manager = get_adaptive_quality_manager()
+        # Register quality change callback
+        quality_manager.add_quality_callback(_on_quality_change)
+        log.info("Adaptive quality manager initialized")
+    else:
+        log.info("Adaptive quality management disabled (set ADAPTIVE_QUALITY_ENABLED=1 to enable)")
+
     # Initialize command handler
     redis_url = get_redis_url()
     command_handler = RedisCommandHandler(redis_url)
@@ -1295,7 +1403,15 @@ async def main():
     
     # Cleanup
     log.info("Shutting down...")
-    
+
+    # Stop all adaptive quality monitoring
+    if quality_manager:
+        for channel_id in list(quality_manager.get_all_streams().keys()):
+            try:
+                quality_manager.stop_monitoring(channel_id, cancel_task=True)
+            except Exception as e:
+                log.warning(f"Error stopping quality monitoring for {channel_id}: {e}")
+
     # Stop all channels
     for channel_id in list(running_channels.keys()):
         await stop_channel_stream(channel_id)
