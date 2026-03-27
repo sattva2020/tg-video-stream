@@ -1,0 +1,78 @@
+{{- if .Values.rustTranscoder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sattva-streamer.rustTranscoder.serviceName" . }}
+  labels:
+    {{- include "sattva-streamer.rustTranscoder.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.rustTranscoder.autoscaling.enabled }}
+  replicas: {{ .Values.rustTranscoder.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/rustTranscoder/configmap.yaml") . | sha256sum }}
+        {{- with .Values.rustTranscoder.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "sattva-streamer.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "sattva-streamer.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.rustTranscoder.podSecurityContext | nindent 8 }}
+      containers:
+      - name: rust-transcoder
+        securityContext:
+          {{- toYaml .Values.rustTranscoder.securityContext | nindent 10 }}
+        image: "{{ include "sattva-streamer.rustTranscoder.image" . }}"
+        imagePullPolicy: {{ .Values.rustTranscoder.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.rustTranscoder.containerPort }}
+          protocol: TCP
+        env:
+        {{- include "sattva-streamer.envVars" (dict "env" .Values.rustTranscoder.env "$" $) | nindent 8 }}
+        resources:
+          {{- toYaml .Values.rustTranscoder.resources | nindent 10 }}
+        {{- with .Values.rustTranscoder.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.rustTranscoder.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.rustTranscoder.volumeMounts }}
+        volumeMounts:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.rustTranscoder.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rustTranscoder.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rustTranscoder.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rustTranscoder.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+      {{- with .Values.rustTranscoder.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.rustTranscoder.volumes }}
+      volumes:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}

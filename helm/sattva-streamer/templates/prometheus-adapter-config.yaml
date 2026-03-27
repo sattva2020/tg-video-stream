@@ -1,0 +1,114 @@
+{{- if .Values.monitoring.prometheusAdapter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}-prometheus-adapter-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    # Prometheus Adapter configuration for custom metrics
+    # Used by HPA for autoscaling based on application-specific metrics
+
+    # Rules for custom external metrics
+    externalRules:
+    # Active streams count - for streamer and backend autoscaling
+    - seriesQuery: 'streamer_active_streams_total'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "streamer_active_streams_total"
+        as: "active_streams_count"
+      metricsQuery: 'sum(streamer_active_streams_total{namespace="{{ $1 }}",pod="{{ $2 }}"})'
+
+    # Transcoding jobs pending - for transcoder autoscaling
+    - seriesQuery: 'transcoding_jobs_pending_total'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+          pod:
+            resource: pod
+      name:
+        matches: "transcoding_jobs_pending_total"
+        as: "transcoding_jobs_pending"
+      metricsQuery: 'sum(transcoding_jobs_pending_total{namespace="{{ $1 }}"}) by (job)'
+
+    # API requests per second - for backend autoscaling
+    - seriesQuery: 'http_requests_total{job=~".*backend.*"}'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+      name:
+        matches: "(.*)_requests_total"
+        as: "${1}_per_second"
+      metricsQuery: 'sum(rate(http_requests_total{namespace="{{ $1 }}",handler!="/metrics"}[1m])) by (job)'
+
+    # Redis queue depth - for streamer autoscaling
+    - seriesQuery: 'redis_queue_length'
+      resources:
+        overrides:
+          namespace:
+            resource: namespace
+      name:
+        matches: "redis_queue_length"
+        as: "redis_queue_depth"
+      metricsQuery: 'redis_queue_length{namespace="{{ $1 }}"}'
+
+    # Rules for custom resource metrics
+    resourceRules:
+    # CPU usage per pod (already provided by kubelet)
+    - cpu:
+        containerLabel: container
+        containerQuery: sum(rate(container_cpu_usage_seconds_total{<<.LabelMatchers>>,container!=""}[3m])) by (<<.GroupBy>>)
+        nodeQuery: sum(rate(container_cpu_usage_seconds_total{<<.LabelMatchers>>,container!=""}[3m])) by (<<.GroupBy>>)
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+            node:
+              resource: node
+        containerLabel: container
+    # Memory usage per pod (already provided by kubelet)
+    - memory:
+        containerLabel: container
+        containerQuery: sum(container_memory_working_set_bytes{<<.LabelMatchers>>,container!=""}) by (<<.GroupBy>>)
+        nodeQuery: sum(container_memory_working_set_bytes{<<.LabelMatchers>>,container!=""}) by (<<.GroupBy>>)
+        resources:
+          overrides:
+            namespace:
+              resource: namespace
+            pod:
+              resource: pod
+            node:
+              resource: node
+        containerLabel: container
+
+    # Custom resource rules for application-specific metrics
+    customRules:
+    # Active connections to backend
+    - seriesQuery: 'active_connections_total'
+      resources:
+        template: <<.Resource>>
+      name:
+        matches: "active_connections_total"
+        as: "active_connections"
+      metricsQuery: 'active_connections_total{<<.LabelMatchers>>}'
+
+    # Database connection pool usage
+    - seriesQuery: 'database_connections{state="active"}'
+      resources:
+        template: <<.Resource>>
+      name:
+        matches: "database_connections"
+        as: "db_connections_active"
+      metricsQuery: 'database_connections{<<.LabelMatchers>>,state="active"}'
+{{- end }}

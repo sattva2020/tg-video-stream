@@ -1,0 +1,43 @@
+apiVersion: v2
+name: sattva-streamer
+description: A Helm chart for Sattva Telegram Streamer - Production-ready Kubernetes deployment with auto-scaling
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - telegram
+  - streaming
+  - kubernetes
+  - autoscaling
+home: https://github.com/sattva-streamer/sattva
+sources:
+  - https://github.com/sattva-streamer/sattva
+maintainers:
+  - name: Sattva Team
+    email: dev@sattva-streamer.top
+icon: https://raw.githubusercontent.com/sattva-streamer/sattva/main/img/logo.png
+annotations:
+  artifacthub.io/category: networking
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://docs.sattva-streamer.top
+    - name: Support
+      url: https://github.com/sattva-streamer/sattva/issues
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/changes: |
+    - Initial Helm chart for Kubernetes deployment
+    - Support for Horizontal Pod Autoscaling
+    - Distributed streaming architecture
+    - ConfigMaps and Secrets for configuration
+    - Rolling updates with zero downtime
+dependencies:
+  - name: postgresql
+    version: "~12.12.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+  - name: redis
+    version: "~17.14.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled

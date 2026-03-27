@@ -1,0 +1,12 @@
+{{- if and .Values.streamer.enabled .Values.streamer.env }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.streamer.serviceName" . }}-config
+  labels:
+    {{- include "sattva-streamer.streamer.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.streamer.env }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+{{- end }}

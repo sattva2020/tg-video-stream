@@ -1,0 +1,35 @@
+{{- if and .Values.rustTranscoder.enabled .Values.rustTranscoder.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "sattva-streamer.rustTranscoder.serviceName" . }}
+  labels:
+    {{- include "sattva-streamer.rustTranscoder.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "sattva-streamer.rustTranscoder.serviceName" . }}
+  minReplicas: {{ .Values.rustTranscoder.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.rustTranscoder.autoscaling.maxReplicas }}
+  metrics:
+  {{- with .Values.rustTranscoder.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ . }}
+  {{- end }}
+  {{- with .Values.rustTranscoder.autoscaling.targetMemoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ . }}
+  {{- end }}
+  {{- with .Values.rustTranscoder.autoscaling.customMetrics }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

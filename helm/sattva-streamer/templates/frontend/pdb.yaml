@@ -1,0 +1,14 @@
+{{- if and .Values.podDisruptionBudget.frontend.enabled .Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.frontend.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.frontend.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.frontend.selectorLabels" . | nindent 6 }}
+{{- end }}

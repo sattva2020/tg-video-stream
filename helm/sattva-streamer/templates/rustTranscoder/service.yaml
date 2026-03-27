@@ -1,0 +1,21 @@
+{{- if .Values.rustTranscoder.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sattva-streamer.rustTranscoder.serviceName" . }}
+  labels:
+    {{- include "sattva-streamer.rustTranscoder.labels" . | nindent 4 }}
+  {{- with .Values.rustTranscoder.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.rustTranscoder.service.type }}
+  ports:
+  - port: {{ .Values.rustTranscoder.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 4 }}
+{{- end }}

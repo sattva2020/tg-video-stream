@@ -1,0 +1,13 @@
+{{- if and .Values.frontend.enabled .Values.frontend.buildArgs }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sattva-streamer.frontend.name" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.frontend.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.frontend.buildArgs }}
+  {{ $key }}: {{ tpl $value $ | quote }}
+  {{- end }}
+{{- end }}

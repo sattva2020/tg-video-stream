@@ -1,0 +1,39 @@
+{{- if .Values.streamer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sattva-streamer.streamer.serviceName" . }}
+  labels:
+    {{- include "sattva-streamer.streamer.labels" . | nindent 4 }}
+  {{- with .Values.streamer.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.streamer.service.type }}
+  ports:
+  - port: {{ .Values.streamer.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 4 }}
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sattva-streamer.streamer.serviceName" . }}-headless
+  labels:
+    {{- include "sattva-streamer.streamer.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: {{ .Values.streamer.service.port }}
+    targetPort: http
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 4 }}
+{{- end }}

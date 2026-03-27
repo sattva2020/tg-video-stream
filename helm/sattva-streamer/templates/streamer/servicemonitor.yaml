@@ -1,0 +1,33 @@
+{{- if and .Values.streamer.enabled .Values.streamer.serviceMonitor.enabled .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "sattva-streamer.streamer.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.streamer.labels" . | nindent 4 }}
+    release: prometheus-operator
+  {{- with .Values.monitoring.serviceMonitor.labels }}
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.streamer.selectorLabels" . | nindent 6 }}
+  namespaces:
+    - {{ .Release.Namespace }}
+  endpoints:
+  - port: http
+    path: {{ .Values.streamer.serviceMonitor.path | default "/metrics" }}
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+    scheme: http
+  {{- with .Values.monitoring.serviceMonitor.relabelings }}
+  relabelings:
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
+  {{- with .Values.monitoring.serviceMonitor.metricRelabelings }}
+  metricRelabelings:
+    {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

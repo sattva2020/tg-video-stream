@@ -1,0 +1,92 @@
+{{- if include "sattva-streamer.canCreateIngress" . -}}
+{{- $fullName := include "sattva-streamer.fullname" . -}}
+{{- $frontendServiceName := include "sattva-streamer.frontend.serviceName" . -}}
+{{- $backendServiceName := include "sattva-streamer.backend.serviceName" . -}}
+{{- $streamerServiceName := include "sattva-streamer.streamer.serviceName" . -}}
+{{- $rustTranscoderServiceName := include "sattva-streamer.rustTranscoder.serviceName" . -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if or .Values.ingress.frontend.tls .Values.ingress.backend.tls .Values.ingress.grafana.tls .Values.ingress.docs.tls }}
+  tls:
+    {{- if and .Values.ingress.frontend.enabled .Values.ingress.frontend.tls }}
+    - hosts:
+        - {{ .Values.ingress.frontend.hostname | quote }}
+      secretName: {{ .Values.ingress.frontend.secretName }}
+    {{- end }}
+    {{- if and .Values.ingress.backend.enabled .Values.ingress.backend.tls }}
+    - hosts:
+        - {{ .Values.ingress.backend.hostname | quote }}
+      secretName: {{ .Values.ingress.backend.secretName }}
+    {{- end }}
+    {{- if and .Values.ingress.grafana.enabled .Values.ingress.grafana.tls }}
+    - hosts:
+        - {{ .Values.ingress.grafana.hostname | quote }}
+      secretName: {{ .Values.ingress.grafana.secretName }}
+    {{- end }}
+    {{- if and .Values.ingress.docs.enabled .Values.ingress.docs.tls }}
+    - hosts:
+        - {{ .Values.ingress.docs.hostname | quote }}
+      secretName: {{ .Values.ingress.docs.secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.ingress.frontend.enabled }}
+    - host: {{ .Values.ingress.frontend.hostname | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.frontend.path }}
+            pathType: {{ .Values.ingress.frontend.pathType }}
+            backend:
+              service:
+                name: {{ $frontendServiceName }}
+                port:
+                  number: {{ .Values.ingress.frontend.service.port }}
+    {{- end }}
+    {{- if .Values.ingress.backend.enabled }}
+    - host: {{ .Values.ingress.backend.hostname | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.backend.path }}
+            pathType: {{ .Values.ingress.backend.pathType }}
+            backend:
+              service:
+                name: {{ $backendServiceName }}
+                port:
+                  number: {{ .Values.ingress.backend.service.port }}
+    {{- end }}
+    {{- if .Values.ingress.grafana.enabled }}
+    - host: {{ .Values.ingress.grafana.hostname | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.grafana.path }}
+            pathType: {{ .Values.ingress.grafana.pathType }}
+            backend:
+              service:
+                name: {{ .Values.ingress.grafana.service.name }}
+                port:
+                  number: {{ .Values.ingress.grafana.service.port }}
+    {{- end }}
+    {{- if .Values.ingress.docs.enabled }}
+    - host: {{ .Values.ingress.docs.hostname | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.docs.path }}
+            pathType: {{ .Values.ingress.docs.pathType }}
+            backend:
+              service:
+                name: {{ .Values.ingress.docs.service.name }}
+                port:
+                  number: {{ .Values.ingress.docs.service.port }}
+    {{- end }}
+{{- end }}

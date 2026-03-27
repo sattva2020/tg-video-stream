@@ -1,0 +1,14 @@
+{{- if and .Values.podDisruptionBudget.rustTranscoder.enabled .Capabilities.APIVersions.Has "policy/v1" }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}-rust-transcoder
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.rustTranscoder.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.rustTranscoder.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "sattva-streamer.rustTranscoder.selectorLabels" . | nindent 6 }}
+{{- end }}

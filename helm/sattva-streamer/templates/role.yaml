@@ -1,0 +1,24 @@
+{{- if and .Values.rbac.create .Values.serviceAccount.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "sattva-streamer.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "sattva-streamer.labels" . | nindent 4 }}
+rules:
+  # Allow reading configmaps and secrets for configuration
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+
+  {{- with .Values.rbac.rules }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
