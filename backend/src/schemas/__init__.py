@@ -39,6 +39,20 @@ from src.schemas.notifications import (
     NotificationRuleResponse,
     DeliveryLogResponse,
 )
+from src.schemas.alerts import (
+    AlertRuleBase,
+    AlertRuleCreate,
+    AlertRuleUpdate,
+    AlertRuleResponse,
+    AlertInstanceBase,
+    AlertInstanceCreate,
+    AlertInstanceUpdate,
+    AlertInstanceResponse,
+    AlertGroupBase,
+    AlertGroupCreate,
+    AlertGroupUpdate,
+    AlertGroupResponse,
+)
 
 __all__ = [
     "TelegramAuthRequest",
@@ -75,4 +89,17 @@ __all__ = [
     "NotificationRuleUpdate",
     "NotificationRuleResponse",
     "DeliveryLogResponse",
+    # Alert schemas
+    "AlertRuleBase",
+    "AlertRuleCreate",
+    "AlertRuleUpdate",
+    "AlertRuleResponse",
+    "AlertInstanceBase",
+    "AlertInstanceCreate",
+    "AlertInstanceUpdate",
+    "AlertInstanceResponse",
+    "AlertGroupBase",
+    "AlertGroupCreate",
+    "AlertGroupUpdate",
+    "AlertGroupResponse",
 ]

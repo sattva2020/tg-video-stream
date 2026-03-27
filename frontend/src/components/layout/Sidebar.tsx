@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { 
-  Home, 
-  Tv, 
-  Users, 
+import {
+  Home,
+  Tv,
+  Users,
   Settings,
   LogOut,
   CalendarDays,
@@ -24,6 +24,7 @@ import {
   Gauge,
   FileText,
   LayoutDashboard,
+  AlertCircle,
 } from 'lucide-react';
 import { DOCS_URL } from '../../config/docs';
 import { useAuth } from '../../context/AuthContext';
@@ -169,27 +170,33 @@ export const Sidebar: React.FC = () => {
       label: t('nav.group.admin', 'Администрирование'),
       icon: <Settings className="w-4 h-4" />,
       items: [
-        { 
-          path: '/users', 
-          label: t('nav.users', 'Юзеры'), 
+        {
+          path: '/users',
+          label: t('nav.users', 'Юзеры'),
           icon: <Users className="w-5 h-5" />,
-          adminOnly: true 
+          adminOnly: true
         },
-        { 
-          path: '/notifications/rules', 
-          label: t('nav.notifications', 'Уведомления'), 
+        {
+          path: '/notifications/rules',
+          label: t('nav.notifications', 'Уведомления'),
           icon: <Bell className="w-5 h-5" />,
           adminOnly: true
         },
-        { 
-          path: '/admin/settings', 
-          label: t('nav.appSettings', 'API ключи'), 
-          icon: <Key className="w-5 h-5" />,
-          adminOnly: true 
+        {
+          path: '/alerts/rules',
+          label: t('nav.alerts', 'Алерты'),
+          icon: <AlertCircle className="w-5 h-5" />,
+          adminOnly: true
         },
-        { 
-          path: '/settings', 
-          label: t('nav.settings', 'Настройки'), 
+        {
+          path: '/admin/settings',
+          label: t('nav.appSettings', 'API ключи'),
+          icon: <Key className="w-5 h-5" />,
+          adminOnly: true
+        },
+        {
+          path: '/settings',
+          label: t('nav.settings', 'Настройки'),
           icon: <Settings className="w-5 h-5" />,
         },
       ]

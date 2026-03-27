@@ -31,6 +31,9 @@ const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AlertsRulesPage = lazy(() => import('./pages/alerts/Rules'));
+const AlertsHistoryPage = lazy(() => import('./pages/alerts/History'));
+const AlertsGroupsPage = lazy(() => import('./pages/alerts/Groups'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -85,6 +88,9 @@ const App: React.FC = () => {
               <Route path="/notifications/recipients" element={<NotificationRecipientsPage />} />
               <Route path="/notifications/rules" element={<NotificationRulesPage />} />
               <Route path="/notifications/logs" element={<NotificationLogsPage />} />
+              <Route path="/alerts/rules" element={<AlertsRulesPage />} />
+              <Route path="/alerts/history" element={<AlertsHistoryPage />} />
+              <Route path="/alerts/groups" element={<AlertsGroupsPage />} />
             </Route>
             
             {/* Routes for ADMIN and above */}

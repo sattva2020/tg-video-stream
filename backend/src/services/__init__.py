@@ -10,6 +10,9 @@ Services модуль для обработки бизнес-логики.
 - SchedulerService: запланированное воспроизведение плейлистов
 - BackupService: автоматизированные резервные копии
 - ChannelService: управление мульти-канальной трансляцией
+- AlertService: CRUD операции для правил, экземпляров и групп алертов
+- StreamAlertIntegrationService: интеграция мониторинга отказов с алертами
+- ViewerAlertIntegrationService: интеграция мониторинга зрителей с алертами
 """
 
 __all__ = [
@@ -21,4 +24,7 @@ __all__ = [
     "SchedulerService",
     "BackupService",
     "ChannelService",
+    "AlertService",
+    "StreamAlertIntegrationService",
+    "ViewerAlertIntegrationService",
 ]

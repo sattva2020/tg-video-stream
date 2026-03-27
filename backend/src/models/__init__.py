@@ -53,6 +53,9 @@ from .recovery_log import (
     RecoveryStatus,
 )
 
+# Alerting and Notification System (Feature 013)
+from .alert import AlertRule
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -99,5 +102,7 @@ __all__ = [
     "RecoveryFailureType",
     "RecoveryStrategy",
     "RecoveryStatus",
+    # Alerting and Notification System
+    "AlertRule",
 ]
 
