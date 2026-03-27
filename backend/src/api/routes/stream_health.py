@@ -24,14 +24,11 @@ from src.database import get_db
 from src.models.stream import Stream
 from src.models.recovery_log import RecoveryLog, RecoveryFailureType, RecoveryStatus
 from src.services.stream_health_monitor import (
-    StreamHealthMonitor,
     get_stream_health_monitor,
     StreamHealthStatus
 )
 from src.services.stream_recovery_service import (
-    StreamRecoveryService,
     get_stream_recovery_service,
-    RecoveryConfig
 )
 from api.auth import get_current_user
 from src.models.user import User
@@ -155,7 +152,7 @@ async def get_stream_health(
             health_status = StreamHealthStatus(
                 stream_id=str(stream_id),
                 is_healthy=True,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(timezone.utc),
                 consecutive_failures=0,
                 total_checks=0,
                 failed_checks=0

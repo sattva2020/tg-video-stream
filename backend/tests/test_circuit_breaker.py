@@ -5,7 +5,6 @@ failures in stream recovery operations.
 """
 
 import time
-import pytest
 
 from src.services.circuit_breaker import (
     CircuitBreaker,

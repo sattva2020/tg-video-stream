@@ -25,21 +25,18 @@ import argparse
 import asyncio
 import json
 import logging
-import os
 import random
 import sys
 import time
-import uuid
-from collections import defaultdict
 from dataclasses import dataclass, asdict
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy import create_engine, func
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
 from src.models.stream import Stream, StreamStatus
@@ -47,7 +44,6 @@ from src.models.user import User
 from src.models.recovery_log import (
     RecoveryLog,
     RecoveryFailureType,
-    RecoveryStatus,
     RecoveryStrategy
 )
 from src.services.stream_recovery_service import StreamRecoveryService, RecoveryConfig

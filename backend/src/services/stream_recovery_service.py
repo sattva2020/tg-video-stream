@@ -214,7 +214,7 @@ class StreamRecoveryService:
                 if recovery_result["success"]:
                     # Успешное восстановление
                     recovery_log.status = RecoveryStatus.SUCCESS
-                    recovery_log.completed_at = datetime.utcnow()
+                    recovery_log.completed_at = datetime.now(timezone.utc)
                     recovery_log.duration_ms = int(
                         (recovery_log.completed_at - recovery_log.started_at).total_seconds() * 1000
                     )
@@ -247,7 +247,7 @@ class StreamRecoveryService:
                     # Проверяем, есть ли еще попытки
                     if attempt_number < self.config.max_retries:
                         recovery_log.status = RecoveryStatus.FAILED
-                        recovery_log.completed_at = datetime.utcnow()
+                        recovery_log.completed_at = datetime.now(timezone.utc)
                         recovery_log.duration_ms = int(
                             (recovery_log.completed_at - recovery_log.started_at).total_seconds() * 1000
                         )
@@ -261,7 +261,7 @@ class StreamRecoveryService:
                     else:
                         # Последняя попытка неудачна
                         recovery_log.status = RecoveryStatus.ABANDONED
-                        recovery_log.completed_at = datetime.utcnow()
+                        recovery_log.completed_at = datetime.now(timezone.utc)
                         recovery_log.duration_ms = int(
                             (recovery_log.completed_at - recovery_log.started_at).total_seconds() * 1000
                         )
@@ -293,7 +293,7 @@ class StreamRecoveryService:
                 )
 
                 recovery_log.status = RecoveryStatus.FAILED
-                recovery_log.completed_at = datetime.utcnow()
+                recovery_log.completed_at = datetime.now(timezone.utc)
                 recovery_log.duration_ms = int(
                     (recovery_log.completed_at - recovery_log.started_at).total_seconds() * 1000
                 )
