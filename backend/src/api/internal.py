@@ -31,6 +31,16 @@ class StreamerChannelConfig(BaseModel):
     stream_type: str = "video"  # 'audio' or 'video'
     ffmpeg_args: Optional[str] = None
     chat_username: Optional[str] = None
+    audio_quality: Optional[str] = "studio"  # low, medium, high, studio
+    ytdlp_parameters: Optional[str] = None  # Extra yt-dlp arguments
+    stream_headers: Optional[Dict[str, str]] = None  # HTTP headers for stream
+    placeholder_image: Optional[str] = None  # Path to custom placeholder image
+    # Encoding profile fields
+    video_codec: Optional[str] = None  # h264, h265, vp9
+    audio_codec: Optional[str] = None  # aac, opus, mp3
+    video_bitrate: Optional[int] = None  # Video bitrate in kbps
+    audio_bitrate: Optional[int] = None  # Audio bitrate in kbps
+    resolution: Optional[str] = None  # Resolution (e.g., "1920x1080")
 
 
 @router.get("/internal/streamer/channels/{channel_id}/config", response_model=StreamerChannelConfig)
@@ -73,6 +83,16 @@ def get_channel_config_for_streamer(
         stream_type=channel.stream_type or "video",
         ffmpeg_args=channel.ffmpeg_args,
         chat_username=channel.chat_username,
+        audio_quality="studio",  # Default audio quality
+        ytdlp_parameters=None,  # Can be added to Channel model later if needed
+        stream_headers=None,  # Can be added to Channel model later if needed
+        placeholder_image=channel.placeholder_image,
+        # Encoding profile fields
+        video_codec=channel.video_codec,
+        audio_codec=channel.audio_codec,
+        video_bitrate=channel.video_bitrate,
+        audio_bitrate=channel.audio_bitrate,
+        resolution=channel.resolution,
     )
 
 

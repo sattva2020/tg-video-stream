@@ -60,6 +60,8 @@ except ImportError:
 # Import our modules
 from redis_command_handler import RedisCommandHandler, ChannelConfig
 from multi_channel import MultiChannelManager
+from metrics import MetricsCollector
+from exceptions import TranscodingError, FFmpegError, EncodingProfileError
 
 # Global state
 running_channels: Dict[str, Dict[str, Any]] = {}  # channel_id -> {client, pytg, task}
@@ -68,6 +70,7 @@ playlist_update_events: Dict[str, asyncio.Event] = {}  # channel_id -> Event (si
 play_in_progress: Dict[int, bool] = {}  # chat_id -> True if play() is executing (ignore StreamEnded during this)
 manager: Optional[MultiChannelManager] = None
 command_handler: Optional[RedisCommandHandler] = None
+metrics_collector: Optional[MetricsCollector] = None
 
 
 def _env_truthy(name: str, default: bool = True) -> bool:
@@ -105,6 +108,50 @@ def _human_hint_for_telegram_error(e: BaseException) -> Optional[str]:
         )
 
     return None
+
+
+def _get_actionable_error_message(e: BaseException) -> str:
+    """
+    Get actionable error message from exception.
+
+    For custom streamer exceptions, extract the actionable message.
+    For generic exceptions, provide basic guidance.
+
+    Args:
+        e: Exception to extract message from
+
+    Returns:
+        Actionable error message string
+    """
+    # Handle custom streamer exceptions
+    if isinstance(e, (TranscodingError, FFmpegError, EncodingProfileError)):
+        if hasattr(e, 'actionable_message'):
+            return e.actionable_message
+        elif hasattr(e, 'get_actionable_message'):
+            return e.get_actionable_message()
+        elif hasattr(e, 'get_actionable_hint'):
+            hint = e.get_actionable_hint()
+            if hint:
+                return hint
+
+    # Handle FFmpeg subprocess errors
+    if "FFmpeg" in str(type(e).__name__) or "ffmpeg" in str(e).lower():
+        return (
+            "FFmpeg error occurred. Check video codec compatibility, "
+            "bitrate settings, and source file format. "
+            "Try using h264/aac with standard bitrates."
+        )
+
+    # Handle network errors
+    if "Connection" in str(e) or "Network" in str(e) or "Timeout" in str(e):
+        return "Network error. Check source URL availability and network connectivity."
+
+    # Handle permission errors
+    if "Permission" in str(e):
+        return "Permission denied. Check file permissions and FFmpeg access rights."
+
+    # Default: return the exception message
+    return str(e) or "An error occurred"
 
 
 async def on_stream_ended(pytg: PyTgCalls, update: StreamEnded):
@@ -188,6 +235,102 @@ def get_redis_url() -> str:
     if redis_url:
         return redis_url
     return f"redis://{redis_host}:{redis_port}/{redis_db}"
+
+
+async def push_encoding_metrics():
+    """Push encoding metrics for all active channels."""
+    global metrics_collector, running_channels
+
+    if not metrics_collector:
+        return
+
+    try:
+        encoding_metrics = metrics_collector.collect_encoding_metrics(running_channels)
+        metrics_collector.push_encoding_metrics(encoding_metrics)
+        log.debug(f"Pushed encoding metrics for {encoding_metrics.get('active_channels', 0)} channels")
+    except Exception as e:
+        log.error(f"Error pushing encoding metrics: {e}")
+
+
+def build_ffmpeg_params_from_profile(config: ChannelConfig) -> str:
+    """
+    Build FFmpeg parameters from encoding profile or fall back to video_quality.
+
+    If encoding profile fields (video_codec, audio_codec, video_bitrate, etc.) are set,
+    use them to build custom FFmpeg parameters. Otherwise, fall back to the standard
+    build_ffmpeg_av_args function based on video_quality.
+
+    Args:
+        config: ChannelConfig with encoding profile fields
+
+    Returns:
+        FFmpeg parameters as a string
+    """
+    from utils import build_ffmpeg_av_args
+
+    # Check if custom encoding profile is set
+    has_custom_codec = config.video_codec or config.audio_codec
+    has_custom_bitrate = config.video_bitrate or config.audio_bitrate
+    has_custom_resolution = config.resolution
+
+    # If any encoding profile field is set, build custom parameters
+    if has_custom_codec or has_custom_bitrate or has_custom_resolution:
+        params = []
+
+        # Base video args with low-latency presets
+        params.extend(["-preset", "ultrafast", "-tune", "zerolatency"])
+
+        # Video codec
+        video_codec = config.video_codec or "libx264"
+        if video_codec == "h264":
+            video_codec = "libx264"
+        elif video_codec == "h265":
+            video_codec = "libx265"
+        elif video_codec == "vp9":
+            video_codec = "libvpx-vp9"
+        params.extend(["-c:v", video_codec])
+
+        # Resolution
+        if config.resolution:
+            params.extend(["-vf", f"scale={config.resolution}"])
+        else:
+            # Fall back to video_quality for resolution
+            if config.video_quality == "1080p":
+                params.extend(["-vf", "scale=-2:1080"])
+            elif config.video_quality == "480p":
+                params.extend(["-vf", "scale=-2:480"])
+            else:  # 720p or default
+                params.extend(["-vf", "scale=-2:720"])
+
+        # Video bitrate
+        if config.video_bitrate:
+            params.extend(["-b:v", f"{config.video_bitrate}k"])
+        else:
+            # Fall back to video_quality for bitrate
+            if config.video_quality == "1080p":
+                params.extend(["-b:v", "3500k"])
+            elif config.video_quality == "480p":
+                params.extend(["-b:v", "900k"])
+            else:  # 720p or default
+                params.extend(["-b:v", "1800k"])
+
+        # Audio codec
+        audio_codec = config.audio_codec or "aac"
+        params.extend(["-c:a", audio_codec])
+
+        # Audio bitrate
+        if config.audio_bitrate:
+            params.extend(["-b:a", f"{config.audio_bitrate}k"])
+        else:
+            # Default audio bitrate
+            params.extend(["-ar", "48000", "-b:a", "128k"])
+
+        return " ".join(params)
+    else:
+        # No custom encoding profile, use standard video_quality
+        v_args, a_args = build_ffmpeg_av_args(config.video_quality or "720p")
+        ffmpeg_params_list = v_args + a_args
+        return " ".join(ffmpeg_params_list)
 
 
 # NOTE: ensure_group_call() was removed - PyTgCalls handles this automatically!
@@ -600,7 +743,10 @@ async def start_channel_stream(config: ChannelConfig) -> bool:
             channel_playback_loop(channel_id, config)
         )
         running_channels[channel_id]["task"] = task
-        
+
+        # Push encoding metrics after starting channel
+        await push_encoding_metrics()
+
         log.info(f"Channel {channel_id} started successfully")
         return True
         
@@ -674,7 +820,10 @@ async def stop_channel_stream(channel_id: str) -> bool:
         
         # Remove from running channels
         del running_channels[channel_id]
-        
+
+        # Push encoding metrics after stopping channel
+        await push_encoding_metrics()
+
         log.info(f"Channel {channel_id} stopped")
         return True
         
@@ -690,7 +839,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     Fetches playlist from backend and plays items.
     """
     import requests
-    from utils import expand_playlist, build_ffmpeg_av_args, best_stream_url
+    from utils import expand_playlist, best_stream_url
     
     backend_url = os.getenv("BACKEND_URL", "http://backend:8000").rstrip("/")
     
@@ -703,9 +852,7 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
     
     pytg = channel_data["pytg"]
     chat_id = channel_data["chat_id"]  # Use resolved chat_id from start_channel_stream
-    
-    v_args, a_args = build_ffmpeg_av_args(config.video_quality)
-    
+
     try:
         while channel_id in running_channels:
             # Fetch playlist from backend (new unified playlist API)
@@ -791,12 +938,65 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                 "playing",
                                 current_item=item.get("title", stream_url[:50])
                             )
+
+                        # Push encoding metrics when playback starts
+                        await push_encoding_metrics()
                         
                         # Join group call and stream
                         try:
+                            # Validate encoding profile before attempting playback
+                            if config.video_codec and config.video_codec not in ["h264", "h265", "vp9"]:
+                                error_msg = f"Invalid video_codec: {config.video_codec}"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Supported: h264, h265, vp9"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            if config.audio_codec and config.audio_codec not in ["aac", "mp3", "opus"]:
+                                error_msg = f"Invalid audio_codec: {config.audio_codec}"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Supported: aac, mp3, opus"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            # Validate bitrate settings
+                            if config.video_bitrate and not (500 <= config.video_bitrate <= 10000):
+                                error_msg = f"Invalid video_bitrate: {config.video_bitrate} kbps (must be 500-10000)"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Recommended: 1500-4000 kbps for 720p-1080p"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
+                            if config.audio_bitrate and not (32 <= config.audio_bitrate <= 320):
+                                error_msg = f"Invalid audio_bitrate: {config.audio_bitrate} kbps (must be 32-320)"
+                                log.error(f"Channel {channel_id}: {error_msg}")
+                                if command_handler:
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_msg + " | Recommended: 128 kbps"
+                                    )
+                                await asyncio.sleep(5)
+                                continue
+
                             # Note: event.clear() moved to AFTER play() succeeds
                             # to prevent race condition with StreamEnded during play()
-                            
+
                             # Determine audio quality from config
                             audio_quality_map = {
                                 "low": AudioQuality.LOW,
@@ -836,10 +1036,21 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                             }
                             
                             # Prepare FFmpeg parameters
-                            # We use build_ffmpeg_av_args to get optimized parameters for the target quality
-                            v_args, a_args = build_ffmpeg_av_args(config.video_quality or "480p")
-                            ffmpeg_params_list = v_args + a_args
-                            ffmpeg_params_str = " ".join(ffmpeg_params_list)
+                            # Use encoding profile if set, otherwise fall back to video_quality
+                            ffmpeg_params_str = build_ffmpeg_params_from_profile(config)
+
+                            # Log encoding configuration
+                            if config.video_codec or config.audio_codec or config.video_bitrate or config.audio_bitrate or config.resolution:
+                                log.info(
+                                    f"Channel {channel_id}: Using custom encoding profile - "
+                                    f"video_codec={config.video_codec or 'default'}, "
+                                    f"audio_codec={config.audio_codec or 'default'}, "
+                                    f"video_bitrate={config.video_bitrate or 'default'}, "
+                                    f"audio_bitrate={config.audio_bitrate or 'default'}, "
+                                    f"resolution={config.resolution or 'default'}"
+                                )
+
+                            log.info(f"Channel {channel_id}: Using FFmpeg params: {ffmpeg_params_str}")
                             
                             # Add ffmpeg_parameters if configured
                             if config.ffmpeg_args:
@@ -979,29 +1190,67 @@ async def channel_playback_loop(channel_id: str, config: ChannelConfig):
                                         )
 
                                 log.info(f"Channel {channel_id}: pytg.play() completed successfully")
-                            except Exception as play_error:
-                                formatted = _format_exception(play_error)
-                                hint = _human_hint_for_telegram_error(play_error)
-                                log.exception(f"Channel {channel_id}: play() failed: {formatted}")
+                            except (TranscodingError, FFmpegError, EncodingProfileError) as encoding_error:
+                                # Custom encoding errors have actionable messages
+                                formatted = _format_exception(encoding_error)
+                                actionable_msg = _get_actionable_error_message(encoding_error)
+                                log.exception(f"Channel {channel_id}: Encoding error: {formatted}")
                                 if command_handler:
                                     await command_handler.update_status(
                                         channel_id,
                                         "error",
-                                        error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                        error=f"{formatted} | Fix: {actionable_msg}"
+                                    )
+                                # Don't raise - continue to next track after delay
+                                await asyncio.sleep(5)
+                            except Exception as play_error:
+                                formatted = _format_exception(play_error)
+                                hint = _human_hint_for_telegram_error(play_error)
+                                actionable_msg = _get_actionable_error_message(play_error)
+                                log.exception(f"Channel {channel_id}: play() failed: {formatted}")
+                                if command_handler:
+                                    error_message = formatted
+                                    if hint:
+                                        error_message += f" | hint: {hint}"
+                                    elif actionable_msg:
+                                        error_message += f" | Fix: {actionable_msg}"
+                                    await command_handler.update_status(
+                                        channel_id,
+                                        "error",
+                                        error=error_message,
                                     )
                                 raise play_error
                             finally:
                                 # Clear flag AFTER play() completes (success or failure)
                                 play_in_progress[chat_id] = False
-                        except Exception as e:
-                            formatted = _format_exception(e)
-                            hint = _human_hint_for_telegram_error(e)
-                            log.exception(f"Channel {channel_id}: Join call failed: {formatted}")
+                        except (TranscodingError, FFmpegError, EncodingProfileError) as encoding_error:
+                            # Custom encoding errors have actionable messages
+                            formatted = _format_exception(encoding_error)
+                            actionable_msg = _get_actionable_error_message(encoding_error)
+                            log.exception(f"Channel {channel_id}: Encoding error: {formatted}")
                             if command_handler:
                                 await command_handler.update_status(
                                     channel_id,
                                     "error",
-                                    error=(formatted + (f" | hint: {hint}" if hint else "")),
+                                    error=f"{formatted} | Fix: {actionable_msg}"
+                                )
+                            await asyncio.sleep(5)
+                            continue
+                        except Exception as e:
+                            formatted = _format_exception(e)
+                            hint = _human_hint_for_telegram_error(e)
+                            actionable_msg = _get_actionable_error_message(e)
+                            log.exception(f"Channel {channel_id}: Join call failed: {formatted}")
+                            if command_handler:
+                                error_message = formatted
+                                if hint:
+                                    error_message += f" | hint: {hint}"
+                                elif actionable_msg and actionable_msg != str(e):
+                                    error_message += f" | Fix: {actionable_msg}"
+                                await command_handler.update_status(
+                                    channel_id,
+                                    "error",
+                                    error=error_message,
                                 )
                             await asyncio.sleep(5)
                             continue
@@ -1252,13 +1501,17 @@ async def update_channel_playlist(channel_id: str) -> bool:
 
 async def main():
     """Main entry point."""
-    global manager, command_handler
-    
+    global manager, command_handler, metrics_collector
+
     log.info("Starting Multi-Channel Stream Runner")
-    
+
     # Initialize command handler
     redis_url = get_redis_url()
     command_handler = RedisCommandHandler(redis_url)
+
+    # Initialize metrics collector
+    metrics_collector = MetricsCollector(redis_url=redis_url)
+    log.info("Metrics collector initialized")
     
     # Register callbacks
     command_handler.on_start = start_channel_stream
@@ -1276,7 +1529,24 @@ async def main():
     # Start command handler
     await command_handler.start()
     log.info("Redis command handler started, waiting for commands...")
-    
+
+    # Start periodic encoding metrics push task
+    async def metrics_push_loop():
+        """Background task to periodically push encoding metrics."""
+        while True:
+            try:
+                await push_encoding_metrics()
+                await asyncio.sleep(30)  # Push every 30 seconds
+            except asyncio.CancelledError:
+                log.info("Metrics push loop cancelled")
+                break
+            except Exception as e:
+                log.error(f"Error in metrics push loop: {e}")
+                await asyncio.sleep(30)
+
+    metrics_task = asyncio.create_task(metrics_push_loop())
+    log.info("Encoding metrics push loop started")
+
     # Setup graceful shutdown
     shutdown_event = asyncio.Event()
     
@@ -1295,15 +1565,23 @@ async def main():
     
     # Cleanup
     log.info("Shutting down...")
-    
+
+    # Cancel metrics task
+    if 'metrics_task' in locals():
+        metrics_task.cancel()
+        try:
+            await metrics_task
+        except asyncio.CancelledError:
+            pass
+
     # Stop all channels
     for channel_id in list(running_channels.keys()):
         await stop_channel_stream(channel_id)
-    
+
     # Stop command handler
     if command_handler:
         await command_handler.stop()
-    
+
     log.info("Shutdown complete")
 
 

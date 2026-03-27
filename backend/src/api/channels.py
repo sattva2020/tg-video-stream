@@ -6,12 +6,14 @@ from src.models.telegram import Channel, TelegramAccount
 from src.models.schedule import ScheduleSlot, RepeatType, Playlist
 from api.auth import get_current_user
 from src.services.redis_stream_controller import RedisStreamController
-from pydantic import BaseModel, ConfigDict
+from src.services.video_validation_service import VideoValidationService
+from pydantic import BaseModel, ConfigDict, Field, validator
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta, time, date
 import uuid
 import shutil
 import os
+import re
 
 router = APIRouter()
 
@@ -27,6 +29,12 @@ class ChannelCreate(BaseModel):
     video_quality: Optional[str] = "best"
     stream_type: Optional[str] = "video"
     playlist_id: Optional[uuid.UUID] = None
+    # Encoding profile settings
+    video_codec: Optional[str] = "h264"
+    audio_codec: Optional[str] = "aac"
+    video_bitrate: Optional[int] = None
+    audio_bitrate: Optional[int] = None
+    resolution: Optional[str] = None
 
 class ChannelResponse(BaseModel):
     id: uuid.UUID
@@ -40,8 +48,58 @@ class ChannelResponse(BaseModel):
     video_quality: str
     stream_type: str
     placeholder_image: Optional[str] = None
+    # Encoding profile settings
+    video_codec: Optional[str] = "h264"
+    audio_codec: Optional[str] = "aac"
+    video_bitrate: Optional[int] = None
+    audio_bitrate: Optional[int] = None
+    resolution: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CodecValidationRequest(BaseModel):
+    """Request model for codec validation in channel context."""
+
+    video_codec: Optional[str] = Field(None, description="Video codec name (e.g., 'h264', 'h265')")
+    audio_codec: Optional[str] = Field(None, description="Audio codec name (e.g., 'aac', 'mp3', 'opus')")
+    resolution: Optional[str] = Field(None, description="Resolution in format 'WIDTHxHEIGHT' (e.g., '1920x1080')")
+
+    @validator('resolution')
+    def validate_resolution(cls, v):
+        """Validate resolution format."""
+        if v is None:
+            return v
+
+        # Check resolution format (WIDTHxHEIGHT)
+        pattern = r'^\d+x\d+$'
+        if not re.match(pattern, v):
+            raise ValueError(f'Resolution must be in format "WIDTHxHEIGHT" (e.g., "1920x1080"), got: {v}')
+
+        # Extract dimensions
+        try:
+            width, height = map(int, v.split('x'))
+            # Basic sanity checks
+            if width < 1 or width > 7680:
+                raise ValueError(f'Width must be between 1 and 7680, got: {width}')
+            if height < 1 or height > 4320:
+                raise ValueError(f'Height must be between 1 and 4320, got: {height}')
+        except ValueError as e:
+            raise ValueError(f'Invalid resolution format: {e}')
+
+        return v
+
+
+class CodecValidationResponse(BaseModel):
+    """Response model for codec validation in channel context."""
+
+    valid: bool = Field(..., description="Whether codecs and resolution are valid")
+    errors: List[str] = Field(default_factory=list, description="Validation errors")
+    warnings: List[str] = Field(default_factory=list, description="Validation warnings")
+    video_codec_supported: Optional[bool] = Field(None, description="Whether video codec is supported")
+    audio_codec_supported: Optional[bool] = Field(None, description="Whether audio codec is supported")
+    resolution_valid: Optional[bool] = Field(None, description="Whether resolution format is valid")
+
 
 @router.get("/", response_model=List[ChannelResponse])
 def list_channels(
@@ -87,6 +145,11 @@ def list_channels(
             "placeholder_image": channel.placeholder_image,
             "status": current_status or "stopped",
             "error_message": error_message,
+            "video_codec": channel.video_codec or "h264",
+            "audio_codec": channel.audio_codec or "aac",
+            "video_bitrate": channel.video_bitrate,
+            "audio_bitrate": channel.audio_bitrate,
+            "resolution": channel.resolution,
         }
         
         # Get real-time status from Redis
@@ -133,6 +196,11 @@ def create_channel(
         ffmpeg_args=channel_in.ffmpeg_args,
         video_quality=channel_in.video_quality,
         stream_type=channel_in.stream_type,
+        video_codec=channel_in.video_codec,
+        audio_codec=channel_in.audio_codec,
+        video_bitrate=channel_in.video_bitrate,
+        audio_bitrate=channel_in.audio_bitrate,
+        resolution=channel_in.resolution,
         status="stopped"
     )
     
@@ -303,7 +371,12 @@ def update_channel(
     channel.ffmpeg_args = channel_in.ffmpeg_args
     channel.video_quality = channel_in.video_quality
     channel.stream_type = channel_in.stream_type
-    
+    channel.video_codec = channel_in.video_codec
+    channel.audio_codec = channel_in.audio_codec
+    channel.video_bitrate = channel_in.video_bitrate
+    channel.audio_bitrate = channel_in.audio_bitrate
+    channel.resolution = channel_in.resolution
+
     # Note: We don't update account_id or chat_id usually, but if needed:
     # channel.chat_id = channel_in.chat_id
     
@@ -346,5 +419,95 @@ async def upload_placeholder(
     # Update DB
     channel.placeholder_image = file_path
     db.commit()
-    
+
     return {"status": "success", "path": file_path}
+
+
+@router.post("/validate-codec", response_model=CodecValidationResponse)
+async def validate_codec(
+    request: CodecValidationRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Validate video and audio codecs for Telegram compatibility.
+
+    Provides quick validation without downloading video files.
+    Useful for validating codec settings before creating or updating channels.
+
+    Checks:
+    - Video codec compatibility (h264, h265)
+    - Audio codec compatibility (aac, mp3, opus)
+    - Resolution format validation
+
+    Returns validation result with specific support information for each codec.
+    """
+    try:
+        service = VideoValidationService(db_session=db)
+
+        # Validate codecs using VideoValidationService
+        codec_result = await service.validate_codecs(
+            video_codec=request.video_codec,
+            audio_codec=request.audio_codec
+        )
+
+        # Initialize response
+        errors = codec_result.get("errors", []).copy()
+        warnings = []
+        valid = codec_result.get("valid", True)
+
+        # Validate resolution if provided
+        resolution_valid = True
+        if request.resolution:
+            try:
+                # Resolution is already validated by the Pydantic validator
+                # Add informational warning about very high resolutions
+                width, height = map(int, request.resolution.split('x'))
+
+                # Check for 4K+ resolutions (may require more bandwidth)
+                if width >= 3840 or height >= 2160:
+                    warnings.append(
+                        f"High resolution {request.resolution} detected. "
+                        "Ensure sufficient bandwidth is available."
+                    )
+
+                # Check for very low resolutions
+                if width < 640 or height < 480:
+                    warnings.append(
+                        f"Low resolution {request.resolution} may result in poor quality."
+                    )
+
+            except Exception as e:
+                resolution_valid = False
+                errors.append(f"Resolution validation error: {str(e)}")
+                valid = False
+
+        # Determine codec support status
+        video_codec_supported = None
+        audio_codec_supported = None
+
+        if request.video_codec:
+            # Check if video codec error exists
+            video_errors = [e for e in errors if "Video codec" in e]
+            video_codec_supported = len(video_errors) == 0
+
+        if request.audio_codec:
+            # Check if audio codec error exists
+            audio_errors = [e for e in errors if "Audio codec" in e]
+            audio_codec_supported = len(audio_errors) == 0
+
+        return CodecValidationResponse(
+            valid=valid,
+            errors=errors,
+            warnings=warnings,
+            video_codec_supported=video_codec_supported,
+            audio_codec_supported=audio_codec_supported,
+            resolution_valid=resolution_valid if request.resolution else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Codec validation failed: {str(e)}"
+        )
+

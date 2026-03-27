@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { CreateChannelData, Channel } from '../api/channels';
 import { playlistsApi } from '../api/playlists';
 import { TelegramDialog } from '../api/telegram';
-import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music } from 'lucide-react';
+import { Plus, Play, Square, RefreshCw, Tv, UserPlus, X, List, Trash2, Edit2, Video, Music, Settings, Gauge, Cpu } from 'lucide-react';
 import { TelegramLogin } from '../components/auth/TelegramLogin';
 import { DialogPicker } from '../components/channels/DialogPicker';
+import { EncodingProfileForm } from '../components/channels/EncodingProfileForm';
 import { SkeletonChannelCard } from '../components/ui/Skeleton';
 import { AppLayout } from '../components/layout';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ import {
 } from '../hooks/useChannelsQuery';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../lib/queryClient';
+import { EncodingProfile } from '../components/channels/EncodingProfileForm';
+import { adminApi, EncodingMetricsResponse } from '../api/admin';
 
 const ChannelManager: React.FC = () => {
   const { t } = useTranslation();
@@ -31,6 +34,11 @@ const ChannelManager: React.FC = () => {
   const { data: playlists = [] } = useQuery({
     queryKey: ['playlists'],
     queryFn: () => playlistsApi.getMyPlaylists(),
+  });
+  const { data: encodingMetrics } = useQuery({
+    queryKey: ['encoding-metrics'],
+    queryFn: () => adminApi.getEncodingMetrics(),
+    refetchInterval: 10000, // Refetch every 10 seconds
   });
 
   const createChannel = useCreateChannel();
@@ -67,6 +75,8 @@ const ChannelManager: React.FC = () => {
   const [showDialogPicker, setShowDialogPicker] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [encodingProfile, setEncodingProfile] = useState<EncodingProfile>({});
+  const [encodingProfileValid, setEncodingProfileValid] = useState(true);
   const [formData, setFormData] = useState<CreateChannelData & { playlist_id?: string }>({
     account_id: '',
     chat_id: 0,
@@ -93,6 +103,23 @@ const ChannelManager: React.FC = () => {
     }
   };
 
+  const handleEncodingProfileChange = (profile: EncodingProfile) => {
+    setEncodingProfile(profile);
+    // Update formData with encoding profile fields
+    setFormData({
+      ...formData,
+      video_codec: profile.video_codec,
+      audio_codec: profile.audio_codec,
+      video_bitrate: profile.video_bitrate,
+      audio_bitrate: profile.audio_bitrate,
+      resolution: profile.resolution,
+    });
+  };
+
+  const handleEncodingProfileValidationChange = (isValid: boolean, errors: string[]) => {
+    setEncodingProfileValid(isValid);
+  };
+
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     let channelId = editingChannel?.id;
@@ -111,12 +138,23 @@ const ChannelManager: React.FC = () => {
     setIsModalOpen(false);
     setEditingChannel(null);
     setSelectedFile(null);
+    setEncodingProfile({});
+    setEncodingProfileValid(true);
     setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video', playlist_id: '' });
   };
 
   const handleEdit = (channel: Channel) => {
     setEditingChannel(channel);
     setSelectedFile(null);
+    const profile: EncodingProfile = {
+      video_codec: channel.video_codec,
+      audio_codec: channel.audio_codec,
+      video_bitrate: channel.video_bitrate,
+      audio_bitrate: channel.audio_bitrate,
+      resolution: channel.resolution,
+      custom_ffmpeg_args: channel.ffmpeg_args,
+    };
+    setEncodingProfile(profile);
     setFormData({
       account_id: channel.account_id,
       chat_id: channel.chat_id,
@@ -126,6 +164,11 @@ const ChannelManager: React.FC = () => {
       ffmpeg_args: channel.ffmpeg_args,
       stream_type: channel.stream_type as 'video' | 'audio' || 'video',
       playlist_id: '', // Reset playlist_id when editing, as we don't support changing it here yet
+      video_codec: channel.video_codec,
+      audio_codec: channel.audio_codec,
+      video_bitrate: channel.video_bitrate,
+      audio_bitrate: channel.audio_bitrate,
+      resolution: channel.resolution,
     });
     setIsModalOpen(true);
   };
@@ -157,8 +200,18 @@ const ChannelManager: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingChannel(null);
+    setEncodingProfile({});
+    setEncodingProfileValid(true);
     setFormData({ account_id: '', chat_id: 0, chat_username: '', name: '', video_quality: 'best', stream_type: 'video', playlist_id: '' });
     setIsModalOpen(true);
+  };
+
+  // Helper to get encoding metrics for a specific channel
+  const getChannelEncodingMetrics = (channelId: string) => {
+    if (!encodingMetrics?.online || !encodingMetrics.metrics?.channels) {
+      return null;
+    }
+    return encodingMetrics.metrics.channels[channelId] || null;
   };
 
   if (loading) {
@@ -311,6 +364,49 @@ const ChannelManager: React.FC = () => {
                     )}
                   </div>
 
+                  {/* Encoding Performance Metrics */}
+                  {channel.status === 'running' && (() => {
+                    const metrics = getChannelEncodingMetrics(channel.id);
+                    if (!metrics) return null;
+
+                    return (
+                      <div className="mb-4 sm:mb-6 p-3 rounded-xl bg-[color:var(--color-bg)] border border-[color:var(--color-border)]">
+                        <div className="flex items-center gap-2 text-xs font-medium text-[color:var(--color-text-secondary)] mb-2">
+                          <Gauge size={14} />
+                          <span>{t('channels.encodingMetrics', 'Encoding Performance')}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <p className="text-[color:var(--color-text-muted)]">{t('channels.videoCodec', 'Video Codec')}</p>
+                            <p className="font-mono text-[color:var(--color-text)]">{metrics.video_codec || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[color:var(--color-text-muted)]">{t('channels.audioCodec', 'Audio Codec')}</p>
+                            <p className="font-mono text-[color:var(--color-text)]">{metrics.audio_codec || 'N/A'}</p>
+                          </div>
+                          {metrics.video_bitrate && metrics.video_bitrate !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.videoBitrate', 'Video Bitrate')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.video_bitrate} kbps</p>
+                            </div>
+                          )}
+                          {metrics.audio_bitrate && metrics.audio_bitrate !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.audioBitrate', 'Audio Bitrate')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.audio_bitrate} kbps</p>
+                            </div>
+                          )}
+                          {metrics.resolution && metrics.resolution !== 'default' && (
+                            <div>
+                              <p className="text-[color:var(--color-text-muted)]">{t('channels.resolution', 'Resolution')}</p>
+                              <p className="font-mono text-[color:var(--color-text)]">{metrics.resolution}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex gap-2 sm:gap-3">
                     {channel.status === 'stopped' || channel.status === 'error' || channel.status === 'unknown' ? (
                       <button
@@ -379,6 +475,8 @@ const ChannelManager: React.FC = () => {
                       setShowDialogPicker(false);
                     } else {
                       setIsModalOpen(false);
+                      setEncodingProfile({});
+                      setEncodingProfileValid(true);
                     }
                   }}
                   className="p-2 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg"
@@ -525,6 +623,20 @@ const ChannelManager: React.FC = () => {
                       </select>
                     </div>
 
+                    {/* Encoding Profile Section */}
+                    <div className="pt-4 border-t border-[color:var(--color-border)]">
+                      <h3 className="text-base font-semibold text-[color:var(--color-text)] mb-3 flex items-center gap-2">
+                        <Settings className="w-4 h-4" />
+                        {t('channels.encodingProfile', 'Encoding Profile')}
+                      </h3>
+                      <EncodingProfileForm
+                        initialProfile={encodingProfile}
+                        onChange={handleEncodingProfileChange}
+                        onValidationChange={handleEncodingProfileValidationChange}
+                        showAdvanced={true}
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-[color:var(--color-text)] mb-1.5">
                         {t('channels.placeholder', 'Placeholder Image (for Audio Mode)')}
@@ -549,6 +661,8 @@ const ChannelManager: React.FC = () => {
                       onClick={() => {
                         setIsModalOpen(false);
                         setEditingChannel(null);
+                        setEncodingProfile({});
+                        setEncodingProfileValid(true);
                       }}
                       className="w-full sm:w-auto px-4 py-2.5 text-[color:var(--color-text-muted)] hover:bg-[color:var(--color-surface-muted)] rounded-lg transition-colors"
                     >
@@ -556,7 +670,8 @@ const ChannelManager: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      className="w-full sm:w-auto px-4 py-2.5 bg-[color:var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
+                      disabled={!encodingProfileValid}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-[color:var(--color-accent)] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {editingChannel ? t('common.save', 'Save Changes') : t('channels.create', 'Create Channel')}
                     </button>

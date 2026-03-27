@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, func, ForeignKey, BigInteger
+from sqlalchemy import Column, String, DateTime, func, ForeignKey, BigInteger, Integer
 from sqlalchemy.orm import relationship
 from src.database import Base, GUID
 
@@ -36,7 +36,14 @@ class Channel(Base):
     video_quality = Column(String, default="best")
     stream_type = Column(String, default="video") # video, audio
     placeholder_image = Column(String, nullable=True) # Path to custom placeholder image
-    
+
+    # Encoding profile settings
+    video_codec = Column(String, default="h264") # h264, h265, vp9
+    audio_codec = Column(String, default="aac") # aac, opus, mp3
+    video_bitrate = Column(Integer, nullable=True) # Video bitrate in kbps
+    audio_bitrate = Column(Integer, nullable=True) # Audio bitrate in kbps
+    resolution = Column(String, nullable=True) # Resolution (e.g., "1920x1080")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

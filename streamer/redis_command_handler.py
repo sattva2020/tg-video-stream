@@ -49,6 +49,12 @@ class ChannelConfig:
     audio_quality: str = "studio"  # low, medium, high, studio
     stream_type: str = "video"  # video, audio
     placeholder_image: Optional[str] = None # Path to custom placeholder image
+    # Encoding profile fields
+    video_codec: Optional[str] = None  # h264, h265, vp9
+    audio_codec: Optional[str] = None  # aac, opus, mp3
+    video_bitrate: Optional[int] = None  # Video bitrate in kbps
+    audio_bitrate: Optional[int] = None  # Audio bitrate in kbps
+    resolution: Optional[str] = None  # Resolution (e.g., "1920x1080")
 
 
 class RedisCommandHandler:
@@ -253,7 +259,13 @@ class RedisCommandHandler:
                 stream_headers=config_data.get("stream_headers"),
                 audio_quality=config_data.get("audio_quality", "studio"),
                 stream_type=config_data.get("stream_type", "video"),
-                placeholder_image=config_data.get("placeholder_image")
+                placeholder_image=config_data.get("placeholder_image"),
+                # Encoding profile fields
+                video_codec=config_data.get("video_codec"),
+                audio_codec=config_data.get("audio_codec"),
+                video_bitrate=config_data.get("video_bitrate"),
+                audio_bitrate=config_data.get("audio_bitrate"),
+                resolution=config_data.get("resolution"),
             )
             
             await self.update_status(channel_id, "starting")
@@ -338,7 +350,13 @@ class RedisCommandHandler:
                 stream_headers=config_data.get("stream_headers"),
                 audio_quality=config_data.get("audio_quality", "studio"),
                 stream_type=config_data.get("stream_type", "video"),
-                placeholder_image=config_data.get("placeholder_image")
+                placeholder_image=config_data.get("placeholder_image"),
+                # Encoding profile fields
+                video_codec=config_data.get("video_codec"),
+                audio_codec=config_data.get("audio_codec"),
+                video_bitrate=config_data.get("video_bitrate"),
+                audio_bitrate=config_data.get("audio_bitrate"),
+                resolution=config_data.get("resolution"),
             )
             
             await self.update_status(channel_id, "restarting")
