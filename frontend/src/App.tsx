@@ -31,6 +31,7 @@ const UserPlaylistsPage = lazy(() => import('./pages/admin/PlaylistsPage').then(
 const UserPlaylistEditor = lazy(() => import('./components/playlists/PlaylistEditor').then(module => ({ default: module.PlaylistEditor })));
 const IncidentsPage = lazy(() => import('./pages/admin/IncidentsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const SessionsPage = lazy(() => import('./pages/admin/SessionsPage'));
 
 // Role groups for RBAC
 const OPERATOR_AND_ABOVE = [UserRole.SUPERADMIN, UserRole.ADMIN, UserRole.MODERATOR, UserRole.OPERATOR];
@@ -109,9 +110,10 @@ const App: React.FC = () => {
               <Route path="/admin/incidents" element={<IncidentsPage />} />
             </Route>
 
-            {/* Routes for ADMIN only (settings) */}
+            {/* Routes for ADMIN only (settings & sessions) */}
             <Route element={<ProtectedRoute allowedRoles={ADMIN_AND_ABOVE} />}>
               <Route path="/admin/settings" element={<AdminSettingsPage />} />
+              <Route path="/admin/sessions" element={<SessionsPage />} />
             </Route>
           </Routes>
         </Suspense>

@@ -21,7 +21,8 @@ celery_app = Celery(
         "backend.src.services.analytics_aggregation_task",
         "backend.src.services.scheduler",
         "backend.src.services.conference_tracking_task",
-        "backend.src.tasks.stream_health_check"
+        "backend.src.tasks.stream_health_check",
+        "backend.src.tasks.telegram_session_health"
     ]
 )
 
@@ -98,6 +99,18 @@ celery_app.conf.update(
         "check-stream-health": {
             "task": "backend.src.tasks.stream_health_check.check_all_streams_health",
             "schedule": 300.0,  # Every 5 minutes
+        },
+
+        # Telegram session health check - every 5 minutes
+        "check-telegram-sessions-health": {
+            "task": "backend.src.tasks.telegram_session_health.check_all_telegram_sessions_health",
+            "schedule": 300.0,  # Every 5 minutes
+        },
+
+        # Refresh expiring Telegram sessions - every hour
+        "refresh-expiring-telegram-sessions": {
+            "task": "backend.src.tasks.telegram_session_health.refresh_expiring_sessions",
+            "schedule": crontab(minute=0, hour="*"),  # Every hour
         }
     }
 )
@@ -149,6 +162,11 @@ celery_app.conf.task_routes = {
     # Stream health check tasks
     "tasks.check_all_streams_health": {"queue": "health_check"},
     "tasks.stream_health_check": {"queue": "health_check"},
+
+    # Telegram session health check tasks
+    "tasks.check_all_telegram_sessions_health": {"queue": "health_check"},
+    "tasks.check_telegram_session_health": {"queue": "health_check"},
+    "tasks.refresh_expiring_sessions": {"queue": "health_check"},
 }
 
 

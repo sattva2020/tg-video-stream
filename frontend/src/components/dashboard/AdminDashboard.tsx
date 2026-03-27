@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { adminApi, User } from '../../api/admin';
-import { 
-  Card, 
-  CardBody, 
-  CardHeader, 
-  Button, 
-  Table, 
-  TableHeader, 
-  TableColumn, 
-  TableBody, 
-  TableRow, 
-  TableCell, 
-  Chip, 
-  Tabs, 
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Button,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  Tabs,
   Tab,
   Input
 } from '@heroui/react';
@@ -21,9 +21,10 @@ import { StreamStatusCard } from './StreamStatusCard';
 import { SkeletonStatCard, SkeletonTableRow } from '../ui/Skeleton';
 import { Pagination } from '../ui/Pagination';
 import { usePaginatedUsers, useUserStats, useApproveUser, useRejectUser } from '../../hooks/useUsersQuery';
+import { useSessionStats, useRefreshAllSessions, useBackupAllSessions } from '../../hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../../lib/queryClient';
-import { Check, X, RefreshCw, Search } from 'lucide-react';
+import { Check, X, RefreshCw, Search, AlertTriangle, Shield, Backup, Database } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export const AdminDashboard: React.FC = () => {
@@ -50,8 +51,11 @@ export const AdminDashboard: React.FC = () => {
   
   const users = data?.items || [];
   const { stats } = useUserStats();
+  const { stats: sessionStats, sessions } = useSessionStats();
   const approveUser = useApproveUser();
   const rejectUser = useRejectUser();
+  const refreshAllSessions = useRefreshAllSessions();
+  const backupAllSessions = useBackupAllSessions();
 
   // Handle search with debounce
   const handleSearchChange = (value: string) => {
@@ -114,6 +118,26 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleRefreshAllSessions = async () => {
+    if (!confirm('Обновить все Telegram сессии?')) return;
+    try {
+      await refreshAllSessions(sessions);
+    } catch (error) {
+      console.error('Failed to refresh sessions', error);
+      toast.error('Не удалось обновить сессии');
+    }
+  };
+
+  const handleBackupAllSessions = async () => {
+    if (!confirm('Создать бэкап всех сессий?')) return;
+    try {
+      await backupAllSessions(sessions);
+    } catch (error) {
+      console.error('Failed to backup sessions', error);
+      toast.error('Не удалось создать бэкап');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved': return 'success';
@@ -125,10 +149,30 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Session Alerts */}
+      {sessionStats && sessionStats.unhealthy > 0 && (
+        <Card className="border-warning-200 bg-warning-50">
+          <CardBody className="py-3 px-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0" />
+              <div className="flex-1">
+                <div className="font-medium text-warning text-sm">
+                  Требуется внимание
+                </div>
+                <div className="text-xs text-warning-700">
+                  {sessionStats.unhealthy} Telegram сессий требуют внимания
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Stats Overview */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 sm:gap-4">
         {loading ? (
           <>
+            <SkeletonStatCard />
             <SkeletonStatCard />
             <SkeletonStatCard />
             <SkeletonStatCard />
@@ -151,6 +195,47 @@ export const AdminDashboard: React.FC = () => {
             <div className="col-span-2 sm:col-span-1">
               <StreamStatusCard refreshInterval={15000} useWebSocket={true} />
             </div>
+            {/* Session Health Status */}
+            <Card className="col-span-2 sm:col-span-1">
+              <CardBody className="gap-2 p-3 sm:p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs sm:text-sm text-default-500">Telegram сессии</div>
+                  <Shield className="w-4 h-4 text-default-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <div className="text-xl sm:text-2xl font-semibold">{sessionStats.healthy}/{sessionStats.total}</div>
+                  {sessionStats.unhealthy > 0 && (
+                    <div className="text-xs text-danger font-medium">
+                      ({sessionStats.unhealthy} проблем)
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="primary"
+                    onPress={handleRefreshAllSessions}
+                    isDisabled={sessionStats.total === 0}
+                    startContent={<RefreshCw className="w-3 h-3" />}
+                    className="text-xs px-2"
+                  >
+                    Refresh
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="flat"
+                    color="default"
+                    onPress={handleBackupAllSessions}
+                    isDisabled={sessionStats.total === 0}
+                    startContent={<Backup className="w-3 h-3" />}
+                    className="text-xs px-2"
+                  >
+                    Backup
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
           </>
         )}
       </div>
@@ -165,14 +250,86 @@ export const AdminDashboard: React.FC = () => {
           }}
         >
           <Tab key="overview" title="Обзор">
-            <Card>
-              <CardBody className="p-4 sm:p-6">
-                <h3 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Обзор системы</h3>
-                <p className="text-sm text-default-500">
-                  Добро пожаловать в панель управления. Используйте вкладки выше для управления пользователями и настройками трансляции.
-                </p>
-              </CardBody>
-            </Card>
+            <div className="space-y-4 sm:space-y-6">
+              <Card>
+                <CardBody className="p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-medium mb-3 sm:mb-4">Обзор системы</h3>
+                  <p className="text-sm text-default-500">
+                    Добро пожаловать в панель управления. Используйте вкладки выше для управления пользователями и настройками трансляции.
+                  </p>
+                </CardBody>
+              </Card>
+
+              {/* Session Alerts Section */}
+              {sessions.length > 0 && (
+                <Card>
+                  <CardHeader className="px-4 sm:px-6 py-3 sm:py-4">
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5 text-warning" />
+                      <h3 className="text-base sm:text-lg font-medium">
+                        Требует внимания
+                      </h3>
+                    </div>
+                  </CardHeader>
+                  <CardBody className="p-4 sm:p-6">
+                    {sessionStats.expired > 0 && (
+                      <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-danger text-sm sm:text-base">
+                              {sessionStats.expired} истекших сессий
+                            </div>
+                            <div className="text-xs text-danger-700 mt-1">
+                              Требуется повторная авторизация
+                            </div>
+                          </div>
+                          <Database className="w-8 h-8 text-danger-300" />
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionStats.needs2FA > 0 && (
+                      <div className="mb-4 p-3 bg-warning-50 border border-warning-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-warning text-sm sm:text-base">
+                              {sessionStats.needs2FA} сессий требуют настройки 2FA
+                            </div>
+                            <div className="text-xs text-warning-700 mt-1">
+                              Настройте двухфакторную аутентификацию для автоматического обновления
+                            </div>
+                          </div>
+                          <Shield className="w-8 h-8 text-warning-300" />
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionStats.expiring > 0 && (
+                      <div className="p-3 bg-default-50 border border-default-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium text-default-700 text-sm sm:text-base">
+                              {sessionStats.expiring} сессий истекают скоро
+                            </div>
+                            <div className="text-xs text-default-600 mt-1">
+                              Автообновление будет выполнено автоматически
+                            </div>
+                          </div>
+                          <RefreshCw className="w-8 h-8 text-default-300" />
+                        </div>
+                      </div>
+                    )}
+
+                    {sessionStats.unhealthy === 0 && (
+                      <div className="p-6 text-center text-default-500">
+                        <Shield className="w-12 h-12 mx-auto mb-3 text-success opacity-50" />
+                        <p className="text-sm">Все сессии в хорошем состоянии</p>
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+              )}
+            </div>
           </Tab>
           
           <Tab key="users" title={t('admin.users', 'Пользователи')}>
