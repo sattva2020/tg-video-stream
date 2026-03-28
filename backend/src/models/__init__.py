@@ -23,6 +23,9 @@ from .lyrics_cache import LyricsCache
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
 
+# AI-Powered Content Recommendations (Feature 014)
+from .recommendation import Recommendation, RecommendationFeedback, UserItemInteraction, FeedbackType
+
 # Support & Incidents (Feature 024)
 from .incident import (
     Incident,
@@ -78,6 +81,11 @@ __all__ = [
     # Analytics
     "TrackPlay",
     "MonthlyAnalytics",
+    # AI-Powered Content Recommendations
+    "Recommendation",
+    "RecommendationFeedback",
+    "UserItemInteraction",
+    "FeedbackType",
     # Support & Incidents
     "Incident",
     "IncidentLog",

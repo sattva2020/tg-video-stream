@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "014-ai-powered-content-recommendations",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
-    "in_progress": 1,
+    "completed": 28,
+    "total": 29,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
+    "current": "Integration & Testing",
     "id": null,
-    "total": 3
+    "total": 7
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 29,
+    "started_at": "2026-01-23T20:41:26.487092"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-24T00:30:00.000000"
 }

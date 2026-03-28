@@ -39,6 +39,17 @@ from src.schemas.notifications import (
     NotificationRuleResponse,
     DeliveryLogResponse,
 )
+from src.schemas.recommendation import (
+    RecommendationItem,
+    RecommendationRequest,
+    RecommendationResponse,
+    FeedbackRequest,
+    FeedbackResponse,
+    InteractionRequest,
+    InteractionResponse,
+    RecommendationQualityMetrics,
+    RecommendationStatsResponse,
+)
 
 __all__ = [
     "TelegramAuthRequest",
@@ -75,4 +86,14 @@ __all__ = [
     "NotificationRuleUpdate",
     "NotificationRuleResponse",
     "DeliveryLogResponse",
+    # Recommendation schemas
+    "RecommendationItem",
+    "RecommendationRequest",
+    "RecommendationResponse",
+    "FeedbackRequest",
+    "FeedbackResponse",
+    "InteractionRequest",
+    "InteractionResponse",
+    "RecommendationQualityMetrics",
+    "RecommendationStatsResponse",
 ]

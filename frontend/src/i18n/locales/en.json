@@ -198,7 +198,8 @@
     "monitoring": "Monitoring",
     "analytics": "Analytics",
     "streamQuality": "Quality",
-    "settings": "Settings"
+    "settings": "Settings",
+    "recommendations": "Recommendations"
   },
   "analytics": {
     "title": "Analytics",

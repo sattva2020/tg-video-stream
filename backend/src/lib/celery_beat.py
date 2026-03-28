@@ -2,7 +2,8 @@
 Celery Beat scheduler configuration for the Telegram broadcast platform.
 
 This module configures the Celery Beat scheduler for periodic tasks
-like schedule execution checks, YouTube validation, and analytics aggregation.
+like schedule execution checks, YouTube validation, analytics aggregation,
+and recommendation model training.
 """
 
 import os
@@ -110,6 +111,33 @@ class CeleryBeatConfig:
                 "args": (),
                 "kwargs": {},
                 "options": {"queue": "reporting"}
+            },
+
+            # Recommendation model training - train collaborative filtering model weekly on Sunday at 1 AM
+            "train-collaborative-filtering-model": {
+                "task": "tasks.train_collaborative_model",
+                "schedule": crontab(minute=0, hour=1, day_of_week=0),  # Sunday 1 AM
+                "args": (30,),  # Train on 30 days of data
+                "kwargs": {},
+                "options": {"queue": "ml_training"}
+            },
+
+            # Recommendation model training - train content-based model weekly on Sunday at 2 AM
+            "train-content-based-model": {
+                "task": "tasks.train_content_based_model",
+                "schedule": crontab(minute=0, hour=2, day_of_week=0),  # Sunday 2 AM
+                "args": (),
+                "kwargs": {},
+                "options": {"queue": "ml_training"}
+            },
+
+            # Recommendation interaction matrix update - run daily at 3 AM
+            "update-recommendation-interaction-matrix": {
+                "task": "tasks.update_interaction_matrix",
+                "schedule": crontab(minute=0, hour=3),  # Daily at 3 AM
+                "args": (7, 1000),  # 7 days of data, 1000 batch size
+                "kwargs": {},
+                "options": {"queue": "ml_training"}
             }
         }
 
