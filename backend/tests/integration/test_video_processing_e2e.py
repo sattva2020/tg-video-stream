@@ -5,7 +5,6 @@ Integration Tests: Video Processing End-to-End
 Coverage Target: Real video processing workflow testing
 """
 import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 from src.models.user import User
 from src.auth.jwt import create_access_token
@@ -67,19 +66,8 @@ class TestVideoValidationAPI:
     def test_validate_video_url_returns_validation_result(self, client, user_token):
         """Валидация URL видео возвращает результат проверки"""
         # Mock VideoValidator to avoid actual FFprobe calls
-        mock_validation_result = {
-            "valid": True,
-            "is_compatible": True,
-            "video_codec": "h264",
-            "audio_codec": "aac",
-            "format": "mp4",
-            "has_orientation": False,
-            "orientation_value": None,
-            "errors": [],
-            "warnings": []
-        }
 
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -123,7 +111,7 @@ class TestVideoValidationAPI:
 
     def test_validate_incompatible_video_detects_transcoding_need(self, client, user_token):
         """Несовместимое видео определяется как требующее транскодирования"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -183,7 +171,7 @@ class TestCodecValidationAPI:
 
     def test_validate_codecs_returns_compatibility(self, client, user_token):
         """Проверка кодеков возвращает совместимость"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_codecs = MagicMock(return_value={
                 "valid": True,
@@ -206,7 +194,7 @@ class TestCodecValidationAPI:
 
     def test_validate_unsupported_codec_returns_error(self, client, user_token):
         """Неподдерживаемый кодек → ошибка валидации"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_codecs = MagicMock(return_value={
                 "valid": False,
@@ -234,7 +222,7 @@ class TestVideoProcessingE2E:
 
     def test_process_compatible_video_no_transcoding(self, client, user_token):
         """Совместимое видео не требует транскодирования"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -281,7 +269,7 @@ class TestVideoProcessingE2E:
 
     def test_process_incompatible_video_with_auto_transcode(self, client, user_token):
         """Несовместимое видео с auto_transcode=True запускает транскодирование"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             # Mock validation result
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
@@ -335,7 +323,7 @@ class TestVideoProcessingE2E:
 
     def test_process_video_with_orientation_correction(self, client, user_token):
         """Видео с ориентацией включает коррекцию при транскодировании"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -601,7 +589,7 @@ class TestVideoProcessingEdgeCases:
 
     def test_validate_video_with_timeout(self, client, user_token):
         """Валидация с custom timeout"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -633,7 +621,7 @@ class TestVideoProcessingEdgeCases:
 
     def test_validate_video_without_caching(self, client, user_token):
         """Валидация без кэширования результата"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,
@@ -668,7 +656,7 @@ class TestVideoProcessingEdgeCases:
         quality_profiles = ["low", "medium", "high", "ultra"]
 
         for quality in quality_profiles:
-            with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+            with patch('streamer.video_validator.VideoValidator') as MockValidator:
                 mock_validator_instance = MagicMock()
                 mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                     valid=True,
@@ -713,7 +701,7 @@ class TestVideoProcessingEdgeCases:
 
         for v_codec in video_codecs:
             for a_codec in audio_codecs:
-                with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+                with patch('streamer.video_validator.VideoValidator') as MockValidator:
                     mock_validator_instance = MagicMock()
                     mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                         valid=True,
@@ -757,7 +745,7 @@ class TestVideoProcessingEdgeCases:
         formats = ["mp4", "mkv", "webm"]
 
         for fmt in formats:
-            with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+            with patch('streamer.video_validator.VideoValidator') as MockValidator:
                 mock_validator_instance = MagicMock()
                 mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                     valid=True,
@@ -899,7 +887,7 @@ class TestSSRFProtection:
 
     def test_validate_public_ip_allowed(self, client, user_token):
         """Public IP addresses should be allowed"""
-        with patch('src.services.video_validation_service.VideoValidator') as MockValidator:
+        with patch('streamer.video_validator.VideoValidator') as MockValidator:
             mock_validator_instance = MagicMock()
             mock_validator_instance.validate_url = AsyncMock(return_value=MagicMock(
                 valid=True,

@@ -316,6 +316,66 @@ class VideoValidator:
         video_meta = stream_quality.video
         audio_meta = stream_quality.audio
 
+        # Get full ffprobe JSON for orientation detection and format info
+        ffprobe_json = {}
+        orientation_value = None
+        has_orientation = False
+        video_format = None
+        
+        try:
+            import subprocess
+            import json
+            
+            cmd = [
+                "ffprobe",
+                "-v", "quiet",
+                "-print_format", "json",
+                "-show_format",
+                "-show_streams",
+                url
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            
+            if result.returncode == 0:
+                ffprobe_json = json.loads(result.stdout)
+                
+                # Detect orientation
+                orientation_value = VideoValidator.detect_orientation(ffprobe_json)
+                has_orientation = orientation_value is not None and orientation_value != 0
+                
+                # Detect format
+                format_name = ffprobe_json.get("format", {}).get("format_name", "")
+                if "mp4" in format_name:
+                    video_format = "mp4"
+                elif "matroska" in format_name or "webm" in format_name:
+                    if "webm" in format_name:
+                        video_format = "webm"
+                    else:
+                        video_format = "mkv"
+                        
+                logger.debug("Detected orientation and format", extra={
+                    "url": url,
+                    "orientation": orientation_value,
+                    "has_orientation": has_orientation,
+                    "format": video_format
+                })
+            else:
+                logger.debug("FFprobe failed to get full metadata", extra={
+                    "url": url,
+                    "returncode": result.returncode
+                })
+        except Exception as e:
+            logger.debug("Error getting FFprobe metadata", extra={
+                "url": url,
+                "error": str(e)
+            })
+
         if not video_meta:
             errors.append("No video stream found in URL")
             is_compatible = False
@@ -383,10 +443,6 @@ class VideoValidator:
                 "warning": "video_only_file"
             })
 
-        # Detect orientation (requires raw ffprobe data)
-        # For now, we'll mark it as not detected
-        # This will be expanded in subtask-1-3
-
         valid = len(errors) == 0
 
         logger.info("Validation complete", extra={
@@ -395,6 +451,9 @@ class VideoValidator:
             "valid": valid,
             "video_codec": video_meta.codec if video_meta else None,
             "audio_codec": audio_meta.codec if audio_meta else None,
+            "format": video_format,
+            "has_orientation": has_orientation,
+            "orientation_value": orientation_value,
             "errors_count": len(errors),
             "warnings_count": len(warnings),
             "errors": errors,
@@ -406,8 +465,9 @@ class VideoValidator:
             is_compatible=is_compatible,
             video_codec=video_meta.codec if video_meta else None,
             audio_codec=audio_meta.codec if audio_meta else None,
-            format=None,  # Will be extracted from ffprobe in subtask-1-3
-            has_orientation=False,  # Will be detected in subtask-1-3
+            format=video_format,
+            has_orientation=has_orientation,
+            orientation_value=orientation_value,
             errors=errors,
             warnings=warnings
         )

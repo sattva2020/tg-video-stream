@@ -109,16 +109,35 @@ def perform_transcode(
 
         if output_path:
             # Транскодирование в файл
+            transcoder = VideoTranscoder()
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                output_file = loop.run_until_complete(
-                    VideoTranscoder.transcode_to_file(request, output_path, {})
+                output_result = loop.run_until_complete(
+                    transcoder.transcode_to_file(request, output_path)
                 )
             finally:
                 loop.close()
 
-            if output_file is None:
+            # Ожидаем, что transcode_to_file вернет словарь результата
+            if not isinstance(output_result, dict):
+                return {
+                    "success": False,
+                    "error": "Transcoding failed - unexpected result type"
+                }
+
+            # Если транскодирование неуспешно или не был сгенерирован путь к файлу
+            if not output_result.get("success"):
+                return {
+                    "success": False,
+                    "error": output_result.get(
+                        "error",
+                        "Transcoding failed - no output file generated"
+                    )
+                }
+
+            output_file_path = output_result.get("output_path")
+            if not output_file_path:
                 return {
                     "success": False,
                     "error": "Transcoding failed - no output file generated"
@@ -127,24 +146,25 @@ def perform_transcode(
             # Получаем размер файла
             file_size = None
             try:
-                file_size = os.path.getsize(output_file)
+                file_size = os.path.getsize(output_file_path)
             except Exception as e:
                 # Логируем, но не прерываем выполнение: размер файла является необязательной метаинформацией
-                logger.warning("Failed to get file size for %s: %s", output_file, e)
+                logger.warning("Failed to get file size for %s: %s", output_file_path, e)
 
             return {
                 "success": True,
-                "output_path": output_file,
+                "output_path": output_file_path,
                 "file_size": file_size,
                 "metadata": request.to_dict()
             }
         else:
             # Транскодирование в поток (в память)
             # Собираем данные из асинхронного генератора в один список чанков
+            transcoder = VideoTranscoder()
             chunks = []
 
             async def collect_chunks():
-                async for chunk in VideoTranscoder.transcode(request):
+                async for chunk in transcoder.transcode(request):
                     chunks.append(chunk)
 
             loop = asyncio.new_event_loop()

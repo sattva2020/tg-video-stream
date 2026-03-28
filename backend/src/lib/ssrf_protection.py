@@ -14,6 +14,7 @@ This module provides URL validation to prevent SSRF attacks by blocking:
 """
 
 import re
+import socket
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from typing import Optional, Tuple
 from urllib.parse import urlparse
@@ -133,33 +134,79 @@ class SSRFProtection:
                 # Check IPv4 addresses for private/reserved ranges
                 # Проверяем IPv4 адреса на приватные/зарезервированные диапазоны
                 if isinstance(ip, IPv4Address):
-                    if ip.is_private:
-                        return False, "Private IP address blocked"
                     if ip.is_loopback:
                         return False, "Loopback address blocked"
                     if ip.is_link_local:
                         return False, "Link-local address blocked"
-                    if ip.is_reserved:
-                        return False, "Reserved IP blocked"
                     if ip.is_multicast:
                         return False, "Multicast IP blocked"
+                    if ip.is_reserved:
+                        return False, "Reserved IP blocked"
+                    if ip.is_private:
+                        return False, "Private IP address blocked"
 
                 # Check IPv6 addresses
                 # Проверяем IPv6 адреса
                 if isinstance(ip, IPv6Address):
-                    if ip.is_private:
-                        return False, "Private IPv6 address blocked"
                     if ip.is_loopback:
                         return False, "IPv6 loopback address blocked"
                     if ip.is_link_local:
                         return False, "IPv6 link-local address blocked"
                     if ip.is_reserved:
                         return False, "Reserved IPv6 address blocked"
+                    if ip.is_private:
+                        return False, "Private IPv6 address blocked"
 
             except ValueError:
-                # Hostname is not an IP address, continue with hostname checks
-                # Имя хоста не является IP-адресом, продолжаем проверку имени хоста
-                pass
+                # Hostname is not an IP address, need to resolve DNS
+                # Имя хоста не является IP-адресом, нужно разрешить DNS
+                try:
+                    # Resolve hostname to IP addresses
+                    # Разрешаем имя хоста в IP адреса
+                    addr_info = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+                    
+                    # Check all resolved IPs
+                    # Проверяем все разрешённые IP адреса
+                    for family, _, _, _, sockaddr in addr_info:
+                        resolved_ip_str = sockaddr[0]
+                        
+                        try:
+                            resolved_ip = ip_address(resolved_ip_str)
+                            
+                            # Check IPv4 addresses
+                            if isinstance(resolved_ip, IPv4Address):
+                                if resolved_ip.is_loopback:
+                                    return False, f"Hostname resolves to loopback IP: {resolved_ip_str}"
+                                if resolved_ip.is_link_local:
+                                    return False, f"Hostname resolves to link-local IP: {resolved_ip_str}"
+                                if resolved_ip.is_multicast:
+                                    return False, f"Hostname resolves to multicast IP: {resolved_ip_str}"
+                                if resolved_ip.is_reserved:
+                                    return False, f"Hostname resolves to reserved IP: {resolved_ip_str}"
+                                if resolved_ip.is_private:
+                                    return False, f"Hostname resolves to private IP: {resolved_ip_str}"
+                            
+                            # Check IPv6 addresses
+                            if isinstance(resolved_ip, IPv6Address):
+                                if resolved_ip.is_loopback:
+                                    return False, f"Hostname resolves to IPv6 loopback: {resolved_ip_str}"
+                                if resolved_ip.is_link_local:
+                                    return False, f"Hostname resolves to IPv6 link-local: {resolved_ip_str}"
+                                if resolved_ip.is_reserved:
+                                    return False, f"Hostname resolves to reserved IPv6: {resolved_ip_str}"
+                                if resolved_ip.is_private:
+                                    return False, f"Hostname resolves to private IPv6: {resolved_ip_str}"
+                        
+                        except ValueError:
+                            # Skip if IP parsing fails
+                            continue
+                
+                except socket.gaierror:
+                    # DNS resolution failed
+                    return False, "Hostname DNS resolution failed"
+                except Exception as e:
+                    # Unexpected error during DNS resolution
+                    return False, f"DNS resolution error: {str(e)}"
 
             # URL passed all SSRF checks
             # URL прошел все проверки SSRF

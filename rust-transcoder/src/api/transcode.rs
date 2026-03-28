@@ -152,7 +152,8 @@ pub async fn transcode_handler(
 
 /// POST /api/v1/transcode/video
 ///
-/// Запускает транскодирование видео и возвращает streaming response.
+/// Запускает транскодирование видео и возвращает JSON response с метаданными.
+/// Возвращает информацию о начатой операции транскодирования.
 #[instrument(skip(state, request), fields(session_id))]
 pub async fn transcode_video_handler(
     State(state): State<Arc<AppState>>,

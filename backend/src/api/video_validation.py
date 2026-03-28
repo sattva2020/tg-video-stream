@@ -295,7 +295,7 @@ async def validate_codecs(
         )
 
 
-@router.get("/errors/{validation_id}", response_model=ValidationErrorResponse)
+@router.get("/errors/validation/{validation_id}", response_model=ValidationErrorResponse)
 async def get_validation_errors(
     validation_id: str,
     current_user: User = Depends(get_current_user),
@@ -341,7 +341,7 @@ async def get_validation_errors(
         )
 
 
-@router.get("/errors/{transcode_id}", response_model=ValidationErrorResponse)
+@router.get("/errors/transcode/{transcode_id}", response_model=ValidationErrorResponse)
 async def get_transcode_errors(
     transcode_id: str,
     current_user: User = Depends(get_current_user),
