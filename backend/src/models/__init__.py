@@ -53,6 +53,13 @@ from .recovery_log import (
     RecoveryStatus,
 )
 
+# Content Import & Migration Tools (Feature 011)
+from .import_job import (
+    ImportJob,
+    ImportStatus,
+    ImportPlatform,
+)
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -99,5 +106,9 @@ __all__ = [
     "RecoveryFailureType",
     "RecoveryStrategy",
     "RecoveryStatus",
+    # Content Import & Migration Tools
+    "ImportJob",
+    "ImportStatus",
+    "ImportPlatform",
 ]
 

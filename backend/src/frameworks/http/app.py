@@ -141,14 +141,15 @@ def create_app() -> FastAPI:
     
     # TODO: Migrate these to frameworks/http/controllers/ (остальные T045)
     from api import (
-        users, 
-        playlist, 
-        admin, 
-        telegram_auth, 
-        channels, 
-        files, 
-        websocket, 
-        schedule
+        users,
+        playlist,
+        admin,
+        telegram_auth,
+        channels,
+        files,
+        websocket,
+        schedule,
+        import as import_api,
     )
     from src.api import media, media_gdrive, ai_settings
     from src.api.routes import playback as playback_routes
@@ -186,6 +187,7 @@ def create_app() -> FastAPI:
     # Include non-migrated routers (TODO: migrate in future)
     app.include_router(users.router, prefix="/api/users", tags=["Users"])
     app.include_router(playlist.router, prefix="/api/playlist", tags=["Playlist"])
+    app.include_router(import_api.router, prefix="/api/import", tags=["Import"])
     app.include_router(user_playlists_router.router, prefix="/api/playlists", tags=["User Playlists"])
     app.include_router(stream_health_routes.router, prefix="/api/streams", tags=["Stream Health"])
     app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])

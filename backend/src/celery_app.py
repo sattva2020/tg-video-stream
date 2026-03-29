@@ -42,6 +42,7 @@ def make_celery():
         include=[
             'tasks.notifications',
             'tasks.media',
+            'tasks.import_tasks',
             'src.services.notifications.worker',
         ]
     )
@@ -70,6 +71,9 @@ def make_celery():
         task_routes={
             'tasks.fetch_video_metadata': {'queue': 'media'},
             'tasks.fetch_playlist_metadata': {'queue': 'media'},
+            'tasks.import_youtube_playlist': {'queue': 'imports'},
+            'tasks.import_vimeo_album': {'queue': 'imports'},
+            'tasks.import_local_library': {'queue': 'imports'},
             'tasks.send_admin_notification': {'queue': 'notifications'},
             'notifications.process_event': {'queue': settings.NOTIFICATIONS_QUEUE},
             'notifications.send_test': {'queue': settings.NOTIFICATIONS_QUEUE},
@@ -79,6 +83,7 @@ def make_celery():
         task_queues=[
             Queue(settings.NOTIFICATIONS_QUEUE, routing_key=settings.NOTIFICATIONS_QUEUE),
             Queue('media', routing_key='media'),
+            Queue('imports', routing_key='imports'),
         ],
         
         # Rate limits
@@ -88,6 +93,15 @@ def make_celery():
             },
             'tasks.fetch_playlist_metadata': {
                 'rate_limit': '2/m',  # Max 2 playlists per minute
+            },
+            'tasks.import_youtube_playlist': {
+                'rate_limit': '2/m',  # Max 2 playlist imports per minute
+            },
+            'tasks.import_vimeo_album': {
+                'rate_limit': '2/m',  # Max 2 album imports per minute
+            },
+            'tasks.import_local_library': {
+                'rate_limit': '5/m',  # Max 5 local imports per minute
             },
         },
         
