@@ -237,10 +237,18 @@ def build_ffmpeg_command(
     target_loudness: float = -16.0,
     fade_in: Optional[float] = None,
     audio_filters: Optional[AudioFilters] = None,
+    # Video parameters
+    video_codec: Optional[str] = None,
+    width: Optional[int] = None,
+    height: Optional[int] = None,
+    fps: Optional[int] = None,
+    orientation: Optional[int] = None,
 ) -> list[str]:
     """
     Строит команду ffmpeg для fallback subprocess.
-    
+
+    Поддерживает как аудио, так и видео транскодирование.
+
     Returns:
         Список аргументов для subprocess.
     """
@@ -252,77 +260,199 @@ def build_ffmpeg_command(
         "-i", source_url,
     ]
 
-    # Codec mapping
-    codec_map = {
-        "opus": "libopus",
-        "mp3": "libmp3lame",
-        "aac": "aac",
-        "pcm": "pcm_s16le",
-    }
-    codec = codec_map.get(format, "libopus")
-    
-    cmd.extend(["-c:a", codec])
-    
-    # Bitrate (если применимо)
-    if format not in ("pcm",):
+    # Determine if this is a video transcoding request
+    is_video = video_codec is not None or format in ("mp4", "mkv", "webm")
+
+    if is_video:
+        # Video transcoding mode
+
+        # Video codec mapping
+        video_codec_map = {
+            "h264": "libx264",
+            "h265": "libx265",
+            "vp8": "libvpx",
+            "vp9": "libvpx-vp9",
+        }
+        v_codec = video_codec_map.get(video_codec or "h264", "libx264")
+        cmd.extend(["-c:v", v_codec])
+
+        # Video quality presets
+        if v_codec == "libx264":
+            cmd.extend(["-preset", "medium", "-crf", "23"])
+        elif v_codec == "libx265":
+            cmd.extend(["-preset", "medium", "-crf", "28"])
+
+        # Resolution
+        if width and height:
+            cmd.extend(["-s", f"{width}x{height}"])
+        elif width:
+            cmd.extend(["-vf", f"scale={width}:-1"])
+        elif height:
+            cmd.extend(["-vf", f"scale=-1:{height}"])
+
+        # Frame rate
+        if fps:
+            cmd.extend(["-r", str(fps)])
+
+        # Orientation correction
+        video_filters = []
+        if orientation and orientation not in (0, None):
+            # Rotate video based on orientation metadata
+            if orientation == 90:
+                video_filters.append("transpose=1")  # 90 degrees clockwise
+            elif orientation == 180:
+                video_filters.append("transpose=1,transpose=1")  # 180 degrees
+            elif orientation == 270:
+                video_filters.append("transpose=2")  # 90 degrees counter-clockwise
+
+        # Audio codec for video
+        audio_codec_map = {
+            "aac": "aac",
+            "opus": "libopus",
+            "mp3": "libmp3lame",
+        }
+        # Default to aac for video containers
+        audio_codec = audio_codec_map.get("aac", "aac")
+        cmd.extend(["-c:a", audio_codec])
+
+        # Audio bitrate for video
         cmd.extend(["-b:a", f"{bitrate}k"])
-    
-    # Sample rate
-    cmd.extend(["-ar", str(sample_rate)])
-    
-    # Channels
-    cmd.extend(["-ac", str(channels)])
-    
-    # Audio filters
-    filters = []
-    
-    # EQ preset фильтры
-    if audio_filters and audio_filters.eq_preset:
-        eq_preset = audio_filters.eq_preset
-        if eq_preset == "bass_boost":
-            filters.append("equalizer=f=100:width_type=o:width=1.0:g=6.0")
-        elif eq_preset == "voice":
-            filters.append("highpass=f=80,equalizer=f=3000:width_type=o:width=1.0:g=3.0")
-        elif eq_preset == "treble":
-            filters.append("equalizer=f=8000:width_type=o:width=1.5:g=4.0")
-        # flat - no filter
-    
-    # Speed filter (atempo)
-    if audio_filters and audio_filters.speed:
-        speed = audio_filters.speed
-        if 0.5 <= speed <= 2.0 and abs(speed - 1.0) > 0.001:
-            filters.append(f"atempo={speed:.4f}")
-    
-    # Volume filter
-    if audio_filters and audio_filters.volume:
-        vol = audio_filters.volume
-        if abs(vol - 1.0) > 0.001:
-            # Convert factor to dB: dB = 20 * log10(factor)
-            import math
-            db = 20.0 * math.log10(vol) if vol > 0 else -96.0
-            filters.append(f"volume={db:.1f}dB")
-    
-    if fade_in:
-        filters.append(f"afade=t=in:st=0:d={fade_in:.2f}")
-    
-    if normalize:
-        filters.append(f"loudnorm=I={target_loudness:.1f}:TP=-1.5:LRA=11:print_format=none")
-    
-    if filters:
-        cmd.extend(["-af", ",".join(filters)])
-    
-    # Output format
-    format_map = {
-        "opus": "ogg",
-        "mp3": "mp3",
-        "aac": "adts",
-        "pcm": "s16le",
-    }
-    cmd.extend(["-f", format_map.get(format, "ogg")])
-    
+        cmd.extend(["-ar", str(sample_rate)])
+        cmd.extend(["-ac", str(channels)])
+
+        # Audio filters
+        audio_filter_list = []
+
+        if audio_filters and audio_filters.eq_preset:
+            eq_preset = audio_filters.eq_preset
+            if eq_preset == "bass_boost":
+                audio_filter_list.append("equalizer=f=100:width_type=o:width=1.0:g=6.0")
+            elif eq_preset == "voice":
+                audio_filter_list.append("highpass=f=80,equalizer=f=3000:width_type=o:width=1.0:g=3.0")
+            elif eq_preset == "treble":
+                audio_filter_list.append("equalizer=f=8000:width_type=o:width=1.5:g=4.0")
+
+        if audio_filters and audio_filters.speed:
+            speed = audio_filters.speed
+            if 0.5 <= speed <= 2.0 and abs(speed - 1.0) > 0.001:
+                audio_filter_list.append(f"atempo={speed:.4f}")
+
+        if audio_filters and audio_filters.volume:
+            vol = audio_filters.volume
+            if abs(vol - 1.0) > 0.001:
+                import math
+                db = 20.0 * math.log10(vol) if vol > 0 else -96.0
+                audio_filter_list.append(f"volume={db:.1f}dB")
+
+        if fade_in:
+            audio_filter_list.append(f"afade=t=in:st=0:d={fade_in:.2f}")
+
+        if normalize:
+            audio_filter_list.append(f"loudnorm=I={target_loudness:.1f}:TP=-1.5:LRA=11:print_format=none")
+
+        # Combine video and audio filters
+        all_filters = []
+        if video_filters:
+            all_filters.append(",".join(video_filters))
+        if audio_filter_list:
+            all_filters.append(",".join(audio_filter_list))
+
+        if all_filters:
+            # For video with audio filters, need to split streams
+            if len(all_filters) == 2:
+                cmd.extend(["-vf", all_filters[0], "-af", all_filters[1]])
+            elif len(all_filters) == 1:
+                if video_filters:
+                    cmd.extend(["-vf", all_filters[0]])
+                else:
+                    cmd.extend(["-af", all_filters[0]])
+
+        # Output format for video
+        format_map = {
+            "mp4": "mp4",
+            "mkv": "matroska",
+            "webm": "webm",
+        }
+        cmd.extend(["-f", format_map.get(format, "mp4")])
+
+        # Mov flags for MP4 (fast start)
+        if format == "mp4":
+            cmd.extend(["-movflags", "faststart"])
+
+    else:
+        # Audio-only transcoding mode
+
+        # Codec mapping
+        codec_map = {
+            "opus": "libopus",
+            "mp3": "libmp3lame",
+            "aac": "aac",
+            "pcm": "pcm_s16le",
+        }
+        codec = codec_map.get(format, "libopus")
+
+        cmd.extend(["-c:a", codec])
+
+        # Bitrate (если применимо)
+        if format not in ("pcm",):
+            cmd.extend(["-b:a", f"{bitrate}k"])
+
+        # Sample rate
+        cmd.extend(["-ar", str(sample_rate)])
+
+        # Channels
+        cmd.extend(["-ac", str(channels)])
+
+        # Audio filters
+        filters = []
+
+        # EQ preset фильтры
+        if audio_filters and audio_filters.eq_preset:
+            eq_preset = audio_filters.eq_preset
+            if eq_preset == "bass_boost":
+                filters.append("equalizer=f=100:width_type=o:width=1.0:g=6.0")
+            elif eq_preset == "voice":
+                filters.append("highpass=f=80,equalizer=f=3000:width_type=o:width=1.0:g=3.0")
+            elif eq_preset == "treble":
+                filters.append("equalizer=f=8000:width_type=o:width=1.5:g=4.0")
+            # flat - no filter
+
+        # Speed filter (atempo)
+        if audio_filters and audio_filters.speed:
+            speed = audio_filters.speed
+            if 0.5 <= speed <= 2.0 and abs(speed - 1.0) > 0.001:
+                filters.append(f"atempo={speed:.4f}")
+
+        # Volume filter
+        if audio_filters and audio_filters.volume:
+            vol = audio_filters.volume
+            if abs(vol - 1.0) > 0.001:
+                # Convert factor to dB: dB = 20 * log10(factor)
+                import math
+                db = 20.0 * math.log10(vol) if vol > 0 else -96.0
+                filters.append(f"volume={db:.1f}dB")
+
+        if fade_in:
+            filters.append(f"afade=t=in:st=0:d={fade_in:.2f}")
+
+        if normalize:
+            filters.append(f"loudnorm=I={target_loudness:.1f}:TP=-1.5:LRA=11:print_format=none")
+
+        if filters:
+            cmd.extend(["-af", ",".join(filters)])
+
+        # Output format
+        format_map = {
+            "opus": "ogg",
+            "mp3": "mp3",
+            "aac": "adts",
+            "pcm": "s16le",
+        }
+        cmd.extend(["-f", format_map.get(format, "ogg")])
+
     # Output to stdout
     cmd.append("pipe:1")
-    
+
     return cmd
 
 
@@ -531,6 +661,13 @@ class TranscodeClient:
             normalize=request.normalize,
             target_loudness=request.target_loudness,
             fade_in=request.fade_in,
+            audio_filters=request.audio_filters,
+            # Video parameters
+            video_codec=request.video_codec,
+            width=request.width,
+            height=request.height,
+            fps=request.fps,
+            orientation=request.orientation,
         )
 
         logger.info(f"Fallback ffmpeg command: {' '.join(cmd)}")

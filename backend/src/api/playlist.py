@@ -8,6 +8,7 @@ from src.models.user import User
 from src.services.activity_service import ActivityService
 from api.auth import get_current_user
 from tasks.media import fetch_metadata_async, import_playlist_async
+from src.lib.source_detector import SourceDetector, SourceType
 import uuid
 import os
 import asyncio
@@ -38,11 +39,13 @@ def _verify_streamer_token(token: str | None):
 class PlaylistItemCreate(BaseModel):
     url: str
     title: Optional[str] = None
-    type: str = "youtube"  # youtube, local, stream
+    type: str = "youtube"  # youtube, vimeo, twitch, dailymotion, direct, hls, dash, cloud_drive, dropbox, onedrive, rss, local, stream
     # Optional client-provided duration in seconds. Usually left empty; streamer can fill later.
     duration: Optional[int] = None
     # If True, fetch metadata asynchronously via Celery/yt-dlp
     fetch_metadata: bool = True
+    # If True, automatically detect source type from URL (overrides type field)
+    auto_detect: bool = False
 
 class PlaylistItemResponse(BaseModel):
     id: uuid.UUID
@@ -97,11 +100,38 @@ def get_playlist(
 
 @router.post("/", response_model=PlaylistItemResponse)
 async def add_playlist_item(
-    item: PlaylistItemCreate, 
+    item: PlaylistItemCreate,
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db), 
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Detect source type if auto_detect is enabled
+    detected_type = item.type
+    if item.auto_detect:
+        detection_result = SourceDetector.detect_source(item.url)
+        if detection_result["valid"]:
+            detected_type = detection_result["source_type"].value
+            # For RSS feeds, we'll handle specially below
+            if detection_result["source_type"] == SourceType.RSS_FEED:
+                # Import RSS feed as playlist
+                success = import_playlist_async(item.url, None)
+                if success:
+                    return PlaylistItemResponse(
+                        id=uuid.uuid4(),  # Placeholder ID for RSS import
+                        url=item.url,
+                        title="RSS Feed Import",
+                        type="rss",
+                        position=0,
+                        created_at="",
+                        status="queued",
+                        duration=None
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Failed to import RSS feed. Please check the URL."
+                    )
+
     # Simple logic to determine position: put at the end
     last_item = db.query(PlaylistItem).order_by(PlaylistItem.position.desc()).first()
     new_position = (last_item.position + 1) if last_item else 0
@@ -109,7 +139,7 @@ async def add_playlist_item(
     new_item = PlaylistItem(
         url=item.url,
         title=item.title or item.url, # Fallback title
-        type=item.type,
+        type=detected_type,
         position=new_position,
         duration=item.duration,
         created_by=current_user.id
@@ -117,7 +147,7 @@ async def add_playlist_item(
     db.add(new_item)
     db.commit()
     db.refresh(new_item)
-    
+
     # Логируем событие добавления трека
     activity_service = ActivityService(db)
     activity_service.log_event(
@@ -132,22 +162,23 @@ async def add_playlist_item(
             "track_type": new_item.type
         }
     )
-    
+
     # Notify WebSocket clients
     ws_module = _get_ws_module()
     if ws_module:
         channel_id = str(new_item.channel_id) if new_item.channel_id else None
         background_tasks.add_task(ws_module.notify_item_added, new_item, channel_id)
-    
-    # Fetch metadata asynchronously if requested and type is youtube
-    if item.fetch_metadata and item.type == "youtube":
+
+    # Fetch metadata asynchronously if requested
+    # Supported types: youtube, vimeo, twitch, dailymotion (platforms that work with yt-dlp)
+    if item.fetch_metadata and detected_type in ["youtube", "vimeo", "twitch", "dailymotion"]:
         background_tasks.add_task(
-            fetch_metadata_async, 
-            str(new_item.id), 
-            new_item.url, 
+            fetch_metadata_async,
+            str(new_item.id),
+            new_item.url,
             False  # audio_only
         )
-    
+
     return PlaylistItemResponse(
         id=new_item.id,
         url=new_item.url,
@@ -268,7 +299,7 @@ async def update_playlist_status(
 # ============================================================================
 
 class PlaylistImportRequest(BaseModel):
-    """Запрос на импорт YouTube плейлиста."""
+    """Запрос на импорт плейлиста с различных платформ."""
     url: str
     channel_id: Optional[uuid.UUID] = None
 
@@ -281,38 +312,54 @@ class PlaylistImportResponse(BaseModel):
 
 
 @router.post("/import", response_model=PlaylistImportResponse)
-async def import_youtube_playlist(
+async def import_playlist(
     request: PlaylistImportRequest,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Импортирует все видео из YouTube плейлиста в очередь.
-    
+    Импортирует все видео из плейлиста в очередь.
+
     Работает асинхронно через Celery (если настроен) или синхронно.
-    Поддерживает YouTube плейлисты и каналы.
+    Поддерживаемые платформы:
+    - YouTube (плейлисты и каналы)
+    - Vimeo (плейлисты и showcase)
+    - Dailymotion (плейлисты)
+    - Twitch (collections)
+    - RSS фиды с видео вложениями
     """
     # Валидация URL
     url = request.url.strip()
     if not url:
         raise HTTPException(status_code=400, detail="URL is required")
-    
-    # Проверяем, что это YouTube URL
-    youtube_patterns = ['youtube.com', 'youtu.be', 'youtube']
-    if not any(p in url.lower() for p in youtube_patterns):
+
+    # Detect source type
+    detection_result = SourceDetector.detect_source(url)
+
+    # Check if it's a supported playlist/feed type
+    supported_playlist_types = [
+        SourceType.YOUTUBE,
+        SourceType.VIMEO,
+        SourceType.DAILYMOTION,
+        SourceType.TWITCH,
+        SourceType.RSS_FEED
+    ]
+
+    if not detection_result["valid"] or detection_result["source_type"] not in supported_playlist_types:
         raise HTTPException(
-            status_code=400, 
-            detail="Only YouTube playlists are supported"
+            status_code=400,
+            detail=f"Unsupported playlist URL. Supported platforms: YouTube, Vimeo, Dailymotion, Twitch, RSS feeds"
         )
-    
+
     channel_id_str = str(request.channel_id) if request.channel_id else None
-    
+
     # Запускаем импорт
     success = import_playlist_async(url, channel_id_str)
-    
+
     if success:
+        source_type_name = detection_result["source_type"].value.upper()
         return PlaylistImportResponse(
             success=True,
-            message="Playlist import started. Items will appear in the queue shortly.",
+            message=f"{source_type_name} playlist import started. Items will appear in the queue shortly.",
             queued=True
         )
     else:
@@ -332,17 +379,21 @@ async def refresh_item_metadata(
 ):
     """
     Принудительно обновляет метаданные playlist item через yt-dlp.
+
+    Поддерживаемые типы: youtube, vimeo, twitch, dailymotion
     """
     item = db.query(PlaylistItem).filter(PlaylistItem.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    
-    if item.type != "youtube":
+
+    # Check if type supports metadata fetching
+    supported_types = ["youtube", "vimeo", "twitch", "dailymotion"]
+    if item.type not in supported_types:
         raise HTTPException(
-            status_code=400, 
-            detail="Metadata refresh only supported for YouTube items"
+            status_code=400,
+            detail=f"Metadata refresh not supported for {item.type} items. Supported types: {', '.join(supported_types)}"
         )
-    
+
     # Запускаем обновление метаданных
     background_tasks.add_task(
         fetch_metadata_async,
@@ -350,6 +401,6 @@ async def refresh_item_metadata(
         item.url,
         False  # audio_only
     )
-    
-    return {"ok": True, "message": "Metadata refresh started"}
+
+    return {"ok": True, "message": f"Metadata refresh started for {item.type} item"}
 

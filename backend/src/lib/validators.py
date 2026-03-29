@@ -325,6 +325,60 @@ class URLValidator:
         re.IGNORECASE
     )
 
+    # Vimeo URLs - supports various Vimeo URL formats
+    VIMEO_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?vimeo\.com/(?:channels/[\w]+/)?(\d+)(?:/[^\s]*)?',
+        re.IGNORECASE
+    )
+
+    # Twitch URLs - supports both channels and VODs
+    TWITCH_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?twitch\.tv/(?:videos/)?(\w+)(?:/[^\s]*)?',
+        re.IGNORECASE
+    )
+
+    # Dailymotion URLs
+    DAILYMOTION_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?(?:dailymotion\.com/(?:video|embed)/|dai\.ly/)([a-zA-Z0-9]+)',
+        re.IGNORECASE
+    )
+
+    # HLS streaming URLs (.m3u8 files)
+    HLS_URL_REGEX = re.compile(
+        r'^https?://.+\.(?:m3u8)(?:\?.*)?$',
+        re.IGNORECASE
+    )
+
+    # Google Drive URLs
+    GOOGLE_DRIVE_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?drive\.google\.com/(?:file/d/|open\?id=)([\w-]+)',
+        re.IGNORECASE
+    )
+
+    # Dropbox URLs
+    DROPBOX_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?(?:dropbox\.com/[\w]+/([\w-]+)|db\.tt/([\w-]+))(?:/[^\s]*)?',
+        re.IGNORECASE
+    )
+
+    # OneDrive URLs
+    ONEDRIVE_URL_REGEX = re.compile(
+        r'(?:https?://)?(?:www\.)?(?:onedrive\.live\.com/[\w/?=-]+|1drv\.ms/[\w/-]+)',
+        re.IGNORECASE
+    )
+
+    # RSS feed URLs - various formats
+    RSS_FEED_URL_REGEX = re.compile(
+        r'^https?://.+\.(?:xml|rss|atom)(?:\?.*)?$',
+        re.IGNORECASE
+    )
+
+    # Generic RSS/Atom feed URLs with feed indicators in path
+    RSS_FEED_GENERIC_REGEX = re.compile(
+        r'^https?://.+/(?:feed|rss|atom)(?:/?|\?.*)?$',
+        re.IGNORECASE
+    )
+
     @staticmethod
     def validate_url(url: str) -> dict:
         """
@@ -367,6 +421,218 @@ class URLValidator:
         return {
             "valid": True,
             "video_id": video_id
+        }
+
+    @staticmethod
+    def validate_vimeo_url(url: str) -> dict:
+        """
+        Validate Vimeo URL and extract video ID.
+
+        Args:
+            url: Vimeo URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool, 'video_id', and error message
+        """
+        match = URLValidator.VIMEO_URL_REGEX.search(url)
+        if not match:
+            return {
+                "valid": False,
+                "error": "Invalid Vimeo URL format",
+                "video_id": None
+            }
+
+        video_id = match.group(1)
+        return {
+            "valid": True,
+            "video_id": video_id
+        }
+
+    @staticmethod
+    def validate_twitch_url(url: str) -> dict:
+        """
+        Validate Twitch URL and extract channel or video ID.
+
+        Args:
+            url: Twitch URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool, 'channel_id', and error message
+        """
+        match = URLValidator.TWITCH_URL_REGEX.search(url)
+        if not match:
+            return {
+                "valid": False,
+                "error": "Invalid Twitch URL format",
+                "channel_id": None
+            }
+
+        channel_id = match.group(1)
+        return {
+            "valid": True,
+            "channel_id": channel_id
+        }
+
+    @staticmethod
+    def validate_dailymotion_url(url: str) -> dict:
+        """
+        Validate Dailymotion URL and extract video ID.
+
+        Args:
+            url: Dailymotion URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool, 'video_id', and error message
+        """
+        match = URLValidator.DAILYMOTION_URL_REGEX.search(url)
+        if not match:
+            return {
+                "valid": False,
+                "error": "Invalid Dailymotion URL format",
+                "video_id": None
+            }
+
+        video_id = match.group(1)
+        return {
+            "valid": True,
+            "video_id": video_id
+        }
+
+    @staticmethod
+    def validate_hls_url(url: str) -> dict:
+        """
+        Validate HLS streaming URL (.m3u8 format).
+
+        Args:
+            url: HLS URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool and error message
+        """
+        if not url or not isinstance(url, str):
+            return {
+                "valid": False,
+                "error": "URL cannot be empty"
+            }
+
+        if not URLValidator.HLS_URL_REGEX.match(url):
+            return {
+                "valid": False,
+                "error": "Invalid HLS URL format. Must be a .m3u8 file URL"
+            }
+
+        return {
+            "valid": True,
+            "url": url
+        }
+
+    @staticmethod
+    def validate_google_drive_url(url: str) -> dict:
+        """
+        Validate Google Drive URL and extract file ID.
+
+        Args:
+            url: Google Drive URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool, 'file_id', and error message
+        """
+        match = URLValidator.GOOGLE_DRIVE_URL_REGEX.search(url)
+        if not match:
+            return {
+                "valid": False,
+                "error": "Invalid Google Drive URL format",
+                "file_id": None
+            }
+
+        file_id = match.group(1)
+        return {
+            "valid": True,
+            "file_id": file_id
+        }
+
+    @staticmethod
+    def validate_dropbox_url(url: str) -> dict:
+        """
+        Validate Dropbox URL and extract file ID.
+
+        Args:
+            url: Dropbox URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool, 'file_id', and error message
+        """
+        match = URLValidator.DROPBOX_URL_REGEX.search(url)
+        if not match:
+            return {
+                "valid": False,
+                "error": "Invalid Dropbox URL format",
+                "file_id": None
+            }
+
+        # Get file_id from either group 1 or group 2 (dropbox.com or db.tt)
+        file_id = match.group(1) or match.group(2)
+        return {
+            "valid": True,
+            "file_id": file_id
+        }
+
+    @staticmethod
+    def validate_onedrive_url(url: str) -> dict:
+        """
+        Validate OneDrive URL.
+
+        Args:
+            url: OneDrive URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool and error message
+        """
+        if not url or not isinstance(url, str):
+            return {
+                "valid": False,
+                "error": "URL cannot be empty"
+            }
+
+        if not URLValidator.ONEDRIVE_URL_REGEX.match(url):
+            return {
+                "valid": False,
+                "error": "Invalid OneDrive URL format"
+            }
+
+        return {
+            "valid": True,
+            "url": url
+        }
+
+    @staticmethod
+    def validate_rss_feed_url(url: str) -> dict:
+        """
+        Validate RSS/Atom feed URL.
+
+        Args:
+            url: RSS feed URL to validate
+
+        Returns:
+            dict: Validation result with 'valid' bool and error message
+        """
+        if not url or not isinstance(url, str):
+            return {
+                "valid": False,
+                "error": "URL cannot be empty"
+            }
+
+        # Check both standard RSS format and generic feed indicators
+        if not (URLValidator.RSS_FEED_URL_REGEX.match(url) or
+                URLValidator.RSS_FEED_GENERIC_REGEX.match(url)):
+            return {
+                "valid": False,
+                "error": "Invalid RSS/Atom feed URL format"
+            }
+
+        return {
+            "valid": True,
+            "url": url
         }
 
 

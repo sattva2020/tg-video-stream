@@ -9,6 +9,7 @@ Architecture:
 - Telegram-supported codecs: h264, h265 (video), aac, mp3, opus (audio)
 - Orientation detection (subtask-1-3)
 - Validation results with actionable error messages
+- HLS/DASH stream support (subtask-4-1)
 """
 
 import asyncio
@@ -32,6 +33,14 @@ class VideoFormat(str, Enum):
     AVI = "avi"
     MOV = "mov"
     WEBM = "webm"
+
+
+class StreamSourceType(str, Enum):
+    """Тип источника видео потока"""
+    DIRECT_URL = "direct_url"  # Прямая ссылка на видеофайл (mp4, webm, etc.)
+    HLS = "hls"  # HTTP Live Streaming (.m3u8)
+    DASH = "dash"  # Dynamic Adaptive Streaming over HTTP (.mpd)
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -168,6 +177,144 @@ class VideoValidator:
             return None
 
     @staticmethod
+    def detect_stream_source_type(url: str) -> StreamSourceType:
+        """
+        Detect the type of video stream source from URL.
+
+        Определяет тип источника видео потока по URL.
+
+        Args:
+            url: Video URL to analyze
+
+        Returns:
+            StreamSourceType enum value
+
+        Examples:
+            >>> VideoValidator.detect_stream_source_type("https://example.com/video.mp4")
+            <StreamSourceType.DIRECT_URL: 'direct_url'>
+            >>> VideoValidator.detect_stream_source_type("https://example.com/stream.m3u8")
+            <StreamSourceType.HLS: 'hls'>
+        """
+        if not url:
+            return StreamSourceType.UNKNOWN
+
+        url_lower = url.lower().strip()
+
+        # Check for HLS streams (.m3u8 playlists)
+        if ".m3u8" in url_lower or url_lower.endswith("m3u8"):
+            logger.debug("Detected HLS stream source", extra={"url": url})
+            return StreamSourceType.HLS
+
+        # Check for DASH streams (.mpd manifests)
+        if ".mpd" in url_lower or url_lower.endswith("mpd"):
+            logger.debug("Detected DASH stream source", extra={"url": url})
+            return StreamSourceType.DASH
+
+        # Check for direct video file extensions
+        direct_extensions = [
+            ".mp4", ".webm", ".mkv", ".avi", ".mov", ".flv",
+            ".wmv", ".m4v", ".mpg", ".mpeg", ".3gp"
+        ]
+        for ext in direct_extensions:
+            if url_lower.endswith(ext):
+                logger.debug("Detected direct video URL", extra={"url": url, "extension": ext})
+                return StreamSourceType.DIRECT_URL
+
+        # Default to unknown if we can't determine
+        logger.debug("Could not determine stream source type", extra={"url": url})
+        return StreamSourceType.UNKNOWN
+
+    async def _validate_hls_stream(self, url: str, timeout: int = 15) -> ValidationResult:
+        """
+        Validate HLS/DASH stream for compatibility.
+
+        Валидирует HLS/DASH поток на совместимость.
+
+        Uses the HLS service to parse manifest/playlist and extract stream metadata.
+
+        Args:
+            url: HLS/DASH stream URL
+            timeout: Request timeout in seconds
+
+        Returns:
+            ValidationResult with stream metadata and compatibility status
+        """
+        try:
+            # Import HLS service
+            from backend.src.services.hls_service import validate_stream
+
+            logger.info("Validating HLS/DASH stream", extra={"url": url, "timeout": timeout})
+
+            # Validate stream using HLS service
+            stream_result = await validate_stream(url, timeout=timeout)
+
+            if not stream_result.get("success"):
+                logger.error("HLS/DASH stream validation failed", extra={
+                    "url": url,
+                    "error": stream_result.get("error")
+                })
+                return ValidationResult(
+                    valid=False,
+                    is_compatible=False,
+                    errors=[f"Stream validation failed: {stream_result.get('error', 'Unknown error')}"]
+                )
+
+            stream_type = stream_result.get("stream_type", "unknown")
+            is_live = stream_result.get("is_live", False)
+            variants = stream_result.get("variants", [])
+            total_variants = stream_result.get("total_variants", 0)
+
+            logger.info("HLS/DASH stream validated successfully", extra={
+                "url": url,
+                "stream_type": stream_type,
+                "is_live": is_live,
+                "total_variants": total_variants
+            })
+
+            # Check if there are compatible stream variants
+            # For now, we'll mark HLS streams as potentially compatible
+            # The transcoding service will handle codec conversion if needed
+            warnings = []
+
+            if total_variants == 0:
+                warnings.append("No stream variants found - may be a media playlist, not master playlist")
+            else:
+                # Log available variants
+                logger.debug("Stream variants available", extra={
+                    "url": url,
+                    "variants": variants
+                })
+
+            if is_live:
+                warnings.append("Live stream detected - transcoding may not be possible")
+
+            return ValidationResult(
+                valid=True,
+                is_compatible=True,  # Mark as compatible - transcoding will handle conversion
+                video_codec=None,  # Codec info is in variants
+                audio_codec=None,
+                format=stream_type,
+                has_orientation=False,
+                errors=[],
+                warnings=warnings
+            )
+
+        except ImportError:
+            logger.error("HLS service not available", extra={"url": url})
+            return ValidationResult(
+                valid=False,
+                is_compatible=False,
+                errors=["HLS service not available - cannot validate stream"]
+            )
+        except Exception as e:
+            logger.exception("Error validating HLS/DASH stream", extra={"url": url})
+            return ValidationResult(
+                valid=False,
+                is_compatible=False,
+                errors=[f"Stream validation error: {str(e)}"]
+            )
+
+    @staticmethod
     def detect_orientation(ffprobe_json: Dict[str, Any]) -> Optional[int]:
         """
         Detect video orientation from FFprobe metadata.
@@ -259,6 +406,11 @@ class VideoValidator:
         """
         Validate video URL for Telegram compatibility.
 
+        Supports:
+        - Direct video URLs (MP4, WebM, MKV, etc.)
+        - HLS streams (.m3u8 playlists)
+        - DASH streams (.mpd manifests)
+
         Args:
             url: Video URL to validate
             timeout: FFprobe timeout in seconds (default: 10)
@@ -270,8 +422,48 @@ class VideoValidator:
             >>> validator = VideoValidator()
             >>> result = await validator.validate_url("https://example.com/video.mp4")
             >>> print(result.to_dict())
+            >>> result = await validator.validate_url("https://example.com/stream.m3u8")
+            >>> print(result.is_compatible)
         """
         logger.info("Starting video URL validation", extra={
+            "url": url,
+            "timeout": timeout
+        })
+
+        # Detect stream source type
+        source_type = self.detect_stream_source_type(url)
+        logger.debug("Detected stream source type", extra={"url": url, "source_type": source_type.value})
+
+        # Route to appropriate validation method based on source type
+        if source_type == StreamSourceType.HLS or source_type == StreamSourceType.DASH:
+            # Validate HLS/DASH stream
+            return await self._validate_hls_stream(url, timeout)
+
+        elif source_type == StreamSourceType.DIRECT_URL:
+            # Validate direct video URL using ffprobe
+            return await self._validate_direct_url(url, timeout)
+
+        else:
+            # Unknown source type - try direct URL validation as fallback
+            logger.warning("Unknown stream source type, attempting direct URL validation", extra={"url": url})
+            return await self._validate_direct_url(url, timeout)
+
+    async def _validate_direct_url(self, url: str, timeout: int = 10) -> ValidationResult:
+        """
+        Validate direct video URL for Telegram compatibility.
+
+        Валидирует прямую ссылку на видеофайл на совместимость с Telegram.
+
+        Uses ffprobe to analyze stream quality and codec compatibility.
+
+        Args:
+            url: Direct video URL to validate
+            timeout: FFprobe timeout in seconds
+
+        Returns:
+            ValidationResult with compatibility status and detailed information
+        """
+        logger.info("Validating direct video URL", extra={
             "url": url,
             "timeout": timeout
         })
@@ -389,7 +581,7 @@ class VideoValidator:
 
         valid = len(errors) == 0
 
-        logger.info("Validation complete", extra={
+        logger.info("Direct URL validation complete", extra={
             "url": url,
             "compatible": is_compatible,
             "valid": valid,
