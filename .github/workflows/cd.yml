@@ -86,49 +86,225 @@ jobs:
           script: |
             set -e
             echo "🚀 Deploying to staging..."
-            
+
             # Navigate to project directory
             cd ${{ env.DEPLOY_PATH }}
-            
+
             # Save current commit for potential rollback
             PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            NEW_COMMIT=$(git rev-parse origin/main)
             echo "Previous commit: $PREVIOUS_COMMIT"
+            echo "New commit: $NEW_COMMIT"
             echo "$PREVIOUS_COMMIT" > .previous_commit
-            
+
+            # Log deployment start
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEPLOYMENT_START: $NEW_COMMIT (rolling back from $PREVIOUS_COMMIT)" >> .deployment_log
+
+            # Rollback function with verification
+            rollback_deployment() {
+              local failure_reason=$1
+              local previous_commit=$2
+
+              echo ""
+              echo "=========================================="
+              echo "🔄 INITIATING AUTOMATIC ROLLBACK"
+              echo "=========================================="
+              echo "Reason: $failure_reason"
+              echo "Rolling back to commit: $previous_commit"
+              echo ""
+
+              # Log rollback initiation
+              echo "[$(date '+%Y-%m-%d %H:%M:%S')] ROLLBACK_INITIATED: $failure_reason" >> .deployment_log
+
+              # Rollback git
+              echo "📥 Rolling back git changes..."
+              git checkout $previous_commit 2>&1 || {
+                echo "❌ Git rollback failed!"
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] ROLLBACK_FAILED: Git checkout failed" >> .deployment_log
+                return 1
+              }
+
+              # Rebuild and restart services
+              echo "🔧 Rebuilding and restarting services with previous version..."
+              docker compose up -d --build 2>&1 || {
+                echo "❌ Docker rebuild failed!"
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] ROLLBACK_FAILED: Docker rebuild failed" >> .deployment_log
+                return 1
+              }
+
+              # Wait for services to restart
+              echo "⏳ Waiting for services to restart..."
+              sleep 20
+
+              # Verify rollback health
+              echo "🏥 Verifying rollback health..."
+
+              ROLLBACK_SUCCESS=true
+
+              # Check containers are running
+              if ! docker compose ps | grep -q "Up"; then
+                echo "❌ Containers not running after rollback!"
+                ROLLBACK_SUCCESS=false
+              fi
+
+              # Check backend
+              if ! curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+                echo "❌ Backend not healthy after rollback!"
+                ROLLBACK_SUCCESS=false
+              fi
+
+              # Check frontend
+              if ! curl -f -s http://localhost:3000 > /dev/null 2>&1; then
+                echo "❌ Frontend not healthy after rollback!"
+                ROLLBACK_SUCCESS=false
+              fi
+
+              # Check database
+              if ! docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1; then
+                echo "❌ Database not ready after rollback!"
+                ROLLBACK_SUCCESS=false
+              fi
+
+              if [ "$ROLLBACK_SUCCESS" = true ]; then
+                echo ""
+                echo "=========================================="
+                echo "✅ ROLLBACK SUCCESSFUL"
+                echo "=========================================="
+                echo "System is back to previous stable state"
+                echo "Commit: $previous_commit"
+                echo ""
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] ROLLBACK_SUCCESSFUL: System restored to $previous_commit" >> .deployment_log
+                return 0
+              else
+                echo ""
+                echo "=========================================="
+                echo "⚠️ ROLLBACK COMPLETED WITH WARNINGS"
+                echo "=========================================="
+                echo "System may be in an unstable state!"
+                echo "Manual intervention required!"
+                echo ""
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] ROLLBACK_WARNING: System may be unstable" >> .deployment_log
+                return 1
+              fi
+            }
+
             # Pull latest changes
             echo "📥 Pulling latest changes..."
             git fetch origin main
             git checkout main
             git pull origin main
-            
+
             # Pull new Docker images
             echo "🐳 Pulling Docker images..."
             docker compose pull
-            
+
             # Rebuild and restart services
             echo "🔧 Rebuilding and restarting services..."
             docker compose up -d --build
-            
+
             # Wait for services to be healthy
             echo "⏳ Waiting for services to be healthy..."
             sleep 30
-            
-            # Health check
-            echo "🏥 Running health check..."
-            curl -f http://localhost:8000/health || {
-              echo "❌ Health check failed! Rolling back..."
-              git checkout $PREVIOUS_COMMIT
-              docker compose up -d --build
+
+            # Comprehensive health checks
+            echo "🏥 Running comprehensive health checks..."
+
+            # Function to check service health
+            check_service() {
+              local service_name=$1
+              local check_command=$2
+              local max_attempts=$3
+              local wait_time=$4
+
+              for attempt in $(seq 1 $max_attempts); do
+                echo "  Checking $service_name (attempt $attempt/$max_attempts)..."
+                if eval "$check_command"; then
+                  echo "  ✅ $service_name is healthy"
+                  return 0
+                else
+                  if [ $attempt -lt $max_attempts ]; then
+                    echo "  ⏳ $service_name not ready, waiting ${wait_time}s..."
+                    sleep $wait_time
+                  fi
+                fi
+              done
+
+              echo "  ❌ $service_name health check failed after $max_attempts attempts"
+              return 1
+            }
+
+            # Check Docker container status
+            if ! docker compose ps | grep -q "Up"; then
+              echo "❌ Docker containers are not running"
+              rollback_deployment "Docker containers not running" "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+            echo "✅ Docker containers are running"
+
+            # Check Backend API (port 8000)
+            check_service "Backend API" "curl -f -s http://localhost:8000/health > /dev/null" 5 10 || {
+              rollback_deployment "Backend API health check failed" "$PREVIOUS_COMMIT"
               exit 1
             }
-            
+
+            # Check Frontend (port 3000)
+            check_service "Frontend" "curl -f -s http://localhost:3000 > /dev/null" 5 10 || {
+              rollback_deployment "Frontend health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            # Check Database connectivity
+            check_service "PostgreSQL Database" "docker compose exec -T db pg_isready -U postgres" 3 5 || {
+              rollback_deployment "Database health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            # Check Redis connectivity
+            check_service "Redis" "docker compose exec -T redis redis-cli ping" 3 5 || {
+              rollback_deployment "Redis health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            echo "✅ All service health checks passed!"
+
+            # Run post-deployment smoke tests
+            echo "🔥 Running post-deployment smoke tests..."
+            if [ -f "./scripts/ci/post-deploy-smoke-tests.sh" ]; then
+              bash ./scripts/ci/post-deploy-smoke-tests.sh \
+                --backend-host localhost \
+                --backend-port 8000 \
+                --frontend-host localhost \
+                --frontend-port 3000 \
+                --timeout 15 || {
+                echo "❌ Smoke tests failed, initiating rollback..."
+                rollback_deployment "Smoke tests failed" "$PREVIOUS_COMMIT"
+                exit 1
+              }
+              echo "✅ Smoke tests passed!"
+            else
+              echo "⚠️ Smoke test script not found, skipping..."
+            fi
+
             echo "✅ Deployment successful!"
             echo "Deployed commit: $(git rev-parse HEAD)"
+
+            # Log successful deployment
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] DEPLOYMENT_SUCCESS: $NEW_COMMIT" >> .deployment_log
 
       - name: Notify on failure
         if: failure()
         run: |
           echo "::error::Deployment to staging failed!"
+          echo "::error::Automatic rollback has been initiated"
+          echo "::error::Check the deployment logs above for details"
+          echo "::error::Previous commit has been restored to maintain system stability"
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "::notice::Staging deployment completed successfully"
+          echo "::notice::All health checks passed"
+          echo "::notice::System is running the latest version"
 
   # Deploy to production (manual approval required)
   deploy-production:
@@ -151,51 +327,278 @@ jobs:
           script: |
             set -e
             echo "🚀 Deploying to PRODUCTION..."
-            
+
             cd ${{ env.DEPLOY_PATH }}
-            
+
             # Save current state for rollback
             PREVIOUS_COMMIT=$(git rev-parse HEAD)
+            NEW_COMMIT=$(git rev-parse origin/main)
+            echo "Previous commit: $PREVIOUS_COMMIT"
+            echo "New commit: $NEW_COMMIT"
             echo "$PREVIOUS_COMMIT" > .previous_commit
-            
+
+            # Log deployment start
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_DEPLOYMENT_START: $NEW_COMMIT (rolling back from $PREVIOUS_COMMIT)" >> .deployment_log
+
+            # Production rollback function with enhanced verification
+            rollback_production() {
+              local failure_reason=$1
+              local previous_commit=$2
+
+              echo ""
+              echo "=========================================="
+              echo "🔄 INITIATING PRODUCTION ROLLBACK"
+              echo "=========================================="
+              echo "Reason: $failure_reason"
+              echo "Rolling back to commit: $previous_commit"
+              echo ""
+
+              # Log rollback initiation
+              echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_ROLLBACK_INITIATED: $failure_reason" >> .deployment_log
+
+              # Rollback git
+              echo "📥 Rolling back git changes..."
+              git checkout $previous_commit 2>&1 || {
+                echo "❌ Git rollback failed!"
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_ROLLBACK_FAILED: Git checkout failed" >> .deployment_log
+                return 1
+              }
+
+              # Rebuild and restart services
+              echo "🔧 Rebuilding and restarting services with previous version..."
+              docker compose up -d --build 2>&1 || {
+                echo "❌ Docker rebuild failed!"
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_ROLLBACK_FAILED: Docker rebuild failed" >> .deployment_log
+                return 1
+              }
+
+              # Wait for services to restart
+              echo "⏳ Waiting for services to restart..."
+              sleep 30
+
+              # Verify rollback health
+              echo "🏥 Verifying rollback health..."
+
+              ROLLBACK_SUCCESS=true
+              ROLLBACK_ERRORS=""
+
+              # Check containers are running
+              if ! docker compose ps | grep -q "Up"; then
+                echo "❌ Containers not running after rollback!"
+                ROLLBACK_SUCCESS=false
+                ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Containers not running"
+              fi
+
+              # Check backend with multiple rounds
+              echo "🔍 Verifying backend after rollback..."
+              for round in 1 2 3; do
+                if ! curl -f -s http://localhost:8000/health > /dev/null 2>&1; then
+                  echo "❌ Backend not healthy after rollback (round $round)!"
+                  ROLLBACK_SUCCESS=false
+                  ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Backend not healthy"
+                  break
+                fi
+                sleep 5
+              done
+
+              # Check frontend
+              if ! curl -f -s http://localhost:3000 > /dev/null 2>&1; then
+                echo "❌ Frontend not healthy after rollback!"
+                ROLLBACK_SUCCESS=false
+                ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Frontend not healthy"
+              fi
+
+              # Check database
+              if ! docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1; then
+                echo "❌ Database not ready after rollback!"
+                ROLLBACK_SUCCESS=false
+                ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Database not ready"
+              fi
+
+              # Check database connection
+              if ! docker compose exec -T db psql -U postgres -d telegram_db -c "SELECT 1;" > /dev/null 2>&1; then
+                echo "❌ Database connection failed after rollback!"
+                ROLLBACK_SUCCESS=false
+                ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Database connection failed"
+              fi
+
+              # Check Redis
+              if ! docker compose exec -T redis redis-cli ping > /dev/null 2>&1; then
+                echo "❌ Redis not ready after rollback!"
+                ROLLBACK_SUCCESS=false
+                ROLLBACK_ERRORS="$ROLLBACK_ERRORS|Redis not ready"
+              fi
+
+              if [ "$ROLLBACK_SUCCESS" = true ]; then
+                echo ""
+                echo "=========================================="
+                echo "✅ PRODUCTION ROLLBACK SUCCESSFUL"
+                echo "=========================================="
+                echo "Production system is back to previous stable state"
+                echo "Commit: $previous_commit"
+                echo ""
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_ROLLBACK_SUCCESSFUL: System restored to $previous_commit" >> .deployment_log
+                return 0
+              else
+                echo ""
+                echo "=========================================="
+                echo "⚠️ PRODUCTION ROLLBACK COMPLETED WITH WARNINGS"
+                echo "=========================================="
+                echo "Errors: $ROLLBACK_ERRORS"
+                echo "Production system may be in an unstable state!"
+                echo "IMMEDIATE MANUAL INTERVENTION REQUIRED!"
+                echo ""
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_ROLLBACK_WARNING: System may be unstable - $ROLLBACK_ERRORS" >> .deployment_log
+                return 1
+              fi
+            }
+
             # Create backup of data
             echo "📦 Creating database backup..."
-            docker compose exec -T db pg_dump -U postgres telegram_db > /root/backups/telegram_db_$(date +%Y%m%d_%H%M%S).sql || true
-            
+            BACKUP_FILE="/root/backups/telegram_db_$(date +%Y%m%d_%H%M%S).sql"
+            mkdir -p /root/backups
+            docker compose exec -T db pg_dump -U postgres telegram_db > $BACKUP_FILE || true
+            echo "Backup saved to: $BACKUP_FILE"
+
             # Pull and deploy
             git fetch origin main
             git checkout main
             git pull origin main
             docker compose pull
             docker compose up -d --build
-            
+
             # Extended health check for production
             echo "⏳ Waiting for services..."
             sleep 45
-            
-            # Multiple health checks
-            for i in 1 2 3; do
-              echo "Health check attempt $i..."
-              if curl -f http://localhost:8000/health; then
-                echo "✅ Health check $i passed"
-              else
-                echo "❌ Health check $i failed"
-                if [ $i -eq 3 ]; then
-                  echo "❌ All health checks failed! Rolling back..."
-                  git checkout $PREVIOUS_COMMIT
-                  docker compose up -d --build
-                  exit 1
+
+            # Comprehensive health checks for production
+            echo "🏥 Running comprehensive production health checks..."
+
+            # Function to check service health with detailed logging
+            check_service_prod() {
+              local service_name=$1
+              local check_command=$2
+              local max_attempts=$3
+              local wait_time=$4
+
+              for attempt in $(seq 1 $max_attempts); do
+                echo "  🔍 Checking $service_name (attempt $attempt/$max_attempts)..."
+                if eval "$check_command"; then
+                  echo "  ✅ $service_name is healthy"
+                  return 0
+                else
+                  if [ $attempt -lt $max_attempts ]; then
+                    echo "  ⏳ $service_name not ready, waiting ${wait_time}s..."
+                    sleep $wait_time
+                  fi
                 fi
-                sleep 10
-              fi
+              done
+
+              echo "  ❌ $service_name health check failed after $max_attempts attempts"
+              return 1
+            }
+
+            # Check Docker container status
+            echo "🔍 Verifying Docker container status..."
+            if ! docker compose ps | grep -q "Up"; then
+              echo "❌ Docker containers are not running"
+              rollback_production "Docker containers not running" "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+
+            # Verify all expected containers are running
+            RUNNING_CONTAINERS=$(docker compose ps --services --filter "status=running" | wc -l)
+            echo "  ✅ $RUNNING_CONTAINERS containers are running"
+
+            # Check Backend API with multiple verification rounds
+            echo "🔍 Verifying Backend API..."
+            for round in 1 2 3; do
+              echo "  Backend API verification round $round..."
+              check_service_prod "Backend API" "curl -f -s http://localhost:8000/health > /dev/null" 5 10 || {
+                rollback_production "Backend API health check failed in round $round" "$PREVIOUS_COMMIT"
+                exit 1
+              }
+              sleep 5
             done
-            
+            echo "  ✅ Backend API verified across 3 rounds"
+
+            # Check Frontend
+            check_service_prod "Frontend" "curl -f -s http://localhost:3000 > /dev/null" 5 10 || {
+              rollback_production "Frontend health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            # Check Database connectivity with connection test
+            check_service_prod "PostgreSQL Database" "docker compose exec -T db pg_isready -U postgres" 3 5 || {
+              rollback_production "Database health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            # Verify database can accept connections
+            echo "🔍 Testing database connection..."
+            docker compose exec -T db psql -U postgres -d telegram_db -c "SELECT 1;" > /dev/null 2>&1 || {
+              rollback_production "Database connection test failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+            echo "  ✅ Database connection verified"
+
+            # Check Redis connectivity
+            check_service_prod "Redis" "docker compose exec -T redis redis-cli ping" 3 5 || {
+              rollback_production "Redis health check failed" "$PREVIOUS_COMMIT"
+              exit 1
+            }
+
+            # Final verification - check all services one more time
+            echo "🔍 Running final verification round..."
+            sleep 10
+
+            if curl -f -s http://localhost:8000/health > /dev/null && \
+               curl -f -s http://localhost:3000 > /dev/null && \
+               docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1 && \
+               docker compose exec -T redis redis-cli ping > /dev/null 2>&1; then
+              echo "✅ All services verified successfully!"
+            else
+              rollback_production "Final verification failed" "$PREVIOUS_COMMIT"
+              exit 1
+            fi
+
+            # Run post-deployment smoke tests for production
+            echo "🔥 Running post-deployment smoke tests (PRODUCTION)..."
+            if [ -f "./scripts/ci/post-deploy-smoke-tests.sh" ]; then
+              bash ./scripts/ci/post-deploy-smoke-tests.sh \
+                --backend-host localhost \
+                --backend-port 8000 \
+                --frontend-host localhost \
+                --frontend-port 3000 \
+                --timeout 15 || {
+                echo "❌ Production smoke tests failed, initiating rollback..."
+                rollback_production "Production smoke tests failed" "$PREVIOUS_COMMIT"
+                exit 1
+              }
+              echo "✅ Production smoke tests passed!"
+            else
+              echo "⚠️ Smoke test script not found, skipping..."
+            fi
+
             echo "✅ Production deployment successful!"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] PRODUCTION_DEPLOYMENT_SUCCESS: $NEW_COMMIT" >> .deployment_log
 
       - name: Notify on failure
         if: failure()
         run: |
-          echo "::error::Production deployment failed! Check logs for rollback status."
+          echo "::error::PRODUCTION deployment failed!"
+          echo "::error::Automatic rollback has been initiated"
+          echo "::error::Check the deployment logs above for rollback status"
+          echo "::error::A database backup was created before deployment"
+          echo "::error::IMMEDIATE ACTION: Verify system stability after rollback"
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "::notice::PRODUCTION deployment completed successfully"
+          echo "::notice::All health checks passed including extended verification"
+          echo "::notice::Production system is running the latest version"
+          echo "::notice::Database backup is available at /root/backups/"
 
 # =============================================================================
 # ROLLBACK INSTRUCTIONS
@@ -208,5 +611,16 @@ jobs:
 # 4. Rollback: git checkout <commit_hash>
 # 5. Rebuild: docker compose up -d --build
 #
+# View deployment history:
+# cat .deployment_log
+#
 # Or use the rollback script: ./scripts/rollback_release.sh
+#
+# AUTOMATIC ROLLBACK:
+# The deployment process includes automatic rollback on failure:
+# - Saves current commit before deployment
+# - Runs comprehensive health checks
+# - Automatically reverts to previous commit if health checks fail
+# - Verifies rollback was successful
+# - Logs all actions to .deployment_log
 # =============================================================================

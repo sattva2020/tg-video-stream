@@ -1,0 +1,269 @@
+name: Test Flakiness Detection
+
+on:
+  # Run when CI workflow fails
+  workflow_run:
+    workflows: [CI]
+    types:
+      - completed
+    branches: [main, develop]
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      analyze_history:
+        description: 'Analyze existing history without new test run'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  detect-flaky-tests:
+    name: Detect Flaky Tests
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure') ||
+      github.event_name == 'workflow_dispatch'
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ./backend
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -q pytest pytest-json-report
+        pip install -q -r requirements.txt
+        pip install -q -r requirements-dev.txt
+
+    - name: Download test artifacts from CI workflow
+      if: github.event_name == 'workflow_run'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: ${{ github.event.workflow_run.id }},
+          });
+
+          const testArtifacts = artifacts.data.artifacts.filter(a =>
+            a.name.includes('coverage') || a.name.includes('test-report')
+          );
+
+          if (testArtifacts.length === 0) {
+            core.warning('No test artifacts found from failed CI run');
+            return;
+          }
+
+          for (const artifact of testArtifacts) {
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id,
+              archive_format: 'zip',
+            });
+
+            fs.writeFileSync(`${artifact.name}.zip`, Buffer.from(download.data));
+          }
+
+          core.info(`Downloaded ${testArtifacts.length} artifacts`);
+
+    - name: Extract downloaded artifacts
+      if: github.event_name == 'workflow_run'
+      run: |
+        cd ..
+        for zip in *.zip; do
+          if [ -f "$zip" ]; then
+            unzip -q "$zip" -d artifacts
+            echo "Extracted $zip"
+          fi
+        done
+
+    - name: Setup test environment
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+      run: |
+        echo "DATABASE_URL=$DATABASE_URL" >> $GITHUB_ENV
+        echo "REDIS_HOST=$REDIS_HOST" >> $GITHUB_ENV
+        echo "REDIS_PORT=$REDIS_PORT" >> $GITHUB_ENV
+        echo "TESTING=true" >> $GITHUB_ENV
+
+    - name: Run migrations
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+      run: |
+        alembic upgrade head || echo "Migrations skipped"
+
+    - name: Re-run failed tests with JSON output
+      if: github.event.inputs.analyze_history != 'true'
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        TESTING: true
+      run: |
+        # Run tests with pytest-json-report for detailed output
+        pytest -c pytest.ci.ini \
+          --json-report \
+          --json-report-file=test-results.json \
+          --json-report-expanded \
+          -v \
+          || echo "Tests completed with failures (expected for flakiness detection)"
+
+    - name: Record test results
+      if: github.event.inputs.analyze_history != 'true'
+      run: |
+        cd ..
+        python scripts/ci/detect-flaky-tests.py record \
+          --test-results backend/test-results.json \
+          --history .test-history.json \
+          --branch ${{ github.ref_name }} \
+          --commit ${{ github.sha }}
+
+    - name: Generate flaky test report
+      run: |
+        cd ..
+        python scripts/ci/detect-flaky-tests.py report \
+          --history .test-history.json \
+          --min-runs 3 \
+          --flaky-threshold 0.3 \
+          --format markdown \
+          --output flaky-test-report.md || echo "Report generation completed"
+
+    - name: Upload test history
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-flakiness-history
+        path: |
+          .test-history.json
+          flaky-test-report.md
+        retention-days: 90
+
+    - name: Generate summary
+      if: always()
+      run: |
+        cd ..
+        echo "## 🔄 Test Flakiness Detection Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f flaky-test-report.md ]; then
+          echo "### Flaky Test Analysis" >> $GITHUB_STEP_SUMMARY
+          cat flaky-test-report.md >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No flaky test report generated" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f .test-history.json ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Test History Statistics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          python -c "
+import json
+with open('.test-history.json') as f:
+    data = json.load(f)
+total_tests = len(data.get('tests', {}))
+total_runs = len(data.get('runs', []))
+print(f'- **Total tests tracked**: {total_tests}')
+print(f'- **Total test runs**: {total_runs}')
+
+flaky_count = sum(1 for t in data.get('tests', {}).values() if t.get('flaky_score', 0) >= 0.3)
+print(f'- **Potentially flaky tests**: {flaky_count}')
+" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Comment on PR with flaky test report
+      if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let report = '## 🔄 Test Flakiness Detection Report\n\n';
+
+          try {
+            if (fs.existsSync('flaky-test-report.md')) {
+              const markdown = fs.readFileSync('flaky-test-report.md', 'utf8');
+              report += markdown;
+            } else {
+              report += 'No flaky test report available.\n';
+            }
+
+            // Get PR number from workflow run
+            const prNumber = '${{ github.event.workflow_run.pull_requests[0].number }}';
+
+            if (prNumber && prNumber !== '') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: report
+              });
+            } else {
+              core.warning('No PR number found in workflow run');
+            }
+          } catch (error) {
+            core.error(`Failed to comment on PR: ${error.message}`);
+          }
+
+    - name: Check for flaky tests
+      if: always()
+      run: |
+        cd ..
+        python scripts/ci/detect-flaky-tests.py report \
+          --history .test-history.json \
+          --min-runs 3 \
+          --flaky-threshold 0.3 \
+          --format text || exit_code=$?
+
+        if [ ${exit_code:-0} -eq 1 ]; then
+          echo "::warning::Flaky tests detected! See report for details."
+          exit 0  # Don't fail the workflow, just warn
+        fi

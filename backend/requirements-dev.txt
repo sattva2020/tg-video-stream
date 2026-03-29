@@ -6,6 +6,8 @@ ruff
 pytest
 pytest-cov
 pytest-asyncio
+pytest-rerunfailures
+pytest-json-report
 aiosqlite>=0.22.0  # Async SQLite driver for integration tests
 fakeredis==2.23.2
 import-linter>=2.0  # T050: Architecture validation

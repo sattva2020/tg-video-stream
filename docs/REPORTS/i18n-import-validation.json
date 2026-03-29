@@ -1,0 +1,935 @@
+{
+  "exit_code": 1,
+  "total_issues": 5,
+  "errors": 1,
+  "warnings": 4,
+  "issues": [
+    {
+      "type": "duplicate_keys",
+      "severity": "error",
+      "count": 158,
+      "details": {
+        "auth.email_registered": [
+          6,
+          182,
+          359,
+          455
+        ],
+        "auth.google_account_exists": [
+          7,
+          183,
+          360,
+          456
+        ],
+        "auth.account_pending": [
+          8,
+          184,
+          361,
+          457
+        ],
+        "auth.account_rejected": [
+          9,
+          185,
+          362,
+          458
+        ],
+        "auth.server_error": [
+          10,
+          186,
+          363,
+          459
+        ],
+        "auth.state_mismatch": [
+          11,
+          187,
+          364,
+          460
+        ],
+        "auth.token_fetch_failed": [
+          12,
+          188,
+          365,
+          461
+        ],
+        "auth.user_info_failed": [
+          13,
+          189,
+          366,
+          462
+        ],
+        "auth.auth_process_failed": [
+          14,
+          190,
+          367,
+          463
+        ],
+        "auth.invalid_callback": [
+          15,
+          191,
+          368,
+          464
+        ],
+        "auth.callback_no_token": [
+          16,
+          192,
+          369,
+          465
+        ],
+        "admin.dashboard": [
+          18,
+          194,
+          371,
+          467
+        ],
+        "admin.welcomeBack": [
+          19,
+          195,
+          372,
+          468
+        ],
+        "admin.overview": [
+          20,
+          196,
+          373,
+          469
+        ],
+        "admin.users": [
+          21,
+          197,
+          374,
+          470
+        ],
+        "admin.stream": [
+          22,
+          198,
+          375,
+          471
+        ],
+        "admin.liveNow": [
+          23,
+          199,
+          376,
+          472
+        ],
+        "admin.totalUsers": [
+          25,
+          201,
+          473
+        ],
+        "admin.pendingApproval": [
+          26,
+          202,
+          474
+        ],
+        "admin.approvedUsers": [
+          27,
+          203,
+          475
+        ],
+        "admin.streamStatus": [
+          28,
+          204,
+          476
+        ],
+        "admin.thisWeek": [
+          29,
+          205,
+          477
+        ],
+        "admin.thisMonth": [
+          30,
+          206,
+          478
+        ],
+        "admin.requiresAction": [
+          31,
+          207,
+          479
+        ],
+        "admin.online": [
+          32,
+          208,
+          480
+        ],
+        "admin.offline": [
+          33,
+          209,
+          481
+        ],
+        "admin.uptime": [
+          34,
+          210,
+          482
+        ],
+        "admin.streamStarted": [
+          36,
+          212,
+          483
+        ],
+        "admin.streamStopped": [
+          37,
+          213,
+          484
+        ],
+        "admin.streamRestarted": [
+          38,
+          214,
+          485
+        ],
+        "admin.streamStartError": [
+          39,
+          215,
+          486
+        ],
+        "admin.streamStopError": [
+          40,
+          216,
+          487
+        ],
+        "admin.streamRestartError": [
+          41,
+          217,
+          488
+        ],
+        "admin.confirmStop": [
+          42,
+          218,
+          489
+        ],
+        "admin.confirmRestart": [
+          43,
+          219,
+          490
+        ],
+        "admin.streamControls": [
+          44,
+          220,
+          491
+        ],
+        "admin.startBroadcast": [
+          45,
+          221,
+          492
+        ],
+        "admin.stopBroadcast": [
+          46,
+          222,
+          493
+        ],
+        "admin.startBroadcastDesc": [
+          47,
+          223,
+          494
+        ],
+        "admin.stopBroadcastDesc": [
+          48,
+          224,
+          495
+        ],
+        "admin.restartStream": [
+          49,
+          225,
+          496
+        ],
+        "admin.restartStreamDesc": [
+          50,
+          226,
+          497
+        ],
+        "admin.start": [
+          51,
+          227,
+          498
+        ],
+        "admin.stop": [
+          52,
+          228,
+          499
+        ],
+        "admin.restart": [
+          53,
+          229,
+          500
+        ],
+        "admin.allUsers": [
+          55,
+          231,
+          501
+        ],
+        "admin.pending": [
+          56,
+          232,
+          502
+        ],
+        "admin.approved": [
+          57,
+          233,
+          503
+        ],
+        "admin.rejected": [
+          58,
+          234,
+          504
+        ],
+        "admin.searchUsers": [
+          59,
+          235,
+          505
+        ],
+        "admin.filters": [
+          60,
+          236,
+          506
+        ],
+        "admin.noUsersFound": [
+          61,
+          237,
+          507
+        ],
+        "admin.tryDifferentSearch": [
+          62,
+          238,
+          508
+        ],
+        "admin.noUsersInCategory": [
+          63,
+          239,
+          509
+        ],
+        "admin.userApproved": [
+          64,
+          240,
+          510
+        ],
+        "admin.userRejected": [
+          65,
+          241,
+          511
+        ],
+        "admin.approveError": [
+          66,
+          242,
+          512
+        ],
+        "admin.rejectError": [
+          67,
+          243,
+          513
+        ],
+        "admin.approve": [
+          68,
+          244,
+          514
+        ],
+        "admin.reject": [
+          69,
+          245,
+          515
+        ],
+        "admin.quickActions": [
+          71,
+          247,
+          516
+        ],
+        "admin.manageUsers": [
+          72,
+          248,
+          517
+        ],
+        "admin.playlist": [
+          73,
+          249,
+          518
+        ],
+        "admin.settings": [
+          74,
+          250,
+          519
+        ],
+        "admin.startStream": [
+          75,
+          251,
+          520
+        ],
+        "admin.stopStream": [
+          76,
+          252,
+          521
+        ],
+        "admin.restartStreamAction": [
+          77,
+          253,
+          522
+        ],
+        "operator.title": [
+          79,
+          255,
+          378,
+          524
+        ],
+        "operator.subtitle": [
+          80,
+          256,
+          379,
+          525
+        ],
+        "operator.controlsTitle": [
+          81,
+          257,
+          380,
+          526
+        ],
+        "operator.controlsSubtitle": [
+          82,
+          258,
+          381,
+          527
+        ],
+        "operator.startAction": [
+          83,
+          259,
+          382,
+          528
+        ],
+        "operator.startActionDesc": [
+          84,
+          260,
+          383,
+          529
+        ],
+        "operator.stopAction": [
+          85,
+          261,
+          384,
+          530
+        ],
+        "operator.stopActionDesc": [
+          86,
+          262,
+          385,
+          531
+        ],
+        "operator.restartAction": [
+          87,
+          263,
+          386,
+          532
+        ],
+        "operator.restartActionDesc": [
+          88,
+          264,
+          387,
+          533
+        ],
+        "operator.status.online": [
+          89,
+          265,
+          388,
+          534
+        ],
+        "operator.status.offline": [
+          90,
+          266,
+          389,
+          535
+        ],
+        "operator.status.error": [
+          91,
+          267,
+          390,
+          536
+        ],
+        "operator.status.unknown": [
+          92,
+          268,
+          391,
+          537
+        ],
+        "operator.queueTitle": [
+          93,
+          269,
+          392,
+          538
+        ],
+        "operator.queueSubtitle": [
+          94,
+          270,
+          393,
+          539
+        ],
+        "operator.refreshQueue": [
+          95,
+          271,
+          394,
+          540
+        ],
+        "operator.currentTrack": [
+          96,
+          272,
+          395,
+          541
+        ],
+        "operator.noTrackPlaying": [
+          97,
+          273,
+          396,
+          542
+        ],
+        "operator.queueConnected": [
+          98,
+          274,
+          397,
+          543
+        ],
+        "operator.queueDisconnected": [
+          99,
+          275,
+          398,
+          544
+        ],
+        "operator.upNext": [
+          100,
+          276,
+          399,
+          545
+        ],
+        "operator.waitingCount": [
+          101,
+          277,
+          400,
+          546
+        ],
+        "operator.noQueuedItems": [
+          102,
+          278,
+          401,
+          547
+        ],
+        "operator.position": [
+          103,
+          279,
+          402,
+          548
+        ],
+        "operator.noAccess": [
+          104,
+          280,
+          403,
+          549
+        ],
+        "user.dashboard.welcomeTitle": [
+          106,
+          282,
+          405,
+          551
+        ],
+        "user.dashboard.welcomeSubtitle": [
+          107,
+          283,
+          406,
+          552
+        ],
+        "user.dashboard.profileTitle": [
+          108,
+          284,
+          407,
+          553
+        ],
+        "user.dashboard.emailLabel": [
+          109,
+          285,
+          408,
+          554
+        ],
+        "user.dashboard.statusLabel": [
+          110,
+          286,
+          409,
+          555
+        ],
+        "user.dashboard.streamStatusTitle": [
+          111,
+          287,
+          410,
+          556
+        ],
+        "user.dashboard.currentTrack": [
+          112,
+          288,
+          411,
+          557
+        ],
+        "user.dashboard.queueCount": [
+          113,
+          289,
+          412,
+          558
+        ],
+        "user.dashboard.quickActionsTitle": [
+          114,
+          290,
+          413,
+          559
+        ],
+        "user.dashboard.quickActions.channels": [
+          115,
+          291,
+          414,
+          560
+        ],
+        "user.dashboard.quickActions.channelsDesc": [
+          116,
+          292,
+          415,
+          561
+        ],
+        "user.dashboard.quickActions.settings": [
+          117,
+          293,
+          416,
+          562
+        ],
+        "user.dashboard.quickActions.settingsDesc": [
+          118,
+          294,
+          417,
+          563
+        ],
+        "user.dashboard.quickActions.support": [
+          119,
+          295,
+          418,
+          564
+        ],
+        "user.dashboard.quickActions.supportDesc": [
+          120,
+          296,
+          419,
+          565
+        ],
+        "user.status.account": [
+          122,
+          298,
+          421,
+          567
+        ],
+        "user.status.active": [
+          123,
+          299,
+          422,
+          568
+        ],
+        "user.status.pending": [
+          124,
+          300,
+          423,
+          569
+        ],
+        "user.status.email": [
+          125,
+          301,
+          424,
+          570
+        ],
+        "user.status.emailMissing": [
+          126,
+          302,
+          425,
+          571
+        ],
+        "user.status.telegram": [
+          127,
+          303,
+          426,
+          572
+        ],
+        "user.status.telegramMissing": [
+          128,
+          304,
+          427,
+          573
+        ],
+        "user.status.role": [
+          129,
+          305,
+          428,
+          574
+        ],
+        "user.status.lastLogin": [
+          130,
+          306,
+          429,
+          575
+        ],
+        "user.status.lastLoginUnknown": [
+          131,
+          307,
+          430,
+          576
+        ],
+        "user.tips.title": [
+          132,
+          308,
+          431,
+          577
+        ],
+        "user.tips.connectTelegram": [
+          133,
+          309,
+          432,
+          578
+        ],
+        "user.tips.checkSchedule": [
+          134,
+          310,
+          433,
+          579
+        ],
+        "user.tips.manageChannels": [
+          135,
+          311,
+          434,
+          580
+        ],
+        "roles.superadmin": [
+          137,
+          313,
+          436,
+          582
+        ],
+        "roles.admin": [
+          138,
+          314,
+          437,
+          583
+        ],
+        "roles.moderator": [
+          139,
+          315,
+          438,
+          584
+        ],
+        "roles.operator": [
+          140,
+          316,
+          439,
+          585
+        ],
+        "roles.user": [
+          141,
+          317,
+          440,
+          586
+        ],
+        "admin.systemHealth": [
+          143,
+          319
+        ],
+        "admin.allSystemsOperational": [
+          144,
+          320
+        ],
+        "admin.systemDegraded": [
+          145,
+          321
+        ],
+        "admin.recentActivity": [
+          147,
+          323
+        ],
+        "admin.userRegistered": [
+          148,
+          324
+        ],
+        "admin.userApprovedEvent": [
+          149,
+          325
+        ],
+        "admin.userRejectedEvent": [
+          150,
+          326
+        ],
+        "admin.streamStartedEvent": [
+          151,
+          327
+        ],
+        "admin.streamStoppedEvent": [
+          152,
+          328
+        ],
+        "admin.streamRestartedEvent": [
+          153,
+          329
+        ],
+        "admin.trackPlayedEvent": [
+          154,
+          330
+        ],
+        "admin.errorEvent": [
+          155,
+          331
+        ],
+        "telegram.login": [
+          157,
+          333,
+          442,
+          588
+        ],
+        "telegram.phoneNumber": [
+          158,
+          334,
+          443,
+          589
+        ],
+        "telegram.phonePlaceholder": [
+          159,
+          335,
+          444,
+          590
+        ],
+        "telegram.sendCode": [
+          160,
+          336,
+          445,
+          591
+        ],
+        "telegram.verificationCode": [
+          161,
+          337,
+          446,
+          592
+        ],
+        "telegram.codePlaceholder": [
+          162,
+          338
+        ],
+        "telegram.verifyCode": [
+          163,
+          339,
+          447,
+          593
+        ],
+        "telegram.backToPhone": [
+          164,
+          340
+        ],
+        "telegram.2faPassword": [
+          165,
+          341
+        ],
+        "telegram.signIn": [
+          166,
+          342
+        ],
+        "telegram.backToCode": [
+          167,
+          343
+        ],
+        "telegram.phoneTooShort": [
+          168,
+          344
+        ],
+        "telegram.codeMustBe5": [
+          169,
+          345
+        ],
+        "telegram.passwordRequired": [
+          170,
+          346
+        ],
+        "telegram.failedToSendCode": [
+          171,
+          347
+        ],
+        "telegram.invalidCode": [
+          172,
+          348
+        ],
+        "telegram.invalidPassword": [
+          173,
+          349
+        ],
+        "telegram.codeExpired": [
+          174,
+          350
+        ],
+        "telegram.tooManyAttempts": [
+          175,
+          351
+        ]
+      }
+    },
+    {
+      "type": "missing_keys",
+      "severity": "warning",
+      "language": "en",
+      "count": 129,
+      "details": [
+        "admin.approvedUsers",
+        "common.close",
+        "admin.streamStartError",
+        "audio.settings.channels",
+        "common.clear",
+        "audio.settings.device",
+        "admin.streamRestarted",
+        "audio.volume.mute",
+        "audio.playlist.load",
+        "common.register"
+      ]
+    },
+    {
+      "type": "missing_keys",
+      "severity": "warning",
+      "language": "ru",
+      "count": 129,
+      "details": [
+        "admin.approvedUsers",
+        "common.close",
+        "admin.streamStartError",
+        "audio.settings.channels",
+        "common.clear",
+        "audio.settings.device",
+        "admin.streamRestarted",
+        "audio.volume.mute",
+        "audio.playlist.load",
+        "common.register"
+      ]
+    },
+    {
+      "type": "missing_keys",
+      "severity": "warning",
+      "language": "uk",
+      "count": 124,
+      "details": [
+        "streamQuality.status",
+        "streamQuality.online",
+        "common.close",
+        "audio.settings.channels",
+        "common.clear",
+        "audio.settings.device",
+        "audio.volume.mute",
+        "audio.playlist.load",
+        "common.register",
+        "common.error"
+      ]
+    },
+    {
+      "type": "missing_keys",
+      "severity": "warning",
+      "language": "de",
+      "count": 150,
+      "details": [
+        "streamQuality.status",
+        "admin.approvedUsers",
+        "streamQuality.online",
+        "admin.streamStartError",
+        "analytics.period.90d",
+        "analytics.subtitle",
+        "errors.rateLimited",
+        "notifications.trackAdded",
+        "audio.recognition.limitReached",
+        "nav.monitoring"
+      ]
+    }
+  ]
+}

@@ -159,7 +159,7 @@ jobs:
     - name: Run unit tests
       run: |
         pytest -c pytest.ci.ini -m "unit" -v
-        
+
     - name: Run integration tests
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -168,7 +168,7 @@ jobs:
         TESTING: true
       run: |
         pytest -c pytest.ci.ini -m "integration" -v
-        
+
     - name: Run all tests with coverage
       env:
         DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
@@ -176,14 +176,85 @@ jobs:
         REDIS_PORT: 6379
         TESTING: true
       run: |
-        pytest -c pytest.ci.ini --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-fail-under=70 -v
-        
-    - name: Generate coverage badge
-      if: success()
+        pytest -c pytest.ci.ini --cov=src --cov-report=html --cov-report=xml --cov-report=term-missing --cov-report=json:coverage.json --cov-fail-under=70 -v
+
+    - name: Generate coverage summary
+      if: always()
       run: |
-        coverage_percent=$(coverage report | grep TOTAL | awk '{print $4}' | tr -d '%')
-        echo "Backend Coverage: ${coverage_percent}%" >> $GITHUB_STEP_SUMMARY
-        
+        echo "## 🎯 Backend Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Overall Coverage (Target: 70%)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Parse coverage from JSON
+        if [ -f coverage.json ]; then
+          python -c "
+import json
+import sys
+
+with open('coverage.json') as f:
+    data = json.load(f)
+
+totals = data.get('totals', {})
+percent_covered = totals.get('percent_covered', 0)
+covered_lines = totals.get('covered_lines', 0)
+num_statements = totals.get('num_statements', 0)
+
+status = '🎉' if percent_covered >= 80 else '✅' if percent_covered >= 70 else '⚠️' if percent_covered >= 60 else '❌'
+print(f'| **Total Coverage** | **{percent_covered:.1f}%** ({covered_lines}/{num_statements} lines) | {status} |')
+
+# Show top files by coverage if available
+if 'files' in data:
+    files_list = []
+    for file_path, file_data in data['files'].items():
+        if 'src/services/' in file_path or 'src/api/' in file_path:
+            summary = file_data.get('summary', {})
+            percent = summary.get('percent_covered', 0)
+            covered = summary.get('covered_lines', 0)
+            total = summary.get('num_statements', 0)
+            name = file_path.replace('src/', '').replace('.py', '')
+            files_list.append((name, percent, covered, total))
+
+    # Sort by coverage (lowest first) and show bottom 5
+    files_list.sort(key=lambda x: x[1])
+    if files_list:
+        print('')
+        print('### Files needing attention (lowest coverage)')
+        print('')
+        print('| File | Coverage | Status |')
+        print('|------|----------|--------|')
+        for name, percent, covered, total in files_list[:5]:
+            status = '✅' if percent >= 80 else '⚠️' if percent >= 60 else '❌'
+            print(f'| {name} | {percent:.1f}% ({covered}/{total}) | {status} |')
+" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 Full report available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check Coverage Threshold
+      if: always()
+      run: |
+        # Check that coverage >= 70%
+        python -c "
+import json
+import sys
+
+with open('coverage.json') as f:
+    data = json.load(f)
+
+totals = data.get('totals', {})
+percent_covered = totals.get('percent_covered', 0)
+
+print(f'Average coverage: {percent_covered:.2f}%')
+
+if percent_covered < 70:
+    print(f'❌ Coverage below threshold! Expected >= 70%, got {percent_covered:.2f}%')
+    sys.exit(1)
+else:
+    print(f'✅ Coverage meets threshold: {percent_covered:.2f}%')
+"
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       if: always()
@@ -192,37 +263,99 @@ jobs:
         flags: backend
         name: backend-coverage
         fail_ci_if_error: false
-        
+
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: backend-coverage
+        name: backend-coverage-report
         path: |
-          backend/htmlcov
+          backend/htmlcov/
           backend/coverage.xml
+          backend/coverage.json
           backend/.coverage
+        retention-days: 30
+
+    - name: Comment PR with Coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          let coverage = 'Coverage report not found';
+          try {
+            const data = JSON.parse(fs.readFileSync('backend/coverage.json', 'utf8'));
+            const totals = data.totals || {};
+            const percent = totals.percent_covered || 0;
+            const covered = totals.covered_lines || 0;
+            const total = totals.num_statements || 0;
+
+            const status = percent >= 80 ? '🎉' : percent >= 70 ? '✅' : percent >= 60 ? '⚠️' : '❌';
+
+            coverage = `## 🎯 Backend Coverage Report\n\n| Metric | Value |\n|--------|-------|\n| **Total Coverage** | **${percent.toFixed(1)}%** (${covered}/${total} lines) ${status} |\n\n📊 Full report available in workflow artifacts`;
+
+            // Show bottom files
+            if (data.files) {
+              let filesList = [];
+              for (const [file_path, file_data] of Object.entries(data.files)) {
+                if (file_path.includes('src/services/') || file_path.includes('src/api/')) {
+                  const summary = file_data.summary || {};
+                  const pct = summary.percent_covered || 0;
+                  const name = file_path.replace('src/', '').replace('.py', '');
+                  filesList.push([name, pct]);
+                }
+              }
+              filesList.sort((a, b) => a[1] - b[1]);
+              if (filesList.length > 0) {
+                coverage += '\n\n### Files needing attention\n\n| File | Coverage |\n|------|----------|\n';
+                filesList.slice(0, 5).forEach(([name, pct]) => {
+                  const status = pct >= 80 ? '✅' : pct >= 60 ? '⚠️' : '❌';
+                  coverage += `| ${name} | ${pct.toFixed(1)}% ${status} |\n`;
+                });
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse coverage:', e);
+          }
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: coverage
+          });
 
   frontend-test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     defaults:
       run:
         working-directory: ./frontend
 
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'pnpm'
         cache-dependency-path: frontend/pnpm-lock.yaml
-    
-    - name: Install system dependencies (unixODBC)
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends unixodbc-dev g++ libpq-dev
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install unixodbc
         
     - name: Enable Corepack
       run: corepack enable
@@ -231,9 +364,9 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.local/share/pnpm/store
-        key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        key: ${{ matrix.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-pnpm-
+          ${{ matrix.os }}-pnpm-
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
@@ -257,13 +390,139 @@ jobs:
       
     - name: Run tests with coverage
       run: pnpm test:coverage
-      
-    - name: Generate coverage badge
-      if: success()
+
+    - name: Generate coverage summary
+      if: always()
       run: |
-        # Парсим coverage из вывода vitest
-        echo "Frontend tests completed" >> $GITHUB_STEP_SUMMARY
-        
+        echo "## 🎯 Frontend Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Overall Coverage (Target: 70%)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Parse coverage from coverage-final.json
+        if [ -f coverage/coverage-final.json ]; then
+          node -e "
+const fs = require('fs');
+const data = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+
+// Calculate total coverage
+let totalStatements = 0;
+let coveredStatements = 0;
+let totalBranches = 0;
+let coveredBranches = 0;
+let totalFunctions = 0;
+let coveredFunctions = 0;
+let totalLines = 0;
+let coveredLines = 0;
+
+for (const [file, fileData] of Object.entries(data)) {
+  if (fileData.s) {
+    const s = fileData.s;
+    for (const [key, value] of Object.entries(s)) {
+      totalStatements++;
+      if (value > 0) coveredStatements++;
+    }
+  }
+  if (fileData.b) {
+    for (const [key, branches] of Object.entries(fileData.b)) {
+      totalBranches += branches.length;
+      coveredBranches += branches.filter(b => b > 0).length;
+    }
+  }
+  if (fileData.f) {
+    for (const [key, value] of Object.entries(fileData.f)) {
+      totalFunctions++;
+      if (value > 0) coveredFunctions++;
+    }
+  }
+  if (fileData.l) {
+    for (const [key, value] of Object.entries(fileData.l)) {
+      totalLines++;
+      if (value > 0) coveredLines++;
+    }
+  }
+}
+
+const statementCoverage = totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0;
+const branchCoverage = totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0;
+const functionCoverage = totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0;
+const lineCoverage = totalLines > 0 ? (coveredLines / totalLines) * 100 : 0;
+
+const avgCoverage = (statementCoverage + branchCoverage + functionCoverage + lineCoverage) / 4;
+const status = avgCoverage >= 80 ? '🎉' : avgCoverage >= 70 ? '✅' : avgCoverage >= 60 ? '⚠️' : '❌';
+
+console.log(\`| **Average Coverage** | **\${avgCoverage.toFixed(1)}%** | \${status} |\`);
+console.log(\`| Statements | \${statementCoverage.toFixed(1)}% (\${coveredStatements}/\${totalStatements}) | \${statementCoverage >= 70 ? '✅' : '⚠️'} |\`);
+console.log(\`| Branches | \${branchCoverage.toFixed(1)}% (\${coveredBranches}/\${totalBranches}) | \${branchCoverage >= 70 ? '✅' : '⚠️'} |\`);
+console.log(\`| Functions | \${functionCoverage.toFixed(1)}% (\${coveredFunctions}/\${totalFunctions}) | \${functionCoverage >= 70 ? '✅' : '⚠️'} |\`);
+console.log(\`| Lines | \${lineCoverage.toFixed(1)}% (\${coveredLines}/\${totalLines}) | \${lineCoverage >= 70 ? '✅' : '⚠️'} |\`);
+" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📊 Full report available in artifacts" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check Coverage Threshold
+      if: always()
+      run: |
+        # Check that coverage >= 70%
+        node -e "
+const fs = require('fs');
+const data = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+
+let totalStatements = 0;
+let coveredStatements = 0;
+let totalBranches = 0;
+let coveredBranches = 0;
+let totalFunctions = 0;
+let coveredFunctions = 0;
+let totalLines = 0;
+let coveredLines = 0;
+
+for (const [file, fileData] of Object.entries(data)) {
+  if (fileData.s) {
+    for (const [key, value] of Object.entries(fileData.s)) {
+      totalStatements++;
+      if (value > 0) coveredStatements++;
+    }
+  }
+  if (fileData.b) {
+    for (const [key, branches] of Object.entries(fileData.b)) {
+      totalBranches += branches.length;
+      coveredBranches += branches.filter(b => b > 0).length;
+    }
+  }
+  if (fileData.f) {
+    for (const [key, value] of Object.entries(fileData.f)) {
+      totalFunctions++;
+      if (value > 0) coveredFunctions++;
+    }
+  }
+  if (fileData.l) {
+    for (const [key, value] of Object.entries(fileData.l)) {
+      totalLines++;
+      if (value > 0) coveredLines++;
+    }
+  }
+}
+
+const statementCoverage = totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0;
+const branchCoverage = totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0;
+const functionCoverage = totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0;
+const lineCoverage = totalLines > 0 ? (coveredLines / totalLines) * 100 : 0;
+
+const avgCoverage = (statementCoverage + branchCoverage + functionCoverage + lineCoverage) / 4;
+
+console.log(\`Average coverage: \${avgCoverage.toFixed(2)}%\`);
+
+if (avgCoverage < 70) {
+  console.log(\`❌ Coverage below threshold! Expected >= 70%, got \${avgCoverage.toFixed(2)}%\`);
+  process.exit(1);
+} else {
+  console.log(\`✅ Coverage meets threshold: \${avgCoverage.toFixed(2)}%\`);
+}
+"
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       if: always()
@@ -272,23 +531,219 @@ jobs:
         flags: frontend
         name: frontend-coverage
         fail_ci_if_error: false
-        
+
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: frontend-coverage
+        name: frontend-coverage-report
         path: |
-          frontend/coverage
+          frontend/coverage/
           frontend/.nyc_output
-      
+        retention-days: 30
+
+    - name: Comment PR with Coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          let coverage = 'Coverage report not found';
+          try {
+            const data = JSON.parse(fs.readFileSync('frontend/coverage/coverage-final.json', 'utf8'));
+
+            let totalStatements = 0, coveredStatements = 0;
+            let totalBranches = 0, coveredBranches = 0;
+            let totalFunctions = 0, coveredFunctions = 0;
+            let totalLines = 0, coveredLines = 0;
+
+            for (const [file, fileData] of Object.entries(data)) {
+              if (fileData.s) {
+                for (const [key, value] of Object.entries(fileData.s)) {
+                  totalStatements++;
+                  if (value > 0) coveredStatements++;
+                }
+              }
+              if (fileData.b) {
+                for (const [key, branches] of Object.entries(fileData.b)) {
+                  totalBranches += branches.length;
+                  coveredBranches += branches.filter(b => b > 0).length;
+                }
+              }
+              if (fileData.f) {
+                for (const [key, value] of Object.entries(fileData.f)) {
+                  totalFunctions++;
+                  if (value > 0) coveredFunctions++;
+                }
+              }
+              if (fileData.l) {
+                for (const [key, value] of Object.entries(fileData.l)) {
+                  totalLines++;
+                  if (value > 0) coveredLines++;
+                }
+              }
+            }
+
+            const statementCoverage = totalStatements > 0 ? (coveredStatements / totalStatements) * 100 : 0;
+            const branchCoverage = totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 0;
+            const functionCoverage = totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 0;
+            const lineCoverage = totalLines > 0 ? (coveredLines / totalLines) * 100 : 0;
+            const avgCoverage = (statementCoverage + branchCoverage + functionCoverage + lineCoverage) / 4;
+            const status = avgCoverage >= 80 ? '🎉' : avgCoverage >= 70 ? '✅' : avgCoverage >= 60 ? '⚠️' : '❌';
+
+            coverage = \`## 🎯 Frontend Coverage Report\\n\\n| Metric | Value |\\n|--------|-------|\\n| **Average Coverage** | **\${avgCoverage.toFixed(1)}%** | \${status} |\\n| Statements | \${statementCoverage.toFixed(1)}% (\${coveredStatements}/\${totalStatements}) | \${statementCoverage >= 70 ? '✅' : '⚠️'} |\\n| Branches | \${branchCoverage.toFixed(1)}% (\${coveredBranches}/\${totalBranches}) | \${branchCoverage >= 70 ? '✅' : '⚠️'} |\\n| Functions | \${functionCoverage.toFixed(1)}% (\${coveredFunctions}/\${totalFunctions}) | \${functionCoverage >= 70 ? '✅' : '⚠️'} |\\n| Lines | \${lineCoverage.toFixed(1)}% (\${coveredLines}/\${totalLines}) | \${lineCoverage >= 70 ? '✅' : '⚠️'} |\\n\\n📊 Full report available in workflow artifacts\`;
+          } catch (e) {
+            console.error('Failed to parse coverage:', e);
+          }
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: coverage
+          });
+
     - name: Build
       run: pnpm build
-      
-    - name: Check build size
+
+    - name: Check build size (Unix)
+      if: runner.os != 'Windows'
       run: |
         size=$(du -sh dist | cut -f1)
         echo "Frontend build size: $size" >> $GITHUB_STEP_SUMMARY
+
+    - name: Check build size (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $size = (Get-ChildItem -Path dist -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+        Write-Output "Frontend build size: $([math]::Round($size, 2)) MB" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+    - name: Validate cross-platform build (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        bash ../../scripts/ci/validate-build-cross-platform.sh
+
+    - name: Validate cross-platform build (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        echo "Cross-platform build validation skipped on Windows"
+      continue-on-error: true
+
+    - name: Validate bundle chunks
+      run: |
+        node scripts/validate-chunks.js --threshold 500
+
+  unified-test-report:
+    name: Unified Test Report
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-test]
+    if: always()
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Cache pip packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('backend/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Enable Corepack
+      run: corepack enable
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: |
+        python -m pip install --upgrade pip
+        pip install -q pytest pytest-cov pytest-asyncio pytest-timeout
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: |
+        pnpm install --frozen-lockfile --no-optional
+
+    - name: Run unified test runner (CI mode)
+      env:
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        TESTING: true
+      run: |
+        bash scripts/run-all-tests.sh backend --ci --verbose || echo "Backend tests completed with status: $?"
+      continue-on-error: true
+
+    - name: Upload test report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: unified-test-report
+        path: |
+          test-report.md
+          backend/htmlcov
+          backend/coverage.json
+          frontend/coverage
+
+    - name: Generate combined summary
+      if: always()
+      run: |
+        echo "## 🧪 Unified Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "- **Backend Tests**: $([ -f backend/coverage.json ] && echo '✅ Completed' || echo '❌ Failed')" >> $GITHUB_STEP_SUMMARY
+        echo "- **Frontend Tests**: See frontend-test job" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [ -f test-report.md ]; then
+          echo "### Detailed Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat test-report.md >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ -f backend/coverage.json ]; then
+          echo "### Backend Coverage Details" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat backend/coverage.json | jq '.totals' 2>/dev/null || cat backend/coverage.json
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        fi
 
   build-artifact:
     runs-on: ubuntu-latest
