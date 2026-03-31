@@ -54,6 +54,7 @@ class PlaylistItemResponse(BaseModel):
     # New fields
     status: str
     duration: Optional[int]
+    thumbnail: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -91,7 +92,8 @@ def get_playlist(
             position=item.position,
             created_at=item.created_at.isoformat() if item.created_at else "",
             status=item.status if hasattr(item, 'status') else 'queued',
-            duration=item.duration if hasattr(item, 'duration') else None
+            duration=item.duration if hasattr(item, 'duration') else None,
+            thumbnail=item.thumbnail if hasattr(item, 'thumbnail') else None
         ) for item in items
     ]
 
@@ -156,7 +158,8 @@ async def add_playlist_item(
         position=new_item.position,
         created_at=new_item.created_at.isoformat() if new_item.created_at else "",
         status=new_item.status if hasattr(new_item, 'status') else 'queued',
-        duration=new_item.duration if hasattr(new_item, 'duration') else None
+        duration=new_item.duration if hasattr(new_item, 'duration') else None,
+        thumbnail=new_item.thumbnail if hasattr(new_item, 'thumbnail') else None
     )
 
 @router.delete("/{item_id}")

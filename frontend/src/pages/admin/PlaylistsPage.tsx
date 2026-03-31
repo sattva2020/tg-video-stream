@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlaylistList } from '../../components/playlists/PlaylistList';
 import { PlaylistForm } from '../../components/playlists/PlaylistForm';
+import { PlaylistTemplateManager } from '../../components/playlists/PlaylistTemplateManager';
 import { Button } from '../../components/ui/Button';
 import { Plus, Upload, Library, Sparkles } from 'lucide-react';
 import { Playlist, PlaylistCreate, PlaylistUpdate, playlistsApi } from '../../api/playlists';
@@ -20,6 +21,7 @@ export const PlaylistsPage: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPlaylist, setEditingPlaylist] = useState<Playlist | undefined>(undefined);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState<'playlists' | 'templates'>('playlists');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -139,49 +141,85 @@ export const PlaylistsPage: React.FC = () => {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100 dark:bg-slate-900/70 dark:text-indigo-200 dark:ring-indigo-900/40">
                 <Library className="h-4 w-4" />
-                Плейлисты
+                {activeTab === 'playlists' ? 'Плейлисты' : 'Templates'}
               </div>
-              <h1 className="text-3xl font-semibold text-foreground">My Playlists</h1>
+              <h1 className="text-3xl font-semibold text-foreground">
+                {activeTab === 'playlists' ? 'My Playlists' : 'Playlist Templates'}
+              </h1>
               <p className="text-sm text-muted-foreground max-w-2xl">
-                Управляйте личной коллекцией и делитесь подборками. Импортируйте M3U или создайте новую подборку за пару кликов.
+                {activeTab === 'playlists'
+                  ? 'Управляйте личной коллекцией и делитесь подборками. Импортируйте M3U или создайте новую подборку за пару кликов.'
+                  : 'Save and reuse playlist configurations for quick setup.'}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept=".m3u,.m3u8"
-                onChange={handleFileChange}
-              />
-              <Button variant="outline" onClick={handleImportClick}>
-                <Upload className="mr-2 h-4 w-4" /> Import M3U
-              </Button>
-              <Button onClick={() => setIsCreateOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Create Playlist
-              </Button>
+              {activeTab === 'playlists' && (
+                <>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept=".m3u,.m3u8"
+                    onChange={handleFileChange}
+                  />
+                  <Button variant="outline" onClick={handleImportClick}>
+                    <Upload className="mr-2 h-4 w-4" /> Import M3U
+                  </Button>
+                  <Button onClick={() => setIsCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Create Playlist
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
-              <p className="text-xs text-muted-foreground">Всего плейлистов</p>
-              <p className="text-2xl font-semibold text-foreground">{safePlaylists.length}</p>
-            </div>
-            <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
-              <p className="text-xs text-muted-foreground">Треков в коллекции</p>
-              <p className="text-2xl font-semibold text-foreground">{totalItems}</p>
-            </div>
-            <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
-              <p className="text-xs text-muted-foreground">Суммарная длительность</p>
-              <p className="text-2xl font-semibold text-foreground">{formatDuration(totalDuration)}</p>
-            </div>
+          {/* Tab Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('playlists')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'playlists'
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200'
+                  : 'bg-white/50 text-muted-foreground hover:bg-white/80 dark:bg-slate-900/50 dark:hover:bg-slate-900/80'
+              }`}
+            >
+              Playlists
+            </button>
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'templates'
+                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200'
+                  : 'bg-white/50 text-muted-foreground hover:bg-white/80 dark:bg-slate-900/50 dark:hover:bg-slate-900/80'
+              }`}
+            >
+              Templates
+            </button>
           </div>
+
+          {activeTab === 'playlists' && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
+                <p className="text-xs text-muted-foreground">Всего плейлистов</p>
+                <p className="text-2xl font-semibold text-foreground">{safePlaylists.length}</p>
+              </div>
+              <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
+                <p className="text-xs text-muted-foreground">Треков в коллекции</p>
+                <p className="text-2xl font-semibold text-foreground">{totalItems}</p>
+              </div>
+              <div className="rounded-2xl border bg-white/80 px-4 py-3 shadow-sm backdrop-blur dark:bg-slate-900/80">
+                <p className="text-xs text-muted-foreground">Суммарная длительность</p>
+                <p className="text-2xl font-semibold text-foreground">{formatDuration(totalDuration)}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {safePlaylists.length === 0 && !isLoading ? (
+      {activeTab === 'templates' ? (
+        <PlaylistTemplateManager />
+      ) : safePlaylists.length === 0 && !isLoading ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed bg-muted/40 px-6 py-10 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Sparkles className="h-6 w-6" />

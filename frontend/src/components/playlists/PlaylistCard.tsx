@@ -3,6 +3,7 @@ import { Playlist } from '../../api/playlists';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
+import { Checkbox } from '../ui/Checkbox';
 import { Clock, List, MoreVertical, Play, Copy, Trash, Edit, Share2, Sparkles } from 'lucide-react';
 import { formatDuration } from '../../utils/format';
 import {
@@ -20,6 +21,9 @@ interface PlaylistCardProps {
   onClone?: (playlist: Playlist) => void;
   onPlay?: (playlist: Playlist) => void;
   onView?: (playlist: Playlist) => void;
+  isSelected?: boolean;
+  isSelectionEnabled?: boolean;
+  onSelectionChange?: (playlist: Playlist, selected: boolean) => void;
 }
 
 export const PlaylistCard: React.FC<PlaylistCardProps> = ({
@@ -30,14 +34,38 @@ export const PlaylistCard: React.FC<PlaylistCardProps> = ({
   onClone,
   onPlay,
   onView,
+  isSelected = false,
+  isSelectionEnabled = false,
+  onSelectionChange,
 }) => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (isSelectionEnabled && !e.defaultPrevented) {
+      onSelectionChange?.(playlist, !isSelected);
+    }
+  };
+
   return (
-    <Card className="group relative overflow-hidden rounded-2xl border bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+    <Card
+      className={`group relative overflow-hidden rounded-2xl border bg-card/90 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg ${isSelected ? 'ring-2 ring-primary' : ''}`}
+    >
       <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-primary/10 via-transparent to-emerald-100/40 dark:from-primary/20 dark:to-emerald-900/30" aria-hidden />
+
+      {isSelectionEnabled && (
+        <div className="absolute top-3 left-3 z-10">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={(checked) => onSelectionChange?.(playlist, checked)}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => onView?.(playlist)}>
+          <div
+            className={`flex items-center gap-3 ${isSelectionEnabled ? 'cursor-pointer' : ''} ${isSelectionEnabled ? 'ml-8' : ''}`}
+            onClick={handleCardClick}
+          >
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-sm ring-2 ring-white/60 transition-transform group-hover:scale-105"
               style={{ backgroundColor: playlist.color || '#22c55e' }}

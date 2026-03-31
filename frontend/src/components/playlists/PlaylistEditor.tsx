@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProps } from '@hello-pangea/dnd';
-import { Playlist, PlaylistEntry, playlistsApi } from '../../api/playlists';
+import { Playlist, PlaylistEntry, RepeatMode, playlistsApi } from '../../api/playlists';
 import { FileBrowser } from '../media/FileBrowser';
 import { MediaFile } from '../../api/media';
 import { Button } from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { Skeleton } from '../ui/Skeleton';
-import { ArrowLeft, GripVertical, Trash2, Play, Plus, Download } from 'lucide-react';
+import { Label } from '../ui/Label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
+import { ArrowLeft, GripVertical, Trash2, Play, Plus, Download, Repeat, Repeat1 } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
 import { Badge } from '../ui/Badge';
 
@@ -19,6 +21,7 @@ export const PlaylistEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PlaylistEntry[]>([]);
   const [fileBrowserOpen, setFileBrowserOpen] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('none');
 
   const loadPlaylist = useCallback(async (playlistId: string) => {
     try {
@@ -26,6 +29,7 @@ export const PlaylistEditor: React.FC = () => {
       const data = await playlistsApi.getPlaylist(playlistId);
       setPlaylist(data);
       setItems(data.items || []);
+      setRepeatMode(data.repeat_mode || 'none');
     } catch (error) {
       console.error('Failed to load playlist', error);
       toast({
@@ -158,6 +162,28 @@ export const PlaylistEditor: React.FC = () => {
     }
   };
 
+  const handleRepeatModeChange = async (value: RepeatMode) => {
+    if (!playlist) return;
+    setRepeatMode(value);
+
+    try {
+      await playlistsApi.updatePlaylist(playlist.id, { repeat_mode: value });
+      toast({
+        title: 'Updated',
+        description: `Repeat mode set to ${value}`,
+      });
+    } catch (error) {
+      console.error('Failed to update repeat mode', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update repeat mode',
+        variant: 'destructive',
+      });
+      // Revert
+      setRepeatMode(playlist.repeat_mode || 'none');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4 p-8">
@@ -197,7 +223,37 @@ export const PlaylistEditor: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Tracks ({items.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Tracks ({items.length})</CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="repeat-mode">Repeat Mode:</Label>
+              <Select value={repeatMode} onValueChange={handleRepeatModeChange}>
+                <SelectTrigger id="repeat-mode" className="w-[140px]">
+                  <SelectValue placeholder="Select mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <div className="flex items-center gap-2">
+                      <Play className="h-4 w-4" />
+                      <span>None</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="one">
+                    <div className="flex items-center gap-2">
+                      <Repeat1 className="h-4 w-4" />
+                      <span>Repeat One</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Repeat className="h-4 w-4" />
+                      <span>Repeat All</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <DragDropContext onDragEnd={handleDragEnd}>
@@ -228,6 +284,16 @@ export const PlaylistEditor: React.FC = () => {
                                 <div {...provided.dragHandleProps} className="cursor-grab text-muted-foreground hover:text-foreground">
                                   <GripVertical className="h-5 w-5" />
                                 </div>
+                                {item.thumbnail && (
+                                  <div className="relative w-16 h-9 flex-shrink-0 rounded overflow-hidden bg-muted">
+                                    <img
+                                      src={item.thumbnail}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <p className="font-medium truncate">{item.title || item.url.split('/').pop()}</p>
                                   <p className="text-xs text-muted-foreground truncate">{item.url}</p>

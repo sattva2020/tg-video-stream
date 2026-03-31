@@ -6,7 +6,10 @@ export interface PlaylistEntry {
   duration: number;
   type: string;
   file_id?: string;
+  thumbnail?: string;
 }
+
+export type RepeatMode = 'none' | 'one' | 'all';
 
 export interface Playlist {
   id: string;
@@ -18,6 +21,7 @@ export interface Playlist {
   icon: string;
   source_type?: string;
   source_url?: string;
+  repeat_mode?: RepeatMode;
   items: PlaylistEntry[];
   items_count: number;
   total_duration: number;
@@ -45,7 +49,162 @@ export interface PlaylistUpdate {
   icon?: string;
   source_type?: string;
   source_url?: string;
+  repeat_mode?: RepeatMode;
   items?: PlaylistEntry[];
+}
+
+export interface PlaylistTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  is_public: boolean;
+  items: PlaylistEntry[];
+  items_count: number;
+  total_duration: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PlaylistTemplateCreate {
+  name: string;
+  description?: string;
+  is_public?: boolean;
+  items?: PlaylistEntry[];
+}
+
+export interface PlaylistTemplateUpdate {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+  items?: PlaylistEntry[];
+}
+
+export interface SmartPlaylistCriteria {
+  filters?: {
+    duration_min?: number;
+    duration_max?: number;
+    type?: string;
+    tags?: string[];
+    source?: string;
+  };
+  order_by?: 'date_added' | 'duration' | 'name' | 'source';
+  order_direction?: 'asc' | 'desc';
+  limit?: number;
+  shuffle?: boolean;
+}
+
+export interface SmartPlaylist {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  is_public: boolean;
+  criteria: SmartPlaylistCriteria;
+  auto_update: boolean;
+  auto_update_interval: number;
+  group_id?: string;
+  items_count: number;
+  total_duration: number;
+  playlist_id?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SmartPlaylistCreate {
+  name: string;
+  description?: string;
+  is_public?: boolean;
+  criteria: SmartPlaylistCriteria;
+  auto_update?: boolean;
+  auto_update_interval?: number;
+  group_id?: string;
+}
+
+export interface SmartPlaylistUpdate {
+  name?: string;
+  description?: string;
+  is_public?: boolean;
+  criteria?: SmartPlaylistCriteria;
+  auto_update?: boolean;
+  auto_update_interval?: number;
+  group_id?: string;
+}
+
+// ==================== Playlist Groups ====================
+
+export interface PlaylistGroup {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  parent_id?: string | null;
+  position: number;
+  color?: string;
+  icon?: string;
+  is_expanded: boolean;
+  playlists_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PlaylistGroupCreate {
+  name: string;
+  description?: string;
+  parent_id?: string | null;
+  position?: number;
+  color?: string;
+  icon?: string;
+}
+
+export interface PlaylistGroupUpdate {
+  name?: string;
+  description?: string;
+  parent_id?: string | null;
+  position?: number;
+  color?: string;
+  icon?: string;
+  is_expanded?: boolean;
+}
+
+// ==================== Bulk Operations ====================
+
+export interface BulkDeleteRequest {
+  playlist_ids: string[];
+}
+
+export interface BulkMoveRequest {
+  playlist_ids: string[];
+  group_id?: string | null; // null means move to root (no group)
+}
+
+export interface BulkCopyRequest {
+  playlist_ids: string[];
+}
+
+export interface BulkOperationResponse {
+  success_count: number;
+  failed_count: number;
+  errors: string[];
+}
+
+export interface BulkImportRequest {
+  urls: string[];
+  channel_id?: string;
+}
+
+export interface BulkImportResult {
+  url: string;
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+export interface BulkImportResponse {
+  success_count: number;
+  failed_count: number;
+  results: BulkImportResult[];
+  message: string;
 }
 
 const PLAYLISTS_BASE = '/api/playlists';
@@ -122,6 +281,153 @@ export const playlistsApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
+    return response.data;
+  },
+
+  // Template methods
+  getMyTemplates: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistTemplate[]>(`${PLAYLISTS_BASE}/templates`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getPublicTemplates: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistTemplate[]>(`${PLAYLISTS_BASE}/templates/public`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getTemplate: async (templateId: string) => {
+    const response = await client.get<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}`);
+    return response.data;
+  },
+
+  createTemplate: async (data: PlaylistTemplateCreate) => {
+    const response = await client.post<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates`, data);
+    return response.data;
+  },
+
+  updateTemplate: async (templateId: string, data: PlaylistTemplateUpdate) => {
+    const response = await client.put<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}`, data);
+    return response.data;
+  },
+
+  deleteTemplate: async (templateId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/templates/${templateId}`);
+  },
+
+  applyTemplate: async (templateId: string, playlistName: string) => {
+    const response = await client.post<Playlist>(`${PLAYLISTS_BASE}/templates/${templateId}/apply`, {
+      name: playlistName,
+    });
+    return response.data;
+  },
+
+  cloneTemplate: async (templateId: string) => {
+    const response = await client.post<PlaylistTemplate>(`${PLAYLISTS_BASE}/templates/${templateId}/clone`);
+    return response.data;
+  },
+
+  // Smart playlist methods
+  getMySmartPlaylists: async (skip = 0, limit = 100) => {
+    const response = await client.get<SmartPlaylist[]>(`${PLAYLISTS_BASE}/smart`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getPublicSmartPlaylists: async (skip = 0, limit = 100) => {
+    const response = await client.get<SmartPlaylist[]>(`${PLAYLISTS_BASE}/smart/public`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.get<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`);
+    return response.data;
+  },
+
+  createSmartPlaylist: async (data: SmartPlaylistCreate) => {
+    const response = await client.post<SmartPlaylist>(`${PLAYLISTS_BASE}/smart`, data);
+    return response.data;
+  },
+
+  updateSmartPlaylist: async (smartPlaylistId: string, data: SmartPlaylistUpdate) => {
+    const response = await client.put<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`, data);
+    return response.data;
+  },
+
+  deleteSmartPlaylist: async (smartPlaylistId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}`);
+  },
+
+  refreshSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.post<Playlist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}/refresh`);
+    return response.data;
+  },
+
+  cloneSmartPlaylist: async (smartPlaylistId: string) => {
+    const response = await client.post<SmartPlaylist>(`${PLAYLISTS_BASE}/smart/${smartPlaylistId}/clone`);
+    return response.data;
+  },
+
+  // Playlist Groups methods
+  getMyGroups: async (skip = 0, limit = 100) => {
+    const response = await client.get<PlaylistGroup[]>(`${PLAYLISTS_BASE}/groups`, {
+      params: { skip, limit },
+    });
+    return response.data;
+  },
+
+  getGroup: async (groupId: string) => {
+    const response = await client.get<PlaylistGroup>(`${PLAYLISTS_BASE}/groups/${groupId}`);
+    return response.data;
+  },
+
+  createGroup: async (data: PlaylistGroupCreate) => {
+    const response = await client.post<PlaylistGroup>(`${PLAYLISTS_BASE}/groups`, data);
+    return response.data;
+  },
+
+  updateGroup: async (groupId: string, data: PlaylistGroupUpdate) => {
+    const response = await client.put<PlaylistGroup>(`${PLAYLISTS_BASE}/groups/${groupId}`, data);
+    return response.data;
+  },
+
+  moveGroup: async (groupId: string, parentId?: string | null, position?: number) => {
+    const response = await client.post<PlaylistGroup>(
+      `${PLAYLISTS_BASE}/groups/${groupId}/move`,
+      null,
+      { params: { parent_id: parentId, position } }
+    );
+    return response.data;
+  },
+
+  deleteGroup: async (groupId: string) => {
+    await client.delete(`${PLAYLISTS_BASE}/groups/${groupId}`);
+  },
+
+  // Bulk operations methods
+  bulkDeletePlaylists: async (request: BulkDeleteRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/delete`, request);
+    return response.data;
+  },
+
+  bulkMovePlaylists: async (request: BulkMoveRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/move`, request);
+    return response.data;
+  },
+
+  bulkCopyPlaylists: async (request: BulkCopyRequest) => {
+    const response = await client.post<BulkOperationResponse>(`${PLAYLISTS_BASE}/bulk/copy`, request);
+    return response.data;
+  },
+
+  bulkImportPlaylists: async (request: BulkImportRequest) => {
+    const response = await client.post<BulkImportResponse>(`${PLAYLISTS_BASE}/import/bulk`, request);
     return response.data;
   },
 };
