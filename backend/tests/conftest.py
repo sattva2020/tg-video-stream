@@ -107,6 +107,8 @@ from src.models.audit_log import AdminAuditLog
 from src.models.telegram import TelegramAccount, Channel
 from src.models.schedule import ScheduleSlot, ScheduleTemplate, Playlist
 from src.models.playlist import PlaylistItem
+from src.models.analytics import TrackPlay
+from src.models.schedule_optimization import ScheduleOptimization, ScheduleRecommendation, PeakHoursAnalytics
 
 test_db_url = None
 test_engine = None

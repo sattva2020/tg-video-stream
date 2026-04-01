@@ -7,6 +7,7 @@
 - playlists: управление плейлистами
 - groups: управление группами плейлистов
 - sharing: шаринг плейлистов между пользователями
+- ai: AI-функции расписания
 """
 from fastapi import APIRouter
 
@@ -15,6 +16,7 @@ from .templates import router as templates_router
 from .playlists import router as playlists_router
 from .groups import router as groups_router
 from .sharing import router as sharing_router
+from .ai import router as ai_router
 
 # Основной роутер расписания с prefix для совместимости
 router = APIRouter(prefix="/schedule")
@@ -25,6 +27,7 @@ router.include_router(templates_router)
 router.include_router(playlists_router)
 router.include_router(groups_router)
 router.include_router(sharing_router)
+router.include_router(ai_router)
 
 # Экспорт для обратной совместимости
 __all__ = ["router"]

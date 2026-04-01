@@ -1,25 +1,25 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "015-smart-scheduling-auto-pilot-mode",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
+    "completed": 30,
+    "total": 31,
     "in_progress": 1,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
+    "current": "Integration & Testing",
     "id": null,
-    "total": 3
+    "total": 6
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 32,
+    "started_at": "2026-01-23T20:41:23.353209"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-24T00:11:31.730492"
 }

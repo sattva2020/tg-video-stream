@@ -1,11 +1,13 @@
 /**
  * ScheduleCalendar — Компонент календаря расписания трансляций.
- * 
+ *
  * Функции:
  * - Отображение месячного/недельного календаря
  * - Создание/редактирование слотов
  * - Drag-and-drop для слотов
  * - Привязка плейлистов к слотам
+ * - AI-рекомендации и оптимизация
+ * - Автопилот для генерации расписания
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -23,6 +25,9 @@ import {
   Trash2,
   Edit,
   AlertCircle,
+  Wand2,
+  Sparkles,
+  TrendingUp,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -35,7 +40,11 @@ import {
   Tooltip,
 } from '@heroui/react';
 import { useScheduleCalendar, useDeleteSlot } from '../../hooks/useScheduleQuery';
+import { useScheduleRecommendations, usePeakHours } from '../../hooks/useScheduleAI';
 import type { ScheduleSlot, CalendarDay } from '../../api/schedule';
+import { AutoPilotPanel } from './AutoPilotPanel';
+import { ScheduleOptimizationModal } from './ScheduleOptimizationModal';
+import { PeakHoursChart } from './PeakHoursChart';
 
 // ==================== Types ====================
 
@@ -279,7 +288,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
   onApplyTemplate,
 }) => {
   const { t } = useTranslation();
-  
+
   // State
   const [currentYear, setCurrentYear] = useState(() => new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(() => new Date().getMonth());
@@ -289,6 +298,11 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     return formatLocalDate(today);
   });
 
+  // AI Features State
+  const [showAutoPilot, setShowAutoPilot] = useState(false);
+  const [showOptimization, setShowOptimization] = useState(false);
+  const [showPeakHours, setShowPeakHours] = useState(false);
+
   // Data
   const { data: calendarData, isLoading, isFetching } = useScheduleCalendar(
     channelId,
@@ -296,7 +310,42 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
     currentMonth + 1 // API expects 1-12
   );
 
+  // AI Recommendations for selected date
+  const selectedDateStr = selectedDate || formatLocalDate(new Date());
+  const { data: recommendations } = useScheduleRecommendations(
+    channelId,
+    selectedDateStr,
+    { max_recommendations: 5 }
+  );
+
+  // Peak Hours data
+  const { data: peakHoursData, isLoading: peakHoursLoading, error: peakHoursError } = usePeakHours(
+    channelId,
+    '30d',
+    showPeakHours // Only fetch when modal is open
+  );
+
   const deleteSlotMutation = useDeleteSlot();
+
+  // Handlers for AI features
+  const handleAutoPilotComplete = useCallback(() => {
+    setShowAutoPilot(false);
+    // Refresh calendar data after auto-pilot
+    window.location.reload();
+  }, []);
+
+  const handleOptimizationComplete = useCallback(() => {
+    setShowOptimization(false);
+    // Refresh calendar data after optimization
+    window.location.reload();
+  }, []);
+
+  const getOptimizationDateRange = useCallback(() => {
+    const startDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`;
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const endDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+    return { startDate, endDate };
+  }, [currentYear, currentMonth]);
 
   // Navigation handlers
   const goToPrevMonth = useCallback(() => {
@@ -390,6 +439,43 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           >
             {t('schedule.applyTemplate', 'Шаблон')}
           </Button>
+
+          <Tooltip content={t('schedule.autoPilotTooltip', 'Сгенерировать расписание с помощью AI')}>
+            <Button
+              size="sm"
+              variant="flat"
+              className="text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950 border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900"
+              onPress={() => setShowAutoPilot(true)}
+              startContent={<Wand2 className="w-4 h-4" />}
+            >
+              {t('schedule.autoPilot', 'Автопилот')}
+            </Button>
+          </Tooltip>
+
+          <Tooltip content={t('schedule.optimizeTooltip', 'Оптимизировать расписание')}>
+            <Button
+              size="sm"
+              variant="flat"
+              className="text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800 hover:bg-purple-100 dark:hover:bg-purple-900"
+              onPress={() => setShowOptimization(true)}
+              startContent={<Sparkles className="w-4 h-4" />}
+            >
+              {t('schedule.optimize', 'Оптимизировать')}
+            </Button>
+          </Tooltip>
+
+          <Tooltip content={t('schedule.peakHoursTooltip', 'Анализ пиковых часов')}>
+            <Button
+              size="sm"
+              variant="flat"
+              className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+              onPress={() => setShowPeakHours(true)}
+              startContent={<TrendingUp className="w-4 h-4" />}
+            >
+              {t('schedule.peakHours', 'Пиковые часы')}
+            </Button>
+          </Tooltip>
+
           <Button
             size="sm"
             color="primary"
@@ -527,6 +613,124 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
             {(() => {
               const dayData = calendarData.find(d => d.date === selectedDate);
               const daySlots = dayData?.slots || [];
+
+              // AI Recommendations section
+              if (recommendations && recommendations.length > 0) {
+                return (
+                  <div className="space-y-4">
+                    {/* AI Recommendations */}
+                    <div className="p-4 rounded-lg bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950 dark:to-purple-950 border border-violet-200 dark:border-violet-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Sparkles className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                        <h5 className="font-semibold text-[color:var(--color-text)]">
+                          {t('schedule.aiRecommendations', 'AI-рекомендации')}
+                        </h5>
+                      </div>
+                      <div className="space-y-2">
+                        {recommendations.slice(0, 3).map((rec, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-3 rounded-lg bg-white/50 dark:bg-black/20 border border-violet-200 dark:border-violet-800"
+                         >
+                            <div className="flex items-center gap-3">
+                              <TrendingUp className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                              <div>
+                                <div className="text-sm font-medium text-[color:var(--color-text)]">
+                                  {rec.playlist_name || t('schedule.suggestedContent', 'Рекомендуемый контент')}
+                                </div>
+                                <div className="text-xs text-[color:var(--color-text-muted)]">
+                                  {rec.start_time} - {rec.end_time} • {rec.reason}
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              color="primary"
+                              variant="flat"
+                              onPress={() => onCreateSlot(new Date(selectedDate))}
+                            >
+                              {t('schedule.apply', 'Применить')}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Existing slots */}
+                    {daySlots.length > 0 && (
+                      <div>
+                        <h5 className="text-sm font-semibold text-[color:var(--color-text-muted)] mb-2">
+                          {t('schedule.existingSlots', 'Текущие слоты')}
+                        </h5>
+                        <div className="space-y-2">
+                          {daySlots.map((slot) => (
+                            <div
+                              key={slot.id}
+                              className="flex items-center justify-between p-3 rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="w-3 h-10 rounded-full"
+                                  style={{ backgroundColor: slot.color }}
+                                />
+                                <div>
+                                  <div className="font-medium text-[color:var(--color-text)]">
+                                    {slot.start_time} - {slot.end_time}
+                                  </div>
+                                  <div className="text-sm text-[color:var(--color-text-muted)]">
+                                    {slot.playlist_name || slot.title || 'Без названия'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <Dropdown>
+                                <DropdownTrigger>
+                                  <Button isIconOnly size="sm" variant="light">
+                                    <MoreVertical className="w-4 h-4" />
+                                  </Button>
+                                </DropdownTrigger>
+                                <DropdownMenu aria-label="Slot actions">
+                                  <DropdownItem
+                                    key="edit"
+                                    startContent={<Edit className="w-4 h-4" />}
+                                    onPress={() => onEditSlot(slot)}
+                                  >
+                                    {t('common.edit', 'Редактировать')}
+                                  </DropdownItem>
+                                  <DropdownItem
+                                    key="delete"
+                                    color="danger"
+                                    startContent={<Trash2 className="w-4 h-4" />}
+                                    onPress={() => {
+                                      if (confirm(t('schedule.confirmDelete', 'Удалить этот слот?'))) {
+                                        deleteSlotMutation.mutate(slot.id);
+                                      }
+                                    }}
+                                  >
+                                    {t('common.delete', 'Удалить')}
+                                  </DropdownItem>
+                                </DropdownMenu>
+                              </Dropdown>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {daySlots.length === 0 && (
+                      <div className="py-8 text-center text-[color:var(--color-text-muted)]">
+                        <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p>{t('schedule.noSlots', 'Нет запланированных слотов')}</p>
+                        <p className="text-sm mt-1">
+                          {t('schedule.useRecommendations', 'Используйте AI-рекомендации выше для заполнения')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              // No recommendations - show existing slots or empty state
               if (!dayData || daySlots.length === 0) {
                 return (
                   <div className="py-8 text-center text-[color:var(--color-text-muted)]">
@@ -547,7 +751,7 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                       className="flex items-center justify-between p-3 rounded-lg bg-[color:var(--color-surface-muted)] border border-[color:var(--color-border)]"
                     >
                       <div className="flex items-center gap-3">
-                        <div 
+                        <div
                           className="w-3 h-10 rounded-full"
                           style={{ backgroundColor: slot.color }}
                         />
@@ -604,6 +808,83 @@ export const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
           {t('common.loading', 'Загрузка...')}
         </div>
       )}
+
+      {/* AI Features Modals */}
+      <AnimatePresence>
+        {showAutoPilot && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAutoPilot(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.3 }}
+              className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AutoPilotPanel
+                channelId={channelId}
+                onScheduleGenerated={handleAutoPilotComplete}
+              />
+              <button
+                onClick={() => setShowAutoPilot(false)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-[color:var(--color-surface-muted)] hover:bg-[color:var(--color-surface-hover)] transition-colors"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {showOptimization && (
+          <ScheduleOptimizationModal
+            isOpen={showOptimization}
+            onClose={() => setShowOptimization(false)}
+            channelId={channelId}
+            startDate={getOptimizationDateRange().startDate}
+            endDate={getOptimizationDateRange().endDate}
+            onOptimizationApplied={handleOptimizationComplete}
+          />
+        )}
+
+        {showPeakHours && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+            onClick={() => setShowPeakHours(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.3 }}
+              className="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <PeakHoursChart
+                data={peakHoursData}
+                loading={peakHoursLoading}
+                error={peakHoursError?.message}
+              />
+              <button
+                onClick={() => setShowPeakHours(false)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-[color:var(--color-surface-muted)] hover:bg-[color:var(--color-surface-hover)] transition-colors z-10"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
