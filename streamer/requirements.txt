@@ -2,8 +2,10 @@
 pyrogram==2.0.106
 telethon==1.38.1
 tgcrypto==1.2.5
-# pytgcalls requires tgcalls C++ library
-py-tgcalls==2.2.1
+# AyuGram tg-engine integration (via RPC/subprocess)
+# TODO: Replace with actual Python package when available: ayugram>=1.0.0
+# For now, AyuGramAdapter uses subprocess/RPC to communicate with tg-engine service
+# ayugram>=1.0.0
 yt-dlp==2025.1.12
 ffmpeg-python==0.2.0
 pydantic==2.9.2

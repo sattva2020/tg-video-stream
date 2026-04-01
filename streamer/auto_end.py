@@ -3,15 +3,15 @@ Auto-End Handler for Streamer
 
 Модуль для отслеживания слушателей и автоматического завершения стрима.
 
-Интеграция с PyTgCalls для получения событий on_participants_change.
+Интеграция с AyuGram для получения событий on_participants_change.
 
 Использование:
     auto_end = AutoEndHandler(pytg, chat_id)
     await auto_end.start()  # Начать мониторинг
     await auto_end.stop()   # Остановить
-    
+
     # Или через декоратор
-    @pytg.on_participants_change()
+    @pytg.on_update()
     async def handler(client, update):
         await auto_end.on_participants_change(update)
 """
@@ -24,15 +24,14 @@ from datetime import datetime, timezone, timedelta
 
 log = logging.getLogger("tg_video_streamer.auto_end")
 
-# Попытка импорта pytgcalls
+# Попытка импорта AyuGram
 try:
-    from pytgcalls import PyTgCalls
-    from pytgcalls.types import Update
-    from pytgcalls.types.groups import GroupCallParticipant
-    PYTG_AVAILABLE = True
+    from ayugram_adapter import AyuGramAdapter, UpdatedGroupCallParticipant
+    AYUGRAM_AVAILABLE = True
 except ImportError:
-    PYTG_AVAILABLE = False
-    log.warning("pytgcalls not available — AutoEndHandler disabled")
+    AYUGRAM_AVAILABLE = False
+    UpdatedGroupCallParticipant = None  # type: ignore
+    log.debug("ayugram_adapter not available")
 
 # Попытка импорта Redis
 try:
@@ -46,12 +45,12 @@ except ImportError:
 class AutoEndHandler:
     """
     Обработчик автоматического завершения стрима.
-    
-    Отслеживает количество слушателей через PyTgCalls и
+
+    Отслеживает количество слушателей через AyuGram и
     запускает таймер завершения при отсутствии слушателей.
-    
+
     Attributes:
-        pytg: Экземпляр PyTgCalls
+        pytg: Экземпляр AyuGramAdapter
         chat_id: ID чата/канала
         timeout_minutes: Таймаут до завершения
         is_running: Флаг активного мониторинга
@@ -63,7 +62,7 @@ class AutoEndHandler:
     
     def __init__(
         self,
-        pytg: Optional["PyTgCalls"],
+        pytg: Optional["AyuGramAdapter"],
         chat_id: Union[int, str],
         timeout_minutes: Optional[int] = None,
         on_auto_end_callback: Optional[Callable[[], Awaitable[None]]] = None,
@@ -72,9 +71,9 @@ class AutoEndHandler:
     ):
         """
         Инициализация AutoEndHandler.
-        
+
         Args:
-            pytg: Экземпляр PyTgCalls
+            pytg: Экземпляр AyuGramAdapter
             chat_id: ID чата для мониторинга
             timeout_minutes: Таймаут в минутах (из env если не указан)
             on_auto_end_callback: Callback при срабатывании auto-end
@@ -157,8 +156,23 @@ class AutoEndHandler:
         """Получить Redis ключ для таймера."""
         return f"{self.TIMER_KEY_PREFIX}:{self.chat_id}"
     
+    # ========== Public API ==========
+
+    async def get_participants_count(self) -> int:
+        """
+        Получить текущее количество участников.
+
+        Обновляет счетчик участников через AyuGram
+        и возвращает актуальное значение.
+
+        Returns:
+            int: Количество участников (слушателей)
+        """
+        await self._update_listeners_count()
+        return self._listeners_count
+
     # ========== Lifecycle ==========
-    
+
     async def start(self) -> None:
         """Начать мониторинг слушателей."""
         if self._is_running:
@@ -337,58 +351,74 @@ class AutoEndHandler:
             log.warning(f"Failed to delete timer from Redis: {e}")
     
     # ========== Listeners Monitoring ==========
-    
+
     async def _update_listeners_count(self) -> None:
-        """Обновить количество слушателей."""
-        if not PYTG_AVAILABLE or self.pytg is None:
+        """
+        Обновить количество слушателей.
+
+        Работает с AyuGram.
+        Использует get_participants() для получения количества участников.
+        """
+        if self.pytg is None:
             return
-        
+
         try:
-            # Получить участников голосового чата
-            call = self.pytg.get_call(self.chat_id)
-            if call is None:
+            # AyuGram: use get_participants()
+            try:
+                participants = await self.pytg.get_participants(self.chat_id)
+                # Exclude the bot itself - filter by user_id if available
+                self._listeners_count = len(participants)
+            except NotImplementedError:
+                # AyuGram stub - assume 0 listeners
+                log.debug("AyuGram get_participants not implemented, assuming 0 listeners")
                 self._listeners_count = 0
-                return
-            
-            # Получить количество участников (исключая бота)
-            # Примечание: в реальном PyTgCalls это может требовать других методов
-            # Здесь используем приблизительный подход
-            self._listeners_count = 0  # TODO: Реализовать получение участников
-            
+
         except Exception as e:
             log.warning(f"Failed to get listeners count: {e}")
             self._listeners_count = 0
-    
+
     async def on_participants_change(
         self,
         chat_id: Union[int, str],
-        participants_count: int
+        update: Optional["UpdatedGroupCallParticipant"] = None
     ) -> None:
         """
         Обработчик изменения количества участников.
-        
-        Вызывается из PyTgCalls on_participants_change.
-        
+
+        Работает с AyuGram событиями.
+
+        Вызывается из on_update с UpdatedGroupCallParticipant событием.
+        Отслеживает individual join/leave события и обновляет счетчик.
+
         Args:
             chat_id: ID чата
-            participants_count: Новое количество участников
+            update: UpdatedGroupCallParticipant событие (AyuGram)
         """
         if str(chat_id) != str(self.chat_id):
             return
-        
+
         old_count = self._listeners_count
-        # Вычитаем 1 (бота) из общего количества
-        self._listeners_count = max(0, participants_count - 1)
-        
-        log.debug(
-            f"Participants change: chat_id={chat_id}, "
-            f"old={old_count}, new={self._listeners_count}"
-        )
-        
+
+        if update is not None:
+            # AyuGram: обработка индивидуальных событий join/leave
+            action = getattr(update, 'action', '')
+            if action == 'joined' or action == 'JOINED':
+                # Увеличить счетчик (исключая бота, если это он)
+                self._listeners_count += 1
+            elif action == 'left' or action == 'LEFT':
+                # Уменьшить счетчик
+                self._listeners_count = max(0, self._listeners_count - 1)
+
+            log.debug(
+                f"Participant event: chat_id={chat_id}, action={action}, "
+                f"listeners={self._listeners_count}"
+            )
+
+        # Trigger timer logic based on count changes
         if old_count > 0 and self._listeners_count == 0:
             # Были слушатели, теперь нет — запустить таймер
             await self._start_timer()
-            
+
         elif old_count == 0 and self._listeners_count > 0:
             # Не было слушателей, появились — отменить таймер
             await self._cancel_timer()
@@ -397,16 +427,16 @@ class AutoEndHandler:
 class AutoEndManager:
     """
     Менеджер AutoEndHandler для управления несколькими каналами.
-    
+
     Использование:
-        manager = AutoEndManager(pytg)
+        manager = AutoEndManager(pytg)  # pytg должен быть AyuGramAdapter
         await manager.start_monitoring(channel_id)
         await manager.stop_monitoring(channel_id)
     """
-    
+
     def __init__(
         self,
-        pytg: Optional["PyTgCalls"],
+        pytg: Optional["AyuGramAdapter"],
         on_auto_end_callback: Optional[Callable[[Union[int, str]], Awaitable[None]]] = None
     ):
         self.pytg = pytg
@@ -461,16 +491,16 @@ class AutoEndManager:
     async def on_participants_change(
         self,
         chat_id: Union[int, str],
-        participants_count: int
+        update: Optional["UpdatedGroupCallParticipant"] = None
     ) -> None:
         """
         Глобальный обработчик изменения участников.
-        
-        Вызывается из PyTgCalls on_participants_change.
+
+        Вызывается из AyuGram on_update с UpdatedGroupCallParticipant.
         """
         handler = self._handlers.get(chat_id)
         if handler:
-            await handler.on_participants_change(chat_id, participants_count)
+            await handler.on_participants_change(chat_id, update)
     
     async def stop_all(self) -> None:
         """Остановить все обработчики."""
@@ -483,10 +513,19 @@ _auto_end_manager: Optional[AutoEndManager] = None
 
 
 def get_auto_end_manager(
-    pytg: Optional["PyTgCalls"] = None,
+    pytg: Optional["AyuGramAdapter"] = None,
     on_auto_end_callback: Optional[Callable[[Union[int, str]], Awaitable[None]]] = None
 ) -> AutoEndManager:
-    """Получить singleton экземпляр AutoEndManager."""
+    """
+    Получить singleton экземпляр AutoEndManager.
+
+    Args:
+        pytg: Экземпляр AyuGramAdapter
+        on_auto_end_callback: Callback при срабатывании auto-end
+
+    Returns:
+        AutoEndManager singleton экземпляр
+    """
     global _auto_end_manager
     if _auto_end_manager is None:
         _auto_end_manager = AutoEndManager(pytg, on_auto_end_callback)

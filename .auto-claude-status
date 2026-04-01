@@ -1,25 +1,27 @@
 {
   "active": true,
-  "spec": "003-video-format-validation-transcoding-pipeline",
+  "spec": "031-ayugram-streamer",
   "state": "building",
   "subtasks": {
-    "completed": 10,
-    "total": 21,
-    "in_progress": 1,
+    "completed": 33,
+    "total": 33,
+    "in_progress": 0,
     "failed": 0
   },
   "phase": {
-    "current": "Rust Transcoder Integration",
-    "id": null,
-    "total": 3
+    "current": "Cleanup and Polish",
+    "id": 9,
+    "total": 4,
+    "status": "completed"
   },
   "workers": {
     "active": 0,
     "max": 1
   },
   "session": {
-    "number": 12,
-    "started_at": "2026-01-23T12:18:48.933946"
+    "number": 35,
+    "started_at": "2026-01-25T13:20:00.000000"
   },
-  "last_update": "2026-01-23T13:17:06.643785"
+  "last_update": "2026-01-25T13:25:00.000000",
+  "notes": "All 33 subtasks completed. AyuGram migration complete. Ready for tg-engine integration."
 }

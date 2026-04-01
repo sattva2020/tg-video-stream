@@ -3,11 +3,14 @@ Redis Command Handler for multi-channel stream control.
 
 Listens for control commands from backend via Redis pub/sub:
 - start: Start streaming for a specific channel
-- stop: Stop streaming for a channel  
+- stop: Stop streaming for a channel
 - restart: Restart a channel's stream
 - update_playlist: Reload playlist for a channel
 
 Status updates are published back to Redis.
+
+This module is library-agnostic and works with both PyTgCalls and AyuGram backends.
+Command callbacks delegate to the streaming backend (configured in main.py).
 """
 
 import asyncio
@@ -33,7 +36,12 @@ STREAM_STATUS_TTL = 3600  # 1 hour (increased from 5 minutes)
 
 @dataclass
 class ChannelConfig:
-    """Configuration for a streaming channel."""
+    """
+    Configuration for a streaming channel.
+
+    This dataclass is compatible with both PyTgCalls and AyuGram backends.
+    All fields are library-agnostic and work with either streaming implementation.
+    """
     channel_id: str
     chat_id: int
     name: str
@@ -54,7 +62,10 @@ class ChannelConfig:
 class RedisCommandHandler:
     """
     Handles commands from backend via Redis pub/sub.
-    
+
+    This class is library-agnostic and works with both PyTgCalls and AyuGram backends.
+    The command callbacks delegate to the appropriate streaming backend.
+
     Usage:
         handler = RedisCommandHandler(redis_url)
         handler.on_start = my_start_callback
@@ -216,7 +227,15 @@ class RedisCommandHandler:
             return None
     
     async def _handle_start(self, command: Dict[str, Any]):
-        """Handle start command."""
+        """
+        Handle start command.
+
+        Creates a ChannelConfig from the command data and calls the on_start callback.
+        The on_start callback is responsible for initializing the appropriate streaming backend
+        (PyTgCalls or AyuGram) and starting the stream.
+
+        Retries transient errors (chat resolution, initialization failures) up to 3 times.
+        """
         channel_id = command.get("channel_id")
         config_data = command.get("config", {})
         
@@ -260,7 +279,15 @@ class RedisCommandHandler:
             result = await self.on_start(config)
 
             # If on_start returned an error string that looks transient (resolve/start errors), retry a few times
-            if isinstance(result, str) and any(substr in result for substr in ("Could not resolve chat", "BadMsgNotification", "Failed to start", "could not initialize PyTgCalls")):
+            # Error messages are backend-agnostic (works for both PyTgCalls and AyuGram)
+            if isinstance(result, str) and any(substr in result for substr in (
+                "Could not resolve chat",
+                "BadMsgNotification",
+                "Failed to start",
+                "could not initialize PyTgCalls",
+                "could not initialize AyuGram",
+                "tg-engine"
+            )):
                 retry = 0
                 while retry < 3 and not (result is True):
                     retry += 1

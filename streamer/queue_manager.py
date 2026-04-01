@@ -1,3 +1,23 @@
+"""
+Queue Manager - Library-agnostic queue management for streaming.
+
+This module manages playback queues and is compatible with both PyTgCalls
+and AyuGram streaming backends. It prepares media items (URLs, audio profiles)
+but does not directly interact with streaming APIs.
+
+Key Features:
+- Async queue buffering with Redis synchronization
+- Audio detection and transcoding profile preparation
+- Queue manipulation (add, remove, move, skip)
+- Backend-agnostic design (works with PyTgCalls or AyuGram)
+
+AyuGram Compatibility:
+- This module is library-agnostic and requires no changes for AyuGram
+- Prepared items are consumed by streaming backends (main.py, multi_channel_runner.py)
+- Redis sync works unchanged with both backends
+- No PyTgCalls or AyuGram imports in this module
+"""
+
 import asyncio
 import logging
 import os
@@ -26,10 +46,26 @@ STATE_KEY_PREFIX = "stream_state:"
 
 class StreamQueue:
     """
-    Очередь стрима с поддержкой Redis синхронизации.
-    
-    Redis sync позволяет бэкенду и стримеру видеть одну и ту же очередь.
-    При добавлении/удалении элементов изменения отражаются в Redis.
+    Stream queue with Redis synchronization.
+
+    This queue is library-agnostic and works with both PyTgCalls and AyuGram.
+    It prepares media items (direct URLs, audio profiles, transcoding configs)
+    which are then consumed by the streaming backend.
+
+    Redis sync allows the backend and streamer to see the same queue.
+    When items are added/removed, changes are reflected in Redis.
+
+    AyuGram Compatibility:
+        This class requires no changes for AyuGram - it is completely
+        library-agnostic. The prepared items are compatible with both
+        PyTgCalls and AyuGram MediaStream APIs.
+
+    Attributes:
+        queue: Internal asyncio.Queue for prepared items
+        playlist_items: Deque of unprocessed playlist items
+        current_item: Currently playing track info
+        is_running: Whether buffering loop is active
+        channel_id: Channel identifier for Redis keys
     """
     
     def __init__(self, max_buffer_size: int = 3, channel_id: int = None):
