@@ -6,10 +6,12 @@ Features:
 - Use Shazam to identify tracks
 - Store recognition history
 - Enforce rate limiting (10 req/min)
+- Integration with RateLimitQueueService for API calls
 """
 
 import logging
 from pathlib import Path
+from typing import Optional
 
 from pyrogram import Client, filters
 from pyrogram.types import Message
@@ -18,16 +20,16 @@ from src.services.shazam_service import ShazamService
 
 logger = logging.getLogger(__name__)
 
-# Initialize service
+# Initialize services
 shazam_service = ShazamService()
 
 
 async def handle_audio_recognition(client: Client, message: Message):
     """
     Handle voice messages and audio files for track identification.
-    
+
     Supported formats: MP3, WAV, OGG, M4A (max 10 MB)
-    
+
     Args:
         client: Pyrogram Client instance
         message: Message containing audio or voice
@@ -35,14 +37,14 @@ async def handle_audio_recognition(client: Client, message: Message):
     try:
         user_id = message.from_user.id
         channel_id = message.chat.id
-        
-        # Show processing indicator
+
+        # Show processing indicator (immediate response - not queued)
         status_msg = await message.reply_text("🔍 **Analyzing audio...**")
-        
-        # Download audio file
+
+        # Download audio file using direct API call (user-facing, needs to be fast)
         audio_file = None
         file_name = None
-        
+
         if message.voice:
             # Voice message
             file_name = f"voice_{message.message_id}"
@@ -185,17 +187,100 @@ async def handle_audio_upload(client: Client, message: Message):
 def register_audio_handlers(app: Client):
     """
     Register audio message handlers with Pyrogram client.
-    
+
     Args:
         app: Pyrogram Client instance
     """
     # Handle voice messages
     app.on_message(filters.voice)(handle_audio_recognition)
-    
+
     # Handle audio files
     app.on_message(filters.audio)(handle_audio_recognition)
-    
+
     # Handle document uploads (audio files)
     app.on_message(filters.document)(handle_audio_upload)
-    
+
     logger.info("Audio recognition handlers registered successfully")
+
+
+async def send_recognition_result_queued(
+    client: Client,
+    chat_id: int,
+    result: dict,
+    account_id: Optional[str] = None,
+):
+    """
+    Отправить результат распознавания через очередь (пример интеграции).
+
+    Эта функция демонстрирует использование RateLimitQueueService
+    для API вызовов которые могут быть выполнены асинхронно.
+
+    Args:
+        client: Pyrogram Client instance
+        chat_id: ID чата для отправки результата
+        result: Результат распознавания от ShazamService
+        account_id: ID аккаунта для rate limiting
+
+    Note:
+        Для немедленных ответов пользователю используйте прямой API вызов.
+        Для фоновых задач и массовых рассылок используйте очередь.
+    """
+    from src.services.rate_limit_queue_service import RequestType, RequestPriority
+    from src.services.telegram_rate_limiter import telegram_api_queue
+
+    # Формируем сообщение
+    track_id = result.get("track_id", "unknown")
+    artist = result.get("artist", "Unknown")
+    title = result.get("title", "Unknown")
+    confidence = result.get("confidence", 0.0)
+    album = result.get("album", "Unknown")
+    release_year = result.get("release_year", "Unknown")
+
+    confidence_pct = confidence * 100
+    confidence_bar = "█" * int(confidence_pct / 5) + "░" * (20 - int(confidence_pct / 5))
+
+    response = (
+        f"✅ **Track Identified**\n\n"
+        f"🎵 **{title}**\n"
+        f"🎤 **Artist**: {artist}\n"
+        f"💿 **Album**: {album}\n"
+        f"📅 **Year**: {release_year}\n\n"
+        f"📊 **Confidence**: {confidence_bar} {confidence_pct:.0f}%\n"
+        f"📌 **ID**: `{track_id}`"
+    )
+
+    try:
+        # Используем queue для API вызова (низкий приоритет, фоновая задача)
+        await telegram_api_queue.execute_api_call(
+            client=client,
+            method="send_message",
+            params={
+                "chat_id": chat_id,
+                "text": response,
+            },
+            request_type=RequestType.BACKGROUND_SYNC,
+            account_id=account_id,
+            priority=RequestPriority.LOW,
+        )
+
+        logger.info(
+            f"Recognition result sent via queue for chat {chat_id}: "
+            f"{artist} - {title}"
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to send queued result for chat {chat_id}: {e}")
+        # Fallback: отправляем напрямую
+        try:
+            await client.send_message(chat_id, response)
+        except Exception as fallback_error:
+            logger.error(f"Fallback send also failed: {fallback_error}")
+
+
+# Экспорт вспомогательных функций для использования в других модулях
+__all__ = [
+    "register_audio_handlers",
+    "handle_audio_recognition",
+    "handle_audio_upload",
+    "send_recognition_result_queued",  # Пример интеграции с очередью
+]

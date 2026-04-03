@@ -210,6 +210,47 @@ ADMIN_SESSIONS = Gauge(
 
 
 # ==============================================================================
+# Telegram API Rate Limit Metrics
+# ==============================================================================
+
+TELEGRAM_API_REQUESTS_TOTAL = Counter(
+    'telegram_api_requests_total',
+    'Total Telegram API requests',
+    ['account_id', 'endpoint_type', 'status']
+)
+
+TELEGRAM_RATE_LIMIT_REMAINING = Gauge(
+    'telegram_rate_limit_remaining',
+    'Remaining Telegram API rate limit',
+    ['account_id', 'endpoint_type']
+)
+
+TELEGRAM_ACCOUNT_USAGE_PERCENT = Gauge(
+    'telegram_account_usage_percent',
+    'Telegram API account usage percentage',
+    ['account_id', 'endpoint_type']
+)
+
+TELEGRAM_ACCOUNT_STATUS = Gauge(
+    'telegram_account_status',
+    'Telegram account status (0=error, 1=ok, 2=warning, 3=critical)',
+    ['account_id']
+)
+
+TELEGRAM_ALERTS_TRIGGERED = Counter(
+    'telegram_alerts_total',
+    'Total Telegram rate limit alerts triggered',
+    ['account_id', 'alert_type', 'endpoint_type']
+)
+
+TELEGRAM_PREDICTION_ACCURACY = Gauge(
+    'telegram_prediction_accuracy_percent',
+    'Rate limit prediction accuracy percentage',
+    ['account_id', 'endpoint_type']
+)
+
+
+# ==============================================================================
 # Helper Functions
 # ==============================================================================
 
@@ -424,12 +465,134 @@ def record_http_duration(
 def record_admin_action(action: str, model: str) -> None:
     """
     Записать действие в админ-панели.
-    
+
     Args:
         action: Тип действия (create, update, delete, view, login, logout)
         model: Название модели (User, Playlist, Stream)
     """
     ADMIN_ACTIONS.labels(action=action, model=model).inc()
+
+
+# ==============================================================================
+# Telegram API Metrics Helper Functions
+# ==============================================================================
+
+def record_telegram_api_request(
+    account_id: str,
+    endpoint_type: str,
+    status: str
+) -> None:
+    """
+    Записать Telegram API запрос.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        endpoint_type: Тип endpoint (upload_stream, upload_file, etc.)
+        status: Статус запроса (success, rate_limited, error)
+    """
+    TELEGRAM_API_REQUESTS_TOTAL.labels(
+        account_id=account_id,
+        endpoint_type=endpoint_type,
+        status=status
+    ).inc()
+
+
+def set_telegram_rate_limit_remaining(
+    account_id: str,
+    endpoint_type: str,
+    remaining: int
+) -> None:
+    """
+    Установить оставшийся лимит для Telegram API.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        endpoint_type: Тип endpoint
+        remaining: Оставшееся количество запросов
+    """
+    TELEGRAM_RATE_LIMIT_REMAINING.labels(
+        account_id=account_id,
+        endpoint_type=endpoint_type
+    ).set(max(0, int(remaining)))
+
+
+def set_telegram_account_usage_percent(
+    account_id: str,
+    endpoint_type: str,
+    usage_percent: float
+) -> None:
+    """
+    Установить процент использования для аккаунта.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        endpoint_type: Тип endpoint
+        usage_percent: Процент использования (0-100)
+    """
+    TELEGRAM_ACCOUNT_USAGE_PERCENT.labels(
+        account_id=account_id,
+        endpoint_type=endpoint_type
+    ).set(max(0.0, min(100.0, float(usage_percent))))
+
+
+def set_telegram_account_status(
+    account_id: str,
+    status: str
+) -> None:
+    """
+    Установить статус аккаунта.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        status: Статус (ok, warning, critical, error)
+    """
+    status_map = {
+        "ok": 1,
+        "warning": 2,
+        "critical": 3,
+        "error": 0
+    }
+    status_value = status_map.get(status, 0)
+    TELEGRAM_ACCOUNT_STATUS.labels(account_id=account_id).set(status_value)
+
+
+def record_telegram_alert(
+    account_id: str,
+    alert_type: str,
+    endpoint_type: str
+) -> None:
+    """
+    Записать срабатывание alert для Telegram API.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        alert_type: Тип alert (warning, critical, severe)
+        endpoint_type: Тип endpoint
+    """
+    TELEGRAM_ALERTS_TRIGGERED.labels(
+        account_id=account_id,
+        alert_type=alert_type,
+        endpoint_type=endpoint_type
+    ).inc()
+
+
+def set_telegram_prediction_accuracy(
+    account_id: str,
+    endpoint_type: str,
+    accuracy_percent: float
+) -> None:
+    """
+    Установить точность предсказания для аккаунта.
+
+    Args:
+        account_id: ID аккаунта Telegram
+        endpoint_type: Тип endpoint
+        accuracy_percent: Процент точности предсказания (0-100)
+    """
+    TELEGRAM_PREDICTION_ACCURACY.labels(
+        account_id=account_id,
+        endpoint_type=endpoint_type
+    ).set(max(0.0, min(100.0, float(accuracy_percent))))
 
 
 def _normalize_path(path: str) -> str:
