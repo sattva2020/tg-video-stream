@@ -7,6 +7,7 @@ Endpoints:
   GET /api/v1/backup/history - List recent backups
   GET /api/v1/backup/download/{backup_id} - Download backup file
   DELETE /api/v1/backup/{backup_id} - Delete backup
+  POST /api/v1/backup/restore - Restore from backup
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, Path
@@ -69,6 +70,21 @@ class TriggerBackupResponse(BaseModel):
     backup_id: str
     message: str
     status: str
+    estimated_duration_seconds: int
+
+
+class RestoreBackupRequest(BaseModel):
+    """Request to restore from backup."""
+    backup_id: str = Field(..., description="Backup file ID to restore from")
+    db_url: Optional[str] = Field(None, description="Database URL for database restore")
+
+
+class RestoreBackupResponse(BaseModel):
+    """Response after starting restore."""
+    backup_id: str
+    message: str
+    status: str
+    restored_components: List[str]
     estimated_duration_seconds: int
 
 
@@ -219,23 +235,78 @@ async def delete_backup(
 ):
     """
     Delete a specific backup.
-    
+
     **Permission**: Admin only
-    
+
     **Rate Limit**: 20 requests/minute per admin (Strict)
-    
+
     **Note**: Deleting backups is permanent and cannot be undone
     """
     try:
         success = await backup_service.delete_backup(backup_id=backup_id)
-        
+
         if not success:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backup not found")
-        
+
         logger.warning(f"Admin {current_user.id} deleted backup {backup_id}")
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting backup: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete backup")
+
+
+@router.post("/restore", response_model=RestoreBackupResponse, status_code=202)
+async def restore_backup(
+    request: RestoreBackupRequest,
+    current_user: User = Depends(require_admin),
+    backup_service: BackupService = Depends(lambda: BackupService())
+):
+    """
+    Restore system from a backup.
+
+    **Permission**: Admin only
+
+    **Rate Limit**: 2 requests/minute per admin (Very Strict)
+
+    **Components**:
+    - Database restore requires `db_url` parameter
+    - Configuration files are extracted to root directory
+    - Redis snapshots replace current Redis data
+
+    **Warning**: Restore operation will overwrite existing data
+
+    **Example**:
+    ```json
+    {
+      "backup_id": "database_20240101_120000",
+      "db_url": "postgresql://user:pass@host:port/db"
+    }
+    ```
+    """
+    try:
+        result = backup_service.restore_backup(
+            backup_id=request.backup_id,
+            db_url=request.db_url
+        )
+
+        logger.info(
+            f"Admin {current_user.id} initiated restore from backup {request.backup_id}"
+        )
+
+        return RestoreBackupResponse(
+            backup_id=request.backup_id,
+            message="Restore completed successfully",
+            status="completed",
+            restored_components=result.get("restored_components", []),
+            estimated_duration_seconds=0
+        )
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error restoring backup: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to restore backup")
+

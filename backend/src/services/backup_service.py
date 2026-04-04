@@ -210,33 +210,96 @@ class BackupService:
     def restore_database(self, backup_file: Path, db_url: str) -> bool:
         """
         Restore database from backup.
-        
+
         Args:
             backup_file: Path to backup file
             db_url: Target PostgreSQL connection URL
-            
+
         Returns:
             True if restore successful
         """
         try:
             cmd = f"zcat {backup_file} | psql {db_url}"
-            
+
             result = subprocess.run(
                 cmd,
                 shell=True,
                 capture_output=True,
                 text=True
             )
-            
+
             if result.returncode != 0:
                 raise Exception(f"Restore failed: {result.stderr}")
-            
+
             self.logger.info(f"Database restored from {backup_file.name}")
             return True
-            
+
         except Exception as e:
             self.logger.error(f"Database restore failed: {e}")
             return False
+
+    def restore_backup(self, backup_id: str, db_url: Optional[str] = None) -> dict:
+        """
+        Restore system from backup by backup ID.
+
+        Args:
+            backup_id: Backup file ID (filename without extension)
+            db_url: Optional database URL for database restore
+
+        Returns:
+            Dict with restore status and details
+
+        Raises:
+            FileNotFoundError: If backup file not found
+            Exception: If restore fails
+        """
+        try:
+            # Find backup file
+            backup_file = None
+            for ext in ['.sql.gz', '.tar.gz', '.rdb']:
+                potential_file = self.backup_dir / f"{backup_id}{ext}"
+                if potential_file.exists():
+                    backup_file = potential_file
+                    break
+
+            if not backup_file:
+                raise FileNotFoundError(f"Backup {backup_id} not found")
+
+            result = {
+                "backup_id": backup_id,
+                "backup_file": str(backup_file),
+                "restored_components": [],
+                "timestamp": datetime.utcnow().isoformat()
+            }
+
+            # Restore based on file type
+            if backup_file.suffix == '.gz':
+                if backup_file.stem.endswith('.sql'):
+                    # Database backup
+                    if not db_url:
+                        raise ValueError("db_url required for database restore")
+                    if self.restore_database(backup_file, db_url):
+                        result["restored_components"].append("database")
+                else:
+                    # Configuration backup
+                    cmd = f"tar -xzf {backup_file} -C /"
+                    subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    result["restored_components"].append("configuration")
+            elif backup_file.suffix == '.rdb':
+                # Redis backup
+                import shutil
+                shutil.copy(str(backup_file), "/var/lib/redis/dump.rdb")
+                result["restored_components"].append("redis")
+
+            self.logger.info(f"Restored backup {backup_id}: {result['restored_components']}")
+            return result
+
+        except FileNotFoundError as e:
+            self.logger.error(f"Backup file not found: {e}")
+            raise
+        except Exception as e:
+            self.logger.error(f"Restore failed: {e}")
+            raise
     
     def _cleanup_old_backups(self, prefix: str) -> None:
         """

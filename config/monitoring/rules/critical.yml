@@ -90,3 +90,69 @@ groups:
         annotations:
           summary: "Memory almost exhausted"
           description: "More than 95% of memory is in use for 5 minutes."
+
+      # Deployment failed
+      - alert: DeploymentFailed
+        expr: |
+          deployment_status{condition="failed"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deployment failed for {{ $labels.deployment }}"
+          description: "Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }} has failed."
+
+      # Deployment stuck in progress
+      - alert: DeploymentStuck
+        expr: |
+          deployment_status{condition="progressing"} == 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deployment stuck for {{ $labels.deployment }}"
+          description: "Deployment {{ $labels.deployment }} has been in progress for more than 15 minutes."
+
+      # Rollback failed
+      - alert: RollbackFailed
+        expr: |
+          increase(deployment_rollback_failed_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Rollback failed for {{ $labels.deployment }}"
+          description: "Rollback of deployment {{ $labels.deployment }} failed. Manual intervention required."
+
+      # No pods available after deployment
+      - alert: NoPodsAvailable
+        expr: |
+          kube_deployment_status_replicas_available == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No pods available for {{ $labels.deployment }}"
+          description: "Deployment {{ $labels.deployment }} has zero available replicas for more than 5 minutes."
+
+      # Deployment taking too long (critical)
+      - alert: DeploymentTimeoutCritical
+        expr: |
+          deployment_duration_seconds > 1800
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Deployment taking too long"
+          description: "Deployment {{ $labels.deployment }} has been running for more than 30 minutes."
+
+      # Service down after deployment
+      - alert: ServiceDownAfterDeployment
+        expr: |
+          up{job=~"backend|streamer"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} down after deployment"
+          description: "Service {{ $labels.job }} has been down for more than 2 minutes after recent deployment."

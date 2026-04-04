@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 import redis
+import psutil
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +27,17 @@ APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
+class StreamDetails(BaseModel):
+    """Детальная информация о потоках."""
+    total_streams: int
+    active_streams: int
+    healthy_streams: int
+    unhealthy_streams: int
+    unhealthy_stream_ids: list[int] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class DependencyHealth(BaseModel):
     """Состояние зависимости."""
     name: str
@@ -33,7 +45,7 @@ class DependencyHealth(BaseModel):
     latency_ms: float
     message: Optional[str] = None
     last_check: str
-    
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -44,7 +56,9 @@ class HealthResponse(BaseModel):
     uptime_seconds: float
     timestamp: str
     dependencies: list[DependencyHealth]
-    
+    stream_details: Optional[StreamDetails] = None
+    system_metrics: Optional[SystemMetrics] = None
+
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -57,6 +71,17 @@ class ReadinessResponse(BaseModel):
     """Ответ readiness probe."""
     status: str  # ready, not_ready
     reason: Optional[str] = None
+
+
+class SystemMetrics(BaseModel):
+    """Метрики использования системных ресурсов."""
+    cpu_percent: float
+    memory_percent: float
+    memory_used_mb: float
+    memory_available_mb: float
+    memory_total_mb: float
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 def check_database() -> DependencyHealth:
@@ -224,15 +249,110 @@ def check_streams() -> DependencyHealth:
         )
 
 
+def get_stream_details() -> StreamDetails:
+    """Получить детальную информацию о потоках."""
+    from src.database import SessionLocal
+    from src.models.stream import Stream, StreamStatus
+    from src.services.stream_health_monitor import get_stream_health_monitor
+
+    try:
+        db = SessionLocal()
+        try:
+            # Получить общую статистику
+            total_streams = db.query(Stream).count()
+            active_streams = db.query(Stream).filter(
+                Stream.status == StreamStatus.ACTIVE
+            ).count()
+
+            # Если нет активных потоков, возвращаем базовую информацию
+            if active_streams == 0:
+                return StreamDetails(
+                    total_streams=total_streams,
+                    active_streams=active_streams,
+                    healthy_streams=0,
+                    unhealthy_streams=0,
+                    unhealthy_stream_ids=[]
+                )
+
+            # Получить монитор и проверить здоровье всех активных потоков
+            monitor = get_stream_health_monitor()
+            unhealthy_stream_ids = []
+
+            # Получить все нездоровые потоки (асинхронно)
+            import asyncio
+            try:
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                unhealthy_streams = loop.run_until_complete(
+                    monitor.get_all_unhealthy_streams()
+                )
+                unhealthy_stream_ids = [s.id for s in unhealthy_streams]
+            except Exception as async_error:
+                log.warning(f"Could not check stream health asynchronously: {async_error}")
+
+            unhealthy_count = len(unhealthy_stream_ids)
+            healthy_count = active_streams - unhealthy_count
+
+            return StreamDetails(
+                total_streams=total_streams,
+                active_streams=active_streams,
+                healthy_streams=healthy_count,
+                unhealthy_streams=unhealthy_count,
+                unhealthy_stream_ids=unhealthy_stream_ids
+            )
+
+        finally:
+            db.close()
+    except Exception as e:
+        log.error(f"Error getting stream details: {e}")
+        # Возвращаем пустую информацию в случае ошибки
+        return StreamDetails(
+            total_streams=0,
+            active_streams=0,
+            healthy_streams=0,
+            unhealthy_streams=0,
+            unhealthy_stream_ids=[]
+        )
+
+
 def calculate_overall_status(dependencies: list[DependencyHealth]) -> str:
     """Определить общий статус на основе зависимостей."""
     statuses = [d.status for d in dependencies]
-    
+
     if "down" in statuses:
         return "unhealthy"
     if "degraded" in statuses:
         return "degraded"
     return "healthy"
+
+
+def get_system_metrics() -> Optional[SystemMetrics]:
+    """Получить метрики использования системных ресурсов."""
+    try:
+        # CPU usage (как среднее за последние секунды)
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+
+        # Memory usage
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_used_mb = round(memory.used / (1024 * 1024), 2)
+        memory_available_mb = round(memory.available / (1024 * 1024), 2)
+        memory_total_mb = round(memory.total / (1024 * 1024), 2)
+
+        return SystemMetrics(
+            cpu_percent=round(cpu_percent, 2),
+            memory_percent=round(memory_percent, 2),
+            memory_used_mb=memory_used_mb,
+            memory_available_mb=memory_available_mb,
+            memory_total_mb=memory_total_mb
+        )
+    except Exception as e:
+        log.warning(f"Failed to get system metrics: {e}")
+        return None
 
 
 @router.get("", response_model=HealthResponse)
@@ -247,24 +367,28 @@ async def health_check():
         check_redis(),
         check_streams()
     ]
-    
+
     overall_status = calculate_overall_status(dependencies)
     uptime = time.time() - _start_time
-    
+    stream_details = get_stream_details()
+    system_metrics = get_system_metrics()
+
     response = HealthResponse(
         status=overall_status,
         version=APP_VERSION,
         uptime_seconds=round(uptime, 1),
         timestamp=datetime.now(timezone.utc).isoformat(),
-        dependencies=dependencies
+        dependencies=dependencies,
+        stream_details=stream_details,
+        system_metrics=system_metrics
     )
-    
+
     if overall_status == "unhealthy":
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content=response.model_dump()
         )
-    
+
     return response
 
 

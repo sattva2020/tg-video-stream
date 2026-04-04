@@ -1,0 +1,209 @@
+{
+  "title": "Backup Monitoring",
+  "uid": "backup-monitoring",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "# Backup Monitoring\n\nBackup status, retention metrics, storage usage, restore operations"
+      },
+      "transparent": true
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Last Backup Status",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 3},
+      "targets": [{"refId": "A", "expr": "sattva_backup_last_status"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "value": "0", "text": "Failed"},
+            {"type": "value", "value": "1", "text": "Success"},
+            {"type": "value", "value": "2", "text": "Pending"}
+          ],
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 1, "color": "green"},
+              {"value": 2, "color": "yellow"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Backups",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 3},
+      "targets": [{"refId": "A", "expr": "sattva_backup_count"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "blue"},
+              {"value": 5, "color": "green"},
+              {"value": 8, "color": "yellow"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Backup Storage Used (MB)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 3},
+      "targets": [{"refId": "A", "expr": "sattva_backup_storage_bytes / 1024 / 1024"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmegabytes",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 5120, "color": "yellow"},
+              {"value": 10240, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Retention Days",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 3},
+      "targets": [{"refId": "A", "expr": "sattva_backup_retention_days"}],
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "orientation": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "d",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 30, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Backup Duration (seconds)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 7},
+      "targets": [{"refId": "A", "expr": "sattva_backup_duration_seconds", "legendFormat": "Duration"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Backup Size (MB)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 7},
+      "targets": [{"refId": "A", "expr": "sattva_backup_size_bytes / 1024 / 1024", "legendFormat": "Size"}],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmegabytes"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Restore Operations",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "targets": [
+        {"refId": "A", "expr": "rate(sattva_restore_operations_total[5m])", "legendFormat": "Rate"},
+        {"refId": "B", "expr": "sattva_restore_operations_total", "legendFormat": "Total"}
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Backup Storage Trend",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "targets": [
+        {"refId": "A", "expr": "sattva_backup_storage_bytes / 1024 / 1024", "legendFormat": "Storage Used (MB)"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmegabytes"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Backup Operations by Type",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "rate(sattva_backup_operations_total{backup_type=\"database\"}[5m])", "legendFormat": "Database"},
+        {"refId": "B", "expr": "rate(sattva_backup_operations_total{backup_type=\"config\"}[5m])", "legendFormat": "Config"},
+        {"refId": "C", "expr": "rate(sattva_backup_operations_total{backup_type=\"redis\"}[5m])", "legendFormat": "Redis"}
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Backup Success Rate (%)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 23},
+      "targets": [
+        {"refId": "A", "expr": "100 * (sattva_backup_operations_total{status=\"success\"} / sattva_backup_operations_total)", "legendFormat": "Success Rate"}
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "red"},
+              {"value": 95, "color": "yellow"},
+              {"value": 99, "color": "green"}
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
