@@ -20,7 +20,7 @@ const ChannelManager = lazy(() => import('./pages/ChannelManager'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const Monitoring = lazy(() => import('./pages/Monitoring'));
-const Analytics = lazy(() => import('./pages/admin/Analytics'));
+const Analytics = lazy(() => import('./pages/admin/AnalyticsDashboard'));
 const NotificationsPage = lazy(() => import('./pages/notifications/Channels'));
 const NotificationRulesPage = lazy(() => import('./pages/notifications/Rules'));
 const NotificationLogsPage = lazy(() => import('./pages/notifications/Logs'));

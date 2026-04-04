@@ -166,6 +166,7 @@ def create_app() -> FastAPI:
     from api.telegram_login import router as telegram_login_router
     from api.queue import router as queue_router
     from src.api.analytics import router as analytics_router, internal_router as analytics_internal_router
+    from src.api.reports import router as reports_router
     from src.api.internal import router as internal_router
     from src.api.audio import router as audio_router
     from src.api.incidents import router as incidents_router, solutions_router
@@ -209,6 +210,7 @@ def create_app() -> FastAPI:
     app.include_router(notifications_logs.router)
     app.include_router(analytics_router, prefix="/api", tags=["Analytics"])
     app.include_router(analytics_internal_router, prefix="/api", tags=["Internal"])
+    app.include_router(reports_router, prefix="/api", tags=["Reports"])
     app.include_router(internal_router, prefix="/api", tags=["Internal Streamer"])
     app.include_router(audio_router, prefix="/api/v1", tags=["Audio Processing"])
     app.include_router(incidents_router, prefix="/api", tags=["Incidents"])

@@ -47,7 +47,10 @@ class StreamQualityHistory(Base):
     video_resolution = Column(String(20), nullable=True)  # "1920x1080"
     video_fps = Column(Float, nullable=True)
     video_quality = Column(String(20), nullable=True)  # low, medium, high, ultra
-    
+
+    # Буферизация
+    buffering_percentage = Column(Float, nullable=True)  # Процент буферизации (0-100)
+
     # Общее качество
     overall_quality = Column(String(20), index=True, nullable=False)  # low, medium, high, lossless, ultra
     is_audio_only = Column(Boolean, default=False)

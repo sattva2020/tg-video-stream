@@ -1,8 +1,11 @@
 """
-WebSocket API для real-time обновлений плейлиста и статуса стрима.
+WebSocket API для real-time обновлений плейлиста, статуса стрима и аналитики.
 
-Клиенты подключаются к /api/ws/playlist и получают обновления в реальном времени
-вместо polling каждые 3 секунды.
+Клиенты подключаются к:
+- /api/ws/playlist - обновления плейлиста
+- /api/ws/analytics - обновления аналитики в реальном времени
+
+Вместо polling каждые 3 секунды.
 """
 import asyncio
 import json
@@ -456,6 +459,202 @@ async def notify_listeners_update(channel_id: int, listeners_count: int):
     
     await manager.broadcast_to_channel(str(channel_id), message)
     await manager.broadcast_to_channel(None, message)
+
+
+# === Analytics WebSocket (T012) ===
+
+@router.websocket("/analytics")
+async def websocket_analytics(
+    websocket: WebSocket,
+    channel_id: Optional[str] = Query(None),
+):
+    """
+    WebSocket endpoint для получения аналитических обновлений в реальном времени.
+
+    Query params:
+        - channel_id: опциональный ID канала для фильтрации
+
+    Сообщения от сервера:
+        - {"type": "viewer_count", "channel_id": "...", "count": 123} - количество зрителей
+        - {"type": "analytics_snapshot", "data": {...}} - снимок аналитики
+        - {"type": "peak_viewers", "channel_id": "...", "count": 456} - пик зрителей
+        - {"type": "stream_duration", "channel_id": "...", "seconds": 3600} - длительность стрима
+
+    Сообщения от клиента:
+        - {"type": "ping"} - keepalive
+        - {"type": "refresh"} - запросить полный снимок аналитики
+    """
+    await manager.connect(websocket, f"analytics:{channel_id}" if channel_id else "analytics:global")
+
+    try:
+        # Отправить начальный снимок аналитики
+        await _send_analytics_snapshot(websocket, channel_id)
+
+        # Слушать сообщения от клиента
+        while True:
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                message = json.loads(data)
+
+                if message.get("type") == "ping":
+                    await websocket.send_text(json.dumps({"type": "pong"}))
+                elif message.get("type") == "refresh":
+                    await _send_analytics_snapshot(websocket, channel_id)
+
+            except asyncio.TimeoutError:
+                # Send ping to keep connection alive
+                try:
+                    await websocket.send_text(json.dumps({"type": "ping"}))
+                except Exception:
+                    break
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        log.error(f"WebSocket analytics error: {e}")
+    finally:
+        await manager.disconnect(websocket, f"analytics:{channel_id}" if channel_id else "analytics:global")
+
+
+async def _send_analytics_snapshot(websocket: WebSocket, channel_id: Optional[str]):
+    """Отправить снимок текущей аналитики через WebSocket."""
+    from database import SessionLocal
+    from src.models.analytics import TrackPlay, MonthlyAnalytics
+    from src.models.playlist import PlaylistItem
+
+    db = SessionLocal()
+    try:
+        from datetime import datetime, timedelta
+
+        # Get recent track plays for analytics
+        query = db.query(TrackPlay).join(
+            PlaylistItem, TrackPlay.playlist_item_id == PlaylistItem.id
+        )
+
+        if channel_id:
+            try:
+                channel_uuid = uuid.UUID(channel_id)
+                query = query.filter(PlaylistItem.channel_id == channel_uuid)
+            except ValueError:
+                pass
+
+        # Get plays from last 24 hours
+        since = datetime.utcnow() - timedelta(hours=24)
+        recent_plays = query.filter(TrackPlay.played_at >= since).order_by(
+            TrackPlay.played_at.desc()
+        ).limit(100).all()
+
+        # Calculate current metrics
+        total_plays = len(recent_plays)
+        current_viewers = 0
+        if recent_plays:
+            current_viewers = max(play.listeners_count for play in recent_plays)
+
+        analytics_data = {
+            "total_plays_last_24h": total_plays,
+            "current_viewers": current_viewers,
+            "recent_plays": [
+                {
+                    "id": play.id,
+                    "played_at": play.played_at.isoformat() if play.played_at else None,
+                    "duration_seconds": play.duration_seconds,
+                    "listeners_count": play.listeners_count,
+                }
+                for play in recent_plays[:10]  # Last 10 plays
+            ]
+        }
+
+        await websocket.send_text(json.dumps({
+            "type": "analytics_snapshot",
+            "data": analytics_data
+        }, default=str))
+    finally:
+        db.close()
+
+
+# === Analytics notification functions ===
+
+async def notify_viewer_count(channel_id: Optional[str], count: int):
+    """
+    Уведомить клиентов об изменении количества зрителей.
+
+    Args:
+        channel_id: ID канала (None для общего уведомления)
+        count: Текущее количество зрителей
+    """
+    message = {
+        "type": "viewer_count",
+        "channel_id": str(channel_id) if channel_id else None,
+        "count": count,
+        "timestamp": _get_timestamp()
+    }
+
+    # Send to analytics subscribers
+    channel_key = f"analytics:{channel_id}" if channel_id else "analytics:global"
+    await manager.broadcast_to_channel(channel_key, message)
+
+    # Also send to general analytics subscribers
+    await manager.broadcast_to_channel("analytics:global", message)
+
+
+async def notify_peak_viewers(channel_id: Optional[str], count: int):
+    """
+    Уведомить клиентов о новом пике зрителей.
+
+    Args:
+        channel_id: ID канала
+        count: Новый пик зрителей
+    """
+    message = {
+        "type": "peak_viewers",
+        "channel_id": str(channel_id) if channel_id else None,
+        "count": count,
+        "timestamp": _get_timestamp()
+    }
+
+    channel_key = f"analytics:{channel_id}" if channel_id else "analytics:global"
+    await manager.broadcast_to_channel(channel_key, message)
+    await manager.broadcast_to_channel("analytics:global", message)
+
+
+async def notify_stream_duration(channel_id: Optional[str], seconds: int):
+    """
+    Уведомить клиентов о длительности стрима.
+
+    Args:
+        channel_id: ID канала
+        seconds: Длительность стрима в секундах
+    """
+    message = {
+        "type": "stream_duration",
+        "channel_id": str(channel_id) if channel_id else None,
+        "seconds": seconds,
+        "timestamp": _get_timestamp()
+    }
+
+    channel_key = f"analytics:{channel_id}" if channel_id else "analytics:global"
+    await manager.broadcast_to_channel(channel_key, message)
+    await manager.broadcast_to_channel("analytics:global", message)
+
+
+async def notify_analytics_updated(channel_id: Optional[str], analytics_data: dict):
+    """
+    Уведомить клиентов об обновлении аналитики.
+
+    Args:
+        channel_id: ID канала
+        analytics_data: Данные аналитики
+    """
+    message = {
+        "type": "analytics_updated",
+        "channel_id": str(channel_id) if channel_id else None,
+        "data": analytics_data,
+        "timestamp": _get_timestamp()
+    }
+
+    channel_key = f"analytics:{channel_id}" if channel_id else "analytics:global"
+    await manager.broadcast_to_channel(channel_key, message)
+    await manager.broadcast_to_channel("analytics:global", message)
 
 
 # Экспорт connection_manager для использования в других модулях

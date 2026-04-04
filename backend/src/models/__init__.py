@@ -20,8 +20,14 @@ from .radio_stream import RadioStream
 from .scheduled_playlist import ScheduledPlaylist
 from .lyrics_cache import LyricsCache
 
+# Analytics (Feature 012)
+from .engagement import EngagementEvent
+
 # Analytics (Feature 021)
 from .analytics import TrackPlay, MonthlyAnalytics
+
+# Analytics (Feature 012) - Viewer Sessions
+from .viewer_session import ViewerSession
 
 # Support & Incidents (Feature 024)
 from .incident import (
@@ -53,6 +59,14 @@ from .recovery_log import (
     RecoveryStatus,
 )
 
+# Analytics (Feature 012) - Scheduled Reports
+from .scheduled_report import (
+    ScheduledReport,
+    ReportFrequency,
+    ReportType,
+    ReportStatus,
+)
+
 __all__ = [
     "User",
     "PlaylistItem",
@@ -76,8 +90,10 @@ __all__ = [
     "ScheduledPlaylist",
     "LyricsCache",
     # Analytics
+    "EngagementEvent",
     "TrackPlay",
     "MonthlyAnalytics",
+    "ViewerSession",
     # Support & Incidents
     "Incident",
     "IncidentLog",
@@ -99,5 +115,10 @@ __all__ = [
     "RecoveryFailureType",
     "RecoveryStrategy",
     "RecoveryStatus",
+    # Scheduled Reports
+    "ScheduledReport",
+    "ReportFrequency",
+    "ReportType",
+    "ReportStatus",
 ]
 
